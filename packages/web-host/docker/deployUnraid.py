@@ -41,6 +41,18 @@ def read(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
 
+def copy_data(source, target):
+    """Keep private application files readable by their original owners after rollback."""
+    shutil.copytree(source, target, symlinks=True)
+    for current, folders, files in os.walk(source, followlinks=False):
+        for name in [None, *folders, *files]:
+            original = Path(current) if name is None else Path(current) / name
+            copied = target / original.relative_to(source)
+            owner, actual = original.lstat(), copied.lstat()
+            if (actual.st_uid, actual.st_gid) != (owner.st_uid, owner.st_gid):
+                os.chown(copied, owner.st_uid, owner.st_gid, follow_symlinks=False)
+
+
 def docker(*args):
     result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=300)
     if result.returncode:
@@ -203,7 +215,7 @@ class Deployment:
                 if failed.exists():
                     raise RuntimeError("Interrupted data restore requires manual review")
                 self.data.rename(failed)
-            shutil.copytree(Path(journal["backup"]) / "data", self.data, symlinks=True)
+            copy_data(Path(journal["backup"]) / "data", self.data)
         if old_id:
             old = json.loads(docker("inspect", old_id))[0]
             if old["Name"] != "/" + NAME:
@@ -254,7 +266,7 @@ class Deployment:
         try:
             if old:
                 docker("stop", "--time", "20", old["Id"])
-            shutil.copytree(self.data, backup / "data", symlinks=True)
+            copy_data(self.data, backup / "data")
             journal["snapshotComplete"] = True
             atomic(self.control / "journal.json", journal)
             if old:

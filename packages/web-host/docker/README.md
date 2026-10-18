@@ -55,7 +55,7 @@ python3 /boot/config/plugins/aionui-edu-autodeploy/deployUnraid.py --apply
 
 To opt into automatic updates, remove only `/mnt/user/appdata/aionui-edu/deployment/PAUSED` after the first successful installation and proxy checks. Recreate that file to pause. The updater defers while it sees a conversation's Codex process; the account-status process is excluded. This is a conservative process check, not a guarantee against a task starting at the same instant as a switch. Keep automatic updates paused during important or unattended work.
 
-Updates verify the candidate before stopping production, snapshot the stopped app's complete data, retain the old container with restart disabled, then start the new digest. Failed startup restores the previous data and container; failed-release data is retained separately for review. A journal enables recovery after an interrupted switch. Schema changes and manual restoration require separate review. Nothing prunes other containers, images or user data.
+Updates verify the candidate before stopping production, snapshot the stopped app's complete data with its Unix ownership and permissions, retain the old container with restart disabled, then start the new digest. Failed startup restores the previous data and container; failed-release data is retained separately for review. Symlink ownership is copied without following links outside the data tree. A journal enables recovery after an interrupted switch. Schema changes and manual restoration require separate review. Nothing prunes other containers, images or user data.
 
 Image downloads are performed by the **NAS Docker daemon**. The app's SOCKS5 tunnel does not route registry pulls; configure NAS/daemon networking separately if registry downloads also need a proxy.
 

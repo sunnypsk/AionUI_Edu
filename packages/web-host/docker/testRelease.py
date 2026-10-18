@@ -2,7 +2,10 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -120,6 +123,29 @@ class Release(unittest.TestCase):
         self.assertEqual((self.data / "chat.txt").read_text(), "original chat")
         self.assertEqual((backup / "failed-data" / "chat.txt").read_text(), "failed migration")
         self.assertIn(unittest.mock.call("start", "old-id"), command.call_args_list)
+
+    @unittest.skipUnless(os.geteuid() == 0, "Ownership changes are tested as root inside the Linux image")
+    def test_restored_private_files_remain_readable_by_the_application_user(self):
+        self.base.chmod(0o755)
+        source = self.data / "owned"
+        source.mkdir(mode=0o700)
+        document = source / "document.txt"
+        document.write_text("saved document")
+        document.chmod(0o600)
+        outside = self.base / "outside.txt"
+        outside.write_text("outside ownership is unchanged")
+        link = source / "link"
+        link.symlink_to(outside)
+        for path in [source, document, link]:
+            os.chown(path, 99, 100, follow_symlinks=False)
+        backup, restored = self.base / "snapshot", self.base / "restored"
+        deploy.copy_data(source, backup)
+        deploy.copy_data(backup, restored)
+        result = subprocess.run([sys.executable, "-c", "import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text())", str(restored / "document.txt")],
+                                user=99, group=100, capture_output=True, text=True, check=True)
+        self.assertEqual(result.stdout.strip(), "saved document")
+        self.assertEqual((restored / "link").lstat().st_uid, 99)
+        self.assertEqual(outside.stat().st_uid, 0)
 
     def test_recovery_does_not_touch_an_unknown_container(self):
         unknown = self.old()

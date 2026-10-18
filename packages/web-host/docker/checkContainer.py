@@ -24,6 +24,13 @@ def inspect(name):
 
 
 def check(image, revision):
+    # Recovery must preserve real Unix owners; the hosted runner is not root.
+    recovery = docker("run", "--rm", "--entrypoint", "python3", image, "-m", "unittest", "discover",
+                      "-s", "/app/packages/web-host/docker", "-p", "testRelease.py", check=False)
+    if recovery.returncode:
+        print(recovery.stdout + recovery.stderr)
+        raise RuntimeError("Linux release recovery tests failed")
+    print("Linux ownership and release recovery tests passed.")
     prefix = "aionui-edu-smoke-" + uuid.uuid4().hex[:10]
     network = prefix + "-net"
     remote_network = prefix + "-remote"
