@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CodexAuthService } from './codexAuth.js';
+import { CodexUpdateService, CodexInstaller, CodexRetention, isInstallId } from './codex/index.js';
 import { NetworkProxyStore } from './proxy.js';
 
 type RuntimeControlsOptions = {
@@ -9,6 +10,7 @@ type RuntimeControlsOptions = {
   releaseSequence?: string;
   auth?: Pick<CodexAuthService, 'status' | 'startLogin' | 'cancelLogin' | 'logout' | 'close'>;
   proxy?: Pick<NetworkProxyStore, 'status' | 'save'>;
+  updates?: Pick<CodexUpdateService, 'status' | 'check' | 'install' | 'versions' | 'cleanup' | 'close'>;
 };
 
 function send(res: ServerResponse, status: number, data: unknown): void {
@@ -33,8 +35,20 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 export function createRuntimeControls(options: RuntimeControlsOptions) {
   const auth = options.auth ?? new CodexAuthService();
   const proxy = options.proxy ?? new NetworkProxyStore(options.dataDir);
+  const updates =
+    options.updates ??
+    new CodexUpdateService(
+      undefined,
+      undefined,
+      undefined,
+      new CodexInstaller(options.dataDir),
+      new CodexRetention(options.dataDir)
+    );
   return {
-    close: () => auth.close(),
+    close: () => {
+      auth.close();
+      updates.close();
+    },
     async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
       const route = req.url?.split('?')[0];
       if (route === '/healthz' && req.method === 'GET') {
@@ -84,7 +98,32 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
           }
         }
         let result: unknown;
-        if (route === '/api/edu/codex/account' && req.method === 'GET') result = await auth.status();
+        if (route === '/api/edu/codex/version' && req.method === 'GET') result = await updates.status();
+        else if (route === '/api/edu/codex/versions' && req.method === 'GET') result = await updates.versions();
+        else if (route === '/api/edu/codex/cleanup-versions' && req.method === 'POST') {
+          const body = await readBody(req);
+          if (
+            !body ||
+            typeof body !== 'object' ||
+            Array.isArray(body) ||
+            Object.keys(body).join() !== 'ids' ||
+            !('ids' in body) ||
+            !Array.isArray(body.ids) ||
+            !body.ids.length ||
+            body.ids.length > 64 ||
+            body.ids.some((id: unknown) => typeof id !== 'string' || !isInstallId(id))
+          )
+            throw new Error('INVALID_REQUEST');
+          result = await updates.cleanup(body.ids);
+        } else if (route === '/api/edu/codex/install-update' && req.method === 'POST') {
+          const body = await readBody(req);
+          if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length)
+            throw new Error('INVALID_REQUEST');
+          result = await updates.install();
+        } else if (route === '/api/edu/codex/check-update' && req.method === 'POST') {
+          await readBody(req);
+          result = await updates.check();
+        } else if (route === '/api/edu/codex/account' && req.method === 'GET') result = await auth.status();
         else if (route === '/api/edu/codex/login' && req.method === 'POST') {
           await readBody(req);
           result = await auth.startLogin();
@@ -110,7 +149,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
           'INVALID_SOCKS5_PROXY',
           'REQUEST_TOO_LARGE',
         ].includes(code);
-        const locked = code === 'PROXY_MANAGED_BY_ENV';
+        const locked = ['PROXY_MANAGED_BY_ENV', 'CODEX_UPDATE_UNSUPPORTED', 'CODEX_RUNTIME_BUSY'].includes(code);
         send(res, invalid ? 400 : locked ? 409 : 503, {
           error: { code: invalid || locked ? code : 'RUNTIME_CONTROL_UNAVAILABLE' },
         });

@@ -70,6 +70,41 @@ export type CodexAccountStatus = {
 
 export type NetworkProxySettings = { enabled: boolean; proxyUrl?: string };
 
+export type CodexUpdateStatus = {
+  installedVersion: string;
+  latestVersion: string | null;
+  checkedAt: string | null;
+  updateAvailable: boolean | null;
+  canInstall: boolean;
+  installation: CodexInstallStatus;
+};
+
+export type CodexInstallStatus = {
+  phase: 'idle' | 'checking' | 'downloading' | 'verifying' | 'succeeded' | 'failed';
+  targetVersion: string | null;
+};
+
+export type CodexInstalledVersion = {
+  id: string;
+  version: string | null;
+  installedAt: string | null;
+  protection: 'selected' | 'latest' | 'previous' | 'inUse' | 'unverified' | null;
+  removable: boolean;
+};
+
+export type CodexVersionInventory = {
+  versions: CodexInstalledVersion[];
+  inspectionComplete: boolean;
+  supported: boolean;
+  busy: boolean;
+};
+
+export type CodexCleanupResult = {
+  removed: string[];
+  retained: string[];
+  inventory: CodexVersionInventory;
+};
+
 export type NetworkProxyStatus = {
   enabled: boolean;
   endpoint: string;

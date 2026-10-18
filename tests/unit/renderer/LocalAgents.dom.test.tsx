@@ -67,6 +67,22 @@ vi.mock('@renderer/hooks/agent/useManagedAgents', () => ({
 vi.mock('@/common', () => ({
   ipcBridge: {
     webRuntime: {
+      codexVersion: {
+        invoke: vi.fn().mockResolvedValue({
+          installedVersion: '0.163.0',
+          latestVersion: null,
+          checkedAt: null,
+          updateAvailable: null,
+          canInstall: true,
+          installation: { phase: 'idle', targetVersion: null },
+        }),
+      },
+      codexCheckUpdate: { invoke: vi.fn() },
+      codexInstallUpdate: { invoke: vi.fn() },
+      codexVersions: {
+        invoke: vi.fn().mockResolvedValue({ versions: [], supported: true, inspectionComplete: true, busy: false }),
+      },
+      codexCleanupVersions: { invoke: vi.fn() },
       codexAccount: { invoke: vi.fn().mockResolvedValue({ authenticated: false, login: { state: 'idle' } }) },
       codexLogin: { invoke: vi.fn() },
       codexCancelLogin: { invoke: vi.fn() },
@@ -576,6 +592,20 @@ describe('WebUI Codex account and SOCKS5 controls', () => {
     useManagedAgents.mockReturnValue({ agents: [codexAgent], refreshCatalog: vi.fn() });
     vi.mocked(ipcBridge.webRuntime.codexAccount.invoke).mockResolvedValue(disconnected);
     vi.mocked(ipcBridge.webRuntime.networkProxy.invoke).mockResolvedValue(proxyStatus);
+    vi.mocked(ipcBridge.webRuntime.codexVersion.invoke).mockResolvedValue({
+      installedVersion: '0.163.0',
+      latestVersion: null,
+      checkedAt: null,
+      updateAvailable: null,
+      canInstall: true,
+      installation: { phase: 'idle', targetVersion: null },
+    });
+    vi.mocked(ipcBridge.webRuntime.codexVersions.invoke).mockResolvedValue({
+      versions: [],
+      supported: true,
+      inspectionComplete: true,
+      busy: false,
+    });
   });
   afterEach(() => {
     runtimeEnvironment.isDesktop = true;
@@ -633,5 +663,143 @@ describe('WebUI Codex account and SOCKS5 controls', () => {
     await waitFor(() => expect(screen.getByText('codex.proxy.environmentManaged')).toBeInTheDocument());
     expect(screen.getByRole('switch', { name: 'codex.proxy.enable' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'codex.proxy.save' })).toBeDisabled();
+  });
+
+  it('shows the installed CLI version and checks updates only when requested', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexCheckUpdate.invoke).mockResolvedValue({
+      installedVersion: '0.163.0',
+      latestVersion: '0.164.0',
+      checkedAt: '2026-10-18T12:00:00Z',
+      updateAvailable: true,
+      canInstall: true,
+      installation: { phase: 'idle', targetVersion: null },
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByText('0.163.0')).toBeInTheDocument());
+    expect(ipcBridge.webRuntime.codexCheckUpdate.invoke).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'codex.updates.check' }));
+    await waitFor(() => expect(screen.getByText('0.164.0')).toBeInTheDocument());
+    expect(screen.getByText('codex.updates.available')).toBeInTheDocument();
+  });
+
+  it('shows an update check error and allows retry', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexCheckUpdate.invoke)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        installedVersion: '0.163.0',
+        latestVersion: '0.163.0',
+        checkedAt: '2026-10-18T12:00:00Z',
+        updateAvailable: false,
+        canInstall: true,
+        installation: { phase: 'idle', targetVersion: null },
+      });
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.updates.check' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.updates.check' }));
+    await waitFor(() => expect(screen.getByText('codex.updates.checkFailed')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.updates.check' }));
+    await waitFor(() => expect(screen.getByText('codex.updates.upToDate')).toBeInTheDocument());
+    expect(screen.queryByText('codex.updates.checkFailed')).not.toBeInTheDocument();
+  });
+
+  it('disables installation until a newer stable version has been found', async () => {
+    renderSettings();
+    await waitFor(() => expect(screen.getByText('0.163.0')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'codex.updates.install' })).toBeDisabled();
+  });
+
+  it('lets a signed-in WebUI user start an update and shows its progress', async () => {
+    const status = {
+      installedVersion: '0.163.0',
+      latestVersion: '0.164.0',
+      checkedAt: null,
+      updateAvailable: true,
+      canInstall: true,
+      installation: { phase: 'idle' as const, targetVersion: null },
+    };
+    vi.mocked(ipcBridge.webRuntime.codexVersion.invoke).mockResolvedValue(status);
+    vi.mocked(ipcBridge.webRuntime.codexInstallUpdate.invoke).mockResolvedValue({
+      ...status,
+      installation: { phase: 'downloading', targetVersion: '0.164.0' },
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.updates.install' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.updates.install' }));
+    await waitFor(() => expect(screen.getByText('codex.updates.downloading')).toBeInTheDocument());
+    expect(ipcBridge.webRuntime.codexInstallUpdate.invoke).toHaveBeenCalledWith({});
+  });
+
+  it('keeps retry available after the update request fails', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexVersion.invoke).mockResolvedValue({
+      installedVersion: '0.163.0',
+      latestVersion: '0.164.0',
+      checkedAt: null,
+      updateAvailable: true,
+      canInstall: true,
+      installation: { phase: 'idle', targetVersion: null },
+    });
+    vi.mocked(ipcBridge.webRuntime.codexInstallUpdate.invoke).mockRejectedValue(new Error('offline'));
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.updates.install' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.updates.install' }));
+    await waitFor(() => expect(screen.getByText('codex.updates.installFailed')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'codex.updates.install' })).toBeEnabled();
+  });
+
+  const inventory = {
+    supported: true,
+    inspectionComplete: true,
+    busy: false,
+    versions: [
+      { id: 'current', version: '0.163.0', installedAt: null, protection: 'selected' as const, removable: false },
+      { id: 'previous', version: '0.162.0', installedAt: null, protection: 'previous' as const, removable: false },
+      { id: 'active', version: '0.161.0', installedAt: null, protection: 'inUse' as const, removable: false },
+      { id: 'unused', version: '0.160.0', installedAt: null, protection: null, removable: true },
+    ],
+  };
+
+  it('requires manual selection and disables protected version checkboxes', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexVersions.invoke).mockResolvedValue(inventory);
+    renderSettings();
+    await waitFor(() => expect(screen.getByText('codex.versions.inUse')).toBeInTheDocument());
+    expect(screen.getAllByRole('checkbox').filter((checkbox) => checkbox.hasAttribute('disabled'))).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'codex.versions.cleanup' })).toBeDisabled();
+    expect(ipcBridge.webRuntime.codexCleanupVersions.invoke).not.toHaveBeenCalled();
+  });
+
+  it('submits only the manually selected unused version and renders the refreshed inventory', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexVersions.invoke).mockResolvedValue(inventory);
+    vi.mocked(ipcBridge.webRuntime.codexCleanupVersions.invoke).mockResolvedValue({
+      removed: ['unused'],
+      retained: [],
+      inventory: { ...inventory, versions: inventory.versions.slice(0, 3) },
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getAllByRole('checkbox')).toHaveLength(4));
+    fireEvent.click(screen.getAllByRole('checkbox').find((checkbox) => !checkbox.hasAttribute('disabled'))!);
+    fireEvent.click(screen.getByRole('button', { name: 'codex.versions.cleanup' }));
+    await waitFor(() =>
+      expect(ipcBridge.webRuntime.codexCleanupVersions.invoke).toHaveBeenCalledWith({ ids: ['unused'] })
+    );
+    await waitFor(() => expect(screen.getByText('codex.versions.cleaned')).toBeInTheDocument());
+    expect(screen.queryByText('0.160.0')).not.toBeInTheDocument();
+  });
+
+  it('pauses cleanup if the server cannot confirm process use', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexVersions.invoke).mockResolvedValue({ ...inventory, inspectionComplete: false });
+    renderSettings();
+    await waitFor(() => expect(screen.getByText('codex.versions.inspectionFailed')).toBeInTheDocument());
+    expect(screen.getAllByRole('checkbox').every((checkbox) => checkbox.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('shows a failed cleanup and allows a retry without losing the selected version', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexVersions.invoke).mockResolvedValue(inventory);
+    vi.mocked(ipcBridge.webRuntime.codexCleanupVersions.invoke).mockRejectedValue(new Error('private diagnostic'));
+    renderSettings();
+    await waitFor(() => expect(screen.getAllByRole('checkbox')).toHaveLength(4));
+    fireEvent.click(screen.getAllByRole('checkbox').find((checkbox) => !checkbox.hasAttribute('disabled'))!);
+    fireEvent.click(screen.getByRole('button', { name: 'codex.versions.cleanup' }));
+    await waitFor(() => expect(screen.getByText('codex.versions.failed')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.versions.cleanup' })).toBeEnabled());
   });
 });

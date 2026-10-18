@@ -7,6 +7,14 @@ import { createRuntimeControls } from './routes.js';
 import { NetworkProxyStore } from './proxy.js';
 
 const signedOut = { authenticated: false, login: { state: 'idle' as const } };
+const versionStatus = {
+  installedVersion: '0.163.0',
+  latestVersion: null,
+  checkedAt: null,
+  updateAvailable: null,
+  canInstall: true,
+  installation: { phase: 'idle' as const, targetVersion: null },
+};
 
 describe('authenticated WebUI runtime controls', () => {
   let dataDir: string;
@@ -15,6 +23,14 @@ describe('authenticated WebUI runtime controls', () => {
   let base: string;
   let controls: ReturnType<typeof createRuntimeControls>;
   let backendHealthy: boolean;
+  const updates = {
+    status: vi.fn(),
+    check: vi.fn(),
+    install: vi.fn(),
+    versions: vi.fn(),
+    cleanup: vi.fn(),
+    close: vi.fn(),
+  };
   const auth = {
     status: vi.fn().mockResolvedValue(signedOut),
     startLogin: vi.fn().mockResolvedValue(signedOut),
@@ -35,6 +51,11 @@ describe('authenticated WebUI runtime controls', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     auth.status.mockResolvedValue(signedOut);
+    updates.status.mockResolvedValue(versionStatus);
+    updates.check.mockResolvedValue(versionStatus);
+    updates.install.mockResolvedValue(versionStatus);
+    updates.versions.mockResolvedValue({ versions: [], supported: true, inspectionComplete: true, busy: false });
+    updates.cleanup.mockResolvedValue({ removed: [], retained: [], inventory: await updates.versions() });
     dataDir = await mkdtemp(path.join(os.tmpdir(), 'aionui-controls-test-'));
     backendHealthy = true;
     backend = http.createServer((req, res) => {
@@ -50,6 +71,7 @@ describe('authenticated WebUI runtime controls', () => {
       backendPort,
       dataDir,
       auth,
+      updates,
       proxy: new NetworkProxyStore(dataDir, {}),
       sourceCommit: 'a'.repeat(40),
       releaseSequence: '12.1',
@@ -163,4 +185,137 @@ describe('authenticated WebUI runtime controls', () => {
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain('private upstream credential');
   });
+
+  it('does not check versions for anonymous users', async () => {
+    const response = await fetch(base + '/api/edu/codex/check-update', { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(updates.check).not.toHaveBeenCalled();
+  });
+
+  it('returns installed version status without initiating a registry check', async () => {
+    const response = await request('/api/edu/codex/version');
+    expect(await response.json()).toEqual({ data: versionStatus });
+    expect(updates.check).not.toHaveBeenCalled();
+  });
+
+  it('checks for updates only for an authenticated same-origin JSON request', async () => {
+    const response = await request('/api/edu/codex/check-update', {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(200);
+    expect(updates.check).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a cross-origin update check before contacting npm', async () => {
+    const response = await request('/api/edu/codex/check-update', {
+      method: 'POST',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(updates.check).not.toHaveBeenCalled();
+  });
+
+  it('redacts update check failures', async () => {
+    updates.check.mockRejectedValueOnce(new Error('private upstream detail'));
+    const response = await request('/api/edu/codex/check-update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain('private upstream detail');
+  });
+
+  it('queues an update for a signed-in user without granting Docker or shell access', async () => {
+    const response = await request('/api/edu/codex/install-update', {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(200);
+    expect(updates.install).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not install for an anonymous request', async () => {
+    const response = await fetch(base + '/api/edu/codex/install-update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(401);
+    expect(updates.install).not.toHaveBeenCalled();
+  });
+
+  it('does not install for a cross-origin request with a valid session', async () => {
+    const response = await request('/api/edu/codex/install-update', {
+      method: 'POST',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(updates.install).not.toHaveBeenCalled();
+  });
+
+  it('rejects a user-supplied package version instead of passing it to the installer', async () => {
+    const response = await request('/api/edu/codex/install-update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"version":"untrusted"}',
+    });
+    expect(response.status).toBe(400);
+    expect(updates.install).not.toHaveBeenCalled();
+  });
+
+  it('returns the version inventory only after authenticating the session', async () => {
+    const response = await request('/api/edu/codex/versions');
+    expect(response.status).toBe(200);
+    expect(updates.versions).toHaveBeenCalled();
+  });
+
+  it('accepts only an explicit list of installation IDs for cleanup', async () => {
+    const id = '0.160.0-12345678-1234-1234-1234-123456789abc';
+    const response = await request('/api/edu/codex/cleanup-versions', {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    expect(response.status).toBe(200);
+    expect(updates.cleanup).toHaveBeenCalledWith([id]);
+  });
+
+  it('does not clean versions for an anonymous request', async () => {
+    const response = await fetch(base + '/api/edu/codex/cleanup-versions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(401);
+    expect(updates.cleanup).not.toHaveBeenCalled();
+  });
+
+  it('does not clean versions from a cross-origin request with a valid cookie', async () => {
+    const response = await request('/api/edu/codex/cleanup-versions', {
+      method: 'POST',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(updates.cleanup).not.toHaveBeenCalled();
+  });
+
+  it.each([{ ids: ['../../codex'] }, { ids: [] }, { ids: [42] }, { ids: ['latest'], all: true }, []])(
+    'rejects malformed cleanup input %#',
+    async (body) => {
+      const response = await request('/api/edu/codex/cleanup-versions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      expect(response.status).toBe(400);
+      expect(updates.cleanup).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -36,7 +36,14 @@ import type {
   UpdateAssistantRequest,
 } from '../types/agent/assistantTypes';
 import { assistantRuntimeKey } from '../types/agent/assistantTypes';
-import type { CodexAccountStatus, NetworkProxySettings, NetworkProxyStatus } from '../types/platform/webRuntime';
+import type {
+  CodexAccountStatus,
+  CodexUpdateStatus,
+  CodexCleanupResult,
+  CodexVersionInventory,
+  NetworkProxySettings,
+  NetworkProxyStatus,
+} from '../types/platform/webRuntime';
 import type {
   EnsureConversationRuntimeResponse,
   GetConfigOptionsResponse,
@@ -169,6 +176,11 @@ export const shell = {
 // ---------------------------------------------------------------------------
 
 export const webRuntime = {
+  codexVersion: httpGet<CodexUpdateStatus, void>('/api/edu/codex/version'),
+  codexCheckUpdate: httpPost<CodexUpdateStatus, Record<string, never>>('/api/edu/codex/check-update'),
+  codexInstallUpdate: httpPost<CodexUpdateStatus, Record<string, never>>('/api/edu/codex/install-update'),
+  codexVersions: httpGet<CodexVersionInventory, void>('/api/edu/codex/versions'),
+  codexCleanupVersions: httpPost<CodexCleanupResult, { ids: string[] }>('/api/edu/codex/cleanup-versions'),
   codexAccount: httpGet<CodexAccountStatus, void>('/api/edu/codex/account'),
   codexLogin: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/login'),
   codexCancelLogin: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/login/cancel'),

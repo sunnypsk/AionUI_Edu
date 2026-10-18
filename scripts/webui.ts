@@ -216,6 +216,14 @@ async function main(): Promise<void> {
   // history live here. Admin credentials live in the backend's users table.
   // This keeps `bun run webui` fully self-contained on hosts without AionUi.app.
   const workDir = resolveBackendDataDir();
+  if (process.platform !== 'win32') {
+    process.env.AIONUI_CODEX_RUNTIME_ROOT = path.join(workDir, 'runtime', 'codex-cli');
+    process.env.AIONUI_BUNDLED_CODEX = path.join(repoRoot, 'node_modules', '.bin', 'codex');
+    process.env.PATH = [
+      path.join(repoRoot, 'packages', 'web-host', 'src', 'runtime', 'codex'),
+      process.env.PATH || '',
+    ].join(path.delimiter);
+  }
   const staticDir = resolveStaticDir();
   const backendBin = resolveBackendBinary();
   const logDir = process.env.AIONUI_LOG_DIR ?? path.join(workDir, 'logs');

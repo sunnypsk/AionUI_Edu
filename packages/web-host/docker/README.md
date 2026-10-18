@@ -82,6 +82,26 @@ Enable device-code login in ChatGPT's Security settings first. Managed workspace
 
 Codex credentials live in `/data/codex`; chats, configuration, and other application data also live under `/data`. Keep the volume across container updates. Do not commit or share its contents. The account panel never returns OAuth tokens to the browser. Logging out affects the shared Codex account; it does not erase chat history.
 
+## Codex memories and CLI updates
+
+To opt into Codex's cross-conversation memories on an existing NAS installation:
+
+```bash
+docker exec -u 99:100 -e HOME=/data/home aionui-edu /app/node_modules/.bin/codex features enable memories
+```
+
+This preserves other Codex configuration and writes the feature flag to the persistent `/data/codex/config.toml`. Newly started Codex sessions read the setting; already-running sessions may need to be reopened when idle. Memory generation happens in the background for eligible chats, so enabling it does not immediately create memories. The memory store under `/data/codex/memories` is shared by this installation's users, like its Codex account. It is separate from ChatGPT memory and other machines' Codex memory stores. See the official [Codex memories documentation](https://learn.chatgpt.com/docs/customization/memories).
+
+**Settings → Agents → Codex CLI updates** reports the version from the installed CLI. **Check for updates** queries the official npm package's `latest` tag from the WebUI server, following the container's proxy routing when enabled. Successful checks are shared for one minute and show their timestamp. Merely opening Settings does not query npm. Failed checks retain the last successful result with an error message.
+
+On Linux/macOS standalone WebUI, signed-in users can click **Update Codex CLI** when a newer stable release is available. The server installs the exact official `@openai/codex` version as the app user under `/data/runtime/codex-cli`, using the same network routing as the app. No NAS administrator privileges or Docker socket are needed. Progress appears in Settings. Before switching, the server checks the executable's version and the app-server methods AionUI requires; a download or validation failure leaves the selected CLI unchanged and allows a retry.
+
+The selected version persists in the data volume across restarts and image updates. New CLI processes use it, including when resuming an existing conversation; running processes continue with their original executable. A conversation's history does not permanently pin a CLI version. The image's pinned CLI remains the fallback when no managed version is selected; replacing the image does not override an existing managed selection. This updates Codex CLI only, not AionUI or AionCore, and is independent of the NAS image deployment pause. The bundled CLI can still be upgraded by updating `@openai/codex` and its lockfile and publishing a tested GHCR image.
+
+**Installed CLI versions** lists managed installations. Cleanup is manual: select eligible old versions, then click **Clean up selected versions**. The two newest validated installations, the selected default, and versions with live processes are protected. The launcher records process leases, and OS process inspection also protects orphaned or directly launched CLI processes. If process inspection is incomplete, cleanup stops. Unrecognised installations and symlink directories are retained. A selected version's usage is checked again on the server before deletion, and update and cleanup jobs cannot overlap. After an older process exits, refresh the list to make that version eligible if it is outside the retained pair.
+
+Cleanup only removes selected, verified updater-owned directories under `/data/runtime/codex-cli/versions`; it does not remove chats, uploaded files, Codex auth, configuration, or memories. The bundled CLI is never a cleanup target. New downloads use a temporary npm cache that is removed with the installation staging files, so archives do not accumulate alongside retained CLI versions. There is no automatic background deletion.
+
 ## Route container traffic through SOCKS5
 
 In **Settings → Agents → SOCKS5 network proxy**, enable routing and enter, for example:

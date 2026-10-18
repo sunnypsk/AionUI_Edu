@@ -1,0 +1,7 @@
+#!/usr/bin/env bun
+import { launchCodex } from './retention/index.ts';
+
+process.exitCode = await launchCodex().catch(() => {
+  console.error('Codex CLI could not be started.');
+  return 1;
+});
