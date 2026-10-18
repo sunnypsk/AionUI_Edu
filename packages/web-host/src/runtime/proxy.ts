@@ -120,6 +120,9 @@ export function buildEgressRules(proxy: SocksProxy): Array<{ command: string; ar
       ...(family === 4 ? [['-A', 'AIONUI_EGRESS', '-d', '127.0.0.11', '-j', 'REJECT']] : []),
       ['-A', 'AIONUI_EGRESS', '-o', 'lo', '-p', 'udp', '--dport', '53', '-j', 'REJECT'],
       ['-A', 'AIONUI_EGRESS', '-o', 'lo', '-p', 'tcp', '--dport', '53', '-j', 'REJECT'],
+      // sing-tun routes transparent redirects to a LOCAL loopback address via eth0.
+      // Match the destination's route type, rather than only the output interface.
+      ['-A', 'AIONUI_EGRESS', '-m', 'addrtype', '--dst-type', 'LOCAL', '-j', 'ACCEPT'],
       ['-A', 'AIONUI_EGRESS', '-o', 'lo', '-j', 'ACCEPT'],
       ['-A', 'AIONUI_EGRESS', '-m', 'conntrack', '--ctstate', 'ESTABLISHED,RELATED', '-j', 'ACCEPT'],
       ...(isIP(proxy.server) === family

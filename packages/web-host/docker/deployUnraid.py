@@ -176,11 +176,10 @@ class Deployment:
         values = {"Name": NAME, "Repository": release["image"], "Network": "bridge", "Shell": "bash",
                   "Privileged": "false", "Project": "https://github.com/sunnypsk/AionUI_Edu",
                   "WebUI": f"http://{self.settings['bindAddress']}:{self.settings['port']}",
-                  "ExtraParams": "--cap-add=NET_ADMIN --security-opt=no-new-privileges --pids-limit=512"}
+                  "ExtraParams": f"--cap-add=NET_ADMIN --security-opt=no-new-privileges --pids-limit=512 --restart=unless-stopped --publish={self.settings['bindAddress']}:{self.settings['port']}:25808 --log-opt=max-size=10m --log-opt=max-file=3"}
         for key, value in values.items():
             ET.SubElement(tree, key).text = value
         for label, target, kind, mode, value in [
-            ("WebUI port", "25808", "Port", "tcp", str(self.settings["port"])),
             ("Application data", "/data", "Path", "rw", str(self.data)),
             ("TUN device", "/dev/net/tun", "Device", "", "/dev/net/tun"),
             ("PUID", "PUID", "Variable", "", str(self.settings["puid"])),

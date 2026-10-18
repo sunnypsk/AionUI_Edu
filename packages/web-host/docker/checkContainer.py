@@ -15,7 +15,7 @@ SCRIPT = "/app/packages/web-host/docker/smokeNetwork.py"
 def docker(*args, check=True):
     result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=180)
     if check and result.returncode:
-        raise RuntimeError(f"Docker {args[0]} failed")
+        raise RuntimeError(f"Docker {args[0]} failed (exit {result.returncode})")
     return result
 
 
@@ -54,14 +54,14 @@ def check(image, revision):
             time.sleep(1)
         else:
             raise RuntimeError("WebUI did not become healthy")
-        result = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--max-time", "15", f"http://{target_ip}:18080")
+        result = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
         docker("exec", "--user", "99:100", app, "bun", "-e", "await import('node:dns/promises').then(d => d.resolve4('example.com'));", check=True)
         if '"host": "1.1.1.1"' not in docker("logs", proxy).stdout:
             raise RuntimeError("DNS did not use HTTPS through SOCKS5")
         bypass = docker("exec", "--user", "99:100", app, "curl", "--interface", "eth0", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
-        if bypass.returncode == 0:
+        if bypass.returncode == 0 and json.loads(bypass.stdout)["peer"] != proxy_ip:
             raise RuntimeError("A tool bound to eth0 bypassed the tunnel")
         docker("stop", proxy)
         failed = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
@@ -78,6 +78,9 @@ def check(image, revision):
         print(json.dumps({"ok": True, "sourceCommit": revision, "checks": ["health", "TCP via SOCKS5", "DNS via SOCKS5", "bound-interface bypass blocked", "proxy outage blocked", "tunnel crash stops app"]}))
     except Exception:
         if app in created:
+            for args in [("ip", "rule"), ("ip", "route", "show", "table", "all"), ("iptables", "-w", "-nvL", "AIONUI_EGRESS")]:
+                print(docker("exec", app, *args, check=False).stdout)
+            print(docker("logs", proxy, check=False).stdout)
             diagnostic = docker("logs", "--tail", "60", app, check=False)
             for line in (diagnostic.stdout + diagnostic.stderr).splitlines():
                 if not re.search(r"password|username|token|secret|cookie|usercode|verificationurl", line, re.I):

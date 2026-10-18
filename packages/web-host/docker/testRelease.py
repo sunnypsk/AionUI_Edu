@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock, patch
 
 spec = importlib.util.spec_from_file_location("deploy", Path(__file__).with_name("deployUnraid.py"))
@@ -82,6 +83,13 @@ class Release(unittest.TestCase):
         self.assertIn(str(probe) + ":/data:rw", args)
         self.assertNotIn(str(self.data) + ":/data:rw", args)
         self.assertNotIn("synthetic", " ".join(args))
+
+    def test_unraid_recreation_preserves_the_explicit_lan_bind_and_restart_policy(self):
+        self.subject.write_template(deploy.validate_image(image()))
+        tree = ET.fromstring(self.template.read_text())
+        self.assertIn("--publish=192.0.2.10:25808:25808", tree.findtext("ExtraParams"))
+        self.assertIn("--restart=unless-stopped", tree.findtext("ExtraParams"))
+        self.assertFalse(any(node.get("Type") == "Port" for node in tree.findall("Config")))
 
     def test_refuses_custom_mounts_including_the_docker_socket(self):
         old = self.old()

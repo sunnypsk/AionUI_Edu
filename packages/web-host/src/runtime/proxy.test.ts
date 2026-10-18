@@ -80,6 +80,24 @@ describe('SOCKS5 full routing', () => {
     expect((await stat(path.join(dataDir, PROXY_FILE_NAME))).mode & 0o777).toBe(0o600);
   });
 
+  it('allows local transparent redirects without reopening Docker resolver egress', () => {
+    const rules = buildEgressRules(parseSocksProxy('socks5://192.0.2.1:1080'));
+    for (const command of ['iptables', 'ip6tables']) {
+      expect(
+        rules.some(
+          (rule) =>
+            rule.command === command &&
+            rule.args.includes('--dst-type') &&
+            rule.args.includes('LOCAL') &&
+            rule.args.includes('ACCEPT')
+        )
+      ).toBe(true);
+    }
+    expect(rules.findIndex((rule) => rule.args.includes('127.0.0.11'))).toBeLessThan(
+      rules.findIndex((rule) => rule.args.includes('--dst-type'))
+    );
+  });
+
   it('keeps the existing password when the replacement field is left empty', async () => {
     const store = new NetworkProxyStore(dataDir, {});
     await store.save({ enabled: true, proxyUrl: 'socks5://alice:secret@192.0.2.1:1080' });
