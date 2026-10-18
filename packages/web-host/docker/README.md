@@ -4,7 +4,7 @@ This image includes AionCore, Codex CLI, and sing-box. Each chat remains a separ
 
 ## GitHub Actions and GHCR releases
 
-The existing **Build and Release** workflow now also runs on pushes to `main` and manual dispatch. Its WebUI jobs use standard GitHub-hosted Linux runners. They scan the Git-visible source with a checksum-pinned Gitleaks, run the project's quality/unit checks and deployment tests, build `linux/amd64`, and exercise a disposable SOCKS5 network before publication. The network gate checks TCP and DNS through SOCKS5, a bound-interface bypass attempt, proxy outage, and tunnel crash.
+The existing **Build and Release** workflow now also runs on pushes to `main` and manual dispatch. Its WebUI jobs use standard GitHub-hosted Linux runners. They scan the Git-visible source with a checksum-pinned Gitleaks, run the project's quality/unit checks and deployment tests, build `linux/amd64`, and exercise a disposable SOCKS5 network before publication. The network gate checks TCP to a separate test network and DNS through SOCKS5, bound-interface and attached-subnet bypass attempts, proxy outage, and tunnel crash.
 
 Only a passing image is published to `ghcr.io/sunnypsk/aionui_edu:stable`. A unique tag includes the full source commit, run number and attempt. The image records its source revision and release sequence; `/healthz` verifies AionCore is reachable and reports that revision. The NAS deployer pins the registry digest. No Codex or SOCKS5 credentials are provided to Actions or the image build; publishing uses the job's temporary `GITHUB_TOKEN`.
 
@@ -104,7 +104,7 @@ Changes, including disabling the proxy, take effect only after restart. Until th
 
 The container uses a Linux TUN interface and sing-box to route AionCore, Codex, and tools spawned inside the container through SOCKS5, including DNS over HTTPS through SOCKS5. It requires `/dev/net/tun` and `NET_ADMIN`, as supplied by the Compose file. The app and CLI run without those capabilities. IPv4 and IPv6 firewall rules block direct external egress when routing is enabled; tunnel failure stops the app instead of falling back to a direct connection. SOCKS5 UDP support is needed for UDP workloads; unsupported traffic fails. A UDP relay on a different upstream IP is blocked by the firewall.
 
-Loopback communication and replies to incoming WebUI connections remain available. The user's browser, the NAS host, other containers, Docker image downloads/builds, and remote hosted tools use their own networks. This routing applies to runtime traffic originating inside this container. The Settings form in a native macOS/Windows WebUI only saves the preference; it cannot change the host's routes.
+Loopback communication and replies to incoming WebUI connections remain available. New direct connections to the attached LAN are blocked too; they do not become a proxy bypass. The user's browser, the NAS host, other containers, Docker image downloads/builds, and remote hosted tools use their own networks. This routing applies to runtime traffic originating inside this container. The Settings form in a native macOS/Windows WebUI only saves the preference; it cannot change the host's routes.
 
 ## Verify on the target before regular use
 
