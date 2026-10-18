@@ -31,6 +31,7 @@ describe('authenticated WebUI runtime controls', () => {
     cleanup: vi.fn(),
     close: vi.fn(),
   };
+  const proxyProbe = vi.fn();
   const auth = {
     status: vi.fn().mockResolvedValue(signedOut),
     startLogin: vi.fn().mockResolvedValue(signedOut),
@@ -52,6 +53,7 @@ describe('authenticated WebUI runtime controls', () => {
     vi.clearAllMocks();
     auth.status.mockResolvedValue(signedOut);
     updates.status.mockResolvedValue(versionStatus);
+    proxyProbe.mockResolvedValue({ state: 'success', elapsedMs: 30 });
     updates.check.mockResolvedValue(versionStatus);
     updates.install.mockResolvedValue(versionStatus);
     updates.versions.mockResolvedValue({ versions: [], supported: true, inspectionComplete: true, busy: false });
@@ -72,7 +74,7 @@ describe('authenticated WebUI runtime controls', () => {
       dataDir,
       auth,
       updates,
-      proxy: new NetworkProxyStore(dataDir, {}),
+      proxy: new NetworkProxyStore(dataDir, {}, proxyProbe),
       sourceCommit: 'a'.repeat(40),
       releaseSequence: '12.1',
     });
@@ -184,6 +186,49 @@ describe('authenticated WebUI runtime controls', () => {
     const response = await request('/api/edu/codex/account');
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain('private upstream credential');
+  });
+
+  it('does not run proxy probes for anonymous requests', async () => {
+    const response = await fetch(base + '/api/edu/network-proxy/test', { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(proxyProbe).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-origin proxy tests before accessing credentials or the network', async () => {
+    const response = await request('/api/edu/network-proxy/test', {
+      method: 'POST',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(proxyProbe).not.toHaveBeenCalled();
+  });
+
+  it('returns both proxy test results without saving the draft or caching credentials', async () => {
+    const response = await request('/api/edu/network-proxy/test', {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: JSON.stringify({ proxyUrl: 'socks5://alice:private-password@192.0.2.1:1080' }),
+    });
+    expect(await response.json()).toEqual({
+      data: {
+        current: { state: 'skipped', reason: 'containerOnly' },
+        configured: { state: 'success', elapsedMs: 30 },
+        configuredSource: 'input',
+      },
+    });
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect((await (await request('/api/edu/network-proxy')).json()).data.endpoint).toBe('');
+  });
+
+  it('rejects unsupported proxy test request fields without running a probe', async () => {
+    const response = await request('/api/edu/network-proxy/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://arbitrary.example' }),
+    });
+    expect(response.status).toBe(400);
+    expect(proxyProbe).not.toHaveBeenCalled();
   });
 
   it('does not check versions for anonymous users', async () => {

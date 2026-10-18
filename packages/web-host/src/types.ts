@@ -70,6 +70,31 @@ export type CodexAccountStatus = {
 
 export type NetworkProxySettings = { enabled: boolean; proxyUrl?: string };
 
+export type NetworkProxyTestRequest = { proxyUrl?: string };
+
+export type NetworkProxyProbeResult =
+  | { state: 'success'; elapsedMs: number }
+  | {
+      state: 'failed';
+      elapsedMs: number;
+      reason:
+        | 'timeout'
+        | 'authentication'
+        | 'connection'
+        | 'tls'
+        | 'invalidResponse'
+        | 'unavailable'
+        | 'invalidProxy'
+        | 'settingsUnavailable';
+    }
+  | { state: 'skipped'; reason: 'proxyInactive' | 'containerOnly' | 'notConfigured' };
+
+export type NetworkProxyTestResult = {
+  current: NetworkProxyProbeResult;
+  configured: NetworkProxyProbeResult;
+  configuredSource: 'input' | 'saved' | 'environment';
+};
+
 export type CodexUpdateStatus = {
   installedVersion: string;
   latestVersion: string | null;

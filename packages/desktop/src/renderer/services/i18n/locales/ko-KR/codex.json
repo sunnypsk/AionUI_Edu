@@ -170,7 +170,32 @@
     "credentialsStored": "인증 정보 저장됨",
     "save": "프록시 설정 저장",
     "saved": "설정이 저장되었습니다. 컨테이너를 재시작하면 적용됩니다.",
-    "saveFailed": "저장하지 못했습니다. SOCKS5 URL과 IP 주소를 확인하세요."
+    "saveFailed": "저장하지 못했습니다. SOCKS5 URL과 IP 주소를 확인하세요.",
+    "test": "연결 테스트",
+    "testing": "테스트 중…",
+    "testHint": "현재 연결과 입력하거나 저장한 프록시를 확인합니다. 설정을 저장하거나 적용하지 않습니다. 성공은 테스트 시점의 HTTPS 연결을 의미하며, 새 설정은 컨테이너를 다시 시작해야 적용됩니다.",
+    "testSuccess": "HTTPS 연결에 성공했습니다.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "연결 테스트를 실행할 수 없습니다. 다시 시도하세요.",
+    "testCurrent": "현재 컨테이너 연결",
+    "testSources": {
+      "input": "입력한 프록시(미적용)",
+      "saved": "저장된 프록시",
+      "environment": "컨테이너 설정의 프록시"
+    },
+    "testReasons": {
+      "timeout": "연결 시간이 초과되었습니다.",
+      "authentication": "프록시 인증에 실패했습니다. 사용자 이름과 비밀번호를 확인하세요.",
+      "connection": "이 경로로 테스트 사이트에 연결할 수 없습니다. 프록시와 현재 네트워크 제한을 확인하세요.",
+      "tls": "보안 연결을 확인할 수 없습니다.",
+      "invalidResponse": "테스트 사이트에서 예상치 못한 응답을 반환했습니다.",
+      "unavailable": "이 호스트에서는 연결 테스트를 사용할 수 없습니다.",
+      "invalidProxy": "IP 주소를 사용하는 유효한 SOCKS5 URL을 입력하세요.",
+      "settingsUnavailable": "저장된 프록시 설정을 읽을 수 없습니다.",
+      "proxyInactive": "프록시 라우팅이 활성화되지 않았습니다.",
+      "containerOnly": "현재 경로는 Linux 컨테이너에서만 테스트할 수 있습니다.",
+      "notConfigured": "프록시가 설정되지 않았습니다."
+    }
   },
   "updates": {
     "title": "Codex CLI 업데이트",

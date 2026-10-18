@@ -165,7 +165,32 @@
     "credentialsStored": "凭据已保存",
     "save": "保存代理设置",
     "saved": "代理设置已保存，重启容器后生效。",
-    "saveFailed": "无法保存，请检查 SOCKS5 URL 并使用 IP 地址。"
+    "saveFailed": "无法保存，请检查 SOCKS5 URL 并使用 IP 地址。",
+    "test": "测试连接",
+    "testing": "测试中…",
+    "testHint": "检查当前连接及输入或已保存的代理，不会保存或应用更改。成功仅表示测试时 HTTPS 连接正常；新设置仍需重启容器才会生效。",
+    "testSuccess": "HTTPS 连接成功。",
+    "testDuration": "{{duration}} 毫秒",
+    "testFailed": "无法执行连接测试，请重试。",
+    "testCurrent": "当前容器连接",
+    "testSources": {
+      "input": "输入的代理（尚未应用）",
+      "saved": "已保存的代理",
+      "environment": "容器配置的代理"
+    },
+    "testReasons": {
+      "timeout": "连接超时。",
+      "authentication": "代理认证失败，请检查用户名和密码。",
+      "connection": "无法通过此路径连接测试网站，请检查代理及当前网络限制。",
+      "tls": "无法验证安全连接。",
+      "invalidResponse": "测试网站返回了意外响应。",
+      "unavailable": "此主机无法执行连接测试。",
+      "invalidProxy": "请输入有效的 SOCKS5 URL，服务器需使用 IP 地址。",
+      "settingsUnavailable": "无法读取已保存的代理设置。",
+      "proxyInactive": "代理路由尚未启用。",
+      "containerOnly": "当前路由仅可在 Linux 容器内测试。",
+      "notConfigured": "尚未配置代理。"
+    }
   },
   "updates": {
     "title": "Codex CLI 更新",

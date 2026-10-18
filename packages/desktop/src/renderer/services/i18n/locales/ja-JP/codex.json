@@ -175,7 +175,32 @@
     "credentialsStored": "認証情報は保存済みです",
     "save": "プロキシ設定を保存",
     "saved": "設定を保存しました。コンテナを再起動すると反映されます。",
-    "saveFailed": "保存できません。SOCKS5 URL と IP アドレスを確認してください。"
+    "saveFailed": "保存できません。SOCKS5 URL と IP アドレスを確認してください。",
+    "test": "接続をテスト",
+    "testing": "テスト中…",
+    "testHint": "現在の接続と入力済みまたは保存済みのプロキシを確認します。設定は保存・適用されません。成功はテスト時点の HTTPS 接続を示し、新しい設定の適用にはコンテナの再起動が必要です。",
+    "testSuccess": "HTTPS 接続に成功しました。",
+    "testDuration": "{{duration}} ミリ秒",
+    "testFailed": "接続テストを実行できませんでした。もう一度お試しください。",
+    "testCurrent": "現在のコンテナ接続",
+    "testSources": {
+      "input": "入力したプロキシ（未適用）",
+      "saved": "保存済みのプロキシ",
+      "environment": "コンテナ設定のプロキシ"
+    },
+    "testReasons": {
+      "timeout": "接続がタイムアウトしました。",
+      "authentication": "プロキシ認証に失敗しました。ユーザー名とパスワードを確認してください。",
+      "connection": "この経路ではテストサイトに接続できません。プロキシと現在のネットワーク制限を確認してください。",
+      "tls": "安全な接続を検証できませんでした。",
+      "invalidResponse": "テストサイトから予期しない応答が返されました。",
+      "unavailable": "このホストでは接続テストを利用できません。",
+      "invalidProxy": "IP アドレスを使用した有効な SOCKS5 URL を入力してください。",
+      "settingsUnavailable": "保存済みのプロキシ設定を読み取れませんでした。",
+      "proxyInactive": "プロキシ経由のルーティングは無効です。",
+      "containerOnly": "現在の経路は Linux コンテナ内でのみテストできます。",
+      "notConfigured": "プロキシが設定されていません。"
+    }
   },
   "updates": {
     "title": "Codex CLI の更新",

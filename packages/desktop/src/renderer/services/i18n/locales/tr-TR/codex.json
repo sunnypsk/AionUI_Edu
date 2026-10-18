@@ -175,7 +175,32 @@
     "credentialsStored": "Kimlik bilgileri kayıtlı",
     "save": "Proxy ayarlarını kaydet",
     "saved": "Ayarlar kaydedildi. Uygulamak için konteyneri yeniden başlatın.",
-    "saveFailed": "Kaydedilemedi. SOCKS5 URL’sini ve IP adresini kontrol edin."
+    "saveFailed": "Kaydedilemedi. SOCKS5 URL’sini ve IP adresini kontrol edin.",
+    "test": "Bağlantıyı test et",
+    "testing": "Test ediliyor…",
+    "testHint": "Geçerli bağlantıyı ve girilen veya kayıtlı proxy’yi değişiklikleri kaydetmeden veya uygulamadan denetler. Başarı, test anındaki HTTPS bağlantısını doğrular; yeni ayarlar için kapsayıcıyı yeniden başlatmak gerekir.",
+    "testSuccess": "HTTPS bağlantısı başarılı.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "Testler çalıştırılamadı. Lütfen yeniden deneyin.",
+    "testCurrent": "Geçerli kapsayıcı bağlantısı",
+    "testSources": {
+      "input": "Girilen proxy (uygulanmadı)",
+      "saved": "Kayıtlı proxy",
+      "environment": "Kapsayıcı yapılandırmasındaki proxy"
+    },
+    "testReasons": {
+      "timeout": "Bağlantı zaman aşımına uğradı.",
+      "authentication": "Proxy kimlik doğrulaması başarısız. Kullanıcı adı ve parolayı denetleyin.",
+      "connection": "Bu yol üzerinden test sitesine ulaşılamadı. Proxy’yi ve geçerli ağ kısıtlamalarını denetleyin.",
+      "tls": "Güvenli bağlantı doğrulanamadı.",
+      "invalidResponse": "Test sitesi beklenmeyen bir yanıt döndürdü.",
+      "unavailable": "Bu sunucuda bağlantı testi kullanılamıyor.",
+      "invalidProxy": "IP adresi içeren geçerli bir SOCKS5 URL’si girin.",
+      "settingsUnavailable": "Kayıtlı proxy ayarları okunamadı.",
+      "proxyInactive": "Proxy yönlendirmesi etkin değil.",
+      "containerOnly": "Geçerli yol yalnızca Linux kapsayıcısında test edilebilir.",
+      "notConfigured": "Proxy yapılandırılmadı."
+    }
   },
   "updates": {
     "title": "Codex CLI güncellemeleri",

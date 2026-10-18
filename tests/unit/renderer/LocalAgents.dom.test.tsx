@@ -99,6 +99,7 @@ vi.mock('@/common', () => ({
         }),
       },
       saveNetworkProxy: { invoke: vi.fn() },
+      testNetworkProxy: { invoke: vi.fn() },
     },
     acpConversation: {
       createCustomAgent: { invoke: vi.fn() },
@@ -663,6 +664,80 @@ describe('WebUI Codex account and SOCKS5 controls', () => {
     await waitFor(() => expect(screen.getByText('codex.proxy.environmentManaged')).toBeInTheDocument());
     expect(screen.getByRole('switch', { name: 'codex.proxy.enable' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'codex.proxy.save' })).toBeDisabled();
+  });
+
+  it('tests saved credentials without submitting or saving the proxy form', async () => {
+    vi.mocked(ipcBridge.webRuntime.testNetworkProxy.invoke).mockResolvedValue({
+      current: { state: 'skipped', reason: 'proxyInactive' },
+      configured: { state: 'success', elapsedMs: 30 },
+      configuredSource: 'saved',
+    });
+    renderSettings();
+    const button = await screen.findByRole('button', { name: 'codex.proxy.test' });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await screen.findByText(/^codex\.proxy\.testSuccess/);
+    expect(ipcBridge.webRuntime.testNetworkProxy.invoke).toHaveBeenCalledExactlyOnceWith({});
+    expect(ipcBridge.webRuntime.saveNetworkProxy.invoke).not.toHaveBeenCalled();
+    expect(screen.getByText('codex.proxy.testReasons.proxyInactive')).toBeInTheDocument();
+  });
+
+  it('shows independent test results and clears them when the draft changes', async () => {
+    vi.mocked(ipcBridge.webRuntime.testNetworkProxy.invoke).mockResolvedValue({
+      current: { state: 'success', elapsedMs: 30 },
+      configured: { state: 'failed', reason: 'authentication', elapsedMs: 50 },
+      configuredSource: 'input',
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByLabelText('codex.proxy.url')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('codex.proxy.url'), {
+      target: { value: 'socks5://user:secret@192.0.2.2:1080' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'codex.proxy.test' }));
+    await screen.findByText(/^codex\.proxy\.testReasons\.authentication/);
+    expect(ipcBridge.webRuntime.testNetworkProxy.invoke).toHaveBeenCalledWith({
+      proxyUrl: 'socks5://user:secret@192.0.2.2:1080',
+    });
+    expect(screen.getByText(/^codex\.proxy\.testSuccess/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('codex.proxy.url'), { target: { value: 'socks5://192.0.2.3:1080' } });
+    expect(screen.queryByText(/^codex\.proxy\.testSuccess/)).not.toBeInTheDocument();
+  });
+
+  it('allows environment-managed proxy tests while keeping the save controls locked', async () => {
+    vi.mocked(ipcBridge.webRuntime.networkProxy.invoke).mockResolvedValue({
+      ...proxyStatus,
+      managedByEnvironment: true,
+    });
+    vi.mocked(ipcBridge.webRuntime.testNetworkProxy.invoke).mockResolvedValue({
+      current: { state: 'skipped', reason: 'proxyInactive' },
+      configured: { state: 'success', elapsedMs: 10 },
+      configuredSource: 'environment',
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.proxy.test' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: 'codex.proxy.save' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'codex.proxy.test' }));
+    await screen.findByText('codex.proxy.testSources.environment');
+  });
+
+  it('prevents duplicate tests and saves during a test, then reports request failure', async () => {
+    let rejectTest: (reason: Error) => void = vi.fn();
+    vi.mocked(ipcBridge.webRuntime.testNetworkProxy.invoke).mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectTest = reject;
+        })
+    );
+    renderSettings();
+    const button = await screen.findByRole('button', { name: 'codex.proxy.test' });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(ipcBridge.webRuntime.testNetworkProxy.invoke).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'codex.proxy.save' })).toBeDisabled();
+    rejectTest(new Error('private upstream detail'));
+    await screen.findByText('codex.proxy.testFailed');
+    expect(screen.queryByText('private upstream detail')).not.toBeInTheDocument();
   });
 
   it('shows the installed CLI version and checks updates only when requested', async () => {

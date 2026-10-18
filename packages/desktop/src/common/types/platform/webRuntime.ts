@@ -6,4 +6,7 @@ export type {
   CodexCleanupResult,
   NetworkProxySettings,
   NetworkProxyStatus,
+  NetworkProxyTestRequest,
+  NetworkProxyProbeResult,
+  NetworkProxyTestResult,
 } from '../../../../../web-host/src/types';

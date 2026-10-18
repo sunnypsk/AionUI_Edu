@@ -175,7 +175,32 @@
     "credentialsStored": "Identifiants enregistrés",
     "save": "Enregistrer le proxy",
     "saved": "Paramètres enregistrés. Redémarrez le conteneur pour les appliquer.",
-    "saveFailed": "Échec de l’enregistrement. Vérifiez l’URL SOCKS5 et l’adresse IP."
+    "saveFailed": "Échec de l’enregistrement. Vérifiez l’URL SOCKS5 et l’adresse IP.",
+    "test": "Tester la connexion",
+    "testing": "Test en cours…",
+    "testHint": "Vérifie la connexion actuelle et le proxy saisi ou enregistré sans enregistrer ni appliquer de modifications. Un succès confirme HTTPS au moment du test ; les nouveaux paramètres nécessitent toujours un redémarrage du conteneur.",
+    "testSuccess": "Connexion HTTPS réussie.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "Impossible de lancer les tests. Veuillez réessayer.",
+    "testCurrent": "Connexion actuelle du conteneur",
+    "testSources": {
+      "input": "Proxy saisi (non appliqué)",
+      "saved": "Proxy enregistré",
+      "environment": "Proxy de la configuration du conteneur"
+    },
+    "testReasons": {
+      "timeout": "Le délai de connexion a expiré.",
+      "authentication": "Échec de l’authentification du proxy. Vérifiez le nom d’utilisateur et le mot de passe.",
+      "connection": "Impossible d’atteindre le site de test par cette route. Vérifiez le proxy et les restrictions réseau actuelles.",
+      "tls": "Impossible de vérifier la connexion sécurisée.",
+      "invalidResponse": "Le site de test a renvoyé une réponse inattendue.",
+      "unavailable": "Le test de connexion est indisponible sur cet hôte.",
+      "invalidProxy": "Saisissez une URL SOCKS5 valide avec une adresse IP.",
+      "settingsUnavailable": "Impossible de lire les paramètres de proxy enregistrés.",
+      "proxyInactive": "Le routage par proxy n’est pas actif.",
+      "containerOnly": "La route actuelle ne peut être testée que dans le conteneur Linux.",
+      "notConfigured": "Aucun proxy n’a été configuré."
+    }
   },
   "updates": {
     "title": "Mises à jour de Codex CLI",

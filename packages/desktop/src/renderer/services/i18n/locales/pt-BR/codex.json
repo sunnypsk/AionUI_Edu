@@ -175,7 +175,32 @@
     "credentialsStored": "Credenciais salvas",
     "save": "Salvar configurações do proxy",
     "saved": "Configurações salvas. Reinicie o contêiner para aplicá-las.",
-    "saveFailed": "Não foi possível salvar. Verifique a URL SOCKS5 e o endereço IP."
+    "saveFailed": "Não foi possível salvar. Verifique a URL SOCKS5 e o endereço IP.",
+    "test": "Testar conexão",
+    "testing": "Testando…",
+    "testHint": "Verifica a conexão atual e o proxy informado ou salvo sem salvar nem aplicar alterações. O sucesso confirma HTTPS no momento do teste; novas configurações ainda exigem reiniciar o contêiner.",
+    "testSuccess": "Conexão HTTPS bem-sucedida.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "Não foi possível executar os testes. Tente novamente.",
+    "testCurrent": "Conexão atual do contêiner",
+    "testSources": {
+      "input": "Proxy informado (não aplicado)",
+      "saved": "Proxy salvo",
+      "environment": "Proxy da configuração do contêiner"
+    },
+    "testReasons": {
+      "timeout": "O tempo limite da conexão foi excedido.",
+      "authentication": "Falha na autenticação do proxy. Verifique o usuário e a senha.",
+      "connection": "Não foi possível acessar o site de teste por esta rota. Verifique o proxy e as restrições atuais da rede.",
+      "tls": "Não foi possível verificar a conexão segura.",
+      "invalidResponse": "O site de teste retornou uma resposta inesperada.",
+      "unavailable": "O teste de conexão não está disponível neste host.",
+      "invalidProxy": "Informe uma URL SOCKS5 válida com um endereço IP.",
+      "settingsUnavailable": "Não foi possível ler as configurações de proxy salvas.",
+      "proxyInactive": "O roteamento por proxy não está ativo.",
+      "containerOnly": "A rota atual só pode ser testada no contêiner Linux.",
+      "notConfigured": "Nenhum proxy foi configurado."
+    }
   },
   "updates": {
     "title": "Atualizações do Codex CLI",

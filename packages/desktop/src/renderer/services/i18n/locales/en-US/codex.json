@@ -175,7 +175,32 @@
     "credentialsStored": "Credentials stored",
     "save": "Save proxy settings",
     "saved": "Proxy settings saved. Restart the container to apply them.",
-    "saveFailed": "Could not save. Check the SOCKS5 URL and use an IP address."
+    "saveFailed": "Could not save. Check the SOCKS5 URL and use an IP address.",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testHint": "Checks the current connection and the entered or saved proxy without saving or applying changes. Success confirms HTTPS connectivity at the time of the test; new settings still require a container restart.",
+    "testSuccess": "HTTPS connection succeeded.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "Could not run the tests. Please try again.",
+    "testCurrent": "Current container connection",
+    "testSources": {
+      "input": "Entered proxy (not applied)",
+      "saved": "Saved proxy",
+      "environment": "Proxy from container configuration"
+    },
+    "testReasons": {
+      "timeout": "The connection timed out.",
+      "authentication": "Proxy authentication failed. Check the username and password.",
+      "connection": "Could not reach the test site through this route. Check the proxy and current network restrictions.",
+      "tls": "The secure connection could not be verified.",
+      "invalidResponse": "The test site returned an unexpected response.",
+      "unavailable": "The connection test is unavailable on this host.",
+      "invalidProxy": "Enter a valid SOCKS5 URL with an IP address.",
+      "settingsUnavailable": "Could not read the saved proxy settings.",
+      "proxyInactive": "Proxy routing is not active.",
+      "containerOnly": "The current route can only be tested in the Linux container.",
+      "notConfigured": "No proxy has been configured."
+    }
   },
   "updates": {
     "title": "Codex CLI updates",

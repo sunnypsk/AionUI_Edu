@@ -175,7 +175,32 @@
     "credentialsStored": "Zugangsdaten gespeichert",
     "save": "Proxy-Einstellungen speichern",
     "saved": "Einstellungen gespeichert. Container zum Anwenden neu starten.",
-    "saveFailed": "Speichern fehlgeschlagen. SOCKS5-URL und IP-Adresse prüfen."
+    "saveFailed": "Speichern fehlgeschlagen. SOCKS5-URL und IP-Adresse prüfen.",
+    "test": "Verbindung testen",
+    "testing": "Test läuft…",
+    "testHint": "Prüft die aktuelle Verbindung und den eingegebenen oder gespeicherten Proxy, ohne Änderungen zu speichern oder anzuwenden. Ein Erfolg bestätigt HTTPS zum Testzeitpunkt; neue Einstellungen erfordern weiterhin einen Container-Neustart.",
+    "testSuccess": "HTTPS-Verbindung erfolgreich.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "Die Tests konnten nicht ausgeführt werden. Bitte erneut versuchen.",
+    "testCurrent": "Aktuelle Container-Verbindung",
+    "testSources": {
+      "input": "Eingegebener Proxy (nicht angewendet)",
+      "saved": "Gespeicherter Proxy",
+      "environment": "Proxy aus der Container-Konfiguration"
+    },
+    "testReasons": {
+      "timeout": "Zeitüberschreitung der Verbindung.",
+      "authentication": "Proxy-Authentifizierung fehlgeschlagen. Benutzername und Passwort prüfen.",
+      "connection": "Die Testseite ist über diese Route nicht erreichbar. Proxy und aktuelle Netzwerkbeschränkungen prüfen.",
+      "tls": "Die sichere Verbindung konnte nicht verifiziert werden.",
+      "invalidResponse": "Die Testseite hat eine unerwartete Antwort zurückgegeben.",
+      "unavailable": "Der Verbindungstest ist auf diesem Host nicht verfügbar.",
+      "invalidProxy": "Eine gültige SOCKS5-URL mit IP-Adresse eingeben.",
+      "settingsUnavailable": "Gespeicherte Proxy-Einstellungen konnten nicht gelesen werden.",
+      "proxyInactive": "Proxy-Routing ist nicht aktiv.",
+      "containerOnly": "Die aktuelle Route kann nur im Linux-Container getestet werden.",
+      "notConfigured": "Es wurde kein Proxy konfiguriert."
+    }
   },
   "updates": {
     "title": "Codex CLI-Updates",

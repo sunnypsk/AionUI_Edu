@@ -1,12 +1,21 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
 import path from 'node:path';
-import type { NetworkProxySettings, NetworkProxyStatus } from '../types.js';
+import type {
+  NetworkProxyProbeResult,
+  NetworkProxySettings,
+  NetworkProxyStatus,
+  NetworkProxyTestRequest,
+  NetworkProxyTestResult,
+} from '../types.js';
 
 export const TUN_INTERFACE = 'aionedu0';
 export const TUN_DNS = '198.18.0.2';
 export const PROXY_FILE_NAME = 'network-proxy.json';
+const PROXY_TEST_URL = 'https://api.ipify.org';
+const PROXY_TEST_TIMEOUT_MS = 10000;
 
 export type SocksProxy = {
   url: string;
@@ -160,11 +169,149 @@ export async function loadProxySettings(
   return { enabled: settings.enabled, ...(proxyUrl ? { proxyUrl } : {}) };
 }
 
+/** Probe HTTPS without changing routes; credentials only enter curl through stdin. */
+export function probeProxyConnection(
+  proxy?: SocksProxy,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<NetworkProxyProbeResult> {
+  const startedAt = performance.now();
+  return new Promise((resolve) => {
+    const elapsedMs = () => Math.round(performance.now() - startedAt);
+    // Ignore inherited proxy variables and .curlrc so each test uses exactly its labelled route.
+    const probeEnv = Object.fromEntries(Object.entries(env).filter(([key]) => !/^(all|https?|no)_proxy$/i.test(key)));
+    const child = spawn(
+      'curl',
+      [
+        '--disable',
+        '--config',
+        '-',
+        '--silent',
+        '--show-error',
+        '--fail',
+        '--proto',
+        '=https',
+        '--connect-timeout',
+        '5',
+        '--max-time',
+        '10',
+        '--max-filesize',
+        '4096',
+        '--write-out',
+        '\n%{http_code}',
+        '--url',
+        PROXY_TEST_URL,
+      ],
+      { env: probeEnv, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    let settled = false;
+    let output = '';
+    let errorOutput = '';
+    const finish = (result: NetworkProxyProbeResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(result);
+    };
+    const timeout = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish({ state: 'failed', reason: 'timeout', elapsedMs: elapsedMs() });
+    }, PROXY_TEST_TIMEOUT_MS);
+    child.on('error', () => finish({ state: 'failed', reason: 'unavailable', elapsedMs: elapsedMs() }));
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+      if (output.length > 4096) {
+        child.kill('SIGKILL');
+        finish({ state: 'failed', reason: 'invalidResponse', elapsedMs: elapsedMs() });
+      }
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      // Inspect only bounded error text to classify SOCKS authentication; never return or log it.
+      errorOutput = (errorOutput + chunk.toString()).slice(0, 4096);
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        const fields = output.trim().split(/\s+/);
+        finish(
+          fields.length === 2 && isIP(fields[0]) && /^2\d\d$/.test(fields[1])
+            ? { state: 'success', elapsedMs: elapsedMs() }
+            : { state: 'failed', reason: 'invalidResponse', elapsedMs: elapsedMs() }
+        );
+        return;
+      }
+      const reason =
+        code === 28
+          ? 'timeout'
+          : code === 67 ||
+              (code === 97 && /authentication|auth method|user was rejected|username|password/i.test(errorOutput))
+            ? 'authentication'
+            : [35, 51, 58, 60, 77, 80, 82, 83, 90, 91].includes(code ?? 0)
+              ? 'tls'
+              : 'connection';
+      finish({ state: 'failed', reason, elapsedMs: elapsedMs() });
+    });
+    child.stdin.on('error', () => {
+      /* curl may exit before consuming its config. */
+    });
+    const proxyUrl = proxy?.url.replace(/^socks5:/, 'socks5h:') ?? '';
+    child.stdin.end(`proxy = ${JSON.stringify(proxyUrl)}\nnoproxy = ""\n`);
+  });
+}
+
 export class NetworkProxyStore {
   constructor(
     private readonly dataDir: string,
-    private readonly env: NodeJS.ProcessEnv = process.env
+    private readonly env: NodeJS.ProcessEnv = process.env,
+    private readonly probe: (proxy?: SocksProxy) => Promise<NetworkProxyProbeResult> = (proxy) =>
+      probeProxyConnection(proxy, env)
   ) {}
+
+  /** Test the running route and a draft/saved proxy independently, without persisting anything. */
+  async test(input: unknown): Promise<NetworkProxyTestResult> {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((key) => key !== 'proxyUrl') ||
+      ('proxyUrl' in input && typeof input.proxyUrl !== 'string')
+    )
+      throw new Error('INVALID_REQUEST');
+    const draftUrl = (input as NetworkProxyTestRequest).proxyUrl?.trim();
+    const configuredSource = draftUrl ? 'input' : this.env.AIONUI_SOCKS5_PROXY?.trim() ? 'environment' : 'saved';
+    const runProbe = async (proxy?: SocksProxy): Promise<NetworkProxyProbeResult> => {
+      const startedAt = performance.now();
+      try {
+        return await this.probe(proxy);
+      } catch {
+        return { state: 'failed', reason: 'unavailable', elapsedMs: Math.round(performance.now() - startedAt) };
+      }
+    };
+    const current: Promise<NetworkProxyProbeResult> =
+      this.env.AIONUI_CONTAINER !== '1'
+        ? Promise.resolve({ state: 'skipped', reason: 'containerOnly' })
+        : this.env.AIONUI_ACTIVE_PROXY_HASH
+          ? runProbe()
+          : Promise.resolve({ state: 'skipped', reason: 'proxyInactive' });
+    const configured = async (): Promise<NetworkProxyProbeResult> => {
+      let proxyUrl = draftUrl;
+      if (!proxyUrl) {
+        try {
+          proxyUrl = (await loadProxySettings(this.dataDir, this.env)).proxyUrl;
+        } catch {
+          return { state: 'failed', reason: 'settingsUnavailable', elapsedMs: 0 };
+        }
+      }
+      if (!proxyUrl) return { state: 'skipped', reason: 'notConfigured' };
+      let proxy: SocksProxy;
+      try {
+        proxy = parseSocksProxy(proxyUrl);
+      } catch {
+        return { state: 'failed', reason: 'invalidProxy', elapsedMs: 0 };
+      }
+      return runProbe(proxy);
+    };
+    const [currentResult, configuredResult] = await Promise.all([current, configured()]);
+    return { current: currentResult, configured: configuredResult, configuredSource };
+  }
 
   async status(): Promise<NetworkProxyStatus> {
     const settings = await loadProxySettings(this.dataDir, this.env);

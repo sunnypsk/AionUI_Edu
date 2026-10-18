@@ -43,6 +43,8 @@ import type {
   CodexVersionInventory,
   NetworkProxySettings,
   NetworkProxyStatus,
+  NetworkProxyTestRequest,
+  NetworkProxyTestResult,
 } from '../types/platform/webRuntime';
 import type {
   EnsureConversationRuntimeResponse,
@@ -187,6 +189,7 @@ export const webRuntime = {
   codexLogout: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/logout'),
   networkProxy: httpGet<NetworkProxyStatus, void>('/api/edu/network-proxy'),
   saveNetworkProxy: httpPut<NetworkProxyStatus, NetworkProxySettings>('/api/edu/network-proxy'),
+  testNetworkProxy: httpPost<NetworkProxyTestResult, NetworkProxyTestRequest>('/api/edu/network-proxy/test'),
 };
 
 export const assistants = {

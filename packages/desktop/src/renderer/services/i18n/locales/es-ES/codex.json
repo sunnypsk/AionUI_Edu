@@ -175,7 +175,32 @@
     "credentialsStored": "Credenciales guardadas",
     "save": "Guardar configuración del proxy",
     "saved": "Configuración guardada. Reinicia el contenedor para aplicarla.",
-    "saveFailed": "No se pudo guardar. Comprueba la URL SOCKS5 y la dirección IP."
+    "saveFailed": "No se pudo guardar. Comprueba la URL SOCKS5 y la dirección IP.",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "testHint": "Comprueba la conexión actual y el proxy introducido o guardado sin guardar ni aplicar cambios. Un resultado correcto confirma HTTPS en ese momento; los ajustes nuevos siguen requiriendo reiniciar el contenedor.",
+    "testSuccess": "Conexión HTTPS correcta.",
+    "testDuration": "{{duration}} ms",
+    "testFailed": "No se pudieron ejecutar las pruebas. Inténtalo de nuevo.",
+    "testCurrent": "Conexión actual del contenedor",
+    "testSources": {
+      "input": "Proxy introducido (sin aplicar)",
+      "saved": "Proxy guardado",
+      "environment": "Proxy de la configuración del contenedor"
+    },
+    "testReasons": {
+      "timeout": "La conexión agotó el tiempo de espera.",
+      "authentication": "Error de autenticación del proxy. Revisa el usuario y la contraseña.",
+      "connection": "No se pudo acceder al sitio de prueba por esta ruta. Revisa el proxy y las restricciones de red actuales.",
+      "tls": "No se pudo verificar la conexión segura.",
+      "invalidResponse": "El sitio de prueba devolvió una respuesta inesperada.",
+      "unavailable": "La prueba de conexión no está disponible en este host.",
+      "invalidProxy": "Introduce una URL SOCKS5 válida con una dirección IP.",
+      "settingsUnavailable": "No se pudieron leer los ajustes de proxy guardados.",
+      "proxyInactive": "El enrutamiento por proxy no está activo.",
+      "containerOnly": "La ruta actual solo puede probarse en el contenedor Linux.",
+      "notConfigured": "No se ha configurado ningún proxy."
+    }
   },
   "updates": {
     "title": "Actualizaciones de Codex CLI",

@@ -175,7 +175,32 @@
     "credentialsStored": "已儲存憑證",
     "save": "儲存代理設定",
     "saved": "代理設定已儲存，重啟容器後生效。",
-    "saveFailed": "未能儲存，請檢查 SOCKS5 URL 並使用 IP 位址。"
+    "saveFailed": "未能儲存，請檢查 SOCKS5 URL 並使用 IP 位址。",
+    "test": "測試連線",
+    "testing": "測試中…",
+    "testHint": "檢查目前連線及輸入或已儲存的代理，不會儲存或套用變更。成功只代表測試當下 HTTPS 連線正常；新設定仍須重啟容器才會生效。",
+    "testSuccess": "HTTPS 連線成功。",
+    "testDuration": "{{duration}} 毫秒",
+    "testFailed": "無法執行連線測試，請再試一次。",
+    "testCurrent": "目前容器連線",
+    "testSources": {
+      "input": "輸入的代理（尚未套用）",
+      "saved": "已儲存的代理",
+      "environment": "容器設定的代理"
+    },
+    "testReasons": {
+      "timeout": "連線超時。",
+      "authentication": "代理認證失敗，請檢查帳號及密碼。",
+      "connection": "無法經此路徑連接測試網站，請檢查代理及目前的網絡限制。",
+      "tls": "無法驗證安全連線。",
+      "invalidResponse": "測試網站傳回非預期的回應。",
+      "unavailable": "此主機無法執行連線測試。",
+      "invalidProxy": "請輸入有效的 SOCKS5 URL，伺服器須使用 IP 位址。",
+      "settingsUnavailable": "無法讀取已儲存的代理設定。",
+      "proxyInactive": "代理路由尚未啟用。",
+      "containerOnly": "目前路由只可在 Linux 容器內測試。",
+      "notConfigured": "尚未設定代理。"
+    }
   },
   "updates": {
     "title": "Codex CLI 更新",

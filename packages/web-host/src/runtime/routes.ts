@@ -9,7 +9,7 @@ type RuntimeControlsOptions = {
   sourceCommit?: string;
   releaseSequence?: string;
   auth?: Pick<CodexAuthService, 'status' | 'startLogin' | 'cancelLogin' | 'logout' | 'close'>;
-  proxy?: Pick<NetworkProxyStore, 'status' | 'save'>;
+  proxy?: Pick<NetworkProxyStore, 'status' | 'save' | 'test'>;
   updates?: Pick<CodexUpdateService, 'status' | 'check' | 'install' | 'versions' | 'cleanup' | 'close'>;
 };
 
@@ -133,7 +133,9 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
         } else if (route === '/api/edu/codex/logout' && req.method === 'POST') {
           await readBody(req);
           result = await auth.logout();
-        } else if (route === '/api/edu/network-proxy' && req.method === 'GET') result = await proxy.status();
+        } else if (route === '/api/edu/network-proxy/test' && req.method === 'POST')
+          result = await proxy.test(await readBody(req));
+        else if (route === '/api/edu/network-proxy' && req.method === 'GET') result = await proxy.status();
         else if (route === '/api/edu/network-proxy' && req.method === 'PUT')
           result = await proxy.save(await readBody(req));
         else {
