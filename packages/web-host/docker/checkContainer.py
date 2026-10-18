@@ -78,6 +78,7 @@ def check(image, revision):
             time.sleep(1)
         else:
             raise RuntimeError("WebUI did not become healthy")
+        docker("top", app, "-eo", "pid,args")
         result = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")

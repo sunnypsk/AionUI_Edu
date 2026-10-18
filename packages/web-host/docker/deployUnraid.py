@@ -178,7 +178,7 @@ class Deployment:
                 host.get("NetworkMode") != "bridge" or host.get("PortBindings") != expected_port):
             raise ValueError("Existing container differs from this reviewed deployment")
         # A live conversation keeps its CLI process. Be conservative and defer the update.
-        processes = docker("top", old["Id"], "-eo", "args").splitlines()[1:]
+        processes = docker("top", old["Id"], "-eo", "pid,args").splitlines()[1:]
         for command in processes:
             if re.search(r"(?:^|[/\s])(?:codex|codex-acp)(?:\s|$)", command) and "cli_auth_credentials_store=" not in command:
                 raise RuntimeError("Codex is still running; update deferred")

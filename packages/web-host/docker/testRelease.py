@@ -101,12 +101,16 @@ class Release(unittest.TestCase):
             self.subject.validate_existing(old)
 
     def test_defers_updates_while_a_codex_session_process_exists(self):
-        with patch.object(deploy, "docker", return_value="COMMAND\n/app/codex app-server\n"):
+        def process_list(*args):
+            if "pid" not in args[-1].split(","):
+                raise RuntimeError("Couldn't find PID field in ps output")
+            return "PID COMMAND\n42 /app/codex app-server\n"
+        with patch.object(deploy, "docker", side_effect=process_list):
             with self.assertRaisesRegex(RuntimeError, "still running"):
                 self.subject.validate_existing(self.old())
 
     def test_the_account_status_process_does_not_count_as_a_conversation(self):
-        with patch.object(deploy, "docker", return_value='COMMAND\n/app/codex app-server --listen stdio:// -c cli_auth_credentials_store="file"\n'):
+        with patch.object(deploy, "docker", return_value='PID COMMAND\n42 /app/codex app-server --listen stdio:// -c cli_auth_credentials_store="file"\n'):
             self.subject.validate_existing(self.old())
 
     def test_failed_switch_restores_snapshot_and_preserves_failed_data_for_review(self):
