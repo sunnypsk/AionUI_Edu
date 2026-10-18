@@ -50,7 +50,14 @@ describe('redactErrorText', () => {
   });
 
   it('masks bare JWTs without a Bearer prefix', () => {
-    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+    // Expired, unsigned synthetic data; this fixture contains no real credential.
+    const jwt = [
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'synthetic-test', exp: 1 },
+    ]
+      .map((value) => Buffer.from(JSON.stringify(value)).toString('base64url'))
+      .concat('synthetic-signature')
+      .join('.');
     const out = redactErrorText(`token rejected: ${jwt}`);
     expect(out).not.toContain(jwt);
     expect(out).toContain('[REDACTED]');

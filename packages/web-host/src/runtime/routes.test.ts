@@ -1,0 +1,166 @@
+import http from 'node:http';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createRuntimeControls } from './routes.js';
+import { NetworkProxyStore } from './proxy.js';
+
+const signedOut = { authenticated: false, login: { state: 'idle' as const } };
+
+describe('authenticated WebUI runtime controls', () => {
+  let dataDir: string;
+  let backend: http.Server;
+  let server: http.Server;
+  let base: string;
+  let controls: ReturnType<typeof createRuntimeControls>;
+  let backendHealthy: boolean;
+  const auth = {
+    status: vi.fn().mockResolvedValue(signedOut),
+    startLogin: vi.fn().mockResolvedValue(signedOut),
+    cancelLogin: vi.fn().mockResolvedValue(signedOut),
+    logout: vi.fn().mockResolvedValue(signedOut),
+    close: vi.fn(),
+  };
+  const listen = async (listener: http.Server) => {
+    await new Promise<void>((resolve, reject) => {
+      listener.once('error', reject);
+      listener.listen(0, '127.0.0.1', resolve);
+    });
+    return (listener.address() as { port: number }).port;
+  };
+  const request = (route: string, options: RequestInit = {}) =>
+    fetch(base + route, { ...options, headers: { cookie: 'test-session=valid', ...options.headers } });
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    auth.status.mockResolvedValue(signedOut);
+    dataDir = await mkdtemp(path.join(os.tmpdir(), 'aionui-controls-test-'));
+    backendHealthy = true;
+    backend = http.createServer((req, res) => {
+      const healthProbe = req.url === '/api/auth/internal/users/system';
+      res.writeHead(
+        healthProbe ? (backendHealthy ? 200 : 503) : req.headers.cookie === 'test-session=valid' ? 200 : 401,
+        { 'content-type': 'application/json' }
+      );
+      res.end('{}');
+    });
+    const backendPort = await listen(backend);
+    controls = createRuntimeControls({
+      backendPort,
+      dataDir,
+      auth,
+      proxy: new NetworkProxyStore(dataDir, {}),
+      sourceCommit: 'a'.repeat(40),
+      releaseSequence: '12.1',
+    });
+    server = http.createServer((req, res) => {
+      void controls.handleRequest(req, res).then((handled) => {
+        if (!handled) res.writeHead(404).end();
+      });
+    });
+    base = `http://127.0.0.1:${await listen(server)}`;
+  });
+  afterEach(async () => {
+    controls?.close();
+    for (const listener of [server, backend]) {
+      listener?.closeAllConnections();
+      if (listener?.listening) await new Promise<void>((resolve) => listener.close(() => resolve()));
+    }
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('does not start Codex or return account details to an anonymous request', async () => {
+    const response = await fetch(base + '/api/edu/codex/account');
+    expect(response.status).toBe(401);
+    expect(auth.status).not.toHaveBeenCalled();
+  });
+
+  it('reports the running build without starting Codex or exposing account details', async () => {
+    const response = await fetch(base + '/healthz');
+    expect(await response.json()).toEqual({
+      ok: true,
+      app: 'aionui-edu',
+      sourceCommit: 'a'.repeat(40),
+      releaseSequence: '12.1',
+    });
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(auth.status).not.toHaveBeenCalled();
+  });
+
+  it('fails the health check when the backend is unavailable', async () => {
+    backendHealthy = false;
+    expect((await fetch(base + '/healthz')).status).toBe(503);
+  });
+
+  it('validates the session with AionCore instead of trusting the presence of a cookie', async () => {
+    const response = await request('/api/edu/codex/account', { headers: { cookie: 'test-session=invalid' } });
+    expect(response.status).toBe(401);
+    expect(auth.status).not.toHaveBeenCalled();
+  });
+
+  it('does not cache account responses containing device codes', async () => {
+    const response = await request('/api/edu/codex/account');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({ data: signedOut });
+  });
+
+  it('starts device login for an authenticated same-origin JSON request', async () => {
+    const response = await request('/api/edu/codex/login', {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(200);
+    expect(auth.startLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects cross-origin changes even when the request carries a valid cookie', async () => {
+    const response = await request('/api/edu/codex/login', {
+      method: 'POST',
+      headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(auth.startLogin).not.toHaveBeenCalled();
+  });
+
+  it('rejects form submissions to mutation endpoints', async () => {
+    const response = await request('/api/edu/codex/logout', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '{}',
+    });
+    expect(response.status).toBe(403);
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('saves proxy credentials on the host without returning them in the response', async () => {
+    const response = await request('/api/edu/network-proxy', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: true, proxyUrl: 'socks5://user:private-password@192.0.2.1:1080' }),
+    });
+    const body = await response.json();
+    expect(body.data).toMatchObject({ active: false, pendingRestart: true, hasCredentials: true });
+    expect(JSON.stringify(body)).not.toContain('private-password');
+  });
+
+  it('rejects invalid proxy settings and leaves routing disabled', async () => {
+    const response = await request('/api/edu/network-proxy', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: true, proxyUrl: 'http://user:private-password@192.0.2.1:1080' }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.text()).not.toContain('private-password');
+    expect((await (await request('/api/edu/network-proxy')).json()).data.enabled).toBe(false);
+  });
+
+  it('does not expose upstream CLI errors through the control API', async () => {
+    auth.status.mockRejectedValueOnce(new Error('private upstream credential'));
+    const response = await request('/api/edu/codex/account');
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain('private upstream credential');
+  });
+});

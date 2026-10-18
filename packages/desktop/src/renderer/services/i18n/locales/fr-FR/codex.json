@@ -129,5 +129,52 @@
       "reject_once_desc": "Refuser cette lecture de fichier uniquement",
       "reject_always_desc": "Toujours refuser toutes les demandes de lecture de fichier"
     }
+  },
+  "settings": {
+    "title": "Paramètres Codex CLI",
+    "description": "Codex CLI est l’agent pris en charge. Ces paramètres s’appliquent aux nouvelles conversations. Modifiez ici le modèle et l’effort de raisonnement.",
+    "model": "Modèle",
+    "reasoning": "Effort de raisonnement",
+    "invalidModel": "Saisissez un identifiant de modèle valide, par exemple gpt-6-astra.",
+    "efforts": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé",
+      "xhigh": "Très élevé",
+      "max": "Maximum"
+    }
+  },
+  "account": {
+    "title": "Compte Codex",
+    "description": "Connectez-vous sur le site officiel de ChatGPT. Les conversations de ce NAS partagent ce compte Codex.",
+    "actionFailed": "Impossible de mettre à jour la connexion. Vérifiez le réseau et réessayez.",
+    "unavailable": "État du compte indisponible. Vérifiez la CLI et le réseau, puis actualisez.",
+    "signedIn": "Codex est connecté",
+    "signedOut": "Codex n’est pas connecté",
+    "enterCode": "Saisissez ce code à usage unique sur la page ChatGPT :",
+    "openLogin": "Ouvrir la connexion ChatGPT",
+    "loginFailed": "Échec ou expiration de la connexion. Activez la connexion par code d’appareil dans la sécurité ChatGPT et réessayez.",
+    "signOut": "Déconnecter Codex",
+    "signIn": "Se connecter avec ChatGPT",
+    "refresh": "Actualiser l’état"
+  },
+  "proxy": {
+    "title": "Proxy réseau SOCKS5",
+    "description": "Acheminez le trafic du conteneur, de Codex et de ses outils via SOCKS5. Les modifications prennent effet après redémarrage du conteneur.",
+    "loadFailed": "Impossible de charger les paramètres du proxy.",
+    "active": "Le proxy du conteneur est actif",
+    "inactive": "Le proxy du conteneur est inactif",
+    "containerOnly": "Le routage complet est disponible dans le conteneur Docker Linux. Le développement local ne modifie pas le réseau de cet ordinateur.",
+    "restartRequired": "Les paramètres enregistrés diffèrent de la route active. Redémarrez le conteneur lorsqu’aucune tâche ne s’exécute.",
+    "environmentManaged": "Le proxy est géré par AIONUI_SOCKS5_PROXY dans la configuration du conteneur.",
+    "enable": "Activer le routage SOCKS5",
+    "url": "URL SOCKS5",
+    "urlHint": "Utilisez socks5:// ou socks5h:// avec une adresse IP. Encodez les identifiants facultatifs dans l’URL. Laissez vide pour conserver ceux enregistrés.",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "Destination enregistrée : {{endpoint}}",
+    "credentialsStored": "Identifiants enregistrés",
+    "save": "Enregistrer le proxy",
+    "saved": "Paramètres enregistrés. Redémarrez le conteneur pour les appliquer.",
+    "saveFailed": "Échec de l’enregistrement. Vérifiez l’URL SOCKS5 et l’adresse IP."
   }
 }

@@ -1,0 +1,26 @@
+services:
+  aionui:
+    image: '${AIONUI_IMAGE:?Set the tested GHCR digest}'
+    container_name: aionui-edu
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - '${AIONUI_BIND_ADDRESS:?Set the NAS LAN address}:${AIONUI_PORT:-25808}:25808'
+    volumes:
+      - '${AIONUI_APPDATA:-/mnt/user/appdata/aionui-edu/data}:/data'
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PUID: '${PUID:-99}'
+      PGID: '${PGID:-100}'
+    pids_limit: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    stop_grace_period: 25s

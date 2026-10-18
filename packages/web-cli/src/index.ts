@@ -208,6 +208,7 @@ async function runStart(flags: Map<string, string | true>): Promise<void> {
       allowRemote,
       dataDir,
       logDir,
+      enableRuntimeControls: true,
       dirs: {
         cacheDir: dataDir,
         workDir: dataDir,

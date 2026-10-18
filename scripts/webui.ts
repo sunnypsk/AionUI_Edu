@@ -201,6 +201,8 @@ async function fetchAdminUsername(backendPort: number): Promise<string> {
 
 async function main(): Promise<void> {
   augmentPathWithNvm();
+  // Prefer this fork's pinned Codex CLI over a different global installation.
+  process.env.PATH = [path.join(repoRoot, 'node_modules', '.bin'), process.env.PATH || ''].join(path.delimiter);
   runPackageIfNeeded();
   const port = resolvePort();
   const allowRemote = resolveAllowRemote();
@@ -234,6 +236,7 @@ async function main(): Promise<void> {
     port,
     allowRemote,
     dataDir: workDir,
+    enableRuntimeControls: true,
     logDir,
     // Surface the same work dir on /api/system/info so the browser UI shows
     // where standalone webui is actually persisting data. Without this the

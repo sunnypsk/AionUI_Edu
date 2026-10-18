@@ -626,7 +626,7 @@ describe('AcpSendBox', () => {
     expect(screen.queryByTestId('mock-thought-selector')).not.toBeInTheDocument();
   });
 
-  it('applies runtime thought level from the mobile action sheet without persisting a global preference', async () => {
+  it('keeps runtime model and reasoning configuration out of the mobile action sheet', async () => {
     isMobileMock.current = true;
     const setConfigOption = vi.fn().mockResolvedValue([]);
     useAcpConfigOptionsMock.mockReturnValue({
@@ -657,52 +657,9 @@ describe('AcpSendBox', () => {
       />
     );
 
-    await act(async () => {
-      mobileActionSheetEntries.current.find((entry) => entry.key === 'thought-level')?.submenu?.onSelect?.('high');
-    });
-
-    // This branch dropped global-preference persistence: only the runtime
-    // config option is set; nothing is saved to a global agent preference.
-    await waitFor(() => {
-      expect(setConfigOption).toHaveBeenCalledWith('reasoning_effort', 'high');
-    });
-  });
-
-  it('does not apply runtime thought level when observed confirmation fails', async () => {
-    isMobileMock.current = true;
-    const setConfigOption = vi.fn().mockRejectedValue(new Error('command_ack'));
-    useAcpConfigOptionsMock.mockReturnValue({
-      mode: null,
-      model: null,
-      thoughtLevel: {
-        id: 'reasoning_effort',
-        category: 'thought_level',
-        currentValue: 'medium',
-        options: [{ value: 'high', label: 'High' }],
-      },
-      setStatus: { state: 'idle' },
-      setConfigOption,
-      reload: vi.fn(),
-      isLoading: false,
-      configOptions: [],
-    });
-
-    render(
-      <AcpSendBox
-        conversation_id='conv-1'
-        backend='codex'
-        workspacePath='/tmp/workspace'
-        messageState={makeMessageState()}
-      />
-    );
-
-    await act(async () => {
-      mobileActionSheetEntries.current.find((entry) => entry.key === 'thought-level')?.submenu?.onSelect?.('high');
-    });
-
-    await waitFor(() => {
-      expect(setConfigOption).toHaveBeenCalledWith('reasoning_effort', 'high');
-    });
+    expect(mobileActionSheetEntries.current.map((entry) => entry.key)).not.toContain('thought-level');
+    expect(mobileActionSheetEntries.current.map((entry) => entry.key)).not.toContain('model');
+    expect(setConfigOption).not.toHaveBeenCalled();
   });
 
   it('passes teamRuntime.isActive and onFocus down to SendBox as active/onFocused', () => {

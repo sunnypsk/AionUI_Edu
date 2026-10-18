@@ -44,168 +44,64 @@ vi.mock('@/renderer/hooks/agent/useManagedAgents', () => ({
 
 describe('useGuidAssistantSelection', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     configGetMock.mockReturnValue(undefined);
     configSetMock.mockResolvedValue(undefined);
     mockManagedAgents = [];
-    mockAssistants = [
-      {
-        id: 'assistant-claude',
-        source: 'builtin',
-        name: 'Claude Assistant',
-        name_i18n: {},
-        description_i18n: {},
-        enabled: true,
-        sort_order: 1,
-        agent_id: 'agent-claude',
-        agent: { type: 'acp', source: 'builtin', acp_backend: 'claude' },
-        enabled_skills: [],
-        custom_skill_names: [],
-        disabled_builtin_skills: [],
-        context_i18n: {},
-        prompts: [],
-        prompts_i18n: {},
-        models: ['claude-opus', 'claude-sonnet'],
-        agent_status: 'online',
-        team_selectable: true,
-        deletable: false,
-      } satisfies Assistant,
-    ];
+    mockAssistants = [assistantFixture({ id: 'bare-codex', runtimeKey: 'codex', source: 'generated', sortOrder: 2 })];
   });
 
-  it('derives availability and model info from assistant catalog data', async () => {
-    const { result } = renderHook(() =>
-      useGuidAssistantSelection({
-        resetAssistant: false,
-      })
+  it('selects Codex on a fresh visit and excludes other CLI assistants', async () => {
+    mockAssistants.push(
+      assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 })
     );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBe('assistant-claude');
-    });
-
-    expect(result.current.selectedAssistantAvailable).toBe(true);
-    expect(result.current.selectedAcpModel).toBe('claude-opus');
-    expect(result.current.currentAcpCachedModelInfo).toEqual({
-      current_model_id: 'claude-opus',
-      current_model_label: 'claude-opus',
-      available_models: [
-        { id: 'claude-opus', label: 'claude-opus' },
-        { id: 'claude-sonnet', label: 'claude-sonnet' },
-      ],
-    });
+    const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: false }));
+    await waitFor(() => expect(result.current.selectedAssistantId).toBe('bare-codex'));
+    expect(result.current.assistants.map((assistant) => assistant.id)).toEqual(['bare-codex']);
   });
 
-  it('restores the last selected guid assistant before falling back to the aionrs default', async () => {
-    mockAssistants = [
-      assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 }),
-      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 2 }),
-    ];
-    configGetMock.mockImplementation((key: string) =>
-      key === 'guid.lastAssistantId' ? 'assistant-claude' : undefined
+  it('ignores a non-Codex assistant saved by a previous version', async () => {
+    mockAssistants.push(
+      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 1 })
     );
-
-    const { result } = renderHook(() =>
-      useGuidAssistantSelection({
-        resetAssistant: false,
-      })
-    );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBe('assistant-claude');
-    });
+    configGetMock.mockReturnValue('assistant-claude');
+    const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: true, locationKey: 'new-chat' }));
+    await waitFor(() => expect(result.current.selectedAssistantBackend).toBe('codex'));
   });
 
-  it('restores the last selected guid assistant when the guid page resets for a new chat', async () => {
-    mockAssistants = [
-      assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 }),
-      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 2 }),
-    ];
-    configGetMock.mockImplementation((key: string) =>
-      key === 'guid.lastAssistantId' ? 'assistant-claude' : undefined
+  it('ignores an unsupported assistant requested by a navigation shortcut', async () => {
+    mockAssistants.push(
+      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 1 })
     );
-
     const { result } = renderHook(() =>
-      useGuidAssistantSelection({
-        resetAssistant: true,
-        locationKey: 'new-chat',
-      })
+      useGuidAssistantSelection({ resetAssistant: true, preselectAssistantId: 'assistant-claude' })
     );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBe('assistant-claude');
-    });
+    await waitFor(() => expect(result.current.selectedAssistantId).toBe('bare-codex'));
   });
 
-  it('persists manual guid assistant selections for the next visit', async () => {
-    mockAssistants = [
-      assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 }),
-      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 2 }),
-    ];
-
-    const { result } = renderHook(() =>
-      useGuidAssistantSelection({
-        resetAssistant: false,
-      })
-    );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBe('bare-aionrs');
-    });
-
-    act(() => {
-      result.current.setSelectedAssistantId('assistant-claude');
-    });
-
-    expect(configSetMock).toHaveBeenCalledWith('guid.lastAssistantId', 'assistant-claude');
+  it('does not persist a request to switch to an unsupported CLI', async () => {
+    const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: false }));
+    await waitFor(() => expect(result.current.selectedAssistantId).toBe('bare-codex'));
+    act(() => result.current.setSelectedAssistantId('assistant-claude'));
+    expect(configSetMock).not.toHaveBeenCalled();
+    expect(result.current.selectedAssistantId).toBe('bare-codex');
   });
 
-  it('falls back to the default assistant when the persisted guid assistant no longer exists', async () => {
-    mockAssistants = [
-      assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 }),
-      assistantFixture({ id: 'assistant-claude', runtimeKey: 'claude', source: 'builtin', sortOrder: 2 }),
-    ];
-    configGetMock.mockImplementation((key: string) =>
-      key === 'guid.lastAssistantId' ? 'removed-assistant' : undefined
-    );
-
-    const { result } = renderHook(() =>
-      useGuidAssistantSelection({
-        resetAssistant: false,
-      })
-    );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBe('bare-aionrs');
-    });
+  it('restores a saved Codex assistant and can persist another Codex assistant', async () => {
+    mockAssistants.push(assistantFixture({ id: 'codex-writer', runtimeKey: 'codex', source: 'user', sortOrder: 3 }));
+    configGetMock.mockReturnValue('codex-writer');
+    const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: true }));
+    await waitFor(() => expect(result.current.selectedAssistantId).toBe('codex-writer'));
+    act(() => result.current.setSelectedAssistantId('bare-codex'));
+    expect(configSetMock).toHaveBeenCalledWith('guid.lastAssistantId', 'bare-codex');
   });
 
-  it('does not synthesize a backend slug when no assistants exist', async () => {
-    vi.resetModules();
-    vi.doMock('@/renderer/pages/guid/hooks/useCustomAgentsLoader', () => ({
-      useCustomAgentsLoader: () => ({
-        assistants: [],
-      }),
-    }));
-
-    const { useGuidAssistantSelection: useSelectionWithoutAssistants } =
-      await import('@/renderer/pages/guid/hooks/useGuidAssistantSelection');
-
-    const { result } = renderHook(() =>
-      useSelectionWithoutAssistants({
-        resetAssistant: false,
-      })
-    );
-
-    await waitFor(() => {
-      expect(result.current.selectedAssistantId).toBeNull();
-    });
-
+  it('does not fall back to another CLI when no enabled Codex assistant exists', () => {
+    mockAssistants = [assistantFixture({ id: 'bare-aionrs', runtimeKey: 'aionrs', source: 'generated', sortOrder: 1 })];
+    const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: false }));
+    expect(result.current.selectedAssistantId).toBeNull();
     expect(result.current.defaultAssistantId).toBeNull();
-    expect(result.current.selectedAssistantBackend).toBe('');
     expect(result.current.selectedAssistantAvailable).toBe(false);
-
-    vi.doUnmock('@/renderer/pages/guid/hooks/useCustomAgentsLoader');
-    vi.resetModules();
   });
 
   it('uses the selected assistant agent_id to read runtime catalogs from managed agents', async () => {
@@ -222,7 +118,7 @@ describe('useGuidAssistantSelection', () => {
         agent: {
           type: 'acp',
           source: 'builtin',
-          acp_backend: 'claude',
+          acp_backend: 'codex',
         },
         enabled_skills: [],
         custom_skill_names: [],
@@ -239,7 +135,7 @@ describe('useGuidAssistantSelection', () => {
     mockManagedAgents = [
       {
         id: '2d23ff1c',
-        backend: 'claude',
+        backend: 'codex',
         available_models: {
           current_model_id: 'global.anthropic.claude-opus-4-8',
           current_model_label: 'Opus 4.8',
@@ -303,7 +199,7 @@ describe('useGuidAssistantSelection', () => {
         agent: {
           type: 'acp',
           source: 'builtin',
-          acp_backend: 'claude',
+          acp_backend: 'codex',
         },
         enabled_skills: [],
         custom_skill_names: [],
@@ -320,7 +216,7 @@ describe('useGuidAssistantSelection', () => {
     mockManagedAgents = [
       {
         id: 'agent-claude',
-        backend: 'claude',
+        backend: 'codex',
         available_models: {
           current_model_id: 'default',
           current_model_label: 'Default',
@@ -364,7 +260,7 @@ describe('useGuidAssistantSelection', () => {
         agent: {
           type: 'acp',
           source: 'builtin',
-          acp_backend: 'claude',
+          acp_backend: 'codex',
         },
         enabled_skills: [],
         custom_skill_names: [],
@@ -381,7 +277,7 @@ describe('useGuidAssistantSelection', () => {
     const buildManagedAgent = () =>
       ({
         id: 'agent-claude',
-        backend: 'claude',
+        backend: 'codex',
         available_models: {
           current_model_id: 'default',
           current_model_label: 'Default',
@@ -430,7 +326,7 @@ describe('useGuidAssistantSelection', () => {
         enabled: true,
         sort_order: 1,
         agent_id: 'agent-claude-empty',
-        agent: { type: 'acp', source: 'builtin', acp_backend: 'claude' },
+        agent: { type: 'acp', source: 'builtin', acp_backend: 'codex' },
         enabled_skills: [],
         custom_skill_names: [],
         disabled_builtin_skills: [],
@@ -443,7 +339,7 @@ describe('useGuidAssistantSelection', () => {
         deletable: false,
       } satisfies Assistant,
     ];
-    mockManagedAgents = [{ id: 'agent-claude-empty', backend: 'claude' } as unknown as ManagedAgent];
+    mockManagedAgents = [{ id: 'agent-claude-empty', backend: 'codex' } as unknown as ManagedAgent];
 
     const { result } = renderHook(() =>
       useGuidAssistantSelection({
@@ -459,7 +355,7 @@ describe('useGuidAssistantSelection', () => {
     expect(result.current.selectedMode).toBe('default');
   });
 
-  it('reads aionrs mode options from the managed agent catalog', async () => {
+  it('reads Codex mode options from the managed agent catalog', async () => {
     mockAssistants = [
       {
         id: 'bare:632f31d2',
@@ -470,7 +366,7 @@ describe('useGuidAssistantSelection', () => {
         enabled: true,
         sort_order: 1,
         agent_id: '632f31d2',
-        agent: { type: 'aionrs', source: 'internal' },
+        agent: { type: 'acp', source: 'builtin', acp_backend: 'codex' },
         enabled_skills: [],
         custom_skill_names: [],
         disabled_builtin_skills: [],
@@ -486,7 +382,7 @@ describe('useGuidAssistantSelection', () => {
     mockManagedAgents = [
       {
         id: '632f31d2',
-        agent_type: 'aionrs',
+        agent_type: 'acp',
         available_modes: {
           current_mode_id: 'default',
           available_modes: [
@@ -508,7 +404,7 @@ describe('useGuidAssistantSelection', () => {
       expect(result.current.selectedAssistantId).toBe('bare:632f31d2');
     });
 
-    expect(result.current.selectedAssistantBackend).toBe('aionrs');
+    expect(result.current.selectedAssistantBackend).toBe('codex');
     expect(result.current.selectedMode).toBe('default');
     expect(result.current.currentAgentModeOptions.map((mode) => mode.value)).toEqual(['default', 'auto_edit', 'yolo']);
   });

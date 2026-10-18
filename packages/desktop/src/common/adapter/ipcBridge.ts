@@ -35,6 +35,8 @@ import type {
   SetAssistantStateRequest,
   UpdateAssistantRequest,
 } from '../types/agent/assistantTypes';
+import { assistantRuntimeKey } from '../types/agent/assistantTypes';
+import type { CodexAccountStatus, NetworkProxySettings, NetworkProxyStatus } from '../types/platform/webRuntime';
 import type {
   EnsureConversationRuntimeResponse,
   GetConfigOptionsResponse,
@@ -166,8 +168,19 @@ export const shell = {
 // Assistants — routed to /api/assistants/*
 // ---------------------------------------------------------------------------
 
+export const webRuntime = {
+  codexAccount: httpGet<CodexAccountStatus, void>('/api/edu/codex/account'),
+  codexLogin: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/login'),
+  codexCancelLogin: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/login/cancel'),
+  codexLogout: httpPost<CodexAccountStatus, Record<string, never>>('/api/edu/codex/logout'),
+  networkProxy: httpGet<NetworkProxyStatus, void>('/api/edu/network-proxy'),
+  saveNetworkProxy: httpPut<NetworkProxyStatus, NetworkProxySettings>('/api/edu/network-proxy'),
+};
+
 export const assistants = {
-  list: httpGet<Assistant[], void>('/api/assistants'),
+  list: withResponseMap(httpGet<Assistant[], void>('/api/assistants'), (items) =>
+    items.filter((assistant) => assistantRuntimeKey(assistant) === 'codex')
+  ),
   get: httpGet<AssistantDetail, { id: string; locale?: string }>(
     ({ id, locale }) =>
       `/api/assistants/${encodeURIComponent(id)}${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`
@@ -1820,6 +1833,7 @@ export interface ICreateConversationParams {
     conversation_overrides?: {
       model?: string;
       permission?: string;
+      thought_level?: string;
       skill_ids?: string[];
       disabled_builtin_skill_ids?: string[];
       mcp_ids?: string[];

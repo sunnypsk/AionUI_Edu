@@ -98,7 +98,10 @@ const AssistantSettings: React.FC = () => {
     message,
   });
   const availableBackends = useMemo(
-    () => buildAssistantEditorBackends(managedAgentRuntimeCatalog, localeKey, editor.editAgent),
+    () =>
+      buildAssistantEditorBackends(managedAgentRuntimeCatalog, localeKey, editor.editAgent).filter(
+        (agent) => agent.runtimeKey === 'codex'
+      ),
     [editor.editAgent, localeKey, managedAgentRuntimeCatalog]
   );
 

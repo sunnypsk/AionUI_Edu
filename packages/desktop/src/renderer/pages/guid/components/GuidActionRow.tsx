@@ -5,7 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { IMcpServer, IProvider, TProviderWithModel } from '@/common/config/storage';
+import type { IMcpServer } from '@/common/config/storage';
 import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
 import { DROPDOWN_SEARCH_THRESHOLD } from '@/renderer/components/agent/runtimeSelectorOptions';
 import AionInlineSearchInput from '@/renderer/components/base/AionInlineSearchInput';
@@ -15,25 +15,12 @@ import type {
   MobileActionSheetOption,
 } from '@/renderer/components/chat/MobileActionSheet/types';
 import type { AgentModeOption } from '@/renderer/utils/model/agentTypes';
-import type { AgentRuntimeDerivedOption } from '@/renderer/utils/model/agentRuntimeCatalog';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { getCleanFileNames, FileService } from '@/renderer/services/FileService';
 import { iconColors } from '@/renderer/styles/colors';
 import { isElectronDesktop } from '@/renderer/utils/platform';
-import type { AcpModelInfo } from '../types';
-import { getAvailableModels } from '../utils/modelUtils';
 import { Button, Checkbox, Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
-import {
-  ArrowUp,
-  Brain,
-  FolderOpen,
-  FolderUpload,
-  Lightning,
-  Paperclip,
-  Plus,
-  Shield,
-  UploadOne,
-} from '@icon-park/react';
+import { ArrowUp, FolderOpen, FolderUpload, Lightning, Paperclip, Plus, Shield, UploadOne } from '@icon-park/react';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from '../index.module.css';
@@ -79,22 +66,6 @@ type GuidActionRowProps = {
   /** Backend-machine picker (native dialog / server-fs browse): sent as `local` refs. */
   onFilesPicked: (paths: string[]) => void;
 
-  // Model selector node (rendered by parent for the desktop layout)
-  modelSelectorNode: React.ReactNode;
-
-  // Flat model data for the mobile action sheet (desktop uses modelSelectorNode).
-  isGeminiMode: boolean;
-  modelList: IProvider[];
-  current_model?: TProviderWithModel;
-  setCurrentModel: (model: TProviderWithModel) => Promise<void>;
-  currentAcpCachedModelInfo: AcpModelInfo | null;
-  selectedAcpModel: string | null;
-  setSelectedAcpModel: (model: string | null) => void;
-
-  // Thought level (mobile action sheet; only present for ACP agents)
-  thoughtLevelOption?: AgentRuntimeDerivedOption | null;
-  onThoughtLevelSelect?: (value: string) => void;
-
   // Agent mode
   modeBackend?: string;
   selectedMode: string;
@@ -121,16 +92,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
   files,
   onFilesPicked,
   onFilesUploaded,
-  modelSelectorNode,
-  isGeminiMode,
-  modelList,
-  current_model,
-  setCurrentModel,
-  currentAcpCachedModelInfo,
-  selectedAcpModel,
-  setSelectedAcpModel,
-  thoughtLevelOption,
-  onThoughtLevelSelect,
   modeBackend,
   selectedMode,
   dynamicModes = [],
@@ -164,7 +125,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
     }
   }, []);
   const showModeSwitch = dynamicModes.length > 0;
-  const configOptionCount = (modelSelectorNode ? 1 : 0) + (showModeSwitch ? 1 : 0);
 
   // Browser file picker ref (WebUI only)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -222,78 +182,10 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
       .catch((error) => console.error('Failed to open file dialog:', error));
   }, [onFilesPicked]);
 
-  // Build the mobile action sheet entries: model / thought level / permission
-  // (single-select), attach (action), skills / MCP (multi-select checkboxes).
+  // Keep model and reasoning preferences in Settings on every screen size.
   const sheetEntries = useMemo<MobileActionSheetEntry[]>(() => {
     if (!isMobile) return [];
     const entries: MobileActionSheetEntry[] = [];
-
-    // Model — aionrs is provider-grouped, ACP is a flat cached list.
-    let modelOptions: MobileActionSheetOption[] = [];
-    let currentModelLabel = '';
-    let onModelSelect: (key: string) => void = () => {};
-    if (isGeminiMode) {
-      const enabled = modelList.filter((p) => p.enabled !== false);
-      modelOptions = enabled.flatMap((provider) =>
-        getAvailableModels(provider).map((modelName) => ({
-          key: `${provider.id}::${modelName}`,
-          label: modelName,
-          description: provider.name,
-          active: current_model?.id === provider.id && current_model?.use_model === modelName,
-        }))
-      );
-      currentModelLabel = current_model?.use_model || '';
-      onModelSelect = (key) => {
-        const [providerId, modelName] = key.split('::');
-        const provider = enabled.find((p) => p.id === providerId);
-        if (provider) void setCurrentModel({ ...provider, use_model: modelName } as TProviderWithModel);
-      };
-    } else {
-      const available = currentAcpCachedModelInfo?.available_models ?? [];
-      modelOptions = available.map((model) => ({
-        key: model.id,
-        label: model.label || model.id,
-        description: model.description,
-        active: model.id === selectedAcpModel,
-      }));
-      currentModelLabel =
-        available.find((m) => m.id === selectedAcpModel)?.label || currentAcpCachedModelInfo?.current_model_label || '';
-      onModelSelect = (key) => setSelectedAcpModel(key);
-    }
-    if (modelOptions.length > 0) {
-      entries.push({
-        key: 'model',
-        icon: <Brain theme='outline' size='16' />,
-        label: t('common.model', { defaultValue: 'Model' }),
-        meta: currentModelLabel,
-        submenu: {
-          title: t('common.model', { defaultValue: 'Model' }),
-          options: modelOptions,
-          onSelect: onModelSelect,
-        },
-      });
-    }
-
-    // Thought level (ACP agents only).
-    if (thoughtLevelOption && thoughtLevelOption.options.length > 0 && onThoughtLevelSelect) {
-      const currentValue = thoughtLevelOption.currentValue;
-      entries.push({
-        key: 'thought-level',
-        icon: <Brain theme='outline' size='16' />,
-        label: t('agent.thoughtLevel.label'),
-        meta: thoughtLevelOption.options.find((o) => o.value === currentValue)?.label || currentValue || '',
-        submenu: {
-          title: t('agent.thoughtLevel.label'),
-          options: thoughtLevelOption.options.map((o) => ({
-            key: o.value,
-            label: o.label,
-            description: o.description ?? undefined,
-            active: o.value === currentValue,
-          })),
-          onSelect: (value) => onThoughtLevelSelect(value),
-        },
-      });
-    }
 
     // Permission / agent mode.
     if (dynamicModes.length > 0) {
@@ -403,15 +295,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
     return entries;
   }, [
     isMobile,
-    isGeminiMode,
-    modelList,
-    current_model,
-    setCurrentModel,
-    currentAcpCachedModelInfo,
-    selectedAcpModel,
-    setSelectedAcpModel,
-    thoughtLevelOption,
-    onThoughtLevelSelect,
     dynamicModes,
     selectedMode,
     onModeSelect,
@@ -631,10 +514,8 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
       )}
       <div className={styles.actionSubmit}>
         {/* Desktop keeps the inline model/permission selectors; on mobile they move into the sheet. */}
-        {!isMobile && configOptionCount > 0 && (
+        {!isMobile && showModeSwitch && (
           <div className={styles.actionConfigGroup} data-mobile={isMobile ? 'true' : undefined}>
-            {modelSelectorNode}
-
             {showModeSwitch && (
               <AgentModeSelector
                 backend={modeBackend}

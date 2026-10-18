@@ -12,6 +12,11 @@ type HttpCall = {
 
 const httpBridgeMocks = vi.hoisted(() => {
   const calls: HttpCall[] = [];
+  const assistantList = [
+    { id: 'codex', agent: { type: 'acp', acp_backend: 'codex' } },
+    { id: 'claude', agent: { type: 'acp', acp_backend: 'claude' } },
+    { id: 'aionrs', agent: { type: 'aionrs' } },
+  ];
   const provider =
     (method: HttpCall['method']) =>
     <Data, Params = undefined>(path: string | ((params: Params) => string), mapBody?: (params: Params) => unknown) => ({
@@ -23,7 +28,7 @@ const httpBridgeMocks = vi.hoisted(() => {
           path: resolvedPath,
           body: mapBody && params !== undefined ? mapBody(params as Params) : undefined,
         });
-        return true as Data;
+        return (resolvedPath === '/api/assistants' ? assistantList : true) as Data;
       }),
     });
   const emitter = () => ({ on: vi.fn(() => vi.fn()), emit: vi.fn() });
@@ -73,6 +78,11 @@ vi.mock('@/common/platform/bridge', () => ({
 describe('ipcBridge conversation adapter', () => {
   beforeEach(() => {
     httpBridgeMocks.calls.length = 0;
+  });
+
+  it('exposes only Codex assistants to selection surfaces', async () => {
+    const { assistants } = await import('@/common/adapter/ipcBridge');
+    expect((await assistants.list.invoke()).map((assistant) => assistant.id)).toEqual(['codex']);
   });
 
   it('deletes conversations through the standard conversation endpoint', async () => {

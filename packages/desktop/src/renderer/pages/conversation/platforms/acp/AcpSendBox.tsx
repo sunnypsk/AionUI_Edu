@@ -18,7 +18,6 @@ import { audioExts, getFileExtension, imageExts } from '@/renderer/services/File
 import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
 import { classifyConfigSetError, useAcpConfigOptions } from '@/renderer/hooks/agent/useAcpConfigOptions';
-import { useAcpModelInfo } from '@/renderer/hooks/agent/useAcpModelInfo';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { getSendBoxDraftHook, type FileOrFolderItem } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { createSetUploadFile, useSendBoxFiles } from '@/renderer/hooks/chat/useSendBoxFiles';
@@ -47,7 +46,7 @@ import { localSelectionItems, mergeFileSelectionItems } from '@/renderer/utils/f
 import { collectChatFileRefs, splitChatFileRefs } from '@/renderer/utils/file/messageFiles';
 import type { ChatFileRef } from '@/common/types/chatFile';
 import { Button, Message, Tag } from '@arco-design/web-react';
-import { Brain, Lightning, MagicHat, Shield } from '@icon-park/react';
+import { Lightning, MagicHat, Shield } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifyConversationBusyError } from '../conversationBusyError';
@@ -173,27 +172,6 @@ const AcpSendBox: React.FC<{
     enabled: true,
   });
   const runtimeMode = runtimeConfig.mode;
-  const runtimeThoughtLevel = runtimeConfig.thoughtLevel;
-  const handleThoughtLevelSetOption = useCallback(
-    async (optionId: string, value: string) => runtimeConfig.setConfigOption(optionId, value),
-    [runtimeConfig]
-  );
-
-  // Drive the mobile sheet's model entry off the same source AcpModelSelector uses
-  const {
-    model_info,
-    canSwitch: canSwitchModel,
-    selectModel,
-  } = useAcpModelInfo({
-    conversation_id,
-    backend,
-    prepareRuntime: prepareRuntimeConfig,
-    prepareSetRuntime: teamPermission?.warmupSession,
-    configOptionsPort: teamPermission?.configOptionsPort,
-    enabled: isMobile,
-    onSelectModelSuccess: () => Message.success(t('agent.model.switchSuccess')),
-    onSelectModelFailed: (_modelId, error) => Message.error(t(configErrorMessageKey(error))),
-  });
   useEffect(() => {
     if (!runtimeMode?.currentValue) return;
     setCurrentMode(runtimeMode.currentValue);
@@ -551,63 +529,10 @@ Please check your local CLI tool authentication status`,
       active: (runtimeMode?.currentValue ?? currentMode) === mode.value,
     }));
 
-    const modelOptions: MobileActionSheetOption[] = canSwitchModel
-      ? (model_info?.available_models ?? []).map((model) => ({
-          key: model.id,
-          label: model.label || model.id,
-          description: model.description,
-          active: model_info?.current_model_id === model.id,
-        }))
-      : [];
-
-    const currentModelLabel =
-      model_info?.current_model_label || model_info?.current_model_id || t('conversation.welcome.useCliModel');
     const currentModeLabel =
       modeOptions.find((opt) => opt.active)?.label ?? t('agentMode.default', { defaultValue: 'Default' });
 
     const entries: MobileActionSheetEntry[] = [];
-
-    // Model entry: only when the agent exposes a switchable list. Otherwise
-    // (Codex with no list, no info) skip — exposing a no-op row would be noise.
-    if (modelOptions.length > 0) {
-      entries.push({
-        key: 'model',
-        icon: <Brain theme='outline' size='16' />,
-        label: t('common.model', { defaultValue: 'Model' }),
-        meta: currentModelLabel,
-        submenu: {
-          title: t('common.model', { defaultValue: 'Model' }),
-          options: modelOptions,
-          onSelect: (id) => selectModel(id),
-        },
-      });
-    }
-
-    if (runtimeThoughtLevel) {
-      entries.push({
-        key: 'thought-level',
-        icon: <Brain theme='outline' size='16' />,
-        label: t('agent.thoughtLevel.label'),
-        meta:
-          runtimeThoughtLevel.options.find((item) => item.value === runtimeThoughtLevel.currentValue)?.label ||
-          runtimeThoughtLevel.currentValue ||
-          '',
-        submenu: {
-          title: t('agent.thoughtLevel.label'),
-          options: runtimeThoughtLevel.options.map((item) => ({
-            key: item.value,
-            label: item.label,
-            description: item.description ?? undefined,
-            active: runtimeThoughtLevel.currentValue === item.value,
-          })),
-          onSelect: (value) => {
-            void handleThoughtLevelSetOption(runtimeThoughtLevel.id, value)
-              .then(() => Message.success(t('agent.thoughtLevel.switchSuccess')))
-              .catch((error) => Message.error(t(configErrorMessageKey(error))));
-          },
-        },
-      });
-    }
 
     if (modeOptions.length > 0) {
       entries.push({
@@ -679,17 +604,12 @@ Please check your local CLI tool authentication status`,
     return entries;
   }, [
     attachEntries,
-    canSwitchModel,
     currentMode,
     handleSheetModeChange,
-    handleThoughtLevelSetOption,
     isMobile,
     loadedMcpStatuses,
     loadedSkills,
-    model_info,
     runtimeMode,
-    runtimeThoughtLevel,
-    selectModel,
     setContent,
     t,
   ]);

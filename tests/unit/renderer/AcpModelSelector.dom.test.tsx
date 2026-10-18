@@ -185,8 +185,14 @@ describe('AcpModelSelector runtime options', () => {
     useAcpModelInfoMock.mockReturnValue(makeResult());
   });
 
+  it('shows the current model without a switching menu by default', () => {
+    useAcpModelInfoMock.mockReturnValue(makeResult());
+    render(<AcpModelSelector conversation_id='settings-only' />);
+    expect(screen.queryByTestId('dropdown-menu')).not.toBeInTheDocument();
+  });
+
   it('shows the current model and thought level in the header pill', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     expect(screen.getByTestId('acp-model-selector')).toHaveTextContent('GPT-5.2 · High');
   });
@@ -195,14 +201,24 @@ describe('AcpModelSelector runtime options', () => {
     const onRuntimeReadyChange = vi.fn();
     useAcpModelInfoMock.mockReturnValue(makeResult({ isRuntimeReady: false }));
     const { rerender } = render(
-      <AcpModelSelector conversation_id='conversation-1' backend='codex' onRuntimeReadyChange={onRuntimeReadyChange} />
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='conversation-1'
+        backend='codex'
+        onRuntimeReadyChange={onRuntimeReadyChange}
+      />
     );
 
     expect(onRuntimeReadyChange).toHaveBeenLastCalledWith(false);
 
     useAcpModelInfoMock.mockReturnValue(makeResult({ isRuntimeReady: true }));
     rerender(
-      <AcpModelSelector conversation_id='conversation-1' backend='codex' onRuntimeReadyChange={onRuntimeReadyChange} />
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='conversation-1'
+        backend='codex'
+        onRuntimeReadyChange={onRuntimeReadyChange}
+      />
     );
 
     expect(onRuntimeReadyChange).toHaveBeenLastCalledWith(true);
@@ -211,7 +227,7 @@ describe('AcpModelSelector runtime options', () => {
   it('shows a plain loading slot while runtime config is initializing', () => {
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: true }));
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     const slot = screen.getByTestId('acp-model-selector-loading');
     expect(screen.getByTestId('runtime-selector-loading-indicator')).toBeInTheDocument();
@@ -225,7 +241,14 @@ describe('AcpModelSelector runtime options', () => {
   it('passes team runtime preparation through to model info loading', () => {
     const prepareRuntime = vi.fn().mockResolvedValue(undefined);
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' prepareRuntime={prepareRuntime} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='conversation-1'
+        backend='codex'
+        prepareRuntime={prepareRuntime}
+      />
+    );
 
     expect(useAcpModelInfoMock).toHaveBeenCalledWith(expect.objectContaining({ prepareRuntime }));
   });
@@ -233,7 +256,14 @@ describe('AcpModelSelector runtime options', () => {
   it('passes set-only runtime preparation through to model info loading', () => {
     const prepareSetRuntime = vi.fn().mockResolvedValue(undefined);
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' prepareSetRuntime={prepareSetRuntime} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='conversation-1'
+        backend='codex'
+        prepareSetRuntime={prepareSetRuntime}
+      />
+    );
 
     expect(useAcpModelInfoMock).toHaveBeenCalledWith(expect.objectContaining({ prepareSetRuntime }));
   });
@@ -243,7 +273,7 @@ describe('AcpModelSelector runtime options', () => {
   // It used to chain a second persistence call whose failure was surfaced as
   // "model switch failed" even though the runtime had already switched.
   it('reports selection success without chaining a second persistence step', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
     const hookArgs = useAcpModelInfoMock.mock.calls[0][0];
 
     const result = hookArgs.onSelectModelSuccess('gpt-5.6-sol');
@@ -253,7 +283,7 @@ describe('AcpModelSelector runtime options', () => {
   });
 
   it('shows the model submenu before the thought level submenu, each with its current value', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     const titles = screen.getAllByTestId('submenu-title');
     // Model row first, thought-level row second (matches pill order).
@@ -264,7 +294,7 @@ describe('AcpModelSelector runtime options', () => {
   });
 
   it('marks the current model with the leading check indicator', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     // Scope to the model submenu body so the title-row current value doesn't collide.
     const modelBody = screen.getAllByTestId('submenu-body')[0];
@@ -289,7 +319,7 @@ describe('AcpModelSelector runtime options', () => {
       })
     );
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     const modelBody = screen.getAllByTestId('submenu-body')[0];
     expect(screen.queryByText('Sonnet 4.6 · Best for everyday tasks')).not.toBeInTheDocument();
@@ -304,7 +334,7 @@ describe('AcpModelSelector runtime options', () => {
   });
 
   it('shows thought level descriptions in option tooltips', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     // Thought submenu is the second one; scope to its body to avoid the title-row "High".
     const thoughtBody = screen.getAllByTestId('submenu-body')[1];
@@ -318,7 +348,7 @@ describe('AcpModelSelector runtime options', () => {
   it('renders the model list directly (no submenu) when there is no thought option', () => {
     useAcpModelInfoMock.mockReturnValue(makeResult({ thoughtLevel: null }));
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     expect(screen.getByTestId('acp-model-selector')).toHaveTextContent('GPT-5.2');
     // No submenu rows at all — the dropdown is the model list itself.
@@ -327,7 +357,7 @@ describe('AcpModelSelector runtime options', () => {
   });
 
   it('does not show the search box when the model count is at or below the threshold', () => {
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     expect(screen.queryByTestId('runtime-selector-model-search')).not.toBeInTheDocument();
   });
@@ -341,7 +371,7 @@ describe('AcpModelSelector runtime options', () => {
       })
     );
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     const search = screen.getByTestId('runtime-selector-model-search');
     expect(search).toBeInTheDocument();
@@ -362,7 +392,7 @@ describe('AcpModelSelector runtime options', () => {
       })
     );
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     fireEvent.change(screen.getByTestId('runtime-selector-model-search'), { target: { value: 'zzz' } });
 
@@ -373,7 +403,7 @@ describe('AcpModelSelector runtime options', () => {
     const selectModel = vi.fn();
     useAcpModelInfoMock.mockReturnValue(makeResult({ selectModel }));
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     fireEvent.click(screen.getByText('GPT-5.2 Mini'));
 
@@ -384,7 +414,7 @@ describe('AcpModelSelector runtime options', () => {
     const setConfigOption = vi.fn().mockResolvedValue(undefined);
     useAcpModelInfoMock.mockReturnValue(makeResult({ setConfigOption }));
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     fireEvent.click(screen.getByText('Low'));
 
@@ -398,7 +428,7 @@ describe('AcpModelSelector runtime options', () => {
     const setConfigOption = vi.fn().mockRejectedValue(new Error('command_ack'));
     useAcpModelInfoMock.mockReturnValue(makeResult({ setConfigOption }));
 
-    render(<AcpModelSelector conversation_id='conversation-1' backend='codex' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conversation-1' backend='codex' />);
 
     fireEvent.click(screen.getByText('Low'));
 
@@ -420,7 +450,7 @@ describe('AcpModelSelector runtime options', () => {
       })
     );
 
-    render(<AcpModelSelector conversation_id='conv-1' backend='gemini' />);
+    render(<AcpModelSelector settingsOnly={false} conversation_id='conv-1' backend='gemini' />);
 
     const button = screen.getByTestId('acp-model-selector');
     const loading = screen.getByTestId('runtime-selector-loading-indicator');
@@ -434,7 +464,14 @@ describe('AcpModelSelector runtime options', () => {
     const trigger = vi.fn().mockResolvedValue(undefined);
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: false }));
 
-    render(<AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'dormant', trigger }} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'dormant', trigger }}
+      />
+    );
 
     const pill = screen.getByTestId('acp-model-selector-warmup');
     expect(pill.closest('[data-tooltip-content]')).toHaveAttribute('data-tooltip-content', 'Click to wake this member');
@@ -446,7 +483,14 @@ describe('AcpModelSelector runtime options', () => {
     const trigger = vi.fn().mockResolvedValue(undefined);
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: false }));
 
-    render(<AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'failed', trigger }} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'failed', trigger }}
+      />
+    );
 
     const pill = screen.getByTestId('acp-model-selector-warmup');
     expect(pill.closest('[data-tooltip-content]')).toHaveAttribute('data-tooltip-content', 'Click to wake this member');
@@ -456,7 +500,12 @@ describe('AcpModelSelector runtime options', () => {
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: false }));
 
     render(
-      <AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'dormant', trigger: undefined }} />
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'dormant', trigger: undefined }}
+      />
     );
 
     const pill = screen.getByTestId('acp-model-selector-warmup');
@@ -477,7 +526,14 @@ describe('AcpModelSelector runtime options', () => {
     const trigger = vi.fn().mockResolvedValue(undefined);
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: false }));
 
-    render(<AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'pending', trigger }} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'pending', trigger }}
+      />
+    );
 
     expect(screen.getByTestId('runtime-selector-loading-indicator')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('acp-model-selector-warmup'));
@@ -494,7 +550,14 @@ describe('AcpModelSelector runtime options', () => {
       })
     );
 
-    render(<AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'ready', trigger }} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'ready', trigger }}
+      />
+    );
 
     fireEvent.click(screen.getByTestId('acp-model-selector-warmup'));
     expect(trigger).not.toHaveBeenCalled();
@@ -505,7 +568,14 @@ describe('AcpModelSelector runtime options', () => {
     const trigger = vi.fn(() => new Promise<void>((resolve) => (resolveTrigger = resolve)));
     useAcpModelInfoMock.mockReturnValue(makeResult({ model_info: null, canSwitch: false, isLoading: false }));
 
-    render(<AcpModelSelector conversation_id='c1' backend='codex' warmup={{ status: 'dormant', trigger }} />);
+    render(
+      <AcpModelSelector
+        settingsOnly={false}
+        conversation_id='c1'
+        backend='codex'
+        warmup={{ status: 'dormant', trigger }}
+      />
+    );
 
     fireEvent.click(screen.getByTestId('acp-model-selector-warmup'));
     // Optimistic: spinner appears while status is still 'dormant' and trigger promise is unresolved.

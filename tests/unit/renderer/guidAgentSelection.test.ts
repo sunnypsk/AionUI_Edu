@@ -22,8 +22,45 @@ describe('guid assistant selection helpers', () => {
     expect(resolveAssistantSelectionKey('aionrs', assistants)).toBeUndefined();
   });
 
-  it('defaults to the generated aionrs assistant when available', () => {
-    expect(pickDefaultAssistantSelectionKey(assistants)).toBe('bare-aionrs');
+  it('defaults to the generated Codex assistant before built-in and user assistants', () => {
+    const codexAssistants = [
+      ...assistants,
+      assistant({ id: 'codex-writer', source: 'user', runtimeKey: 'codex' }),
+      assistant({ id: 'bare-codex', source: 'generated', runtimeKey: 'codex' }),
+    ];
+
+    expect(pickDefaultAssistantSelectionKey(codexAssistants)).toBe('bare-codex');
+  });
+
+  it('uses a configured Codex assistant when no generated Codex assistant exists', () => {
+    expect(
+      pickDefaultAssistantSelectionKey([
+        ...assistants,
+        assistant({ id: 'codex-writer', source: 'user', runtimeKey: 'codex' }),
+      ])
+    ).toBe('codex-writer');
+  });
+
+  it('keeps Codex selected when its runtime needs setup instead of silently changing agents', () => {
+    expect(
+      pickDefaultAssistantSelectionKey([
+        ...assistants,
+        assistant({ id: 'bare-codex', source: 'generated', runtimeKey: 'codex', agent_status: 'missing' }),
+      ])
+    ).toBe('bare-codex');
+  });
+
+  it('does not select a disabled Codex assistant', () => {
+    expect(
+      pickDefaultAssistantSelectionKey([
+        ...assistants,
+        assistant({ id: 'bare-codex', source: 'generated', runtimeKey: 'codex', enabled: false }),
+      ])
+    ).toBeNull();
+  });
+
+  it('does not fall back to another CLI when the catalog has no Codex assistant', () => {
+    expect(pickDefaultAssistantSelectionKey(assistants)).toBeNull();
   });
 
   it('returns null when no assistants are available', () => {

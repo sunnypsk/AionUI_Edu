@@ -8,14 +8,91 @@ permissions:
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
     tags:
       - '*'
+  workflow_dispatch:
 
 env:
   BUN_INSTALL_REGISTRY: 'https://registry.npmjs.org/'
 
 jobs:
+  webui-quality:
+    name: WebUI release checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.3'
+      - name: Scan Git-visible source for credentials
+        run: python3 packages/web-host/docker/releaseChecks.py
+      - name: Validate the publication workflow
+        run: python3 packages/web-host/docker/releaseChecks.py workflow
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: npm rebuild better-sqlite3
+      - run: bun run lint -- --quiet
+      - run: bun run format:check
+      - run: bunx tsc --noEmit
+      - run: bunx tsc --noEmit -p packages/web-host/tsconfig.json
+      - run: bun run i18n:types
+      - run: node scripts/check-i18n.js
+      - run: bun run test
+      - run: python3 -m unittest discover -s packages/web-host/docker -p 'test*.py'
+
+  webui-image:
+    name: Test Linux image and publish GHCR
+    if: github.ref == 'refs/heads/main'
+    needs: webui-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: aionui-edu-webui-publication
+      cancel-in-progress: true
+    env:
+      IMAGE: ghcr.io/sunnypsk/aionui_edu
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build the exact revision for Unraid
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg "SOURCE_COMMIT=$GITHUB_SHA" \
+            --build-arg "RELEASE_SEQUENCE=$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
+            --tag "$IMAGE:sha-$GITHUB_SHA-$GITHUB_RUN_NUMBER-$GITHUB_RUN_ATTEMPT" .
+      - name: Verify TUN routing and proxy failure behavior
+        run: |
+          test -c /dev/net/tun || sudo install -d /dev/net
+          test -c /dev/net/tun || sudo mknod /dev/net/tun c 10 200
+          python3 packages/web-host/docker/checkContainer.py \
+            "$IMAGE:sha-$GITHUB_SHA-$GITHUB_RUN_NUMBER-$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA"
+      - name: Publish only the tested image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/aionui-edu-registry-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          install -d -m 700 "$DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1; rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          VERSION="$IMAGE:sha-$GITHUB_SHA-$GITHUB_RUN_NUMBER-$GITHUB_RUN_ATTEMPT"
+          docker push "$VERSION"
+          docker tag "$VERSION" "$IMAGE:stable"
+          docker push "$IMAGE:stable"
+          printf 'Published commit `%s` as `%s` and `stable`.\n' "$GITHUB_SHA" "$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
   # 独立 code-quality job,供桌面构建和 web-cli 打包共用,避免重复跑
   code-quality:
     name: Code Quality

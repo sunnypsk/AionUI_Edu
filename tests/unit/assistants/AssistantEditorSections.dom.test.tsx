@@ -489,7 +489,7 @@ describe('AssistantEditorSections', () => {
     expect(screen.getByTestId('select-assistant-default-model')).not.toHaveTextContent('Handshake Model');
   });
 
-  it('uses runtime config_options for default model options when assistant models are empty', () => {
+  it('keeps Codex model choices in central settings even when the catalog contains alternatives', () => {
     mockManagedAgentRuntimeCatalog = [
       {
         id: 'agent-codex',
@@ -530,14 +530,11 @@ describe('AssistantEditorSections', () => {
       />
     );
 
-    fireEvent.click(screen.getByTestId('select-assistant-default-model'));
-
-    expect(screen.getByText('GPT-5.5')).toBeInTheDocument();
-    expect(screen.getAllByText('gpt-5.2').length).toBeGreaterThan(0);
-    expect(screen.queryByText('Legacy Model')).toBeNull();
+    expect(screen.queryByTestId('select-assistant-default-model')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-open-codex-settings')).toBeInTheDocument();
   });
 
-  it('renders thought level defaults only when the selected agent advertises thought_level options', () => {
+  it('keeps Codex model and reasoning in central settings even when runtime choices exist', () => {
     const setDefaultThoughtLevelMode = vi.fn();
     const setDefaultThoughtLevelValue = vi.fn();
     mockManagedAgentRuntimeCatalog = [
@@ -584,14 +581,9 @@ describe('AssistantEditorSections', () => {
       />
     );
 
-    expect(screen.getByText('Thought Level')).toBeInTheDocument();
-    expect(screen.getByTestId('select-assistant-default-thought-level')).toHaveTextContent('High');
-
-    fireEvent.click(screen.getByTestId('select-assistant-default-thought-level'));
-    fireEvent.click(screen.getByText('Low'));
-
-    expect(setDefaultThoughtLevelMode).toHaveBeenCalledWith('fixed');
-    expect(setDefaultThoughtLevelValue).toHaveBeenCalledWith('low');
+    expect(screen.queryByTestId('select-assistant-default-model')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('select-assistant-default-thought-level')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-open-codex-settings')).toBeInTheDocument();
   });
 
   it('hides thought level defaults when the selected agent has no thought_level catalog', () => {
@@ -613,7 +605,7 @@ describe('AssistantEditorSections', () => {
     expect(screen.queryByTestId('select-assistant-default-thought-level')).not.toBeInTheDocument();
   });
 
-  it('renders only the auto thought level default when the thought_level catalog has no concrete option values', () => {
+  it('keeps Codex reasoning in central settings when runtime choices are empty', () => {
     mockManagedAgentRuntimeCatalog = [
       {
         id: 'agent-codex',
@@ -646,10 +638,8 @@ describe('AssistantEditorSections', () => {
       />
     );
 
-    expect(screen.getByText('Thought Level')).toBeInTheDocument();
-    expect(screen.getByTestId('select-assistant-default-thought-level')).toHaveTextContent(
-      'Remember last used automatically'
-    );
+    expect(screen.queryByTestId('select-assistant-default-thought-level')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-open-codex-settings')).toBeInTheDocument();
   });
 
   it('uses aionrs runtime catalog for default permission options', async () => {

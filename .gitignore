@@ -65,6 +65,17 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.*
+!.env.example
+**/.codex/auth.json
+**/.codex/sessions/
+**/.codex/log/
+**/.aws/
+**/.ssh/
+**/network-proxy.json
+/packages/web-host/docker/data/
+__pycache__/
+*.pyc
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

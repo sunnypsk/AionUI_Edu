@@ -60,6 +60,8 @@ const AcpModelSelector: React.FC<{
   onRuntimeReadyChange?: (ready: boolean) => void;
   /** Deprecated: runtime config loading now ensures the conversation runtime. */
   waitForWarmup?: boolean;
+  /** Model and reasoning can only be changed in Settings in the Edu UI. */
+  settingsOnly?: boolean;
   /**
    * Optional manual-warmup control for team teammates. Omitted in single chat,
    * so single-chat behavior is unchanged. `trigger` is withheld (undefined)
@@ -78,6 +80,7 @@ const AcpModelSelector: React.FC<{
   configOptionsPort,
   onRuntimeReadyChange,
   warmup,
+  settingsOnly = true,
 }) => {
   const { t } = useTranslation();
   const layout = useLayoutContext();
@@ -213,7 +216,7 @@ const AcpModelSelector: React.FC<{
     return renderReadonlyPill(t('conversation.welcome.useCliModel'), t('conversation.welcome.modelSwitchNotSupported'));
   }
 
-  if (!canSwitch) {
+  if (settingsOnly || !canSwitch) {
     return renderReadonlyPill(combinedLabel, tooltipContent);
   }
 

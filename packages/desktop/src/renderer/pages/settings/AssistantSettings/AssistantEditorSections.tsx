@@ -511,16 +511,20 @@ const AssistantEditorSections: React.FC<AssistantEditorSectionsProps> = ({ edito
                 </Select.Option>
               ))}
             </Select>
-            <div className='mt-6px text-11px text-t-tertiary'>
-              {t('settings.assistantEngineAffectsDefaults', {
-                defaultValue: 'Changing the main agent updates which model and permission values are available below.',
-              })}
-            </div>
+            {editAgentRuntimeKey !== 'codex' && (
+              <div className='mt-6px text-11px text-t-tertiary'>
+                {t('settings.assistantEngineAffectsDefaults', {
+                  defaultValue:
+                    'Changing the main agent updates which model and permission values are available below.',
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <DefaultsSection
+        settingsOnly={editAgentRuntimeKey === 'codex'}
         key={`assistant-defaults-${localeKey}-${editAgent}`}
         localeKey={localeKey}
         isBuiltin={isBuiltin}

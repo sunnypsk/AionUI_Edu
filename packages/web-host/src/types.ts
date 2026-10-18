@@ -38,6 +38,8 @@ export type WebHostOptions = {
   dataDir?: string;
   logDir?: string;
   dirs?: BackendSystemDirs;
+  /** Enable authenticated Codex account and container proxy controls for the standalone WebUI. */
+  enableRuntimeControls?: boolean;
   backend: { kind: 'ownBackend'; resolveBackend: BackendBinaryResolver } | { kind: 'useExistingBackend'; port: number };
 };
 
@@ -52,4 +54,28 @@ export type WebHostHandle = {
   networkUrl?: string;
   lanIP?: string;
   stop: () => Promise<void>;
+};
+
+/** Web-host controls share the same Codex account and network policy per installation. */
+export type CodexAccountStatus = {
+  authenticated: boolean;
+  email?: string;
+  authType?: string;
+  login: {
+    state: 'idle' | 'starting' | 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'expired';
+    verificationUrl?: string;
+    userCode?: string;
+  };
+};
+
+export type NetworkProxySettings = { enabled: boolean; proxyUrl?: string };
+
+export type NetworkProxyStatus = {
+  enabled: boolean;
+  endpoint: string;
+  hasCredentials: boolean;
+  active: boolean;
+  pendingRestart: boolean;
+  managedByEnvironment: boolean;
+  containerSupported: boolean;
 };

@@ -129,5 +129,52 @@
       "reject_once_desc": "僅拒絕此次檔案讀取",
       "reject_always_desc": "對所有檔案讀取請求總是拒絕"
     }
+  },
+  "settings": {
+    "title": "Codex CLI 設定",
+    "description": "目前支援 Codex CLI。以下設定會套用至新對話，模型與推理強度統一在此設定。",
+    "model": "模型",
+    "reasoning": "推理強度",
+    "invalidModel": "請輸入有效的模型 ID，例如 gpt-6-astra。",
+    "efforts": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "極高",
+      "max": "最高"
+    }
+  },
+  "account": {
+    "title": "Codex 帳戶",
+    "description": "在 ChatGPT 官方網站完成登入。此 NAS 上的對話共用同一個 Codex 帳戶。",
+    "actionFailed": "未能更新 Codex 登入狀態，請檢查連線後重試。",
+    "unavailable": "暫時無法讀取 Codex 帳戶狀態，請檢查 CLI 與網路後重新整理。",
+    "signedIn": "Codex 已登入",
+    "signedOut": "Codex 尚未登入",
+    "enterCode": "請在 ChatGPT 網頁輸入此一次性代碼：",
+    "openLogin": "開啟 ChatGPT 登入",
+    "loginFailed": "登入失敗或代碼已過期。請在 ChatGPT 安全性設定開啟裝置代碼登入，再重試。",
+    "signOut": "登出 Codex",
+    "signIn": "使用 ChatGPT 登入",
+    "refresh": "重新整理狀態"
+  },
+  "proxy": {
+    "title": "SOCKS5 網路代理",
+    "description": "將容器、Codex 與其工具的流量經 SOCKS5 傳送。變更會在重啟容器後生效。",
+    "loadFailed": "未能讀取代理設定。",
+    "active": "容器代理路由已啟用",
+    "inactive": "容器代理路由未啟用",
+    "containerOnly": "完整路由適用於 Linux Docker 容器。本機開發不會更改這部電腦的網路。",
+    "restartRequired": "已儲存的設定與目前路由不同。請在沒有工作執行時重啟容器。",
+    "environmentManaged": "代理由容器設定中的 AIONUI_SOCKS5_PROXY 管理。",
+    "enable": "啟用 SOCKS5 路由",
+    "url": "SOCKS5 URL",
+    "urlHint": "使用 socks5:// 或 socks5h://，伺服器須為 IP 位址。帳號密碼可選，須使用 URL encoding；留空會保留已儲存的憑證。",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "已儲存端點：{{endpoint}}",
+    "credentialsStored": "已儲存憑證",
+    "save": "儲存代理設定",
+    "saved": "代理設定已儲存，重啟容器後生效。",
+    "saveFailed": "未能儲存，請檢查 SOCKS5 URL 並使用 IP 位址。"
   }
 }

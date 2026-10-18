@@ -129,5 +129,52 @@
       "reject_once_desc": "このファイル読み取りのみ拒否",
       "reject_always_desc": "すべてのファイル読み取り要求を常に拒否"
     }
+  },
+  "settings": {
+    "title": "Codex CLI の設定",
+    "description": "対応エージェントは Codex CLI です。この設定は新しい会話に適用されます。モデルと推論の強度はここで変更できます。",
+    "model": "モデル",
+    "reasoning": "推論の強度",
+    "invalidModel": "gpt-6-astra などの有効なモデル ID を入力してください。",
+    "efforts": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "非常に高い",
+      "max": "最大"
+    }
+  },
+  "account": {
+    "title": "Codex アカウント",
+    "description": "ChatGPT の公式サイトでログインします。この NAS の会話は同じ Codex アカウントを使用します。",
+    "actionFailed": "ログイン状態を更新できません。接続を確認して再試行してください。",
+    "unavailable": "アカウント状態を取得できません。CLI とネットワークを確認して更新してください。",
+    "signedIn": "Codex にログイン済み",
+    "signedOut": "Codex に未ログイン",
+    "enterCode": "ChatGPT のページでこのワンタイムコードを入力してください：",
+    "openLogin": "ChatGPT のログインを開く",
+    "loginFailed": "ログインに失敗したか期限が切れました。ChatGPT のセキュリティ設定でデバイスコードログインを有効にして再試行してください。",
+    "signOut": "Codex からログアウト",
+    "signIn": "ChatGPT でログイン",
+    "refresh": "状態を更新"
+  },
+  "proxy": {
+    "title": "SOCKS5 ネットワークプロキシ",
+    "description": "コンテナ、Codex とツールの通信を SOCKS5 経由にします。変更はコンテナ再起動後に反映されます。",
+    "loadFailed": "プロキシ設定を取得できません。",
+    "active": "コンテナのプロキシ経路は有効です",
+    "inactive": "コンテナのプロキシ経路は無効です",
+    "containerOnly": "完全なルーティングは Linux Docker コンテナで利用できます。ローカル開発ではこのコンピューターのネットワークを変更しません。",
+    "restartRequired": "保存済み設定と現在の経路が異なります。タスクの実行がないときにコンテナを再起動してください。",
+    "environmentManaged": "プロキシはコンテナ設定の AIONUI_SOCKS5_PROXY で管理されています。",
+    "enable": "SOCKS5 ルーティングを有効化",
+    "url": "SOCKS5 URL",
+    "urlHint": "socks5:// または socks5h:// と IP アドレスを使用します。認証情報は任意で URL エンコードが必要です。空欄なら保存済み情報を保持します。",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "保存済み接続先：{{endpoint}}",
+    "credentialsStored": "認証情報は保存済みです",
+    "save": "プロキシ設定を保存",
+    "saved": "設定を保存しました。コンテナを再起動すると反映されます。",
+    "saveFailed": "保存できません。SOCKS5 URL と IP アドレスを確認してください。"
   }
 }

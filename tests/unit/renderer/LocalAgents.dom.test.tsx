@@ -9,7 +9,7 @@
  * derives the detected/custom sections from it.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -18,6 +18,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en' } }),
 }));
 
+const { runtimeEnvironment } = vi.hoisted(() => ({ runtimeEnvironment: { isDesktop: true } }));
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -65,6 +66,24 @@ vi.mock('@renderer/hooks/agent/useManagedAgents', () => ({
 // shape the handlers reference so the import resolves.
 vi.mock('@/common', () => ({
   ipcBridge: {
+    webRuntime: {
+      codexAccount: { invoke: vi.fn().mockResolvedValue({ authenticated: false, login: { state: 'idle' } }) },
+      codexLogin: { invoke: vi.fn() },
+      codexCancelLogin: { invoke: vi.fn() },
+      codexLogout: { invoke: vi.fn() },
+      networkProxy: {
+        invoke: vi.fn().mockResolvedValue({
+          enabled: false,
+          endpoint: '',
+          hasCredentials: false,
+          active: false,
+          pendingRestart: false,
+          managedByEnvironment: false,
+          containerSupported: true,
+        }),
+      },
+      saveNetworkProxy: { invoke: vi.fn() },
+    },
     acpConversation: {
       createCustomAgent: { invoke: vi.fn() },
       updateCustomAgent: { invoke: vi.fn() },
@@ -84,6 +103,7 @@ vi.mock('@renderer/utils/platform', async () => {
   return {
     ...actual,
     openExternalUrl,
+    isElectronDesktop: () => runtimeEnvironment.isDesktop,
   };
 });
 
@@ -97,8 +117,10 @@ import AgentModalContent from '@renderer/components/settings/SettingsModal/conte
 import { SettingsViewModeProvider } from '@renderer/components/settings/SettingsModal/settingsViewContext';
 import { ipcBridge } from '@/common';
 import { MemoryRouter } from 'react-router-dom';
+import { SWRConfig } from 'swr';
 import { getBoundAssistants } from '@renderer/pages/settings/AgentSettings/BoundAssistants';
 import type { Assistant } from '@/common/types/agent/assistantTypes';
+import { configService, readCodexSettings } from '@/common/config/configService';
 
 const makeAgents = () => [
   {
@@ -377,23 +399,13 @@ describe('LocalAgents', () => {
     expect(claude.compareDocumentPosition(kimi) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
-  it('renders agent management as a single diagnostics page without local/remote tabs', () => {
-    useManagedAgents.mockReturnValue({
-      agents: makeAgents(),
-      revalidate: vi.fn(),
-      refreshCatalog: vi.fn(),
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/settings/agents?tab=remote']}>
-        <SettingsViewModeProvider value='page'>
-          <AgentModalContent />
-        </SettingsViewModeProvider>
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText('Aion CLI')).toBeInTheDocument();
-    expect(screen.queryByText('settings.agentManagement.localAgents')).toBeNull();
+  it('shows only Codex in the Edu agent settings page', () => {
+    mockMatchMedia();
+    useManagedAgents.mockReturnValue({ agents: [...makeAgents(), codexAgent], refreshCatalog: vi.fn() });
+    renderSettings();
+    expect(screen.getByText('Codex CLI')).toBeInTheDocument();
+    expect(screen.queryByText('Aion CLI')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-add-custom-agent')).not.toBeInTheDocument();
   });
 
   it('surfaces custom-agent toggle failures to the user', async () => {
@@ -449,5 +461,177 @@ describe('LocalAgents', () => {
     fireEvent.click(unavailableTab);
     expect(screen.queryByText('Aion CLI')).toBeNull();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
+  });
+});
+
+const codexAgent = {
+  id: 'acp-codex',
+  name: 'Codex CLI',
+  agent_type: 'acp',
+  agent_source: 'builtin',
+  backend: 'codex',
+  enabled: true,
+  available: true,
+  installed: true,
+  status: 'online',
+};
+
+function mockMatchMedia() {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  );
+}
+
+function renderSettings() {
+  return render(
+    <MemoryRouter>
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        <SettingsViewModeProvider value='page'>
+          <AgentModalContent />
+        </SettingsViewModeProvider>
+      </SWRConfig>
+    </MemoryRouter>
+  );
+}
+
+describe('Codex settings form', () => {
+  beforeEach(() => {
+    mockMatchMedia();
+    configService.reset();
+    vi.clearAllMocks();
+    useManagedAgents.mockReturnValue({ agents: [codexAgent], refreshCatalog: vi.fn() });
+  });
+  afterEach(() => {
+    configService.reset();
+    vi.unstubAllGlobals();
+  });
+
+  it('shows the default model and low reasoning', () => {
+    renderSettings();
+    expect(screen.getByRole('textbox', { name: 'codex.settings.model' })).toHaveValue('gpt-6-astra');
+    expect(screen.getByText('codex.settings.efforts.low')).toBeInTheDocument();
+  });
+
+  it('rejects an empty model without saving it', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    renderSettings();
+    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), { target: { value: ' ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
+    await waitFor(() => expect(screen.getByText('codex.settings.invalidModel')).toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('saves the selected model to the server', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderSettings();
+    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), {
+      target: { value: 'gpt-6-astra-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
+    await waitFor(() => expect(messageSuccess).toHaveBeenCalledWith('common.saveSuccess'));
+    expect(readCodexSettings().model).toBe('gpt-6-astra-test');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      'codex.settings': { model: 'gpt-6-astra-test', reasoningEffort: 'low' },
+    });
+  });
+
+  it('reports failed saves and keeps the previously saved model', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('unavailable', { status: 503 })));
+    renderSettings();
+    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), {
+      target: { value: 'gpt-6-astra-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
+    await waitFor(() => expect(messageError).toHaveBeenCalledWith('common.saveFailed'));
+    expect(readCodexSettings().model).toBe('gpt-6-astra');
+  });
+});
+
+describe('WebUI Codex account and SOCKS5 controls', () => {
+  const disconnected = { authenticated: false, login: { state: 'idle' as const } };
+  const proxyStatus = {
+    enabled: true,
+    endpoint: 'socks5://192.0.2.1:1080',
+    hasCredentials: true,
+    active: false,
+    pendingRestart: true,
+    managedByEnvironment: false,
+    containerSupported: true,
+  };
+  beforeEach(() => {
+    runtimeEnvironment.isDesktop = false;
+    mockMatchMedia();
+    vi.clearAllMocks();
+    useManagedAgents.mockReturnValue({ agents: [codexAgent], refreshCatalog: vi.fn() });
+    vi.mocked(ipcBridge.webRuntime.codexAccount.invoke).mockResolvedValue(disconnected);
+    vi.mocked(ipcBridge.webRuntime.networkProxy.invoke).mockResolvedValue(proxyStatus);
+  });
+  afterEach(() => {
+    runtimeEnvironment.isDesktop = true;
+    vi.unstubAllGlobals();
+  });
+
+  it('shows the official device-code link and code after starting login', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexLogin.invoke).mockResolvedValue({
+      authenticated: false,
+      login: { state: 'pending', userCode: 'TEST-CODE', verificationUrl: 'https://auth.openai.com/codex/device' },
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.account.signIn' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.account.signIn' }));
+    await waitFor(() => expect(screen.getByText('TEST-CODE')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'codex.account.openLogin' })).toHaveAttribute(
+      'href',
+      'https://auth.openai.com/codex/device'
+    );
+  });
+
+  it('reports failed login without showing a device code', async () => {
+    vi.mocked(ipcBridge.webRuntime.codexLogin.invoke).mockRejectedValue(new Error('offline'));
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'codex.account.signIn' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.account.signIn' }));
+    await waitFor(() => expect(messageError).toHaveBeenCalledWith('codex.account.actionFailed'));
+    expect(screen.queryByRole('link', { name: 'codex.account.openLogin' })).not.toBeInTheDocument();
+  });
+
+  it('keeps stored proxy credentials on a save with an empty replacement field', async () => {
+    vi.mocked(ipcBridge.webRuntime.saveNetworkProxy.invoke).mockResolvedValue(proxyStatus);
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'codex.proxy.enable' })).toBeChecked());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.proxy.save' }));
+    await waitFor(() => expect(ipcBridge.webRuntime.saveNetworkProxy.invoke).toHaveBeenCalledWith({ enabled: true }));
+    expect(screen.getByLabelText('codex.proxy.url')).toHaveValue('');
+  });
+
+  it('shows failed proxy saves without claiming the active route changed', async () => {
+    vi.mocked(ipcBridge.webRuntime.saveNetworkProxy.invoke).mockRejectedValue(new Error('invalid'));
+    renderSettings();
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'codex.proxy.enable' })).toBeChecked());
+    fireEvent.click(screen.getByRole('button', { name: 'codex.proxy.save' }));
+    await waitFor(() => expect(messageError).toHaveBeenCalledWith('codex.proxy.saveFailed'));
+    expect(screen.getByText('codex.proxy.inactive')).toBeInTheDocument();
+  });
+
+  it('locks proxy settings managed by the container environment', async () => {
+    vi.mocked(ipcBridge.webRuntime.networkProxy.invoke).mockResolvedValue({
+      ...proxyStatus,
+      managedByEnvironment: true,
+    });
+    renderSettings();
+    await waitFor(() => expect(screen.getByText('codex.proxy.environmentManaged')).toBeInTheDocument());
+    expect(screen.getByRole('switch', { name: 'codex.proxy.enable' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'codex.proxy.save' })).toBeDisabled();
   });
 });

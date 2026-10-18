@@ -1,4 +1,16 @@
-import type { ConfigKey, ConfigKeyMap } from './configKeys';
+import type { CodexSettings, ConfigKey, ConfigKeyMap } from './configKeys';
+
+export const DEFAULT_CODEX_SETTINGS: Readonly<CodexSettings> = {
+  model: 'gpt-6-astra',
+  reasoningEffort: 'low',
+};
+
+export const CODEX_REASONING_EFFORTS: CodexSettings['reasoningEffort'][] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+/** Validate CLI model identifiers before persisting a preference. */
+export function isCodexModelId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(value);
+}
 
 type Subscriber = (value: unknown) => void;
 
@@ -86,6 +98,12 @@ class ConfigServiceImpl {
     await fetchJson<void>('PUT', '/api/settings/client', { [key]: value });
   }
 
+  /** Publish a setting only after the backend has saved it successfully. */
+  async setConfirmed<K extends ConfigKey>(key: K, value: ConfigKeyMap[K]): Promise<void> {
+    await fetchJson<void>('PUT', '/api/settings/client', { [key]: value });
+    this.setLocal(key, value);
+  }
+
   setLocal<K extends ConfigKey>(key: K, value: ConfigKeyMap[K]): void {
     this.cache.set(key, value);
     this.notify(key, value);
@@ -137,3 +155,15 @@ class ConfigServiceImpl {
 }
 
 export const configService = new ConfigServiceImpl();
+
+/** Read the saved defaults at the send boundary, ignoring stale assistant preferences. */
+export function readCodexSettings(): CodexSettings {
+  const saved = configService.get('codex.settings');
+  const model = typeof saved?.model === 'string' ? saved.model.trim() : '';
+  return {
+    model: isCodexModelId(model) ? model : DEFAULT_CODEX_SETTINGS.model,
+    reasoningEffort: CODEX_REASONING_EFFORTS.includes(saved?.reasoningEffort as CodexSettings['reasoningEffort'])
+      ? saved!.reasoningEffort
+      : DEFAULT_CODEX_SETTINGS.reasoningEffort,
+  };
+}

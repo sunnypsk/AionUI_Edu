@@ -129,5 +129,52 @@
       "reject_once_desc": "Reject this file read only",
       "reject_always_desc": "Always reject all file read requests"
     }
+  },
+  "settings": {
+    "title": "Codex CLI settings",
+    "description": "Codex CLI is the supported agent. These settings apply to new conversations. Change the model and reasoning here.",
+    "model": "Model",
+    "reasoning": "Reasoning effort",
+    "invalidModel": "Enter a valid model ID, for example gpt-6-astra.",
+    "efforts": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Maximum"
+    }
+  },
+  "account": {
+    "title": "Codex account",
+    "description": "Sign in on the official ChatGPT website. Conversations on this NAS share this Codex account.",
+    "actionFailed": "Could not update Codex sign-in. Check the connection and try again.",
+    "unavailable": "Codex account status is unavailable. Check the CLI and network, then refresh.",
+    "signedIn": "Codex is signed in",
+    "signedOut": "Codex is not signed in",
+    "enterCode": "Enter this one-time code on the ChatGPT page:",
+    "openLogin": "Open ChatGPT sign-in",
+    "loginFailed": "Sign-in failed or expired. Enable device code login in ChatGPT security settings and try again.",
+    "signOut": "Sign out of Codex",
+    "signIn": "Sign in with ChatGPT",
+    "refresh": "Refresh status"
+  },
+  "proxy": {
+    "title": "SOCKS5 network proxy",
+    "description": "Route container traffic, Codex and its tools through SOCKS5. Changes take effect after restarting the container.",
+    "loadFailed": "Could not load proxy settings.",
+    "active": "Container proxy routing is active",
+    "inactive": "Container proxy routing is inactive",
+    "containerOnly": "Full routing is available in the Linux Docker container. Local development does not change this computer’s network.",
+    "restartRequired": "Saved settings differ from the active route. Restart the container when no tasks are running.",
+    "environmentManaged": "The proxy is managed by AIONUI_SOCKS5_PROXY in the container configuration.",
+    "enable": "Enable SOCKS5 routing",
+    "url": "SOCKS5 URL",
+    "urlHint": "Use socks5:// or socks5h:// with an IP address. Username/password are optional and must be URL-encoded. Leave blank to keep saved credentials.",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "Saved endpoint: {{endpoint}}",
+    "credentialsStored": "Credentials stored",
+    "save": "Save proxy settings",
+    "saved": "Proxy settings saved. Restart the container to apply them.",
+    "saveFailed": "Could not save. Check the SOCKS5 URL and use an IP address."
   }
 }

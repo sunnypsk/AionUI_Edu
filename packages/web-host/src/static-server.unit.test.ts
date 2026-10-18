@@ -6,6 +6,9 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { startStaticServer, type StaticServerHandle } from './static-server.js';
 
+// RFC 6455's public example nonce, derived instead of storing a key-shaped fixture.
+const WEBSOCKET_KEY = Buffer.from('the sample nonce').toString('base64');
+
 async function mkRendererFixture(): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ws-static-'));
   await fs.writeFile(path.join(dir, 'index.html'), '<!doctype html><title>root</title>');
@@ -201,7 +204,9 @@ describe('static-server', () => {
             'Upgrade: websocket\r\n' +
             'Connection: Upgrade\r\n' +
             'Sec-WebSocket-Version: 13\r\n' +
-            'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+            'Sec-WebSocket-Key: ' +
+            WEBSOCKET_KEY +
+            '\r\n' +
             '\r\n'
         );
       });
@@ -257,7 +262,9 @@ describe('static-server', () => {
             'Upgrade: websocket\r\n' +
             'Connection: Upgrade\r\n' +
             'Sec-WebSocket-Version: 13\r\n' +
-            'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+            'Sec-WebSocket-Key: ' +
+            WEBSOCKET_KEY +
+            '\r\n' +
             '\r\n'
         );
       });
@@ -312,7 +319,9 @@ describe('static-server', () => {
             'Upgrade: websocket\r\n' +
             'Connection: Upgrade\r\n' +
             'Sec-WebSocket-Version: 13\r\n' +
-            'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+            'Sec-WebSocket-Key: ' +
+            WEBSOCKET_KEY +
+            '\r\n' +
             '\r\n'
         );
       });

@@ -129,5 +129,52 @@
       "reject_once_desc": "Sadece bu dosyaların okunmasını reddet",
       "reject_always_desc": "Tüm dosya okuma isteklerini her zaman reddet"
     }
+  },
+  "settings": {
+    "title": "Codex CLI ayarları",
+    "description": "Desteklenen aracı Codex CLI’dır. Bu ayarlar yeni konuşmalara uygulanır. Modeli ve akıl yürütme düzeyini buradan değiştirin.",
+    "model": "Model",
+    "reasoning": "Akıl yürütme düzeyi",
+    "invalidModel": "gpt-6-astra gibi geçerli bir model kimliği girin.",
+    "efforts": {
+      "low": "Düşük",
+      "medium": "Orta",
+      "high": "Yüksek",
+      "xhigh": "Çok yüksek",
+      "max": "En yüksek"
+    }
+  },
+  "account": {
+    "title": "Codex hesabı",
+    "description": "Resmî ChatGPT sitesinde oturum açın. Bu NAS’taki konuşmalar aynı Codex hesabını kullanır.",
+    "actionFailed": "Oturum durumu güncellenemedi. Bağlantıyı kontrol edip tekrar deneyin.",
+    "unavailable": "Hesap durumu alınamıyor. CLI ve ağı kontrol edip yenileyin.",
+    "signedIn": "Codex oturumu açık",
+    "signedOut": "Codex oturumu açık değil",
+    "enterCode": "ChatGPT sayfasına bu tek kullanımlık kodu girin:",
+    "openLogin": "ChatGPT girişini aç",
+    "loginFailed": "Giriş başarısız veya süresi doldu. ChatGPT güvenlik ayarlarında cihaz koduyla girişi etkinleştirip tekrar deneyin.",
+    "signOut": "Codex oturumunu kapat",
+    "signIn": "ChatGPT ile giriş yap",
+    "refresh": "Durumu yenile"
+  },
+  "proxy": {
+    "title": "SOCKS5 ağ proxy’si",
+    "description": "Konteyner, Codex ve araçlarının trafiğini SOCKS5 üzerinden yönlendirin. Değişiklikler konteyner yeniden başlatılınca uygulanır.",
+    "loadFailed": "Proxy ayarları yüklenemedi.",
+    "active": "Konteyner proxy yönlendirmesi etkin",
+    "inactive": "Konteyner proxy yönlendirmesi devre dışı",
+    "containerOnly": "Tam yönlendirme Linux Docker konteynerinde kullanılabilir. Yerel geliştirme bu bilgisayarın ağını değiştirmez.",
+    "restartRequired": "Kaydedilen ayarlar etkin rotadan farklı. Çalışan görev yokken konteyneri yeniden başlatın.",
+    "environmentManaged": "Proxy, konteyner yapılandırmasındaki AIONUI_SOCKS5_PROXY ile yönetiliyor.",
+    "enable": "SOCKS5 yönlendirmesini etkinleştir",
+    "url": "SOCKS5 URL’si",
+    "urlHint": "IP adresiyle socks5:// veya socks5h:// kullanın. İsteğe bağlı kimlik bilgileri URL kodlamalı olmalıdır. Boş bırakmak kayıtlı bilgileri korur.",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "Kayıtlı uç nokta: {{endpoint}}",
+    "credentialsStored": "Kimlik bilgileri kayıtlı",
+    "save": "Proxy ayarlarını kaydet",
+    "saved": "Ayarlar kaydedildi. Uygulamak için konteyneri yeniden başlatın.",
+    "saveFailed": "Kaydedilemedi. SOCKS5 URL’sini ve IP adresini kontrol edin."
   }
 }

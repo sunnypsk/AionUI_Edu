@@ -129,5 +129,52 @@
       "reject_once_desc": "Rejeitar apenas esta leitura de arquivo",
       "reject_always_desc": "Sempre rejeitar todas as solicitações de leitura de arquivo"
     }
+  },
+  "settings": {
+    "title": "Configurações do Codex CLI",
+    "description": "O agente compatível é o Codex CLI. Estas configurações se aplicam a novas conversas. Altere o modelo e o esforço de raciocínio aqui.",
+    "model": "Modelo",
+    "reasoning": "Esforço de raciocínio",
+    "invalidModel": "Insira um ID de modelo válido, como gpt-6-astra.",
+    "efforts": {
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "xhigh": "Muito alto",
+      "max": "Máximo"
+    }
+  },
+  "account": {
+    "title": "Conta do Codex",
+    "description": "Entre no site oficial do ChatGPT. As conversas neste NAS compartilham esta conta do Codex.",
+    "actionFailed": "Não foi possível atualizar o login. Verifique a conexão e tente novamente.",
+    "unavailable": "Status da conta indisponível. Verifique a CLI e a rede e atualize.",
+    "signedIn": "Codex conectado",
+    "signedOut": "Codex não está conectado",
+    "enterCode": "Digite este código de uso único na página do ChatGPT:",
+    "openLogin": "Abrir login do ChatGPT",
+    "loginFailed": "O login falhou ou expirou. Ative o login com código de dispositivo na segurança do ChatGPT e tente novamente.",
+    "signOut": "Sair do Codex",
+    "signIn": "Entrar com ChatGPT",
+    "refresh": "Atualizar status"
+  },
+  "proxy": {
+    "title": "Proxy de rede SOCKS5",
+    "description": "Encaminhe o tráfego do contêiner, Codex e ferramentas pelo SOCKS5. As alterações entram em vigor ao reiniciar o contêiner.",
+    "loadFailed": "Não foi possível carregar as configurações do proxy.",
+    "active": "Proxy do contêiner ativo",
+    "inactive": "Proxy do contêiner inativo",
+    "containerOnly": "O roteamento completo está disponível no contêiner Docker Linux. O desenvolvimento local não altera a rede deste computador.",
+    "restartRequired": "As configurações salvas diferem da rota ativa. Reinicie o contêiner quando não houver tarefas em execução.",
+    "environmentManaged": "O proxy é gerenciado por AIONUI_SOCKS5_PROXY na configuração do contêiner.",
+    "enable": "Ativar roteamento SOCKS5",
+    "url": "URL SOCKS5",
+    "urlHint": "Use socks5:// ou socks5h:// com um endereço IP. Credenciais opcionais devem ser codificadas na URL. Deixe vazio para manter as credenciais salvas.",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "Destino salvo: {{endpoint}}",
+    "credentialsStored": "Credenciais salvas",
+    "save": "Salvar configurações do proxy",
+    "saved": "Configurações salvas. Reinicie o contêiner para aplicá-las.",
+    "saveFailed": "Não foi possível salvar. Verifique a URL SOCKS5 e o endereço IP."
   }
 }

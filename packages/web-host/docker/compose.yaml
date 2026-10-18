@@ -1,0 +1,21 @@
+services:
+  aionui:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    image: aionui-edu:local
+    restart: unless-stopped
+    ports:
+      - '${AIONUI_BIND_ADDRESS:-127.0.0.1}:${AIONUI_PORT:-25808}:25808'
+    volumes:
+      - '${AIONUI_APPDATA:-./data}:/data'
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      PUID: '${PUID:-99}'
+      PGID: '${PGID:-100}'
+      # Optional: overrides the Settings form. Use an IP to prevent bootstrap DNS bypass.
+      AIONUI_SOCKS5_PROXY: '${AIONUI_SOCKS5_PROXY:-}'
+    stop_grace_period: 15s

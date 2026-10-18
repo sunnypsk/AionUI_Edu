@@ -5,8 +5,9 @@
  */
 
 import { ipcBridge } from '@/common';
+import { readCodexSettings } from '@/common/config/configService';
 import { type ChatFileRef, chatFileRefPath } from '@/common/types/chatFile';
-import type { IMcpServer, TProviderWithModel } from '@/common/config/storage';
+import type { IMcpServer } from '@/common/config/storage';
 import { toSessionMcpServer } from '@/renderer/hooks/mcp/catalog';
 import { emitter } from '@/renderer/utils/emitter';
 import { updateWorkspaceTime } from '@/renderer/utils/workspace/workspaceHistory';
@@ -32,9 +33,6 @@ export type GuidSendDeps = {
   selectedAssistantId: string | null;
   selectedAssistantBackend: string;
   selectedMode: string;
-  selectedAcpModel: string | null;
-  selectedThoughtLevelValue?: string;
-  current_model: TProviderWithModel | undefined;
 
   guidDisabledBuiltinSkills: string[] | undefined;
   guidEnabledSkills: string[] | undefined;
@@ -43,7 +41,6 @@ export type GuidSendDeps = {
   availableMcpServers: IMcpServer[];
   selectedMcpServerIds: string[] | undefined;
   assistantDefaultMcpIds?: string[];
-  isGoogleAuth: boolean;
 
   // Mention state reset
   setMentionOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -64,7 +61,7 @@ export type GuidSendResult = {
 };
 
 /**
- * Hook that manages the send logic for ACP and Aion CLI conversations.
+ * Create Codex conversations with the defaults saved in Settings.
  */
 export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   const {
@@ -79,9 +76,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     selectedAssistantId,
     selectedAssistantBackend,
     selectedMode,
-    selectedAcpModel,
-    selectedThoughtLevelValue,
-    current_model,
     guidDisabledBuiltinSkills,
     guidEnabledSkills,
     assistantDefaultSkillIds,
@@ -100,7 +94,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   const sendingRef = useRef(false);
 
   const handleSend = useCallback(async () => {
-    if (!selectedAssistantId) {
+    if (!selectedAssistantId || selectedAssistantBackend !== 'codex') {
       return;
     }
 
@@ -108,7 +102,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     const finalWorkspace = dir || '';
 
     const assistantConversationId = selectedAssistantId;
-    const assistantBackend = selectedAssistantBackend;
     const enabled_skills_to_send = guidEnabledSkills ?? assistantDefaultSkillIds;
     const excludeBuiltinSkills = guidDisabledBuiltinSkills ?? assistantDefaultDisabledBuiltinSkillIds;
     const selectedAllMcpServerIds = selectedMcpServerIds ?? [];
@@ -137,98 +130,15 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
             .filter((server) => (defaultSelectedMcpServerIds ?? []).includes(server.id))
             .map((server) => toSessionMcpServer(server));
 
-    // `current_model` is the aionrs provider selection and means nothing to a
-    // CLI agent, which owns its own model list. Used as a blanket fallback it
-    // leaked into the FIRST turn of every CLI conversation: before the agent's
-    // catalog has been probed the two preceding options are empty, so a brand
-    // new Antigravity conversation started with e.g. `gemini-3.1-pro-preview`
-    // — a provider model agy has never heard of — and the turn failed with
-    // USER_LLM_PROVIDER_MODEL_NOT_FOUND. Once the catalog lands the second
-    // option wins, which is why it only ever reproduced on first use.
-    //
-    // Omitting it lets the agent start on its own default, which is what a user
-    // who has not picked a model means. The cron dialog already gates the same
-    // value this way (`resolvedBackend !== 'aionrs' → undefined`).
-    //
-    // The cached `current_model_id` is NOT a fallback for the same reason, and it
-    // used to defeat the very intent described above. It is whatever the LAST
-    // session of this agent wrote back, so an unpicked conversation inherited a
-    // stranger's choice: for claude that was usually its `default` row, which
-    // PINS the account default and overrides the user's own ANTHROPIC_MODEL — so
-    // the app ran a different model than `claude` in a terminal did, and the
-    // picker contradicted itself (the row promised one model, the session used
-    // another). Omit it: no pick means no override, and the agent resolves the
-    // model from the user's own config.
-    const assistantOverrideModel =
-      selectedAcpModel || (assistantBackend === 'aionrs' ? current_model?.use_model : undefined) || undefined;
+    const codexSettings = readCodexSettings();
     const assistantOverrides = {
-      model: assistantOverrideModel,
+      model: codexSettings.model,
       permission: selectedMode || undefined,
-      thought_level: selectedThoughtLevelValue || undefined,
+      thought_level: codexSettings.reasoningEffort,
       skill_ids: enabled_skills_to_send,
       disabled_builtin_skill_ids: excludeBuiltinSkills,
       mcp_ids: assistantOverrideMcpIds,
     };
-
-    if (assistantBackend === 'aionrs') {
-      if (!current_model) {
-        Message.warning(t('conversation.noModelConfigured'));
-        return;
-      }
-      try {
-        const conversation = await ipcBridge.conversation.create.invoke({
-          name: input,
-          model: current_model,
-          assistant: {
-            id: assistantConversationId,
-            locale: localeKey,
-            conversation_overrides: assistantOverrides,
-          },
-          extra: {
-            default_files: files.map(chatFileRefPath),
-            workspace: finalWorkspace,
-            custom_workspace: isCustomWorkspace,
-            selected_mcp_server_ids: selectedUserMcpServerIdsToSend,
-            selected_session_mcp_servers: selectedSessionMcpServersToSend,
-          },
-        });
-
-        if (!conversation || !conversation.id) {
-          Message.error(t('conversation.createFailed'));
-          return;
-        }
-
-        if (isCustomWorkspace) {
-          updateWorkspaceTime(finalWorkspace);
-        }
-
-        if (assistantConversationId) {
-          await Promise.all([
-            swrMutate(`guid.assistant.detail.${assistantConversationId}.${localeKey}`),
-            swrMutate('assistants.list'),
-          ]);
-        }
-
-        emitter.emit('chat.history.refresh');
-
-        // Empty input = "start chat": create the conversation but do not stash an
-        // initial message, so the window opens idle on the empty state instead of
-        // auto-sending a blank first turn.
-        if (input.trim()) {
-          const initialMessage = {
-            input,
-            files: files.length > 0 ? files : undefined,
-          };
-          sessionStorage.setItem(`aionrs_initial_message_${conversation.id}`, JSON.stringify(initialMessage));
-        }
-
-        await navigate(`/conversation/${conversation.id}`);
-      } catch (error: unknown) {
-        console.error('Failed to create Aion CLI conversation:', error);
-        throw error;
-      }
-      return;
-    }
 
     try {
       const conversation = await ipcBridge.conversation.create.invoke({
@@ -288,9 +198,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     selectedAssistantId,
     selectedAssistantBackend,
     selectedMode,
-    selectedAcpModel,
-    selectedThoughtLevelValue,
-    current_model,
     guidDisabledBuiltinSkills,
     guidEnabledSkills,
     assistantDefaultSkillIds,
@@ -299,7 +206,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     selectedMcpServerIds,
     assistantDefaultMcpIds,
     navigate,
-    t,
     localeKey,
   ]);
 
@@ -343,7 +249,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   // Calculate button disabled state. Empty input is allowed once an assistant is
   // picked — that path creates an empty conversation ("start chat") rather than
   // sending a message, so the gate only blocks while loading or with no assistant.
-  const isButtonDisabled = loading || !selectedAssistantId;
+  const isButtonDisabled = loading || !selectedAssistantId || selectedAssistantBackend !== 'codex';
 
   return {
     handleSend,

@@ -388,6 +388,19 @@ const ChatConversation: React.FC<{
     return <GoogleModelSelector disabled={true} />;
   }, [conversation, isAionrsConversation, isMobile, isLegacyReadOnlyConversation, resolvedConversationBackend]);
 
+  if (conversation && resolvedConversationBackend && resolvedConversationBackend !== 'codex') {
+    return (
+      <ChatLayout
+        title={conversation.name}
+        conversation_id={conversation.id}
+        backend={resolvedConversationBackend}
+        sider={null}
+      >
+        <LegacyReadOnlyConversation conversation={conversation} />
+      </ChatLayout>
+    );
+  }
+
   if (conversation && conversation.type === 'aionrs') {
     return <AionrsConversationPanel key={conversation.id} conversation={conversation} sliderTitle={sliderTitle} />;
   }

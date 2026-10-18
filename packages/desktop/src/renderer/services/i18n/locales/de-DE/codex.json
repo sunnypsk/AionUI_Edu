@@ -129,5 +129,52 @@
       "reject_once_desc": "Nur diesen Datei-Lesevorgang ablehnen",
       "reject_always_desc": "Alle Datei-Leseanfragen immer ablehnen"
     }
+  },
+  "settings": {
+    "title": "Codex CLI-Einstellungen",
+    "description": "Codex CLI ist der unterstützte Agent. Diese Einstellungen gelten für neue Unterhaltungen. Modell und Denkaufwand werden hier geändert.",
+    "model": "Modell",
+    "reasoning": "Denkaufwand",
+    "invalidModel": "Gib eine gültige Modell-ID ein, zum Beispiel gpt-6-astra.",
+    "efforts": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "xhigh": "Sehr hoch",
+      "max": "Maximum"
+    }
+  },
+  "account": {
+    "title": "Codex-Konto",
+    "description": "Melde dich auf der offiziellen ChatGPT-Website an. Unterhaltungen auf diesem NAS verwenden dasselbe Codex-Konto.",
+    "actionFailed": "Anmeldung konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.",
+    "unavailable": "Kontostatus nicht verfügbar. CLI und Netzwerk prüfen und aktualisieren.",
+    "signedIn": "Codex ist angemeldet",
+    "signedOut": "Codex ist nicht angemeldet",
+    "enterCode": "Gib diesen einmaligen Code auf der ChatGPT-Seite ein:",
+    "openLogin": "ChatGPT-Anmeldung öffnen",
+    "loginFailed": "Anmeldung fehlgeschlagen oder abgelaufen. Gerätecode-Anmeldung in den ChatGPT-Sicherheitseinstellungen aktivieren und erneut versuchen.",
+    "signOut": "Bei Codex abmelden",
+    "signIn": "Mit ChatGPT anmelden",
+    "refresh": "Status aktualisieren"
+  },
+  "proxy": {
+    "title": "SOCKS5-Netzwerkproxy",
+    "description": "Container, Codex und Werkzeuge über SOCKS5 leiten. Änderungen gelten nach einem Container-Neustart.",
+    "loadFailed": "Proxy-Einstellungen konnten nicht geladen werden.",
+    "active": "Container-Proxy ist aktiv",
+    "inactive": "Container-Proxy ist inaktiv",
+    "containerOnly": "Vollständiges Routing ist im Linux-Docker-Container verfügbar. Lokale Entwicklung ändert das Netzwerk dieses Computers nicht.",
+    "restartRequired": "Gespeicherte Einstellungen unterscheiden sich von der aktiven Route. Container neu starten, wenn keine Aufgaben laufen.",
+    "environmentManaged": "Der Proxy wird durch AIONUI_SOCKS5_PROXY in der Container-Konfiguration verwaltet.",
+    "enable": "SOCKS5-Routing aktivieren",
+    "url": "SOCKS5-URL",
+    "urlHint": "socks5:// oder socks5h:// mit einer IP-Adresse verwenden. Optionale Zugangsdaten URL-kodieren. Leer lassen, um gespeicherte Zugangsdaten zu behalten.",
+    "placeholder": "socks5://192.168.1.10:1080",
+    "savedEndpoint": "Gespeicherter Endpunkt: {{endpoint}}",
+    "credentialsStored": "Zugangsdaten gespeichert",
+    "save": "Proxy-Einstellungen speichern",
+    "saved": "Einstellungen gespeichert. Container zum Anwenden neu starten.",
+    "saveFailed": "Speichern fehlgeschlagen. SOCKS5-URL und IP-Adresse prüfen."
   }
 }

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { assistantRuntimeKey, isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
+import { assistantRuntimeKey, type Assistant } from '@/common/types/agent/assistantTypes';
 import { configService } from '@/common/config/configService';
 import type { AcpModelInfo } from '../types';
 import type { AgentModeOption } from '@/renderer/utils/model/agentTypes';
@@ -91,7 +91,9 @@ export function resolveAssistantSelectionKey(
 
 function readPersistedGuidAssistantSelectionKey(assistants: Assistant[]): string | undefined {
   const savedKey = configService.get('guid.lastAssistantId');
-  const enabledAssistants = assistants.filter((assistant) => assistant.enabled !== false);
+  const enabledAssistants = assistants.filter(
+    (assistant) => assistant.enabled !== false && assistantRuntimeKey(assistant) === 'codex'
+  );
   return resolveAssistantSelectionKey(savedKey, enabledAssistants);
 }
 
@@ -102,11 +104,13 @@ function persistGuidAssistantSelectionKey(assistantId: string): void {
 }
 
 export function pickDefaultAssistantSelectionKey(assistants: Assistant[]): string | null {
-  const enabledAssistants = assistants.filter((assistant) => assistant.enabled !== false);
+  const enabledAssistants = assistants.filter(
+    (assistant) => assistant.enabled !== false && assistantRuntimeKey(assistant) === 'codex'
+  );
   const preferred =
-    enabledAssistants.find((assistant) => assistant.source === 'generated' && isAionrsAssistant(assistant)) ??
-    enabledAssistants.find((assistant) => isAionrsAssistant(assistant)) ??
-    enabledAssistants[0];
+    enabledAssistants.find(
+      (assistant) => assistant.source === 'generated' && assistantRuntimeKey(assistant) === 'codex'
+    ) ?? enabledAssistants[0];
   return preferred?.id ?? null;
 }
 
@@ -125,7 +129,12 @@ export const useGuidAssistantSelection = ({
   const [selectedMode, _setSelectedMode] = useState<string>('default');
   const [selectedAcpModel, _setSelectedAcpModel] = useState<string | null>(null);
   const [selectedThoughtLevelValue, _setSelectedThoughtLevelValue] = useState<string>('');
-  const { assistants } = useCustomAgentsLoader();
+  const { assistants: allAssistants } = useCustomAgentsLoader();
+  const assistants = useMemo(
+    () =>
+      allAssistants.filter((assistant) => assistant.enabled !== false && assistantRuntimeKey(assistant) === 'codex'),
+    [allAssistants]
+  );
   const managedAgentRuntimeCatalog = useManagedAgentRuntimeCatalog();
 
   const setSelectedMode = useCallback(
@@ -160,7 +169,8 @@ export const useGuidAssistantSelection = ({
 
   const setSelectedAssistantId = useCallback(
     (assistantId: string) => {
-      const normalizedId = resolveAssistantSelectionKey(assistantId, assistants) ?? assistantId;
+      const normalizedId = resolveAssistantSelectionKey(assistantId, assistants);
+      if (!normalizedId) return;
       _setSelectedAssistantId(normalizedId);
       persistGuidAssistantSelectionKey(normalizedId);
     },

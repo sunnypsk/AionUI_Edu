@@ -34,7 +34,7 @@ import {
 
 const LOCAL_AGENT_SETUP_GUIDE_URL = 'https://github.com/iOfficeAI/AionUi/wiki/ACP-Setup';
 
-const LocalAgents: React.FC = () => {
+const LocalAgents: React.FC<{ codexOnly?: boolean }> = ({ codexOnly = false }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const layout = useLayoutContext();
@@ -53,10 +53,13 @@ const LocalAgents: React.FC = () => {
   // Hide deprecated runtime backends (nanobot / openclaw-gateway / remote / gemini)
   // — they are no longer offered as agents and shouldn't appear on the detection page.
   const officialAgents = allAgents.filter(
-    (a) => a.agent_source !== 'custom' && !isDeprecatedRuntimeAgentType(a.agent_type)
+    (a) =>
+      a.agent_source !== 'custom' &&
+      !isDeprecatedRuntimeAgentType(a.agent_type) &&
+      (!codexOnly || a.backend === 'codex')
   );
 
-  const customAgents: ManagedAgent[] = allAgents.filter((a) => a.agent_source === 'custom');
+  const customAgents: ManagedAgent[] = allAgents.filter((a) => !codexOnly && a.agent_source === 'custom');
 
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingAgent, setEditingAgent] = useState<ManagedAgent | null>(null);
@@ -206,19 +209,21 @@ const LocalAgents: React.FC = () => {
         data-testid='agent-management-header'
         title={t('settings.agents', { defaultValue: 'Agents' })}
         description={
-          <>
-            <span>{t('settings.agentManagement.localAgentsDescription')} </span>
-            <Button
-              type='text'
-              size='mini'
-              className='!h-auto !p-0 !align-baseline !text-13px !font-normal !text-primary-6 hover:!text-primary-7 hover:!underline underline-offset-2'
-              onClick={() => {
-                void openExternalUrl(LOCAL_AGENT_SETUP_GUIDE_URL).catch(console.error);
-              }}
-            >
-              {t('settings.agentManagement.localAgentsSetupLink')}
-            </Button>
-          </>
+          codexOnly ? undefined : (
+            <>
+              <span>{t('settings.agentManagement.localAgentsDescription')} </span>
+              <Button
+                type='text'
+                size='mini'
+                className='!h-auto !p-0 !align-baseline !text-13px !font-normal !text-primary-6 hover:!text-primary-7 hover:!underline underline-offset-2'
+                onClick={() => {
+                  void openExternalUrl(LOCAL_AGENT_SETUP_GUIDE_URL).catch(console.error);
+                }}
+              >
+                {t('settings.agentManagement.localAgentsSetupLink')}
+              </Button>
+            </>
+          )
         }
         actions={
           <>
@@ -231,16 +236,18 @@ const LocalAgents: React.FC = () => {
                 onChange={setSearchQuery}
               />
             )}
-            <TalkToButlerButton
-              label={t('settings.agentManagement.addCustomAgent', { defaultValue: 'Add custom Agent' })}
-              chatLabel={t('settings.talkToButler.addViaChat', { defaultValue: 'Add via chat' })}
-              onManual={openCustomAgentEditor}
-              manualLabel={t('settings.talkToButler.addManually', { defaultValue: 'Add manually' })}
-              prompt={t('settings.talkToButler.prompt.addCustomAgent', {
-                defaultValue: 'Help me add a custom Agent.',
-              })}
-              data-testid='btn-add-custom-agent'
-            />
+            {!codexOnly && (
+              <TalkToButlerButton
+                label={t('settings.agentManagement.addCustomAgent', { defaultValue: 'Add custom Agent' })}
+                chatLabel={t('settings.talkToButler.addViaChat', { defaultValue: 'Add via chat' })}
+                onManual={openCustomAgentEditor}
+                manualLabel={t('settings.talkToButler.addManually', { defaultValue: 'Add manually' })}
+                prompt={t('settings.talkToButler.prompt.addCustomAgent', {
+                  defaultValue: 'Help me add a custom Agent.',
+                })}
+                data-testid='btn-add-custom-agent'
+              />
+            )}
           </>
         }
         tabs={[
@@ -293,82 +300,86 @@ const LocalAgents: React.FC = () => {
       </div>
 
       {/* Custom Agents section */}
-      <div data-testid='agent-management-custom-header' className='flex flex-col gap-2px'>
-        <Typography.Text className='text-13px font-medium text-t-secondary block'>
-          {t('settings.agentManagement.customAgents', { defaultValue: 'Custom Agents' })}
-        </Typography.Text>
-        <Typography.Text className='block text-12px text-t-tertiary'>
-          {t('settings.agentManagement.customEmptyDescription')}
-        </Typography.Text>
-      </div>
+      {!codexOnly && (
+        <>
+          <div data-testid='agent-management-custom-header' className='flex flex-col gap-2px'>
+            <Typography.Text className='text-13px font-medium text-t-secondary block'>
+              {t('settings.agentManagement.customAgents', { defaultValue: 'Custom Agents' })}
+            </Typography.Text>
+            <Typography.Text className='block text-12px text-t-tertiary'>
+              {t('settings.agentManagement.customEmptyDescription')}
+            </Typography.Text>
+          </div>
 
-      <AionModal
-        visible={editorVisible}
-        onCancel={() => {
-          setEditorVisible(false);
-          setEditingAgent(null);
-        }}
-        header={{
-          title: editingAgent
-            ? t('settings.agentManagement.editCustomAgent')
-            : t('settings.agentManagement.detectCustomAgent'),
-          showClose: true,
-        }}
-        footer={null}
-        style={{ maxWidth: '92vw', borderRadius: 16 }}
-        contentStyle={{
-          background: 'var(--dialog-fill-0)',
-          borderRadius: 16,
-          padding: '20px 24px 16px',
-          overflow: 'auto',
-        }}
-      >
-        {/* Conditional mount + key unmounts the editor on close so the
-            next `创建自定义 Agent` click always starts from a blank form.
-            The inner useEffect([agent]) only resets when the `agent`
-            reference changes; two consecutive `null` values would not
-            retrigger it. */}
-        {editorVisible && (
-          <InlineAgentEditor
-            key={editingAgent?.id ?? 'new'}
-            agent={editingAgent}
-            onSave={(agent) => void handleSaveCustomAgent(agent)}
+          <AionModal
+            visible={editorVisible}
             onCancel={() => {
               setEditorVisible(false);
               setEditingAgent(null);
             }}
-          />
-        )}
-      </AionModal>
+            header={{
+              title: editingAgent
+                ? t('settings.agentManagement.editCustomAgent')
+                : t('settings.agentManagement.detectCustomAgent'),
+              showClose: true,
+            }}
+            footer={null}
+            style={{ maxWidth: '92vw', borderRadius: 16 }}
+            contentStyle={{
+              background: 'var(--dialog-fill-0)',
+              borderRadius: 16,
+              padding: '20px 24px 16px',
+              overflow: 'auto',
+            }}
+          >
+            {/* Conditional mount + key unmounts the editor on close so the
+            next `创建自定义 Agent` click always starts from a blank form.
+            The inner useEffect([agent]) only resets when the `agent`
+            reference changes; two consecutive `null` values would not
+            retrigger it. */}
+            {editorVisible && (
+              <InlineAgentEditor
+                key={editingAgent?.id ?? 'new'}
+                agent={editingAgent}
+                onSave={(agent) => void handleSaveCustomAgent(agent)}
+                onCancel={() => {
+                  setEditorVisible(false);
+                  setEditingAgent(null);
+                }}
+              />
+            )}
+          </AionModal>
 
-      <div data-testid='agent-management-custom-section'>
-        <div className='flex flex-col gap-8px rounded-12px border border-border-2 bg-2 p-8px md:rounded-16px md:p-10px'>
-          {visibleCustomAgents?.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              type='custom'
-              agent={agent}
-              boundAssistants={getBoundAssistants(agent, assistants)}
-              onTestConnection={() => void handleTestConnection(agent.id)}
-              onConfigure={() => openAgentConfig(agent.id)}
-              isTesting={testingAgentId === agent.id}
-              onEdit={() => {
-                setEditingAgent(agent);
-                setEditorVisible(true);
-              }}
-              onDelete={() => void handleDeleteCustomAgent(agent.id)}
-              onToggle={(enabled) => void handleToggleCustomAgent(agent.id, enabled)}
-            />
-          ))}
-          {visibleCustomAgents.length === 0 ? (
-            <Typography.Text type='secondary' className='block py-12px text-center text-12px'>
-              {normalizedSearchQuery
-                ? t('settings.agentManagement.noSearchResults', { defaultValue: 'No matching agents.' })
-                : t('settings.agentManagement.customEmpty')}
-            </Typography.Text>
-          ) : null}
-        </div>
-      </div>
+          <div data-testid='agent-management-custom-section'>
+            <div className='flex flex-col gap-8px rounded-12px border border-border-2 bg-2 p-8px md:rounded-16px md:p-10px'>
+              {visibleCustomAgents?.map((agent) => (
+                <AgentCard
+                  key={agent.id}
+                  type='custom'
+                  agent={agent}
+                  boundAssistants={getBoundAssistants(agent, assistants)}
+                  onTestConnection={() => void handleTestConnection(agent.id)}
+                  onConfigure={() => openAgentConfig(agent.id)}
+                  isTesting={testingAgentId === agent.id}
+                  onEdit={() => {
+                    setEditingAgent(agent);
+                    setEditorVisible(true);
+                  }}
+                  onDelete={() => void handleDeleteCustomAgent(agent.id)}
+                  onToggle={(enabled) => void handleToggleCustomAgent(agent.id, enabled)}
+                />
+              ))}
+              {visibleCustomAgents.length === 0 ? (
+                <Typography.Text type='secondary' className='block py-12px text-center text-12px'>
+                  {normalizedSearchQuery
+                    ? t('settings.agentManagement.noSearchResults', { defaultValue: 'No matching agents.' })
+                    : t('settings.agentManagement.customEmpty')}
+                </Typography.Text>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

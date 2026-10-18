@@ -1,3 +1,15 @@
+## AionUI_Edu — Codex CLI default
+
+This fork installs the official `@openai/codex` CLI as a pinned production dependency. After `bun install`, run `bun run codex --version` to verify it. Browser users can sign in through **Settings → Agents → Codex account**, using ChatGPT's official device-code flow. Credentials stay in the host's Codex auth store; do not commit them.
+
+New chats use Codex CLI exclusively; the composer has no CLI or model picker. The default model is `gpt-6-astra` with `low` reasoning effort. Change these defaults in **Settings → Agents → Codex CLI settings**. Saved settings apply to new conversations and override historical assistant model preferences. Existing conversations retain their session configuration. Other CLI backends are not selectable.
+
+Start the browser UI with `bun run webui`. This launcher puts the project's CLI binaries first on the backend's `PATH`. AionCore remains required for the WebUI's files, sessions, and API; Codex CLI is the conversation's agent runtime. The browser user does not need to install either component.
+
+For Unraid, the container includes SOCKS5 routing for the app, CLI, and their tools, configured in Settings and applied after a container restart. See the [Unraid setup, browser login, and proxy guide](packages/web-host/docker/README.md) for persistence, required container capabilities, and target-host verification.
+
+---
+
 <p align="center">
   <img src="./resources/aionui-banner-1.png" alt="AionUi - Cowork with AI Agents" width="100%">
 </p>

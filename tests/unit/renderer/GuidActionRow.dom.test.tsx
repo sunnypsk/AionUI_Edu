@@ -154,15 +154,8 @@ const renderActionRow = (overrides: Partial<React.ComponentProps<typeof GuidActi
   render(
     <GuidActionRow
       files={[]}
+      onFilesPicked={vi.fn()}
       onFilesUploaded={vi.fn()}
-      modelSelectorNode={null}
-      isGeminiMode={false}
-      modelList={[]}
-      current_model={undefined}
-      setCurrentModel={vi.fn()}
-      currentAcpCachedModelInfo={null}
-      selectedAcpModel={null}
-      setSelectedAcpModel={vi.fn()}
       selectedMode=''
       onModeSelect={vi.fn()}
       allSkills={makeSkills(8)}
@@ -193,6 +186,13 @@ describe('GuidActionRow skill/MCP submenu search', () => {
 
     expect(screen.getByTestId('attach-host-files')).toHaveTextContent('Add files');
     expect(screen.getByTestId('attach-my-device')).toHaveTextContent('Upload from device');
+  });
+
+  it('does not offer model or reasoning changes in the mobile composer', () => {
+    environment.isMobile = true;
+    renderActionRow();
+    expect(screen.queryByTestId('model')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('thought-level')).not.toBeInTheDocument();
   });
 
   it('adds files selected from the host picker in mobile WebUI', async () => {
