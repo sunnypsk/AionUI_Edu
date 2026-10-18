@@ -38,6 +38,10 @@ export const BUILTIN_TAB_IDS = [
   'about',
 ] as const;
 
+/** Keep the desktop and mobile navigation consistent with the host's available settings. */
+export const getVisibleBuiltinSettingsTabIds = (isDesktop: boolean) =>
+  BUILTIN_TAB_IDS.filter((id) => isDesktop || (id !== 'pet' && id !== 'webui'));
+
 /**
  * Legacy anchor IDs that have been merged into other tabs.
  * When an extension anchors to one of these, it is redirected to the new host.
@@ -123,7 +127,7 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
     };
 
     // Start with ordered builtin IDs, hiding desktop-only tabs in browser mode
-    const result: SiderItem[] = BUILTIN_TAB_IDS.filter((id) => isDesktop || id !== 'pet').map((id) => builtinMap[id]);
+    const result: SiderItem[] = getVisibleBuiltinSettingsTabIds(isDesktop).map((id) => builtinMap[id]);
 
     // Extension tabs with position anchoring
     const beforeMap = new Map<string, IExtensionSettingsTab[]>();

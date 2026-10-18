@@ -15,6 +15,8 @@ vi.mock('react-i18next', () => ({
 }));
 
 import ExtensionSettingsPage from '@/renderer/pages/settings/ExtensionSettingsPage';
+import { getBuiltinSettingsNavItems } from '@/renderer/pages/settings/components/SettingsPageWrapper';
+import { getVisibleBuiltinSettingsTabIds } from '@/renderer/pages/settings/components/SettingsSider';
 
 describe('ExtensionSettingsPage', () => {
   it('exports a component (smoke)', () => {
@@ -29,5 +31,21 @@ describe('ExtensionSettingsPage', () => {
   it('can be instantiated as JSX element (shallow)', () => {
     const element = <ExtensionSettingsPage />;
     expect(element.type).toBe(ExtensionSettingsPage);
+  });
+});
+
+describe('host-specific settings navigation', () => {
+  it('hides remote connection settings from both WebUI navigation layouts', () => {
+    const desktopWidthItems = getVisibleBuiltinSettingsTabIds(false);
+    const mobileItems = getBuiltinSettingsNavItems(false, (key) => key).map((item) => item.id);
+    expect(desktopWidthItems).not.toContain('webui');
+    expect(mobileItems).toEqual(desktopWidthItems);
+    expect(mobileItems).toContain('system');
+  });
+
+  it('preserves desktop-only settings for Electron', () => {
+    const ids = getBuiltinSettingsNavItems(true, (key) => key).map((item) => item.id);
+    expect(ids).toContain('webui');
+    expect(ids).toContain('pet');
   });
 });

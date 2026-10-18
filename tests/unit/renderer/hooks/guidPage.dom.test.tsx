@@ -21,6 +21,7 @@ const {
   resolveGuidAssistantDefaultsMock,
   sendMock,
   navigateMock,
+  runtimeEnvironment,
 } = vi.hoisted(() => ({
   modelSelectionMock: {
     modelList: [],
@@ -123,6 +124,7 @@ const {
     isButtonDisabled: false,
   },
   navigateMock: vi.fn(),
+  runtimeEnvironment: { isDesktop: true },
 }));
 
 vi.mock('react-i18next', () => ({
@@ -230,6 +232,7 @@ vi.mock('@/renderer/hooks/system/useSpeechInput', () => ({
 }));
 
 vi.mock('@/renderer/utils/platform', () => ({
+  isElectronDesktop: () => runtimeEnvironment.isDesktop,
   openExternalUrl: vi.fn(),
   resolveExtensionAssetUrl: vi.fn(),
   resolveBackendAssetUrl: vi.fn((path: string) => path),
@@ -302,6 +305,7 @@ const guidInputCardProps = {
 
 describe('GuidPage', () => {
   beforeEach(() => {
+    runtimeEnvironment.isDesktop = true;
     locationMock.state = null;
     locationMock.key = 'guid-location';
     navigateMock.mockReset();
@@ -448,6 +452,12 @@ describe('GuidPage', () => {
     expect(latestGuidInputCardProps).not.toHaveProperty('mentionOpen');
     expect(latestGuidInputCardProps).not.toHaveProperty('mentionSelectorBadge');
     expect(latestGuidInputCardProps).not.toHaveProperty('mentionDropdown');
+  });
+
+  it('omits home quick actions entirely in the teacher WebUI', () => {
+    runtimeEnvironment.isDesktop = false;
+    render(<GuidPage />);
+    expect(screen.queryByTestId('guid-quick-actions')).not.toBeInTheDocument();
   });
 
   it('ignores legacy selectedAgentKey navigation state when preselecting an assistant', () => {
@@ -609,6 +619,19 @@ describe('GuidPage', () => {
 });
 
 describe('GuidInputCard prefill focus', () => {
+  beforeEach(() => {
+    runtimeEnvironment.isDesktop = true;
+  });
+
+  it('hides the project picker in the teacher WebUI', async () => {
+    runtimeEnvironment.isDesktop = false;
+    const { default: GuidInputCard } = await vi.importActual<
+      typeof import('@/renderer/pages/guid/components/GuidInputCard')
+    >('@/renderer/pages/guid/components/GuidInputCard');
+    render(<GuidInputCard {...guidInputCardProps} />);
+    expect(screen.queryByTestId('workspace-selector-btn')).not.toBeInTheDocument();
+    expect(screen.getByTestId('guid-input')).toBeInTheDocument();
+  });
   it('focuses a draft-preserving prefill on desktop', async () => {
     const { default: GuidInputCard } = await vi.importActual<
       typeof import('@/renderer/pages/guid/components/GuidInputCard')

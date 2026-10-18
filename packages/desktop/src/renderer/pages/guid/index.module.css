@@ -367,6 +367,10 @@
     box-sizing: border-box;
   }
 
+  .guidLayout.webLayout {
+    padding-bottom: 0;
+  }
+
   .guidInputCard {
     width: 100%;
   }

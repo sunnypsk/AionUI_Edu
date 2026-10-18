@@ -11,6 +11,7 @@ import type { IMcpServer } from '@/common/config/storage';
 import { toSessionMcpServer } from '@/renderer/hooks/mcp/catalog';
 import { emitter } from '@/renderer/utils/emitter';
 import { updateWorkspaceTime } from '@/renderer/utils/workspace/workspaceHistory';
+import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Message } from '@arco-design/web-react';
 import { useCallback, useRef } from 'react';
 import { type TFunction } from 'i18next';
@@ -98,8 +99,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
       return;
     }
 
-    const isCustomWorkspace = !!dir;
-    const finalWorkspace = dir || '';
+    // Web tasks always receive a new managed folder, including legacy project navigation.
+    const finalWorkspace = isElectronDesktop() ? dir || '' : '';
+    const isCustomWorkspace = !!finalWorkspace;
 
     const assistantConversationId = selectedAssistantId;
     const enabled_skills_to_send = guidEnabledSkills ?? assistantDefaultSkillIds;

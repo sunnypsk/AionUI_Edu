@@ -12,6 +12,9 @@ import { useGuidSend, type GuidSendDeps } from '@/renderer/pages/guid/hooks/useG
 
 const createConversationInvokeMock = vi.fn();
 const swrMutateMock = vi.fn();
+const runtimeEnvironment = vi.hoisted(() => ({ isDesktop: false }));
+
+vi.mock('@/renderer/utils/platform', () => ({ isElectronDesktop: () => runtimeEnvironment.isDesktop }));
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -74,12 +77,36 @@ const createDeps = (): GuidSendDeps => ({
 
 describe('useGuidSend', () => {
   beforeEach(() => {
+    runtimeEnvironment.isDesktop = false;
     configService.reset();
     sessionStorage.clear();
     createConversationInvokeMock.mockReset();
     createConversationInvokeMock.mockResolvedValue({ id: 'conv-1' });
     swrMutateMock.mockReset();
     swrMutateMock.mockResolvedValue(undefined);
+  });
+
+  it('creates a new managed folder even when legacy WebUI state supplies a project directory', async () => {
+    const deps = createDeps();
+    deps.dir = '/existing-project';
+    const { result } = renderHook(() => useGuidSend(deps));
+    await act(async () => result.current.handleSend());
+    expect(createConversationInvokeMock.mock.calls[0][0].extra).toMatchObject({
+      workspace: '',
+      custom_workspace: false,
+    });
+  });
+
+  it('preserves explicitly selected folders in the Electron desktop app', async () => {
+    runtimeEnvironment.isDesktop = true;
+    const deps = createDeps();
+    deps.dir = '/desktop-project';
+    const { result } = renderHook(() => useGuidSend(deps));
+    await act(async () => result.current.handleSend());
+    expect(createConversationInvokeMock.mock.calls[0][0].extra).toMatchObject({
+      workspace: '/desktop-project',
+      custom_workspace: true,
+    });
   });
 
   it('passes selected mode into assistant conversation overrides when creating a preset ACP conversation', async () => {

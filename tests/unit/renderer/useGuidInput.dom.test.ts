@@ -13,6 +13,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { useGuidInput } from '@/renderer/pages/guid/hooks/useGuidInput';
 
+vi.mock('@/renderer/utils/platform', () => ({ isElectronDesktop: () => false }));
+
 vi.mock('@/renderer/hooks/file/useDragUpload', () => ({
   useDragUpload: () => ({ isFileDragging: false, dragHandlers: {} }),
 }));
@@ -22,6 +24,14 @@ vi.mock('@/renderer/hooks/file/usePasteService', () => ({
 }));
 
 describe('useGuidInput — ELECTRON-1K6', () => {
+  it('ignores legacy project navigation when starting a new WebUI task', () => {
+    const { result, rerender } = renderHook(({ workspace }) => useGuidInput({ locationState: { workspace } }), {
+      initialProps: { workspace: '/existing-project' },
+    });
+    expect(result.current.dir).toBe('');
+    rerender({ workspace: '/another-project' });
+    expect(result.current.dir).toBe('');
+  });
   it('handleFilesPasted preserves the selected workspace dir', () => {
     const { result } = renderHook(() => useGuidInput({ locationState: null }));
 

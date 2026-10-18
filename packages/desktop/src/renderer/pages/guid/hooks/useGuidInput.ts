@@ -9,6 +9,7 @@ import { useDragUpload } from '@/renderer/hooks/file/useDragUpload';
 import { usePasteService } from '@/renderer/hooks/file/usePasteService';
 import { allSupportedExts, type FileMetadata } from '@/renderer/services/FileService';
 import { measureCaretTop, scrollCaretToLastLine } from '../utils/caretUtils';
+import { isElectronDesktop } from '@/renderer/utils/platform';
 import { useCallback, useEffect, useState } from 'react';
 
 export type GuidInputResult = {
@@ -50,7 +51,7 @@ export const useGuidInput = ({ locationState }: UseGuidInputOptions): GuidInputR
 
   // Read workspace from location.state (passed from tabs add button)
   useEffect(() => {
-    if (locationState?.workspace) {
+    if (isElectronDesktop() && locationState?.workspace) {
       setDir(locationState.workspace);
     }
   }, [locationState]);
