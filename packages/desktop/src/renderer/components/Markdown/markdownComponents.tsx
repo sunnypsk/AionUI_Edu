@@ -9,15 +9,16 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkBreaks from 'remark-breaks';
+import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
 /**
- * Shared remark plugin set for every markdown surface: GFM tables/strikethrough,
+ * Shared remark plugin set for every markdown surface: GFM tables/strikethrough, CJK-friendly emphasis,
  * `$...$` / `$$...$$` math, and hard line breaks. Kept as a single module-level
  * constant so all renderers stay in sync and React sees a stable reference.
  */
-export const MARKDOWN_REMARK_PLUGINS = [remarkGfm, remarkMath, remarkBreaks];
+export const MARKDOWN_REMARK_PLUGINS = [remarkGfm, remarkCjkFriendly, remarkMath, remarkBreaks];
 
 /**
  * Rehype pipeline for surfaces that render raw HTML embedded in semi-trusted
