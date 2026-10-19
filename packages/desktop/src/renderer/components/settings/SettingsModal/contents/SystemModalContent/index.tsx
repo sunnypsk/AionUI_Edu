@@ -358,19 +358,27 @@ const SystemModalContent: React.FC = () => {
 
   const preferenceItems = [
     { key: 'language', label: t('settings.language'), component: <LanguageSwitcher /> },
-    {
-      key: 'startOnBoot',
-      label: t('settings.startOnBoot'),
-      description: startOnBoot.supported ? t('settings.startOnBootDesc') : t('settings.startOnBootUnsupported'),
-      component: (
-        <Switch checked={startOnBoot.enabled} onChange={handleStartOnBootChange} disabled={!startOnBoot.supported} />
-      ),
-    },
-    {
-      key: 'closeToTray',
-      label: t('settings.closeToTray'),
-      component: <Switch checked={closeToTray} onChange={handleCloseToTrayChange} />,
-    },
+    ...(isDesktop
+      ? [
+          {
+            key: 'startOnBoot',
+            label: t('settings.startOnBoot'),
+            description: startOnBoot.supported ? t('settings.startOnBootDesc') : t('settings.startOnBootUnsupported'),
+            component: (
+              <Switch
+                checked={startOnBoot.enabled}
+                onChange={handleStartOnBootChange}
+                disabled={!startOnBoot.supported}
+              />
+            ),
+          },
+          {
+            key: 'closeToTray',
+            label: t('settings.closeToTray'),
+            component: <Switch checked={closeToTray} onChange={handleCloseToTrayChange} />,
+          },
+        ]
+      : []),
     ...(isDesktop && gpuStatus
       ? [
           {
@@ -531,7 +539,7 @@ const SystemModalContent: React.FC = () => {
                   handleNotificationEnabledChange(false);
                 }
               }}
-              className='[&_.arco-collapse-item]:!border-none [&_.arco-collapse-item-header]:!px-0 [&_.arco-collapse-item-header-title]:!flex-1 [&_.arco-collapse-item-content-box]:!px-0 [&_.arco-collapse-item-content-box]:!pb-0'
+              className='[&_.arco-collapse-item]:!border-none [&_.arco-collapse-item-header]:!px-0 [&_.arco-collapse-item-header-title]:!flex-1 [&_.arco-collapse-item-content-box]:!px-0 [&_.arco-collapse-item-content-box]:!pb-0 [&_.arco-collapse-item-content]:!bg-transparent'
             >
               <Collapse.Item
                 name='notification'

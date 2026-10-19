@@ -155,7 +155,8 @@
     "agentFirstUseContent": "Ele pode abrir páginas, clicar e ler conteúdo neste painel. Seu login é preservado.",
     "agentFirstUseAction": "Abrir configurações",
     "loadFailed": "Não foi possível abrir esta página",
-    "loadFailedHint": "Verifique sua conexão de rede ou tente novamente mais tarde."
+    "loadFailedHint": "Verifique sua conexão de rede ou tente novamente mais tarde.",
+    "clearDataDescription": "Limpa os logins, os cookies e o histórico de todos os sites do navegador compartilhado. Os arquivos baixados são mantidos."
   },
   "saveConflict": "Não foi possível salvar: este arquivo mudou no disco depois que você o abriu. Recarregue para ver as outras alterações — suas edições continuam aqui, não salvas.",
   "persistQuotaExceeded": "O armazenamento local está cheio, então as abas abertas deste projeto não podem mais ser lembradas. Feche algumas abas ou limpe os dados do site.",
@@ -191,7 +192,7 @@
     "controlChanged": "O controle do navegador mudou. Assuma o controle e tente novamente.",
     "unavailable": "Navegador indisponível. Tente novamente ou verifique a configuração do servidor.",
     "startHint": "Assuma o controle para abrir o navegador. A IA também pode abrir páginas aqui.",
-    "scopeHint": "As abas pertencem a esta tarefa. Os logins de sites são compartilhados somente na sua conta. Os downloads são salvos na pasta desta tarefa.",
+    "scopeHint": "As abas pertencem somente a esta conversa. Os logins de sites são compartilhados somente na sua conta. Os arquivos baixados são salvos na pasta desta conversa.",
     "back": "Voltar",
     "forward": "Avançar",
     "reload": "Recarregar",

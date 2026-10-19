@@ -155,7 +155,8 @@
     "agentFirstUseContent": "Il peut ouvrir des pages, cliquer et lire du contenu dans ce panneau. Votre connexion est conservée.",
     "agentFirstUseAction": "Ouvrir les paramètres",
     "loadFailed": "Impossible d'ouvrir cette page",
-    "loadFailedHint": "Vérifiez votre connexion réseau ou réessayez plus tard."
+    "loadFailedHint": "Vérifiez votre connexion réseau ou réessayez plus tard.",
+    "clearDataDescription": "Efface les connexions, les cookies et l'historique de tous les sites du navigateur partagé. Les fichiers téléchargés sont conservés."
   },
   "saveConflict": "Échec de l'enregistrement : ce fichier a changé sur le disque depuis que vous l'avez ouvert. Rechargez pour voir les autres modifications — vos modifications sont toujours là, non enregistrées.",
   "persistQuotaExceeded": "Le stockage local est plein : les onglets ouverts de ce projet ne peuvent plus être mémorisés. Fermez des onglets ou effacez les données du site.",
@@ -191,7 +192,7 @@
     "controlChanged": "Le contrôle du navigateur a changé. Reprenez le contrôle et réessayez.",
     "unavailable": "Navigateur indisponible. Réessayez ou vérifiez la configuration du serveur.",
     "startHint": "Prenez le contrôle pour ouvrir le navigateur. L’IA peut aussi ouvrir des pages ici.",
-    "scopeHint": "Les onglets appartiennent à cette tâche. Les connexions aux sites sont partagées uniquement dans votre compte. Les téléchargements sont enregistrés dans le dossier de cette tâche.",
+    "scopeHint": "Les onglets appartiennent uniquement à cette conversation. Les connexions aux sites sont partagées uniquement dans votre compte. Les fichiers téléchargés sont enregistrés dans le dossier de cette conversation.",
     "back": "Retour",
     "forward": "Suivant",
     "reload": "Actualiser",

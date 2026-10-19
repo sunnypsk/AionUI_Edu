@@ -155,7 +155,8 @@
     "agentFirstUseContent": "Er kann in diesem Bereich Seiten öffnen, klicken und Inhalte lesen. Deine Anmeldung bleibt erhalten.",
     "agentFirstUseAction": "Einstellungen öffnen",
     "loadFailed": "Diese Seite konnte nicht geöffnet werden",
-    "loadFailedHint": "Prüfen Sie Ihre Netzwerkverbindung oder versuchen Sie es später erneut."
+    "loadFailedHint": "Prüfen Sie Ihre Netzwerkverbindung oder versuchen Sie es später erneut.",
+    "clearDataDescription": "Löscht Anmeldungen, Cookies und den Verlauf aller Websites im gemeinsamen Browser. Heruntergeladene Dateien bleiben erhalten."
   },
   "saveConflict": "Speichern fehlgeschlagen: Diese Datei wurde auf der Festplatte geändert, nachdem Sie sie geöffnet haben. Neu laden, um die anderen Änderungen zu sehen — Ihre Bearbeitungen sind noch da, ungespeichert.",
   "persistQuotaExceeded": "Der lokale Speicher ist voll, offene Tabs dieses Projekts können nicht mehr gemerkt werden. Schließen Sie einige Tabs oder löschen Sie die Websitedaten.",
@@ -191,7 +192,7 @@
     "controlChanged": "Die Browsersteuerung hat sich geändert. Übernehmen Sie die Steuerung und versuchen Sie es erneut.",
     "unavailable": "Browser nicht verfügbar. Erneut versuchen oder die Serverkonfiguration prüfen.",
     "startHint": "Übernehmen Sie die Steuerung, um den Browser zu öffnen. Die KI kann hier ebenfalls Seiten öffnen.",
-    "scopeHint": "Tabs gehören zu dieser Aufgabe. Website-Anmeldungen werden nur innerhalb Ihres Kontos geteilt. Downloads werden im Aufgabenordner gespeichert.",
+    "scopeHint": "Tabs gehören nur zu dieser Unterhaltung. Website-Anmeldungen werden nur innerhalb Ihres Kontos geteilt. Heruntergeladene Dateien werden im Ordner dieser Unterhaltung gespeichert.",
     "back": "Zurück",
     "forward": "Vorwärts",
     "reload": "Neu laden",

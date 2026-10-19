@@ -35,7 +35,7 @@ const BrowserNotificationGrant: React.FC = () => {
   }
   return (
     <div className='ps-12px'>
-      <Button type='outline' size='small' onClick={handleRequest}>
+      <Button type='secondary' size='small' onClick={handleRequest}>
         {t('settings.browserNotification.enable')}
       </Button>
     </div>

@@ -174,7 +174,10 @@ const WebBrowserDataSection: React.FC = () => {
           onChange={(agentEnabled) => void update({ agentEnabled })}
         />
       </PreferenceRow>
-      <PreferenceRow label={t('settings.browserData.clearLabel')} description={t('preview.sharedBrowser.scopeHint')}>
+      <PreferenceRow
+        label={t('settings.browserData.clearLabel')}
+        description={t('preview.browser.clearDataDescription')}
+      >
         <Button
           size='small'
           status='danger'

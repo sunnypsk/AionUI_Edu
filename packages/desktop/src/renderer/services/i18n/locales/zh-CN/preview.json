@@ -155,7 +155,8 @@
     "agentFirstUseContent": "它可以在这个面板里打开网页、点击和读取内容。你的登录状态会被保留。",
     "agentFirstUseAction": "前往设置",
     "loadFailed": "无法打开此网页",
-    "loadFailedHint": "请检查网络或稍后再试。"
+    "loadFailedHint": "请检查网络或稍后再试。",
+    "clearDataDescription": "清除共享浏览器内所有网站的登录状态、Cookie 和浏览记录。已下载的文件会保留。"
   },
   "saveConflict": "保存失败：该文件在你打开后已被改动。可重新加载查看其他改动——你的编辑仍在，尚未保存。",
   "persistQuotaExceeded": "本地存储已满，无法再记住该项目打开的标签页。请关闭一些标签页或清理站点数据。",
@@ -191,7 +192,7 @@
     "controlChanged": "浏览器控制权已改变，请接管后重试。",
     "unavailable": "浏览器暂时不可用，请重试或检查服务器浏览器配置。",
     "startHint": "点击“接管”打开浏览器，AI 也可以在这里打开网页。",
-    "scopeHint": "标签页属于当前任务；网站登录仅在你自己的账户内共享。下载文件保存到当前任务文件夹。",
+    "scopeHint": "标签页只属于当前对话；网站登录仅在你的账户内共享。下载的文件会保存到当前对话的文件夹。",
     "back": "后退",
     "forward": "前进",
     "reload": "重新加载",

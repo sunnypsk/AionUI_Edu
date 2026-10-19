@@ -155,7 +155,8 @@
     "agentFirstUseContent": "Puede abrir páginas, hacer clic y leer contenido en este panel. Tu sesión se conserva.",
     "agentFirstUseAction": "Abrir ajustes",
     "loadFailed": "No se pudo abrir esta página",
-    "loadFailedHint": "Comprueba tu conexión de red o inténtalo de nuevo más tarde."
+    "loadFailedHint": "Comprueba tu conexión de red o inténtalo de nuevo más tarde.",
+    "clearDataDescription": "Borra las sesiones, las cookies y el historial de todos los sitios del navegador compartido. Los archivos descargados se conservan."
   },
   "saveConflict": "No se pudo guardar: este archivo cambió en el disco después de que lo abrieras. Vuelve a cargarlo para ver los otros cambios; tus ediciones siguen aquí, sin guardar.",
   "persistQuotaExceeded": "El almacenamiento local está lleno, así que ya no se pueden recordar las pestañas abiertas de este proyecto. Cierra algunas pestañas o borra los datos del sitio.",
@@ -191,7 +192,7 @@
     "controlChanged": "El control del navegador ha cambiado. Toma el control y vuelve a intentarlo.",
     "unavailable": "Navegador no disponible. Reinténtalo o comprueba la configuración del servidor.",
     "startHint": "Toma el control para abrir el navegador. La IA también puede abrir páginas aquí.",
-    "scopeHint": "Las pestañas pertenecen a esta tarea. Las sesiones de sitios web se comparten solo dentro de tu cuenta. Las descargas se guardan en la carpeta de esta tarea.",
+    "scopeHint": "Las pestañas pertenecen solo a esta conversación. Las sesiones de sitios web se comparten solo dentro de tu cuenta. Los archivos descargados se guardan en la carpeta de esta conversación.",
     "back": "Atrás",
     "forward": "Adelante",
     "reload": "Recargar",

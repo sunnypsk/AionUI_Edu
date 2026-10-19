@@ -155,7 +155,8 @@
     "agentFirstUseContent": "Bu panelde sayfa açabilir, tıklayabilir ve içerik okuyabilir. Oturum bilgileriniz korunur.",
     "agentFirstUseAction": "Ayarları aç",
     "loadFailed": "Bu sayfa açılamadı",
-    "loadFailedHint": "Ağ bağlantınızı kontrol edin veya daha sonra tekrar deneyin."
+    "loadFailedHint": "Ağ bağlantınızı kontrol edin veya daha sonra tekrar deneyin.",
+    "clearDataDescription": "Paylaşılan tarayıcıdaki tüm sitelerin oturumlarını, çerezlerini ve gezinme geçmişini temizler. İndirilen dosyalar korunur."
   },
   "saveConflict": "Kaydedilemedi: bu dosya siz açtıktan sonra diskte değişti. Diğer değişiklikleri görmek için yeniden yükleyin — düzenlemeleriniz kaydedilmemiş olarak duruyor.",
   "persistQuotaExceeded": "Yerel depolama dolu, bu proje için açık sekmeler artık hatırlanamıyor. Bazı sekmeleri kapatın veya site verilerini temizleyin.",
@@ -191,7 +192,7 @@
     "controlChanged": "Tarayıcı kontrolü değişti. Kontrolü alıp tekrar deneyin.",
     "unavailable": "Tarayıcı kullanılamıyor. Tekrar deneyin veya sunucu tarayıcı ayarlarını kontrol edin.",
     "startHint": "Tarayıcıyı açmak için kontrolü alın. Yapay zekâ da burada sayfa açabilir.",
-    "scopeHint": "Sekmeler bu göreve aittir. Site oturumları yalnızca hesabınız içinde paylaşılır. İndirilenler bu görevin klasörüne kaydedilir.",
+    "scopeHint": "Sekmeler yalnızca bu sohbete aittir. Site oturumları yalnızca hesabınız içinde paylaşılır. İndirilen dosyalar bu sohbetin klasörüne kaydedilir.",
     "back": "Geri",
     "forward": "İleri",
     "reload": "Yenile",

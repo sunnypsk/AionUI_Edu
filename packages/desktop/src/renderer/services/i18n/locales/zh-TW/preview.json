@@ -155,7 +155,8 @@
     "agentFirstUseContent": "它可以在這個面板裡開啟網頁、點擊和讀取內容。你的登入狀態會被保留。",
     "agentFirstUseAction": "前往設定",
     "loadFailed": "未能開啟此網頁",
-    "loadFailedHint": "請檢查網絡或稍後再試。"
+    "loadFailedHint": "請檢查網絡或稍後再試。",
+    "clearDataDescription": "清除共用瀏覽器內所有網站的登入狀態、Cookie 及瀏覽記錄。已下載的檔案會保留。"
   },
   "saveConflict": "儲存失敗：該檔案在你開啟後已被變更。可重新載入查看其他變更——你的編輯仍在，尚未儲存。",
   "persistQuotaExceeded": "本機儲存空間已滿，無法再記住該專案開啟的標籤頁。請關閉一些標籤頁或清理網站資料。",
@@ -191,7 +192,7 @@
     "controlChanged": "瀏覽器控制權已改變，請接管後再試。",
     "unavailable": "瀏覽器暫時無法使用，請重試或檢查伺服器瀏覽器設定。",
     "startHint": "按「接管」開啟瀏覽器，AI 亦可在這裡開啟網頁。",
-    "scopeHint": "分頁屬於目前 task；網站登入只會在你自己的帳戶內共用。下載檔案會存入目前 task 資料夾。",
+    "scopeHint": "分頁只屬於目前對話；網站登入只在你的帳戶內共用。下載的檔案會存入目前對話的資料夾。",
     "back": "上一頁",
     "forward": "下一頁",
     "reload": "重新載入",
