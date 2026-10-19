@@ -61,6 +61,29 @@ class ContainerSmoke(unittest.TestCase):
             self.assertIs(container_check.docker("exec", "fixture-app", "curl", check=False), result)
 
 
+class DockerCommands(unittest.TestCase):
+    def test_slow_registry_downloads_can_finish_before_the_pull_deadline(self):
+        def slow_download(command, **options):
+            if options["timeout"] < 600:
+                raise subprocess.TimeoutExpired(command, options["timeout"])
+            return subprocess.CompletedProcess(command, 0, "Download complete\n", "")
+
+        with patch.object(deploy.subprocess, "run", side_effect=slow_download):
+            self.assertEqual(deploy.docker("pull", deploy.IMAGE + ":stable"), "Download complete")
+
+    def test_container_operations_keep_the_five_minute_deadline(self):
+        result = subprocess.CompletedProcess([], 0, "[]", "")
+        with patch.object(deploy.subprocess, "run", return_value=result) as command:
+            deploy.docker("inspect", "fixture-app")
+        self.assertEqual(command.call_args.kwargs["timeout"], 300)
+
+    def test_failed_pulls_do_not_expose_private_docker_diagnostics(self):
+        result = subprocess.CompletedProcess([], 1, "", "socks5://fixture-user:fixture-password@192.0.2.20:1080")
+        with patch.object(deploy.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(RuntimeError, "^Docker operation failed: pull$"):
+                deploy.docker("pull", deploy.IMAGE + ":stable")
+
+
 class Release(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
@@ -82,6 +105,13 @@ class Release(unittest.TestCase):
                 "Mounts": [{"Type": "bind", "Source": str(self.data), "Destination": "/data"}],
                 "HostConfig": {"NetworkMode": "bridge", "Privileged": False,
                                "PortBindings": {"25808/tcp": [{"HostIp": "192.0.2.10", "HostPort": "25808"}]}}}
+
+    def successful_docker(self, *args):
+        if args[:2] == ("image", "inspect"):
+            return json.dumps([image()])
+        if args[0] == "inspect":
+            return json.dumps([self.old()])
+        return "new-id" if args[0] == "run" else ""
 
     def test_pins_the_verified_registry_digest(self):
         self.assertEqual(deploy.validate_image(image())["image"], deploy.IMAGE + "@sha256:" + "c" * 64)
@@ -161,6 +191,29 @@ class Release(unittest.TestCase):
         with patch.object(deploy, "docker", return_value='PID COMMAND\n42 /usr/lib/chromium/chromium --user-data-dir=/data/browser-profiles/fixture\n'):
             with self.assertRaisesRegex(RuntimeError, "browser is still running"):
                 self.subject.validate_existing(self.old())
+
+    def test_other_service_changes_still_require_rollback(self):
+        unrelated_before = {"Id": "other-old-id", "Image": "other-old-image", "State": {"Running": True}}
+        unrelated_after = {"Id": "other-new-id", "Image": "other-new-image", "State": {"Running": True}}
+        inventories = [{deploy.NAME: self.old(), "other-service": unrelated_before},
+                       {deploy.NAME: {"Id": "new-id"}, "other-service": unrelated_after}]
+
+        with patch.object(deploy, "inventory", side_effect=inventories), patch.object(deploy, "docker", side_effect=self.successful_docker) as docker_command, patch.object(deploy, "copy_data"), patch.object(self.subject, "probe"), patch.object(self.subject, "healthy"), patch.object(self.subject, "validate_existing"), patch.object(self.subject, "restore") as restore, patch("builtins.print"):
+            with self.assertRaisesRegex(RuntimeError, "Another service changed during deployment"):
+                self.subject.apply()
+
+        restore.assert_called_once()
+        self.assertFalse((self.control / "current.json").exists())
+        self.assertFalse(any(value in {"other-service", "other-old-id", "other-new-id"}
+                             for call in docker_command.call_args_list for value in call.args))
+
+    def test_failed_application_health_still_requires_rollback(self):
+        before = {deploy.NAME: self.old(), "other-service": {"Id": "other-id"}}
+        with patch.object(deploy, "inventory", return_value=before), patch.object(deploy, "docker", side_effect=self.successful_docker), patch.object(deploy, "copy_data"), patch.object(self.subject, "probe"), patch.object(self.subject, "healthy", side_effect=RuntimeError("Application health failed")), patch.object(self.subject, "validate_existing"), patch.object(self.subject, "restore") as restore:
+            with self.assertRaisesRegex(RuntimeError, "Application health failed"):
+                self.subject.apply()
+        restore.assert_called_once()
+        self.assertFalse((self.control / "current.json").exists())
 
     def test_failed_switch_restores_snapshot_and_preserves_failed_data_for_review(self):
         backup = self.base / "backups" / "release"

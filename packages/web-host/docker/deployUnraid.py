@@ -68,7 +68,9 @@ def copy_data(source, target):
 
 
 def docker(*args):
-    result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=300)
+    # First-time browser image downloads can take longer than container operations.
+    timeout = 1800 if args and args[0] == "pull" else 300
+    result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=timeout)
     if result.returncode:
         # Docker diagnostics can include environment values. Keep them off the console.
         raise RuntimeError("Docker operation failed: " + args[0])

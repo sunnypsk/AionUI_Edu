@@ -59,6 +59,8 @@ Updates verify the candidate before stopping production, snapshot the stopped ap
 
 Image downloads are performed by the **NAS Docker daemon**. The app's SOCKS5 tunnel does not route registry pulls; configure NAS/daemon networking separately if registry downloads also need a proxy.
 
+Registry pulls allow up to 30 minutes for a first browser image download. Other Docker operations retain a five-minute limit. The deployment lock prevents overlapping cron runs while a download or update is in progress.
+
 ## Build and start
 
 From this repository's root:
