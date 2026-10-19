@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageAcpToolCall } from '@/common/chat/chatLib';
-import { normalizeAcpToolCall } from '@/common/chat/normalizeToolCall';
+import type { IMessageAcpToolCall, IMessageToolCall } from '@/common/chat/chatLib';
+import { normalizeAcpToolCall, normalizeToolCall } from '@/common/chat/normalizeToolCall';
 import { describe, expect, it } from 'vitest';
 
 describe('normalizeAcpToolCall', () => {
@@ -66,5 +66,26 @@ describe('normalizeAcpToolCall', () => {
     } as unknown as IMessageAcpToolCall);
     expect(normalized?.name).toBe('webSearch');
     expect(normalized?.description).toBe('香港天文台 明日天氣');
+  });
+
+  const codexSearch = (input: Record<string, unknown>) =>
+    ({
+      id: 'm1',
+      conversation_id: 'c1',
+      type: 'tool_call',
+      content: { call_id: 'ws-2', name: 'webSearch', args: input, input, status: 'completed' },
+    }) as unknown as IMessageToolCall;
+
+  it('derives a Codex tool_call webSearch description from action.query when query is empty', () => {
+    const n = normalizeToolCall(
+      codexSearch({ type: 'webSearch', query: '', action: { type: 'search', query: '香港天文台 明日天氣' } })
+    );
+    expect(n?.name).toBe('webSearch');
+    expect(n?.description).toBe('香港天文台 明日天氣');
+  });
+
+  it('derives a Codex tool_call webSearch description from the top-level query', () => {
+    const n = normalizeToolCall(codexSearch({ type: 'webSearch', query: '香港天文台 明日天氣' }));
+    expect(n?.description).toBe('香港天文台 明日天氣');
   });
 });

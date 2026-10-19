@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { IMessageAcpToolCall } from '@/common/chat/chatLib';
+import type { ToolMessage } from '@/common/chat/normalizeToolCall';
 import MessageToolGroupSummary from '@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary';
 
 vi.mock('@/common', () => ({ ipcBridge: { database: { getConversationMessage: { invoke: vi.fn() } } } }));
@@ -50,5 +51,19 @@ describe('MessageToolGroupSummary header', () => {
     render(<MessageToolGroupSummary messages={[msg]} />);
     fireEvent.keyDown(screen.getByRole('button', { name: /viewSteps/ }), { key: 'Enter' });
     expect(screen.getByText('mystery')).toBeTruthy();
+  });
+
+  it('shows the localised name and query for a Codex tool_call webSearch', () => {
+    const input = { type: 'webSearch', query: '', action: { type: 'search', query: '香港天文台 明日天氣' } };
+    const msg = {
+      id: 'm',
+      conversation_id: 'c1',
+      type: 'tool_call',
+      content: { call_id: 'w', name: 'webSearch', args: input, input, status: 'completed' },
+    } as unknown as ToolMessage;
+    render(<MessageToolGroupSummary messages={[msg]} />);
+    fireEvent.keyDown(screen.getByRole('button', { name: /viewSteps/ }), { key: 'Enter' });
+    expect(screen.getByText('messages.toolSummary.names.webSearch')).toBeTruthy();
+    expect(screen.getByText('香港天文台 明日天氣')).toBeTruthy();
   });
 });

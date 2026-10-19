@@ -99,6 +99,18 @@ function normalizeAcpStatus(status: string): NormalizedToolStatus {
   }
 }
 
+/** Reads a search query from a tool input: top-level `query` first, then Codex's nested `action.query`. */
+const extractQueryText = (input?: Record<string, unknown>): string | undefined => {
+  if (!input) return undefined;
+  if (typeof input.query === 'string' && input.query) return input.query;
+  const action = input.action;
+  if (action && typeof action === 'object') {
+    const nested = (action as Record<string, unknown>).query;
+    if (typeof nested === 'string' && nested) return nested;
+  }
+  return undefined;
+};
+
 const buildParamSummary = (kind: string, rawInput?: Record<string, unknown>): string | undefined => {
   if (!rawInput) return undefined;
 
@@ -113,7 +125,8 @@ const buildParamSummary = (kind: string, rawInput?: Record<string, unknown>): st
     if (rawInput.pattern) parts.push(`"${rawInput.pattern}"`);
     if (rawInput.path) parts.push(`in ${rawInput.path}`);
     else if (rawInput.glob) parts.push(`in ${rawInput.glob}`);
-    return parts.length > 0 ? parts.join(' ') : undefined;
+    if (parts.length === 0) return extractQueryText(rawInput);
+    return parts.join(' ');
   }
   if (kind === 'glob') {
     const parts: string[] = [];
@@ -128,12 +141,8 @@ const buildParamSummary = (kind: string, rawInput?: Record<string, unknown>): st
   for (const key of ['file_path', 'command', 'path', 'pattern', 'query', 'url']) {
     if (rawInput[key] && typeof rawInput[key] === 'string') return rawInput[key] as string;
   }
-  // Codex webSearch nests its query under `action`
-  const action = rawInput.action;
-  if (action && typeof action === 'object') {
-    const nestedQuery = (action as Record<string, unknown>).query;
-    if (typeof nestedQuery === 'string' && nestedQuery) return nestedQuery;
-  }
+  const queryText = extractQueryText(rawInput);
+  if (queryText) return queryText;
   return undefined;
 };
 
@@ -219,7 +228,7 @@ export function normalizeToolCall(message: IMessageToolCall): NormalizedToolCall
     key: call_id,
     name,
     status: normalizeToolCallStatus(status),
-    description: description || undefined,
+    description: description || extractQueryText(input) || undefined,
     input: displayInput,
     output,
   };

@@ -1028,7 +1028,11 @@ export const composeMessage = (
       const msg = list[i];
       if (msg.type === 'tool_call' && msg.content.call_id === message.content.call_id) {
         // Create new object instead of mutating original
-        return updateMessage(i, { ...msg, content: { ...msg.content, ...message.content } });
+        // Result frames may carry an empty name or no input; keep the values from the started frame
+        const incoming = { ...message.content };
+        if (!incoming.name) incoming.name = msg.content.name;
+        if (incoming.input == null) incoming.input = msg.content.input;
+        return updateMessage(i, { ...msg, content: { ...msg.content, ...incoming } });
       }
     }
     // If no existing tool call found, add new one
