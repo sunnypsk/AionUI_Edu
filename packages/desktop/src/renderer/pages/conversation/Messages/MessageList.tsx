@@ -11,6 +11,7 @@ import { useConversationRuntimeView } from '@/renderer/pages/conversation/runtim
 import { getChatSurfaceWidthClass } from '@/renderer/pages/conversation/utils/chatSurfaceWidth';
 import { iconColors } from '@/renderer/styles/colors';
 import { CHAT_MESSAGE_JUMP_EVENT, type ChatMessageJumpDetail } from '@/renderer/utils/chat/chatMinimapEvents';
+import { isHiddenTipMessage } from '@/renderer/utils/chat/hiddenTips';
 import { collectAiCopyRows, type TurnCopyItem } from '@/renderer/utils/chat/turnCopy';
 import { Image } from '@arco-design/web-react';
 import { Down } from '@icon-park/react';
@@ -410,6 +411,8 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       // A plan renders in ConversationPlanBar, never in the stream. Filtered
       // here rather than rendered as null: a null row still occupies a slot.
       if (message.type === 'plan') continue;
+      // Hidden version tips render nothing; a row would still leave a blank 10px slot.
+      if (isHiddenTipMessage(message)) continue;
       if (message.type === 'tool_group') {
         const writeFileResults = message.content.flatMap((item) =>
           item.name === 'WriteFile' && isWriteFileResult(item.result_display) ? [item.result_display] : []

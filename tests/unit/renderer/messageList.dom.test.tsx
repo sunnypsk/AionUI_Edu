@@ -49,6 +49,8 @@ vi.mock('@/renderer/pages/team/hooks/TeamPermissionContext', () => ({
   useTeamPermission: useTeamPermissionMock,
 }));
 
+vi.mock('@/renderer/utils/platform', () => ({ isElectronDesktop: () => false }));
+
 let mockIsProcessing = false;
 vi.mock('@/renderer/pages/conversation/runtime/useConversationRuntimeView', () => ({
   useConversationRuntimeView: () => ({ isProcessing: mockIsProcessing }),
@@ -315,6 +317,30 @@ describe('MessageList', () => {
     expect(content.querySelectorAll('[data-message-type="text"]')).toHaveLength(2);
     expect(screen.getByText('before the plan')).toBeInTheDocument();
     expect(screen.getByText('after the plan')).toBeInTheDocument();
+  });
+
+  it('drops the hidden web-only version tip instead of leaving a blank row', () => {
+    const tip = (id: string, code: string): TMessage =>
+      ({
+        id,
+        msg_id: id,
+        conversation_id: 'conversation-1',
+        type: 'tips',
+        position: 'center',
+        created_at: 1,
+        content: { content: 'version notice', type: 'info', code },
+      }) as TMessage;
+    render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[tip('newer', 'CLI_VERSION_NEWER'), tip('older', 'CLI_VERSION_OLDER')]} />
+      </>,
+      { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> }
+    );
+    fireEvent.click(screen.getByText('replace messages'));
+
+    const tipRows = screen.getByTestId('message-list-content').querySelectorAll('[data-message-type="tips"]');
+    expect(tipRows).toHaveLength(1);
   });
 
   it('renders message rows with external margin spacing in the plain scroll list', () => {
