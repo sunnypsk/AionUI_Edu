@@ -74,6 +74,8 @@ docker compose --env-file packages/web-host/docker/.env -f packages/web-host/doc
 
 The initial WebUI username and password are printed in the startup log. Open `http://NAS-LAN-IP:25808` and sign in. The default bind address is loopback; set `AIONUI_BIND_ADDRESS` to the NAS LAN IP for access from another device. The image runs the app as Unraid's usual `PUID=99`, `PGID=100`, with persistent `/data` mounted from `AIONUI_APPDATA`. Keep host deployment code outside that directory.
 
+The container defaults to `TZ=Asia/Hong_Kong` (Hong Kong time, used for dates shown to teachers). Override it with `-e TZ=<zone>` on `docker run`, or with an `environment` entry in Compose, if a different zone is needed.
+
 ## Sign in to Codex in the browser
 
 1. Open **Settings → Agents → Codex account** and click **Sign in with ChatGPT**.
