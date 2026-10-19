@@ -18,6 +18,9 @@
 import React from 'react';
 import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isElectronDesktop } from '@/renderer/utils/platform';
+
+vi.mock('@/renderer/utils/platform', () => ({ isElectronDesktop: vi.fn(() => true) }));
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -57,9 +60,19 @@ const browserTabs = () => ctx.tabs.filter((tab) => tab.content_type === 'browser
 
 beforeEach(() => {
   localStorage.clear();
+  vi.mocked(isElectronDesktop).mockReturnValue(true);
 });
 
 describe('PreviewContext browser tabs', () => {
+  it('reopens one shared-browser panel in WebUI instead of duplicating it', () => {
+    vi.mocked(isElectronDesktop).mockReturnValue(false);
+    renderProvider();
+    act(() => ctx.openBrowserTab());
+    act(() => ctx.closePreview());
+    act(() => ctx.openBrowserTab());
+    expect(browserTabs()).toHaveLength(1);
+    expect(ctx.isOpen).toBe(true);
+  });
   it('opens a blank browser tab with the placeholder title', () => {
     renderProvider();
     act(() => ctx.openBrowserTab());

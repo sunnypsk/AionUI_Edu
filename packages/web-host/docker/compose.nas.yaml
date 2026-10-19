@@ -14,6 +14,8 @@ services:
       - /dev/net/tun:/dev/net/tun
     security_opt:
       - no-new-privileges:true
+      - seccomp:../src/runtime/browser/security/seccomp.json
+    shm_size: 256mb
     environment:
       PUID: '${PUID:-99}'
       PGID: '${PGID:-100}'

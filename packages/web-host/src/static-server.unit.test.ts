@@ -4,6 +4,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
+import net from 'node:net';
 import { startStaticServer, type StaticServerHandle } from './static-server.js';
 
 // RFC 6455's public example nonce, derived instead of storing a key-shaped fixture.
@@ -48,6 +49,20 @@ describe('static-server', () => {
       stopBackend = null;
     }
     await fs.rm(staticDir, { recursive: true, force: true });
+  });
+
+  it('stops with an idle viewport client still connected', async () => {
+    const backend = await startMockBackend((_req, res) => res.end('ok'));
+    stopBackend = backend.close;
+    handle = await startStaticServer({ staticDir, backendPort: backend.port, port: 0 });
+    const client = net.connect({ host: '127.0.0.1', port: handle.port });
+    client.on('error', () => {});
+    await new Promise<void>((resolve) => client.once('connect', resolve));
+    const disconnected = new Promise<void>((resolve) => client.once('close', () => resolve()));
+    await handle.stop();
+    handle = null;
+    await disconnected;
+    expect(client.destroyed).toBe(true);
   });
 
   it('serves static index.html at /', async () => {

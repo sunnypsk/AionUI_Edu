@@ -12,12 +12,13 @@ import { setCurrentConversation } from '@/renderer/pages/conversation/explorer/c
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { getSnapshotConversationProjectId } from '@/renderer/pages/conversation/GroupedHistory/hooks/useConversationListSync';
+import { useBrowserActivity } from './Preview/browser/WebBrowserViewer/useBrowserActivity';
 
 const ChatConversationIndex: React.FC = () => {
   const { id } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { closePreviewIfScopeChanged } = usePreviewContext();
+  const { closePreviewIfScopeChanged, openBrowserTab } = usePreviewContext();
   const { syncTitleFromHistory } = useAutoTitle();
   const notFoundHandledIdRef = useRef<string | undefined>(undefined);
   const defaultConversationTitle = t('conversation.welcome.newConversation');
@@ -25,6 +26,7 @@ const ChatConversationIndex: React.FC = () => {
   const { data, isLoading, mutate } = useSWR(id ? `conversation/${id}` : null, () => {
     return getConversationOrNull(id!);
   });
+  useBrowserActivity(id, Boolean(data), openBrowserTab);
 
   // Close preview only when the isolation scope changes, not on every
   // conversation switch. Same-scope conversations keep the preview open. The
@@ -63,9 +65,10 @@ const ChatConversationIndex: React.FC = () => {
   // Publish the active conversation id so the Layout-level Explorer's "add to
   // chat" can target this conversation's send box. Cleared when leaving the
   // conversation route (id falsy) so a stale target can't leak.
-  useEffect(() => {
-    setCurrentConversation(data?.id ?? null);
-  }, [data]);
+  useLayoutEffect(() => {
+    setCurrentConversation(data?.id === id ? data.id : null);
+    return () => setCurrentConversation(null);
+  }, [data, id]);
 
   // Refetch this conversation when the backend reports it changed. This is also
   // the project_id backfill path: opening a workspace conversation lazily

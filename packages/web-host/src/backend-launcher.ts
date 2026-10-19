@@ -95,6 +95,7 @@ export type BackendLaunchOptions = {
    * process.env and will likely report wrong/empty dirs.
    */
   dirs?: BackendDirConfig;
+  runtimeEnv?: NodeJS.ProcessEnv;
 };
 
 export type BackendHandle = {
@@ -168,6 +169,7 @@ export type BackendStartupErrorDetails = {
 };
 
 export type BackendStartOptions = {
+  runtimeEnv?: NodeJS.ProcessEnv;
   allowPendingOnHealthTimeout?: boolean;
   onHealthTimeout?: (error: BackendStartupError) => Promise<void> | void;
   onPendingExit?: (error: BackendStartupError) => Promise<void> | void;
@@ -221,16 +223,17 @@ export function buildSpawnArgs(config: SpawnConfig): string[] {
  * backend's `/api/system/info` matches what Electron main persists in
  * ProcessEnv('aionui.dir').
  */
-export function buildSpawnEnv(dirs?: BackendDirConfig): NodeJS.ProcessEnv {
+export function buildSpawnEnv(dirs?: BackendDirConfig, runtimeEnv?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   // PREBUILDS_ONLY protects the packaged Electron process's own node-gyp-build
   // natives (see desktop process/index.ts) and must stay scoped to it. Agent
   // CLIs spawned under aioncore (e.g. cursor-agent) ship natives under
   // build/Release only, and node-gyp-build skips that directory for any
   // non-empty value, aborting the agent before the ACP handshake (#4070).
   const { PREBUILDS_ONLY: _prebuildsOnly, ...parentEnv } = process.env;
-  if (!dirs) return parentEnv;
+  if (!dirs) return { ...parentEnv, ...runtimeEnv };
   return {
     ...parentEnv,
+    ...runtimeEnv,
     AIONUI_CACHE_DIR: dirs.cacheDir,
     AIONUI_WORK_DIR: dirs.workDir,
     AIONUI_LOG_DIR: dirs.logDir,
@@ -689,7 +692,7 @@ export class BackendLifecycleManager {
     try {
       this.childProcess = spawn(binaryPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: buildSpawnEnv(dirs),
+        env: buildSpawnEnv(dirs, options?.runtimeEnv),
         cwd: dirs?.workDir ?? dbPath,
         detached: process.platform !== 'win32',
       });
@@ -1081,7 +1084,7 @@ export async function startBackend(opts: BackendLaunchOptions): Promise<BackendH
   if (!dataDir) {
     throw new Error('startBackend: dataDir is required');
   }
-  const port = await manager.start(dataDir, opts.logDir, opts.dirs);
+  const port = await manager.start(dataDir, opts.logDir, opts.dirs, { runtimeEnv: opts.runtimeEnv });
   return {
     port,
     stop: () => manager.stop(),

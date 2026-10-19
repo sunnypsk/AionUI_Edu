@@ -27,17 +27,27 @@ export type { BackendDirConfig, BackendLaunchOptions, BackendHandle, BackendStar
 export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle> {
   const { startBackend } = await import('./backend-launcher.js');
   const { startStaticServer } = await import('./static-server.js');
+  const browser =
+    opts.enableRuntimeControls && opts.dataDir
+      ? await (await import('./runtime/browser/index.js')).createBrowserRuntime({ dataDir: opts.dataDir })
+      : undefined;
 
   // 1. Start backend (M4)
   let backendHandle;
   if (opts.backend.kind === 'ownBackend') {
-    backendHandle = await startBackend({
-      app: opts.app,
-      resolveBackend: opts.backend.resolveBackend,
-      dataDir: opts.dataDir,
-      logDir: opts.logDir,
-      dirs: opts.dirs,
-    });
+    try {
+      backendHandle = await startBackend({
+        app: opts.app,
+        resolveBackend: opts.backend.resolveBackend,
+        dataDir: opts.dataDir,
+        logDir: opts.logDir,
+        dirs: opts.dirs,
+        runtimeEnv: browser?.env,
+      });
+    } catch (error) {
+      await browser?.close();
+      throw error;
+    }
   } else {
     // useExistingBackend: create a fake handle
     backendHandle = {
@@ -47,6 +57,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       },
     };
   }
+  browser?.setBackendPort(backendHandle.port);
 
   const controls =
     opts.enableRuntimeControls && opts.dataDir
@@ -63,12 +74,16 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       backendPort: backendHandle.port,
       port: opts.port,
       allowRemote: opts.allowRemote ?? false,
-      handleRequest: controls?.handleRequest,
+      handleRequest: async (req, res) => {
+        if (await browser?.handleRequest(req, res)) return true;
+        return (await controls?.handleRequest(req, res)) ?? false;
+      },
     });
   } catch (err) {
     // If static-server fails, clean up backend
     await backendHandle.stop();
     controls?.close();
+    await browser?.close();
     throw err;
   }
 
@@ -82,6 +97,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     lanIP: staticHandle.lanIP,
     async stop() {
       controls?.close();
+      await browser?.close();
       await staticHandle.stop();
       await backendHandle.stop();
     },

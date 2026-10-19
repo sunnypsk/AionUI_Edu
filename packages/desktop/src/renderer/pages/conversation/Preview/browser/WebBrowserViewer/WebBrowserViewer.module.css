@@ -1,0 +1,109 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border-2);
+  flex-wrap: wrap;
+}
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border-2);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 190px;
+  border-radius: 6px;
+  background: var(--color-fill-2);
+}
+.tab :global(.arco-btn) {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.active {
+  background: var(--color-fill-3);
+}
+.address {
+  flex: 1;
+  min-width: 140px;
+}
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-fill-1);
+  font-size: 12px;
+}
+.viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  position: relative;
+}
+.surface {
+  position: relative;
+  width: 100%;
+  outline: none;
+  touch-action: none;
+}
+.surface:focus-within {
+  outline: 2px solid var(--color-primary-light-4);
+}
+.frame {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+.keyboard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.keyboard :global(textarea) {
+  min-height: 1px !important;
+  height: 1px;
+}
+.notice {
+  padding: 12px;
+  color: var(--color-text-2);
+  font-size: 13px;
+}
+.downloads {
+  max-height: 100px;
+  overflow: auto;
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-border-2);
+  font-size: 12px;
+}
+.dialog {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  flex-wrap: wrap;
+  background: var(--color-fill-2);
+}

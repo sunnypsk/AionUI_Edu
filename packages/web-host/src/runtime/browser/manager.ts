@@ -1,0 +1,462 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, realpath, stat, open, unlink, readFile, writeFile, rename, rm } from 'node:fs/promises';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { chromium, type BrowserContext, type Page, type FileChooser, type Dialog } from 'playwright-core';
+import {
+  browserUrl,
+  type BrowserAction,
+  type BrowserControl,
+  type BrowserOwner,
+  type BrowserResult,
+  type BrowserState,
+  type BrowserPreferences,
+} from './types.js';
+
+const VIEWPORT = { width: 1280, height: 800 };
+type Tab = { id: string; page: Page; chooser?: FileChooser; dialog?: Dialog };
+type Download = { id: string; name: string; state: 'saving' | 'ready' | 'failed'; path?: string };
+type Session = {
+  owner: BrowserOwner;
+  tabs: Tab[];
+  active: string | null;
+  control: BrowserControl;
+  takingOver: boolean;
+  needsInspection: boolean;
+  revision: number;
+  tail: Promise<unknown>;
+  downloads: Download[];
+  touched: number;
+};
+type Options = { executablePath?: string; launch?: (directory: string) => Promise<BrowserContext>; idleMs?: number };
+
+/** A user owns one persistent Chromium profile; each task owns a separate set of pages and a control lock. */
+export class SharedBrowserManager {
+  private sessions = new Map<string, Session>();
+  private contexts = new Map<string, Promise<BrowserContext>>();
+  private closing = false;
+  private idleTimer: ReturnType<typeof setInterval>;
+  private preferences = new Map<string, BrowserPreferences>();
+  private resetting = new Set<string>();
+
+  constructor(
+    private dataDir: string,
+    private options: Options = {}
+  ) {
+    this.idleTimer = setInterval(() => {
+      void this.expire();
+    }, 60000);
+    this.idleTimer.unref();
+  }
+
+  private session(owner: BrowserOwner, touch = false): Session {
+    let session = this.sessions.get(owner.conversationId);
+    if (session && (session.owner.userId !== owner.userId || session.owner.workspace !== owner.workspace))
+      throw new Error('BROWSER_FORBIDDEN');
+    if (!session) {
+      session = {
+        owner,
+        tabs: [],
+        active: null,
+        control: 'agent',
+        takingOver: false,
+        needsInspection: false,
+        revision: 0,
+        tail: Promise.resolve(),
+        downloads: [],
+        touched: Date.now(),
+      };
+      this.sessions.set(owner.conversationId, session);
+    }
+    if (touch) session.touched = Date.now();
+    return session;
+  }
+
+  state(owner: BrowserOwner): BrowserState {
+    const s = this.session(owner);
+    return {
+      running: s.tabs.length > 0,
+      agentEnabled: this.preferences.get(owner.userId)?.agentEnabled ?? true,
+      control: s.control,
+      takingOver: s.takingOver,
+      revision: s.revision,
+      activeTabId: s.active,
+      tabs: s.tabs.map((t) => ({
+        id: t.id,
+        title: '',
+        url: t.page.url(),
+        fileChooser: Boolean(t.chooser),
+        ...(t.dialog ? { dialog: { type: t.dialog.type(), message: t.dialog.message().slice(0, 2000) } } : {}),
+      })),
+      downloads: s.downloads.map(({ id, name, state }) => ({ id, name, state })),
+      viewport: s.tabs.find((t) => t.id === s.active)?.page.viewportSize() ?? VIEWPORT,
+    };
+  }
+
+  private profile(userId: string): string {
+    return path.join(this.dataDir, 'browser-profiles', createHash('sha256').update(userId).digest('hex'));
+  }
+
+  async getPreferences(userId: string): Promise<BrowserPreferences> {
+    const cached = this.preferences.get(userId);
+    if (cached) return cached;
+    let settings: BrowserPreferences = { agentEnabled: true };
+    try {
+      const value = JSON.parse(await readFile(this.profile(userId) + '.json', 'utf8')) as BrowserPreferences;
+      settings = { agentEnabled: value.agentEnabled === true };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') settings = { agentEnabled: false };
+    }
+    this.preferences.set(userId, settings);
+    return settings;
+  }
+
+  async setPreferences(userId: string, settings: BrowserPreferences): Promise<BrowserPreferences> {
+    const file = this.profile(userId) + '.json';
+    await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+    const temporary = file + '.' + randomUUID();
+    await writeFile(temporary, JSON.stringify(settings), { mode: 0o600, flag: 'wx' });
+    await rename(temporary, file);
+    this.preferences.set(userId, settings);
+    if (!settings.agentEnabled)
+      await Promise.all(
+        [...this.sessions.values()].filter((s) => s.owner.userId === userId).map((s) => this.control(s.owner, 'human'))
+      );
+    return settings;
+  }
+
+  async clearData(userId: string): Promise<void> {
+    if (this.resetting.has(userId)) throw new Error('BROWSER_UNAVAILABLE');
+    this.resetting.add(userId);
+    try {
+      const sessions = [...this.sessions.values()].filter((s) => s.owner.userId === userId);
+      sessions.forEach((s) => {
+        s.takingOver = true;
+      });
+      await Promise.all(sessions.map((s) => s.tail));
+      await (await this.contexts.get(userId))?.close();
+      await rm(this.profile(userId), { recursive: true, force: true });
+      sessions.forEach((s) => {
+        s.tabs = [];
+        s.active = null;
+        s.control = 'human';
+        s.takingOver = false;
+        s.revision++;
+      });
+    } finally {
+      this.resetting.delete(userId);
+    }
+  }
+
+  private async context(userId: string): Promise<BrowserContext> {
+    if (this.closing) throw new Error('BROWSER_UNAVAILABLE');
+    let pending = this.contexts.get(userId);
+    if (!pending) {
+      pending = (async () => {
+        const directory = this.profile(userId);
+        await mkdir(directory, { recursive: true, mode: 0o700 });
+        const context = await (this.options.launch?.(directory) ??
+          chromium.launchPersistentContext(directory, {
+            executablePath: this.options.executablePath ?? process.env.AIONUI_BROWSER_EXECUTABLE,
+            headless: true,
+            chromiumSandbox: true,
+            viewport: VIEWPORT,
+            acceptDownloads: true,
+            timeout: 10000,
+            args: ['--disable-dev-shm-usage'],
+          }));
+        context.setDefaultTimeout(10000);
+        context.setDefaultNavigationTimeout(10000);
+        // Restore cookies and storage, but never expose Chrome's unassigned startup pages.
+        await Promise.all(context.pages().map((page) => page.close()));
+        context.on('close', () => {
+          this.contexts.delete(userId);
+          for (const s of this.sessions.values())
+            if (s.owner.userId === userId) {
+              s.tabs = [];
+              s.active = null;
+              s.control = 'human';
+              s.revision++;
+            }
+        });
+        return context;
+      })();
+      this.contexts.set(userId, pending);
+      void pending.catch(() => {
+        this.contexts.delete(userId);
+      });
+    }
+    return pending;
+  }
+
+  private attach(s: Session, page: Page): Tab {
+    const existing = s.tabs.find((t) => t.page === page);
+    if (existing) return existing;
+    if (s.tabs.length >= 8) {
+      void page.close();
+      throw new Error('BROWSER_TAB_LIMIT');
+    }
+    const tab = { id: randomUUID(), page };
+    s.tabs.push(tab);
+    s.active = tab.id;
+    s.revision++;
+    page.on('popup', (popup) => {
+      try {
+        this.attach(s, popup);
+      } catch {
+        void popup.close();
+      }
+    });
+    page.on('close', () => {
+      s.tabs = s.tabs.filter((t) => t !== tab);
+      if (s.active === tab.id) s.active = s.tabs[0]?.id ?? null;
+      s.revision++;
+    });
+    page.on('filechooser', (chooser) => {
+      const target = s.tabs.find((candidate) => candidate.page === page);
+      if (target) target.chooser = chooser;
+    });
+    page.on('dialog', (dialog) => {
+      const target = s.tabs.find((candidate) => candidate.page === page);
+      if (target) target.dialog = dialog;
+      else void dialog.dismiss();
+    });
+    page.on('download', (download) => {
+      void this.saveDownload(s, download);
+    });
+    return tab;
+  }
+
+  private enqueue<T>(s: Session, action: () => Promise<T>): Promise<T> {
+    const next = s.tail.then(action);
+    s.tail = next.catch(() => {});
+    return next;
+  }
+
+  /** Block new agent work immediately, then drain the bounded action already in flight. */
+  async control(owner: BrowserOwner, mode: BrowserControl): Promise<BrowserResult> {
+    const s = this.session(owner, true);
+    if (this.resetting.has(owner.userId)) throw new Error('BROWSER_UNAVAILABLE');
+    if (mode === 'agent' && !(await this.getPreferences(owner.userId)).agentEnabled)
+      throw new Error('BROWSER_AGENT_DISABLED');
+    if (mode === 'human') s.takingOver = true;
+    return this.enqueue(s, async () => {
+      s.control = mode;
+      s.takingOver = false;
+      s.needsInspection = mode === 'agent';
+      s.revision++;
+      await Promise.all(s.tabs.map((tab) => tab.page.mouse.up().catch(() => {})));
+      return this.capture(s, false);
+    });
+  }
+
+  async frame(owner: BrowserOwner): Promise<BrowserResult> {
+    await this.getPreferences(owner.userId);
+    const s = this.session(owner, true);
+    return this.capture(s, false);
+  }
+
+  private async capture(s: Session, text: boolean): Promise<BrowserResult> {
+    const state = this.state(s.owner);
+    await Promise.all(
+      state.tabs.map(async (item) => {
+        item.title =
+          (await s.tabs
+            .find((candidate) => candidate.id === item.id)
+            ?.page.title()
+            .catch(() => '')) ?? '';
+      })
+    );
+    const page = s.tabs.find((t) => t.id === s.active)?.page;
+    if (!page || page.isClosed()) return { state };
+    const image = (await page.screenshot({ type: 'jpeg', quality: 65, timeout: 3000 })).toString('base64');
+    return {
+      state,
+      image,
+      ...(text
+        ? {
+            text: (
+              await page
+                .locator('body')
+                .ariaSnapshot({ timeout: 3000 })
+                .catch(() => '')
+            ).slice(0, 32000),
+          }
+        : {}),
+    };
+  }
+
+  async act(owner: BrowserOwner, actor: BrowserControl, action: BrowserAction): Promise<BrowserResult> {
+    const s = this.session(owner, true);
+    const preferences = await this.getPreferences(owner.userId);
+    // Check again inside the queue: a takeover may arrive while this action is waiting.
+    const permitted = (): void => {
+      if (this.closing || this.resetting.has(owner.userId)) throw new Error('BROWSER_UNAVAILABLE');
+      if (actor === 'agent' && !preferences.agentEnabled) throw new Error('BROWSER_AGENT_DISABLED');
+      if (actor === 'agent' && (s.control !== 'agent' || s.takingOver)) throw new Error('BROWSER_HUMAN_CONTROL');
+      if (actor === 'human' && (s.control !== 'human' || s.takingOver)) throw new Error('BROWSER_AGENT_CONTROL');
+      if (actor === 'agent' && s.needsInspection && !['inspect', 'snapshot'].includes(action.kind))
+        throw new Error('BROWSER_PAGE_CHANGED');
+    };
+    permitted();
+    return this.enqueue(s, async () => {
+      permitted();
+      if (action.kind === 'inspect') {
+        s.needsInspection = false;
+      } else if (action.kind === 'open') {
+        const url = browserUrl(action.url);
+        if (s.tabs.length >= 8) throw new Error('BROWSER_TAB_LIMIT');
+        const tab = this.attach(s, await (await this.context(owner.userId)).newPage());
+        if (url !== 'about:blank') await tab.page.goto(url, { waitUntil: 'domcontentloaded' });
+      } else {
+        const tab = s.tabs.find((t) => t.id === action.tabId);
+        if (!tab || tab.page.isClosed()) throw new Error('BROWSER_TAB_NOT_FOUND');
+        const page = tab.page;
+        s.active = tab.id;
+        switch (action.kind) {
+          case 'resize':
+            await page.setViewportSize({ width: action.width, height: action.height });
+            break;
+          case 'navigate':
+            await page.goto(browserUrl(action.url), { waitUntil: 'domcontentloaded' });
+            break;
+          case 'back':
+            await page.goBack({ waitUntil: 'domcontentloaded' });
+            break;
+          case 'forward':
+            await page.goForward({ waitUntil: 'domcontentloaded' });
+            break;
+          case 'reload':
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            break;
+          case 'close':
+            await page.close();
+            break;
+          case 'select':
+            break;
+          case 'snapshot':
+            s.needsInspection = false;
+            break;
+          case 'click':
+            await page.mouse.click(action.x, action.y, { button: action.button });
+            break;
+          case 'move':
+            await page.mouse.move(action.x, action.y);
+            break;
+          case 'down':
+            await page.mouse.move(action.x, action.y);
+            await page.mouse.down();
+            break;
+          case 'up':
+            await page.mouse.move(action.x, action.y);
+            await page.mouse.up();
+            break;
+          case 'scroll':
+            await page.mouse.wheel(action.x, action.y);
+            break;
+          case 'text':
+            await page.keyboard.insertText(action.text);
+            break;
+          case 'key':
+            await page.keyboard.press(action.key);
+            break;
+          case 'fill':
+            await page.locator(action.selector).fill(action.text);
+            break;
+          case 'clickElement':
+            await page.locator(action.selector).click({ noWaitAfter: true });
+            break;
+          case 'upload': {
+            const buffer = Buffer.from(action.base64, 'base64');
+            if (buffer.length > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
+            const payload = {
+              name: path.basename(action.name),
+              mimeType: action.mimeType ?? 'application/octet-stream',
+              buffer,
+            };
+            if (tab.chooser) {
+              await tab.chooser.setFiles(payload);
+              tab.chooser = undefined;
+            } else if (action.selector) await page.locator(action.selector).setInputFiles(payload);
+            else throw new Error('BROWSER_NO_FILE_CHOOSER');
+            break;
+          }
+          case 'uploadPath': {
+            const root = await realpath(owner.workspace);
+            const file = await realpath(path.resolve(root, action.path));
+            if (!file.startsWith(root + path.sep) || !(await stat(file)).isFile()) throw new Error('BROWSER_FORBIDDEN');
+            if ((await stat(file)).size > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
+            await page.locator(action.selector).setInputFiles(file);
+            break;
+          }
+          case 'dialog': {
+            if (!tab.dialog) throw new Error('BROWSER_NO_DIALOG');
+            if (action.accept) await tab.dialog.accept(action.text);
+            else await tab.dialog.dismiss();
+            tab.dialog = undefined;
+            break;
+          }
+        }
+      }
+      s.revision++;
+      return actor === 'agent' ? this.capture(s, true) : { state: this.state(owner) };
+    });
+  }
+
+  private async saveDownload(s: Session, download: import('playwright-core').Download): Promise<void> {
+    const item: Download = {
+      id: randomUUID(),
+      name:
+        download
+          .suggestedFilename()
+          .split('')
+          .map((character) => (character.charCodeAt(0) < 32 || ['/', '\\'].includes(character) ? '_' : character))
+          .join('')
+          .slice(0, 180) || 'download',
+      state: 'saving',
+    };
+    s.downloads.push(item);
+    s.downloads = s.downloads.slice(-30);
+    let destination: string | undefined;
+    try {
+      const root = await realpath(s.owner.workspace);
+      // Exclusive creation rejects existing files and symlinks; preserve a unique task artifact name.
+      destination = path.join(root, `browser-${item.id.slice(0, 8)}-${item.name}`);
+      const source = await download.createReadStream();
+      if (!source) throw new Error('BROWSER_FILE_NOT_FOUND');
+      const handle = await open(destination, 'wx', 0o600);
+      await pipeline(source, handle.createWriteStream());
+      item.path = destination;
+      item.name = path.basename(destination);
+      item.state = 'ready';
+    } catch {
+      item.state = 'failed';
+      if (destination) await unlink(destination).catch(() => {});
+    }
+  }
+
+  async download(owner: BrowserOwner, id: string): Promise<string> {
+    const item = this.session(owner).downloads.find((d) => d.id === id && d.state === 'ready');
+    if (!item?.path) throw new Error('BROWSER_FILE_NOT_FOUND');
+    const root = await realpath(owner.workspace);
+    const file = await realpath(item.path);
+    if (!file.startsWith(root + path.sep)) throw new Error('BROWSER_FORBIDDEN');
+    return file;
+  }
+
+  private async expire(): Promise<void> {
+    for (const [user, pending] of this.contexts) {
+      const sessions = [...this.sessions.values()].filter((s) => s.owner.userId === user);
+      if (sessions.every((s) => Date.now() - s.touched > (this.options.idleMs ?? 30 * 60000)))
+        await (await pending.catch((): null => null))?.close();
+    }
+  }
+
+  async close(): Promise<void> {
+    this.closing = true;
+    clearInterval(this.idleTimer);
+    await Promise.allSettled([...this.contexts.values()].map(async (pending) => (await pending).close()));
+    this.contexts.clear();
+    this.sessions.clear();
+  }
+}

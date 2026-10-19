@@ -448,6 +448,28 @@ describe('httpBridge', () => {
   });
 
   describe('httpRequest', () => {
+    it('keeps browser text and file payloads out of debug logs', async () => {
+      const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ data: true }), { headers: { 'content-type': 'application/json' } })
+          )
+      );
+      try {
+        await httpRequest(
+          'POST',
+          '/api/edu/browser/task/action',
+          { kind: 'text', text: 'synthetic-private-browser-input' },
+          { sensitive: true }
+        );
+        expect(JSON.stringify(debug.mock.calls)).not.toContain('synthetic-private-browser-input');
+      } finally {
+        debug.mockRestore();
+      }
+    });
     it('performs fetch and unwraps data envelope', async () => {
       const fetchSpy = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ data: { result: 'ok' } }), {

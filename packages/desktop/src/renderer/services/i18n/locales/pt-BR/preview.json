@@ -176,5 +176,29 @@
   "zoomIn": "Ampliar",
   "zoomOut": "Reduzir",
   "zoomReset": "Redefinir visualização",
-  "diagramZoomHint": "Role para ampliar • Arraste para mover • ESC para fechar"
+  "diagramZoomHint": "Role para ampliar • Arraste para mover • ESC para fechar",
+  "sharedBrowser": {
+    "ready": "Navegador compartilhado",
+    "takingOver": "Aguardando a ação atual terminar…",
+    "humanControl": "Você está no controle · Ações do navegador da IA pausadas",
+    "agentControl": "A IA pode operar este navegador",
+    "returnToAi": "Devolver à IA",
+    "takeOver": "Assumir controle",
+    "invalidUrl": "Digite um endereço HTTP ou HTTPS.",
+    "fileTooLarge": "Os arquivos devem ter até 30 MB.",
+    "controlChanged": "O controle do navegador mudou. Assuma o controle e tente novamente.",
+    "unavailable": "Navegador indisponível. Tente novamente ou verifique a configuração do servidor.",
+    "startHint": "Assuma o controle para abrir o navegador. A IA também pode abrir páginas aqui.",
+    "scopeHint": "As abas pertencem a esta tarefa. Os logins de sites são compartilhados somente na sua conta. Os downloads são salvos na pasta desta tarefa.",
+    "back": "Voltar",
+    "forward": "Avançar",
+    "reload": "Recarregar",
+    "go": "Ir",
+    "upload": "Escolher arquivo (até 30 MB)",
+    "viewport": "Página do navegador compartilhado",
+    "keyboard": "Digitar no navegador compartilhado",
+    "downloadFailed": "Falha no download",
+    "downloading": "Salvando…",
+    "webDescription": "O Docker exibe um navegador compartilhado ao lado da conversa. Você e a IA usam as mesmas páginas. Assuma o controle para pausar as ações do navegador da IA e devolva-o ao terminar."
+  }
 }

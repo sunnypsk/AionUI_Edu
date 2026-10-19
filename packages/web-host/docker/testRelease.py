@@ -87,6 +87,13 @@ class Release(unittest.TestCase):
         self.assertNotIn(str(self.data) + ":/data:rw", args)
         self.assertNotIn("synthetic", " ".join(args))
 
+    def test_browser_sandbox_policy_is_pinned_and_outside_the_agent_data_mount(self):
+        args = self.subject.create_args("pinned-image")
+        policy = self.control / "browser-seccomp.json"
+        self.assertIn("seccomp=" + str(policy), args)
+        self.assertEqual(deploy.hashlib.sha256(json.dumps(json.loads(policy.read_text()), sort_keys=True, separators=(",", ":")).encode()).hexdigest(), deploy.BROWSER_SECCOMP_SHA)
+        self.assertNotIn("--privileged", args)
+
     def test_unraid_recreation_preserves_the_explicit_lan_bind_and_restart_policy(self):
         self.subject.write_template(deploy.validate_image(image()))
         tree = ET.fromstring(self.template.read_text())
@@ -112,6 +119,11 @@ class Release(unittest.TestCase):
     def test_the_account_status_process_does_not_count_as_a_conversation(self):
         with patch.object(deploy, "docker", return_value='PID COMMAND\n42 /app/codex app-server --listen stdio:// -c cli_auth_credentials_store="file"\n'):
             self.subject.validate_existing(self.old())
+
+    def test_defers_updates_while_the_teacher_browser_is_open(self):
+        with patch.object(deploy, "docker", return_value='PID COMMAND\n42 /usr/lib/chromium/chromium --user-data-dir=/data/browser-profiles/fixture\n'):
+            with self.assertRaisesRegex(RuntimeError, "browser is still running"):
+                self.subject.validate_existing(self.old())
 
     def test_failed_switch_restores_snapshot_and_preserves_failed_data_for_review(self):
         backup = self.base / "backups" / "release"

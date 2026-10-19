@@ -176,5 +176,29 @@
   "zoomIn": "Yakınlaştır",
   "zoomOut": "Uzaklaştır",
   "zoomReset": "Görünümü sıfırla",
-  "diagramZoomHint": "Yakınlaştırmak için kaydırın • Taşımak için sürükleyin • ESC ile kapatın"
+  "diagramZoomHint": "Yakınlaştırmak için kaydırın • Taşımak için sürükleyin • ESC ile kapatın",
+  "sharedBrowser": {
+    "ready": "Paylaşılan tarayıcı",
+    "takingOver": "Geçerli işlemin bitmesi bekleniyor…",
+    "humanControl": "Kontrol sizde · Yapay zekâ tarayıcı işlemleri duraklatıldı",
+    "agentControl": "Yapay zekâ bu tarayıcıyı kullanabilir",
+    "returnToAi": "Yapay zekâya geri ver",
+    "takeOver": "Kontrolü al",
+    "invalidUrl": "HTTP veya HTTPS adresi girin.",
+    "fileTooLarge": "Dosyalar en fazla 30 MB olabilir.",
+    "controlChanged": "Tarayıcı kontrolü değişti. Kontrolü alıp tekrar deneyin.",
+    "unavailable": "Tarayıcı kullanılamıyor. Tekrar deneyin veya sunucu tarayıcı ayarlarını kontrol edin.",
+    "startHint": "Tarayıcıyı açmak için kontrolü alın. Yapay zekâ da burada sayfa açabilir.",
+    "scopeHint": "Sekmeler bu göreve aittir. Site oturumları yalnızca hesabınız içinde paylaşılır. İndirilenler bu görevin klasörüne kaydedilir.",
+    "back": "Geri",
+    "forward": "İleri",
+    "reload": "Yenile",
+    "go": "Git",
+    "upload": "Dosya seç (en fazla 30 MB)",
+    "viewport": "Paylaşılan tarayıcı sayfası",
+    "keyboard": "Paylaşılan tarayıcıya yaz",
+    "downloadFailed": "İndirme başarısız",
+    "downloading": "Kaydediliyor…",
+    "webDescription": "Docker, konuşmanın yan panelinde paylaşılan bir tarayıcı gösterir. Siz ve yapay zekâ aynı sayfaları kullanırsınız. Yapay zekâ tarayıcı işlemlerini duraklatmak için kontrolü alın ve bitirince geri verin."
+  }
 }

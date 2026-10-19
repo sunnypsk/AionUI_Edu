@@ -176,5 +176,29 @@
   "zoomIn": "Zoom in",
   "zoomOut": "Zoom out",
   "zoomReset": "Reset view",
-  "diagramZoomHint": "Scroll to zoom • Drag to pan • ESC to close"
+  "diagramZoomHint": "Scroll to zoom • Drag to pan • ESC to close",
+  "sharedBrowser": {
+    "ready": "Shared browser",
+    "takingOver": "Waiting for the current action to finish…",
+    "humanControl": "You are in control · AI browser actions are paused",
+    "agentControl": "AI can operate this browser",
+    "returnToAi": "Return to AI",
+    "takeOver": "Take control",
+    "invalidUrl": "Enter an HTTP or HTTPS address.",
+    "fileTooLarge": "Files must be 30 MB or smaller.",
+    "controlChanged": "Browser control changed. Try again after taking control.",
+    "unavailable": "Browser unavailable. Retry or check the server browser setup.",
+    "startHint": "Take control to open a browser. AI can also open pages here.",
+    "scopeHint": "Tabs belong to this task. Website sign-ins are shared only within your account. Downloads are saved in this task folder.",
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "go": "Go",
+    "upload": "Choose file (up to 30 MB)",
+    "viewport": "Shared browser page",
+    "keyboard": "Type in the shared browser",
+    "downloadFailed": "Download failed",
+    "downloading": "Saving…",
+    "webDescription": "Docker hosts a shared browser in the conversation side panel. You and AI use the same pages. Take control to pause AI browser actions; return control when you are ready."
+  }
 }

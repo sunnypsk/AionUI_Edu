@@ -176,5 +176,29 @@
   "zoomIn": "Acercar",
   "zoomOut": "Alejar",
   "zoomReset": "Restablecer vista",
-  "diagramZoomHint": "Desplazarse para ampliar • Arrastrar para mover • ESC para cerrar"
+  "diagramZoomHint": "Desplazarse para ampliar • Arrastrar para mover • ESC para cerrar",
+  "sharedBrowser": {
+    "ready": "Navegador compartido",
+    "takingOver": "Esperando a que termine la acción actual…",
+    "humanControl": "Tienes el control · Acciones del navegador de IA pausadas",
+    "agentControl": "La IA puede manejar este navegador",
+    "returnToAi": "Devolver a la IA",
+    "takeOver": "Tomar el control",
+    "invalidUrl": "Introduce una dirección HTTP o HTTPS.",
+    "fileTooLarge": "Los archivos deben tener un tamaño máximo de 30 MB.",
+    "controlChanged": "El control del navegador ha cambiado. Toma el control y vuelve a intentarlo.",
+    "unavailable": "Navegador no disponible. Reinténtalo o comprueba la configuración del servidor.",
+    "startHint": "Toma el control para abrir el navegador. La IA también puede abrir páginas aquí.",
+    "scopeHint": "Las pestañas pertenecen a esta tarea. Las sesiones de sitios web se comparten solo dentro de tu cuenta. Las descargas se guardan en la carpeta de esta tarea.",
+    "back": "Atrás",
+    "forward": "Adelante",
+    "reload": "Recargar",
+    "go": "Ir",
+    "upload": "Elegir archivo (máximo 30 MB)",
+    "viewport": "Página del navegador compartido",
+    "keyboard": "Escribir en el navegador compartido",
+    "downloadFailed": "Error de descarga",
+    "downloading": "Guardando…",
+    "webDescription": "Docker muestra un navegador compartido junto a la conversación. Tú y la IA usáis las mismas páginas. Toma el control para pausar las acciones del navegador de IA y devuélvelo al terminar."
+  }
 }

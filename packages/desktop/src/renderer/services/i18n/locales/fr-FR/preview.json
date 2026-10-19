@@ -176,5 +176,29 @@
   "zoomIn": "Zoom avant",
   "zoomOut": "Zoom arrière",
   "zoomReset": "Réinitialiser la vue",
-  "diagramZoomHint": "Molette pour zoomer • Glisser pour déplacer • Échap pour fermer"
+  "diagramZoomHint": "Molette pour zoomer • Glisser pour déplacer • Échap pour fermer",
+  "sharedBrowser": {
+    "ready": "Navigateur partagé",
+    "takingOver": "Fin de l’action en cours…",
+    "humanControl": "Vous avez le contrôle · Actions du navigateur IA en pause",
+    "agentControl": "L’IA peut utiliser ce navigateur",
+    "returnToAi": "Rendre à l’IA",
+    "takeOver": "Prendre le contrôle",
+    "invalidUrl": "Saisissez une adresse HTTP ou HTTPS.",
+    "fileTooLarge": "La taille des fichiers est limitée à 30 Mo.",
+    "controlChanged": "Le contrôle du navigateur a changé. Reprenez le contrôle et réessayez.",
+    "unavailable": "Navigateur indisponible. Réessayez ou vérifiez la configuration du serveur.",
+    "startHint": "Prenez le contrôle pour ouvrir le navigateur. L’IA peut aussi ouvrir des pages ici.",
+    "scopeHint": "Les onglets appartiennent à cette tâche. Les connexions aux sites sont partagées uniquement dans votre compte. Les téléchargements sont enregistrés dans le dossier de cette tâche.",
+    "back": "Retour",
+    "forward": "Suivant",
+    "reload": "Actualiser",
+    "go": "Ouvrir",
+    "upload": "Choisir un fichier (30 Mo maximum)",
+    "viewport": "Page du navigateur partagé",
+    "keyboard": "Saisir dans le navigateur partagé",
+    "downloadFailed": "Échec du téléchargement",
+    "downloading": "Enregistrement…",
+    "webDescription": "Docker affiche un navigateur partagé à côté de la conversation. Vous et l’IA utilisez les mêmes pages. Prenez le contrôle pour suspendre les actions du navigateur IA, puis rendez-le quand vous avez terminé."
+  }
 }

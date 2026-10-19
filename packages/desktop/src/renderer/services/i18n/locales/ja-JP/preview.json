@@ -176,5 +176,29 @@
   "zoomIn": "拡大",
   "zoomOut": "縮小",
   "zoomReset": "表示をリセット",
-  "diagramZoomHint": "スクロールでズーム • ドラッグで移動 • ESC で閉じる"
+  "diagramZoomHint": "スクロールでズーム • ドラッグで移動 • ESC で閉じる",
+  "sharedBrowser": {
+    "ready": "共有ブラウザー",
+    "takingOver": "現在の操作の完了を待っています…",
+    "humanControl": "あなたが操作中 · AI のブラウザー操作は一時停止中",
+    "agentControl": "AI がこのブラウザーを操作できます",
+    "returnToAi": "AI に戻す",
+    "takeOver": "操作を引き継ぐ",
+    "invalidUrl": "HTTP または HTTPS の URL を入力してください。",
+    "fileTooLarge": "ファイルは 30 MB 以下にしてください。",
+    "controlChanged": "操作権限が変わりました。操作を引き継いでから再試行してください。",
+    "unavailable": "ブラウザーを利用できません。再試行するかサーバーの設定を確認してください。",
+    "startHint": "操作を引き継ぐとブラウザーが開きます。AI もここでページを開けます。",
+    "scopeHint": "タブはこのタスク専用です。サイトへのログインは自分のアカウント内のみで共有されます。ダウンロードはこのタスクのフォルダーに保存されます。",
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "再読み込み",
+    "go": "移動",
+    "upload": "ファイルを選択（最大 30 MB）",
+    "viewport": "共有ブラウザーのページ",
+    "keyboard": "共有ブラウザーに入力",
+    "downloadFailed": "ダウンロード失敗",
+    "downloading": "保存中…",
+    "webDescription": "Docker 上の共有ブラウザーを会話のサイドパネルに表示します。あなたと AI は同じページを操作します。操作を引き継ぐと AI のブラウザー操作が停止し、終了後に AI に戻せます。"
+  }
 }

@@ -12,7 +12,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "serve-handler": "^6.1.5"
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "playwright-core": "1.59.1",
+    "serve-handler": "^6.1.5",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -3,6 +3,7 @@
 
 import fcntl
 import getpass
+import hashlib
 import ipaddress
 import json
 import os
@@ -24,6 +25,19 @@ IMAGE = "ghcr.io/sunnypsk/aionui_edu"
 CODE = Path("/boot/config/plugins/aionui-edu-autodeploy")
 CRON = Path("/boot/config/plugins/dynamix/aionui-edu-autodeploy.cron")
 TEMPLATE = Path("/boot/config/plugins/dockerMan/templates-user/my-aionui-edu.xml")
+BROWSER_SECCOMP_SHA = "09293f2779f2611a01c58c56ee4a46f12e32c2cf3c96ccb055574f0dc13acabf"
+
+
+def browser_seccomp_source():
+    """Only a reviewed, pinned policy can grant Chromium its user namespaces."""
+    parent = Path(__file__).resolve().parent
+    for source in (parent / "browser" / "seccomp.json", parent.parent / "src/runtime/browser/security/seccomp.json"):
+        if source.is_file():
+            value = json.loads(source.read_text())
+            digest = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            if digest == BROWSER_SECCOMP_SHA:
+                return source, value
+    raise ValueError("Copy the reviewed browser/seccomp.json alongside deployUnraid.py before installation")
 
 
 def atomic(path, value):
@@ -119,12 +133,16 @@ class Deployment:
             raise ValueError("SOCKS5 configuration must be owner-only")
 
     def create_args(self, image, name=NAME, probe_data=None):
+        _, policy = browser_seccomp_source()
+        policy_file = self.control / "browser-seccomp.json"
+        atomic(policy_file, policy)
         probe = probe_data is not None
         port = "127.0.0.1::25808" if probe else f"{self.settings['bindAddress']}:{self.settings['port']}:25808"
         return ["run", "-d", "--name", name, "--network", "bridge",
                 "--restart", "no" if probe else "unless-stopped",
                 "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun:/dev/net/tun",
                 "--security-opt", "no-new-privileges:true", "--pids-limit", "512",
+                "--security-opt", f"seccomp={policy_file}", "--shm-size", "256m",
                 "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "-p", port,
                 "-v", f"{probe_data or self.data}:/data:rw",
                 "-e", f"PUID={self.settings['puid']}", "-e", f"PGID={self.settings['pgid']}",
@@ -182,13 +200,15 @@ class Deployment:
         for command in processes:
             if re.search(r"(?:^|[/\s])(?:codex|codex-acp)(?:\s|$)", command) and "cli_auth_credentials_store=" not in command:
                 raise RuntimeError("Codex is still running; update deferred")
+            if re.search(r"(?:^|[/\s])(?:chromium|chrome)(?:\s|$)", command) and "browser-profiles" in command:
+                raise RuntimeError("Shared browser is still running; update deferred")
 
     def write_template(self, release):
         tree = ET.Element("Container", version="2")
         values = {"Name": NAME, "Repository": release["image"], "Network": "bridge", "Shell": "bash",
                   "Privileged": "false", "Project": "https://github.com/sunnypsk/AionUI_Edu",
                   "WebUI": f"http://{self.settings['bindAddress']}:{self.settings['port']}",
-                  "ExtraParams": f"--cap-add=NET_ADMIN --security-opt=no-new-privileges --pids-limit=512 --restart=unless-stopped --publish={self.settings['bindAddress']}:{self.settings['port']}:25808 --log-opt=max-size=10m --log-opt=max-file=3"}
+                  "ExtraParams": f"--cap-add=NET_ADMIN --security-opt=no-new-privileges --security-opt=seccomp={self.control / 'browser-seccomp.json'} --shm-size=256m --pids-limit=512 --restart=unless-stopped --publish={self.settings['bindAddress']}:{self.settings['port']}:25808 --log-opt=max-size=10m --log-opt=max-file=3"}
         for key, value in values.items():
             ET.SubElement(tree, key).text = value
         for label, target, kind, mode, value in [
@@ -293,6 +313,9 @@ def install_updater():
     target = CODE / "deployUnraid.py"
     shutil.copy2(__file__, target)
     target.chmod(0o700)
+    source, _ = browser_seccomp_source()
+    (CODE / "browser").mkdir()
+    shutil.copy2(source, CODE / "browser" / "seccomp.json")
     (BASE / "deployment" / "PAUSED").touch(mode=0o600)
     CRON.write_text("# AionUI_Edu: opt-in, project-scoped GHCR updater\n*/5 * * * * test -S /var/run/docker.sock && /usr/bin/python3 /boot/config/plugins/aionui-edu-autodeploy/deployUnraid.py 2>&1 | /usr/bin/logger -t aionui-edu-autodeploy\n")
     subprocess.run(["/bin/bash", "/usr/local/sbin/update_cron"], check=True)

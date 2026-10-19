@@ -12,7 +12,7 @@ FROM node:24-bookworm-slim AS runtime
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=proxy /usr/local/bin/sing-box /usr/local/bin/sing-box
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git bash python3 libicu-dev iproute2 iptables nftables util-linux tini \
+    && apt-get install -y --no-install-recommends ca-certificates curl git bash python3 libicu-dev iproute2 iptables nftables util-linux tini chromium fonts-noto-cjk fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ARG SOURCE_COMMIT=development
@@ -51,6 +51,8 @@ ENV NODE_ENV=production \
     AIONUI_DATA_DIR=/data \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \
+    AIONUI_BROWSER_EXECUTABLE=/usr/bin/chromium \
+    AIONUI_LOG_LEVEL=info \
     AIONUI_PORT=25808 \
     CODEX_HOME=/data/codex \
     AIONUI_SOURCE_COMMIT=$SOURCE_COMMIT \

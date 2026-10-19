@@ -1,6 +1,6 @@
 # AionUI_Edu on Unraid
 
-This image includes AionCore, Codex CLI, and sing-box. Each chat remains a separate Codex session. The Codex account and proxy settings are shared by this container's WebUI users. Use separate containers and data directories if separate accounts are needed.
+This image includes AionCore, Codex CLI, Chromium, and sing-box. Each chat remains a separate Codex session. The Codex account and proxy settings are shared by this container's WebUI users. Use separate containers and data directories if separate accounts are needed.
 
 ## GitHub Actions and GHCR releases
 
@@ -25,7 +25,7 @@ The NAS layout keeps deployment authority outside the agent's data mount:
 | `/mnt/user/appdata/aionui-edu/backups`       | Stopped-service data snapshots and failed-release data | No                 |
 | `/boot/config/plugins/aionui-edu-autodeploy` | Reviewed updater code                                  | No                 |
 
-After a successful GHCR publication, copy the reviewed `deployUnraid.py` to the NAS and compare its SHA256 with the source checkout before running it. Prepare `deployment/settings.json`, owner-only, with this shape (replace the documentation address with the NAS LAN address):
+After a successful GHCR publication, copy the reviewed `deployUnraid.py` to the NAS and compare its SHA256 with the source checkout before running it. Copy `packages/web-host/src/runtime/browser/security/seccomp.json` beside that script as `browser/seccomp.json`. The updater verifies the policy's pinned checksum and installs it outside the agent data mount. Prepare `deployment/settings.json`, owner-only, with this shape (replace the documentation address with the NAS LAN address):
 
 ```json
 { "bindAddress": "192.0.2.10", "port": 25808, "puid": 99, "pgid": 100 }
@@ -53,7 +53,7 @@ For a reviewed manual update with no active work:
 python3 /boot/config/plugins/aionui-edu-autodeploy/deployUnraid.py --apply
 ```
 
-To opt into automatic updates, remove only `/mnt/user/appdata/aionui-edu/deployment/PAUSED` after the first successful installation and proxy checks. Recreate that file to pause. The updater defers while it sees a conversation's Codex process; the account-status process is excluded. This is a conservative process check, not a guarantee against a task starting at the same instant as a switch. Keep automatic updates paused during important or unattended work.
+To opt into automatic updates, remove only `/mnt/user/appdata/aionui-edu/deployment/PAUSED` after the first successful installation and proxy checks. Recreate that file to pause. The updater defers while it sees a conversation's Codex process or a shared browser process; the account-status process is excluded. This is a conservative process check, not a guarantee against a task starting at the same instant as a switch. Keep automatic updates paused during important or unattended work.
 
 Updates verify the candidate before stopping production, snapshot the stopped app's complete data with its Unix ownership and permissions, retain the old container with restart disabled, then start the new digest. Failed startup restores the previous data and container; failed-release data is retained separately for review. Symlink ownership is copied without following links outside the data tree. A journal enables recovery after an interrupted switch. Schema changes and manual restoration require separate review. Nothing prunes other containers, images or user data.
 
@@ -101,6 +101,21 @@ The selected version persists in the data volume across restarts and image updat
 **Installed CLI versions** lists managed installations. Cleanup is manual: select eligible old versions, then click **Clean up selected versions**. The two newest validated installations, the selected default, and versions with live processes are protected. The launcher records process leases, and OS process inspection also protects orphaned or directly launched CLI processes. If process inspection is incomplete, cleanup stops. Unrecognised installations and symlink directories are retained. A selected version's usage is checked again on the server before deletion, and update and cleanup jobs cannot overlap. After an older process exits, refresh the list to make that version eligible if it is outside the retained pair.
 
 Cleanup only removes selected, verified updater-owned directories under `/data/runtime/codex-cli/versions`; it does not remove chats, uploaded files, Codex auth, configuration, or memories. The bundled CLI is never a cleanup target. New downloads use a temporary npm cache that is removed with the installation staging files, so archives do not accumulate alongside retained CLI versions. There is no automatic background deletion.
+
+## Shared browser for teachers and Codex
+
+Open a task, then click the browser icon above its file list. The conversation's side panel shows the server's Chromium viewport; no Linux desktop or separate Chrome window is required. Codex receives the `aionui_browser` MCP server automatically in its task runtime and uses the same actual pages that the teacher sees.
+
+- Click **Take control** to pause AI browser commands. The backend blocks queued and new AI commands immediately, finishes the bounded action already running, then grants manual control. You can navigate, click, scroll, type Chinese, paste text, choose website upload files (up to 30 MB), and download files.
+- Click **Return to AI** when finished. Codex must inspect the current page again before another action. This transfers browser control; it does not automatically send a new chat message or resume a completed model turn.
+- Tabs are task-specific. Sign-in cookies and site storage persist in `/data/browser-profiles` within the same backend user account. Downloads are saved into that task's folder and remain available in the file list. The download links in the browser panel last for the current host session. Idle browser processes close after 30 minutes without browser activity; website sign-ins remain on disk.
+- **Settings → System → In-app browser** can disable agent browser access immediately or clear your website sign-ins. Clearing browser data closes that user's pages and preserves task files.
+
+The viewer uses authenticated viewport snapshots; it is intended for website workflows and forms. Video, audio, native OS dialogs, browser extensions, and a full desktop are outside its scope. No CDP port is published. Chromium runs as the existing unprivileged app user with its sandbox enabled. The supplied Compose files and reviewed NAS updater use the pinned Playwright seccomp policy needed for user namespaces; no `--no-sandbox`, `SYS_ADMIN`, or privileged mode is used. Hosts which disable unprivileged user namespaces must enable that facility before the browser can start.
+
+For standalone local development, use Node 22.14+ and set `AIONUI_BROWSER_EXECUTABLE` to an installed Chromium/Chrome executable before `bun run webui`. Docker includes Node 24, sets the browser path to `/usr/bin/chromium`, and includes Chinese fonts. The browser inherits the container's TUN routing and firewall. The browser control input bypasses HTTP bridge body logging because it may contain passwords or files. Viewport polls share an authenticated-session validation lease of at most 15 seconds to stay within the backend auth endpoint's rate limit.
+
+When upgrading a NAS installation created before this feature, review and replace the host-only updater and add its `browser/seccomp.json` together before applying the new image. Recreating an existing Unraid container through the updated template preserves the sandbox policy and shared-memory size. Keep the host-only policy outside `/data`.
 
 ## Route container traffic through SOCKS5
 

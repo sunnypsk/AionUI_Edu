@@ -176,5 +176,29 @@
   "zoomIn": "Vergrößern",
   "zoomOut": "Verkleinern",
   "zoomReset": "Ansicht zurücksetzen",
-  "diagramZoomHint": "Scrollen zum Zoomen • Ziehen zum Verschieben • ESC zum Schließen"
+  "diagramZoomHint": "Scrollen zum Zoomen • Ziehen zum Verschieben • ESC zum Schließen",
+  "sharedBrowser": {
+    "ready": "Gemeinsamer Browser",
+    "takingOver": "Die aktuelle Aktion wird abgeschlossen…",
+    "humanControl": "Sie steuern · KI-Browseraktionen pausiert",
+    "agentControl": "Die KI kann diesen Browser bedienen",
+    "returnToAi": "An KI zurückgeben",
+    "takeOver": "Steuerung übernehmen",
+    "invalidUrl": "Geben Sie eine HTTP- oder HTTPS-Adresse ein.",
+    "fileTooLarge": "Dateien dürfen höchstens 30 MB groß sein.",
+    "controlChanged": "Die Browsersteuerung hat sich geändert. Übernehmen Sie die Steuerung und versuchen Sie es erneut.",
+    "unavailable": "Browser nicht verfügbar. Erneut versuchen oder die Serverkonfiguration prüfen.",
+    "startHint": "Übernehmen Sie die Steuerung, um den Browser zu öffnen. Die KI kann hier ebenfalls Seiten öffnen.",
+    "scopeHint": "Tabs gehören zu dieser Aufgabe. Website-Anmeldungen werden nur innerhalb Ihres Kontos geteilt. Downloads werden im Aufgabenordner gespeichert.",
+    "back": "Zurück",
+    "forward": "Vorwärts",
+    "reload": "Neu laden",
+    "go": "Öffnen",
+    "upload": "Datei wählen (bis 30 MB)",
+    "viewport": "Gemeinsame Browserseite",
+    "keyboard": "Im gemeinsamen Browser tippen",
+    "downloadFailed": "Download fehlgeschlagen",
+    "downloading": "Wird gespeichert…",
+    "webDescription": "Docker zeigt einen gemeinsamen Browser neben der Unterhaltung an. Sie und die KI bedienen dieselben Seiten. Übernehmen Sie die Steuerung, um KI-Browseraktionen zu pausieren, und geben Sie sie anschließend zurück."
+  }
 }

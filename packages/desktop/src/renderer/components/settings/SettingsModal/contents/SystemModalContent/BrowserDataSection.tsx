@@ -11,6 +11,9 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR, { mutate } from 'swr';
 import PreferenceRow from './PreferenceRow';
+import { httpRequest } from '@/common/adapter/httpBridge';
+import type { BrowserPreferences } from '@/common/types/platform/webRuntime';
+import { isElectronDesktop } from '@/renderer/utils/platform';
 
 /**
  * 应用内浏览器设置 / In-app browser settings.
@@ -30,7 +33,7 @@ import PreferenceRow from './PreferenceRow';
  *   so putting the switch there would leave production users with no way to turn off a
  *   capability that defaults to on — which would make it not really optional.
  */
-const BrowserDataSection: React.FC = () => {
+const DesktopBrowserDataSection: React.FC = () => {
   const { t } = useTranslation();
   const [clearing, setClearing] = useState(false);
   const { data: cdpStatus, isLoading } = useSWR('cdp.status', () => ipcBridge.application.getCdpStatus.invoke());
@@ -139,4 +142,59 @@ const BrowserDataSection: React.FC = () => {
   );
 };
 
+const WebBrowserDataSection: React.FC = () => {
+  const { t } = useTranslation();
+  const endpoint = '/api/edu/browser/preferences';
+  const { data, mutate, isLoading } = useSWR<BrowserPreferences>(endpoint, () =>
+    httpRequest<BrowserPreferences>('GET', endpoint, undefined, { sensitive: true })
+  );
+  const [busy, setBusy] = useState(false);
+  const update = async (input: { agentEnabled: boolean } | { clear: true }): Promise<void> => {
+    setBusy(true);
+    try {
+      await httpRequest('POST', endpoint, input, { sensitive: true });
+      await mutate();
+      if ('clear' in input) Message.success(t('settings.browserData.clearSuccess'));
+    } catch {
+      Message.error(t('settings.browserData.agentControlFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className='px-12px md:px-32px py-16px bg-2 rd-16px'>
+      <div className='text-14px font-medium text-t-primary mb-8px'>{t('settings.browserData.title')}</div>
+      <PreferenceRow
+        label={t('settings.browserData.agentControlLabel')}
+        description={t('preview.sharedBrowser.webDescription')}
+      >
+        <Switch
+          checked={data?.agentEnabled ?? false}
+          loading={isLoading || busy}
+          onChange={(agentEnabled) => void update({ agentEnabled })}
+        />
+      </PreferenceRow>
+      <PreferenceRow label={t('settings.browserData.clearLabel')} description={t('preview.sharedBrowser.scopeHint')}>
+        <Button
+          size='small'
+          status='danger'
+          loading={busy}
+          onClick={() =>
+            Modal.confirm({
+              title: t('settings.browserData.clearConfirmTitle'),
+              content: t('settings.browserData.clearConfirmContent'),
+              okButtonProps: { status: 'danger' },
+              onOk: () => update({ clear: true }),
+            })
+          }
+        >
+          {t('common.clear')}
+        </Button>
+      </PreferenceRow>
+    </div>
+  );
+};
+
+const BrowserDataSection: React.FC = () =>
+  isElectronDesktop() ? <DesktopBrowserDataSection /> : <WebBrowserDataSection />;
 export default BrowserDataSection;

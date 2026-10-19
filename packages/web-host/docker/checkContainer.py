@@ -2,6 +2,7 @@
 """Test a built Linux image, including TUN routing and fail-closed behavior."""
 
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -61,6 +62,8 @@ def check(image, revision):
             raise RuntimeError("Disposable HTTP server was not reachable from SOCKS")
         docker("run", "-d", "--name", app, "--network", network,
                "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun:/dev/net/tun",
+               "--security-opt", "no-new-privileges:true", "--security-opt", "seccomp=" + str(Path(__file__).resolve().parent.parent / "src/runtime/browser/security/seccomp.json"),
+               "--shm-size", "256m",
                "--tmpfs", "/data:rw,size=256m,mode=0700", "-p", "127.0.0.1::25808",
                "-e", "AIONUI_SOCKS5_PROXY=socks5://" + proxy_ip + ":1080", image)
         created.append(app)
@@ -82,6 +85,12 @@ def check(image, revision):
         result = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
+        browser_check = docker("exec", "--user", "99:100", app, "bun", "-e",
+                               "const {createRequire}=await import('node:module'); const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core'); const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage']}); try {const page=await browser.newPage(); await page.goto('http://" + target_ip + ":18080',{timeout:15000}); const result=JSON.parse(await page.locator('body').innerText()); if(result.peer!=='" + proxy_remote_ip + "') throw Error('browser route bypass'); console.log('Sandboxed Chromium uses SOCKS5');} finally {await browser.close();}")
+        print(browser_check.stdout.strip())
+        shared_browser = docker("exec", "--user", "99:100", "-e", "AIONUI_BUNDLED_CODEX=/app/node_modules/.bin/codex", app,
+                                "bun", "/app/packages/web-host/src/runtime/browser/smoke.ts")
+        print(shared_browser.stdout.strip())
         docker("exec", "--user", "99:100", app, "bun", "-e", "await import('node:dns/promises').then(d => d.resolve4('example.com'));", check=True)
         if '"host": "1.1.1.1"' not in docker("logs", proxy).stdout:
             raise RuntimeError("DNS did not use HTTPS through SOCKS5")

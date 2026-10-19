@@ -151,6 +151,8 @@ export function isBackendHttpError(error: unknown): error is BackendHttpError {
  * the caller's existing try/catch keeps working.
  */
 export type HttpRequestOptions = {
+  /** Never log input bodies containing browser text, clipboard content or uploaded files. */
+  sensitive?: boolean;
   silentStatuses?: number[];
   /** Extra request headers merged on top of the default `Content-Type`. */
   headers?: Record<string, string>;
@@ -233,10 +235,11 @@ export async function httpRequest<T>(
     Object.assign(headers, options.headers);
   }
 
-  console.debug(
-    `[httpBridge] ${method} ${path}`,
-    body !== undefined ? JSON.stringify(redactForLog(body)).slice(0, 500) : '(no body)'
-  );
+  if (!options?.sensitive)
+    console.debug(
+      `[httpBridge] ${method} ${path}`,
+      body !== undefined ? JSON.stringify(redactForLog(body)).slice(0, 500) : '(no body)'
+    );
 
   let response = await sendHttpRequest(method, path, headers, body);
 
@@ -270,7 +273,7 @@ export async function httpRequest<T>(
     throw new BackendHttpError({ method, path, status: response.status, body: errorBody });
   }
 
-  console.debug(`[httpBridge] ${method} ${path} → ${response.status} OK`);
+  if (!options?.sensitive) console.debug(`[httpBridge] ${method} ${path} → ${response.status} OK`);
 
   const contentType = response.headers.get('Content-Type');
   if (!contentType?.includes('application/json')) {

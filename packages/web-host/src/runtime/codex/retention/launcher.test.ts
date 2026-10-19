@@ -44,9 +44,21 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
     await rm(data, { recursive: true, force: true });
   });
 
-  async function start(): Promise<void> {
-    child = spawn(path.resolve('packages/web-host/src/runtime/codex/codex'), [], {
-      env: { ...process.env, AIONUI_BUNDLED_CODEX: '/unavailable-bundled-codex' },
+  async function start(withBrowser = false): Promise<void> {
+    child = spawn(path.resolve('packages/web-host/src/runtime/codex/codex'), withBrowser ? ['app-server'] : [], {
+      env: {
+        ...process.env,
+        AIONUI_BUNDLED_CODEX: '/unavailable-bundled-codex',
+        ...(withBrowser
+          ? {
+              AIONUI_BROWSER_SIGNING_KEY: 'fixture-key',
+              AIONUI_BROWSER_GATEWAY: 'http://127.0.0.1:1/command',
+              AIONUI_USER_ID: 'teacher',
+              AIONUI_CONVERSATION_ID: 'task',
+              AIONUI_RUNTIME_TOKEN: 'fixture-token',
+            }
+          : {}),
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     exited = new Promise((resolve) => child!.once('exit', resolve));
@@ -87,6 +99,14 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
     await start();
     for (const file of await readdir(path.join(root, 'leases'))) await rm(path.join(root, 'leases', file));
     expect((await readUsage(root)).ids.has(ids[0])).toBe(true);
+  });
+
+  it('protects the active CLI behind the browser proxy even if its lease is missing', async () => {
+    await start(true);
+    for (const file of await readdir(path.join(root, 'leases'))) await rm(path.join(root, 'leases', file));
+    expect((await readUsage(root)).ids.has(ids[0])).toBe(true);
+    child!.kill('SIGTERM');
+    expect(await exited).toBe(0);
   });
 
   it('blocks cleanup for a malformed lease instead of assuming it is idle', async () => {
