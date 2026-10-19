@@ -37,6 +37,30 @@ describe.skipIf(process.platform === 'win32')('Linux process inspection', () => 
     expect([...usage.ids]).toEqual([id]);
     expect(usage.complete).toBe(true);
   });
+  it.each(['MainThread', 'node-MainThread'])(
+    'detects a managed script when Node uses %s as its thread name',
+    async (comm) => {
+      await writeFile(path.join(proc, '123', 'comm'), comm + '\n');
+      await rm(path.join(proc, '123', 'exe'));
+      await symlink('/usr/bin/node', path.join(proc, '123', 'exe'));
+      await writeFile(
+        path.join(proc, '123', 'cmdline'),
+        `/usr/bin/node\0${root}/versions/${id}/node_modules/.bin/codex\0app-server`
+      );
+      const usage = await inspectProcesses(root, 'linux', proc);
+      expect([...usage.ids]).toEqual([id]);
+      expect(usage.complete).toBe(true);
+    }
+  );
+  it('does not protect an unrelated Node main thread', async () => {
+    await writeFile(path.join(proc, '123', 'comm'), 'MainThread\n');
+    await rm(path.join(proc, '123', 'exe'));
+    await symlink('/usr/bin/node', path.join(proc, '123', 'exe'));
+    await writeFile(path.join(proc, '123', 'cmdline'), '/usr/bin/node\0/unmanaged/server.js');
+    const usage = await inspectProcesses(root, 'linux', proc);
+    expect([...usage.ids]).toEqual([]);
+    expect(usage.complete).toBe(true);
+  });
   it('blocks cleanup when a candidate process cannot be inspected reliably', async () => {
     await rm(path.join(proc, '123', 'exe'));
     await writeFile(path.join(proc, '123', 'exe'), 'not a procfs symlink');

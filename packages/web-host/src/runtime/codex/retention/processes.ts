@@ -35,7 +35,8 @@ export async function inspectProcesses(root: string, platform = process.platform
       try {
         const directory = path.join(procRoot, pid);
         const comm = (await readFile(path.join(directory, 'comm'), 'utf8')).trim();
-        if (!/^(codex|node|bun)(?:$|[-.])/.test(comm)) continue;
+        // Node 24 exposes its main thread name rather than the executable name in procfs.
+        if (!/^(codex|node|bun)(?:$|[-.])/.test(comm) && comm !== 'MainThread') continue;
         const [executable, args] = await Promise.all([
           readlink(path.join(directory, 'exe')),
           readFile(path.join(directory, 'cmdline'), 'utf8'),
