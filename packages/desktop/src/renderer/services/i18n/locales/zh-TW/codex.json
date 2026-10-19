@@ -213,7 +213,7 @@
     "available": "有較新的 Codex CLI 版本可用。",
     "upToDate": "目前已是最新版本。",
     "checkFailed": "無法檢查 CLI 版本，請檢查伺服器連線後再試。",
-    "installHint": "新啟動的 CLI process（包括接續原有對話）會使用更新版本；執行中的 process 會繼續使用目前版本。",
+    "installHint": "更新後，新開的對話會使用新版本；正在進行的對話不受影響。",
     "install": "更新 Codex CLI",
     "installFailed": "未能完成更新，請稍後重試。",
     "installSuccess": "Codex CLI 已更新，請新開 session 使用新版本。",

@@ -207,7 +207,7 @@ const LocalAgents: React.FC<{ codexOnly?: boolean }> = ({ codexOnly = false }) =
     <div data-testid='agent-management-page' className='flex flex-col gap-16px'>
       <SettingsPageHeader
         data-testid='agent-management-header'
-        title={t('settings.agents', { defaultValue: 'Agents' })}
+        title={t('settings.agentsTitle', { defaultValue: 'Agents' })}
         description={
           codexOnly ? undefined : (
             <>

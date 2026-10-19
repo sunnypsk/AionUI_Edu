@@ -141,6 +141,7 @@
   "assistants": "助理",
   "assistantBackToList": "全部助理",
   "agents": "Agents",
+  "agentsTitle": "助理程式",
   "assistantsList": "可用助理清單",
   "assistantsEmpty": "目前沒有可用的助理。",
   "pdfToPptAssistantName": "PDF 轉 PPT",

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gt, valid } from 'semver';
 import useSWR from 'swr';
+import SettingsSection from '../SettingsSection';
 import CodexVersionsPanel from './CodexVersionsPanel';
 
 const CodexUpdatePanel: React.FC = () => {
@@ -51,11 +52,11 @@ const CodexUpdatePanel: React.FC = () => {
   };
 
   return (
-    <section className='mb-24px rounded-16px border border-border-2 bg-1 p-20px' aria-labelledby='codex-updates-title'>
-      <Typography.Title id='codex-updates-title' heading={5} className='!mt-0'>
-        {t('codex.updates.title')}
-      </Typography.Title>
-      <Typography.Paragraph type='secondary'>{t('codex.updates.description')}</Typography.Paragraph>
+    <SettingsSection
+      id='codex-updates-title'
+      title={t('codex.updates.title')}
+      description={t('codex.updates.description')}
+    >
       {(error || checkFailed) && <Alert type='error' content={t('codex.updates.checkFailed')} className='mb-12px' />}
       {(installFailed || phase === 'failed') && (
         <Alert type='error' content={t('codex.updates.installFailed')} className='mb-12px' />
@@ -107,7 +108,12 @@ const CodexUpdatePanel: React.FC = () => {
         </>
       )}
       <Space wrap>
-        <Button loading={checking} disabled={isLoading || installing || cleaning} onClick={() => void check()}>
+        <Button
+          type='secondary'
+          loading={checking}
+          disabled={isLoading || installing || cleaning}
+          onClick={() => void check()}
+        >
           {t('codex.updates.check')}
         </Button>
         <Button
@@ -132,7 +138,7 @@ const CodexUpdatePanel: React.FC = () => {
         installing={installing}
         onBusyChange={setCleaning}
       />
-    </section>
+    </SettingsSection>
   );
 };
 

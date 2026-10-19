@@ -213,7 +213,7 @@
     "available": "Uma nova versão do Codex CLI está disponível.",
     "upToDate": "A versão instalada está atualizada.",
     "checkFailed": "Não foi possível verificar a versão CLI. Confira a conexão do servidor e tente novamente.",
-    "installHint": "Novos processos da CLI usam a versão atualizada, inclusive ao retomar uma conversa existente. Processos em execução continuam com sua versão atual.",
+    "installHint": "Após uma atualização, as novas conversas usam a nova versão; as conversas em andamento não são afetadas.",
     "install": "Atualizar Codex CLI",
     "installFailed": "Não foi possível concluir a atualização. Tente novamente.",
     "installSuccess": "Codex CLI atualizado. Inicie uma nova sessão para usar a nova versão.",

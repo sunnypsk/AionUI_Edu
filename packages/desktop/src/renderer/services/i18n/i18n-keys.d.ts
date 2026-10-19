@@ -1661,6 +1661,7 @@ export type I18nKey =
   | 'settings.agentNamePlaceholder'
   | 'settings.agent_name'
   | 'settings.agents'
+  | 'settings.agentsTitle'
   | 'settings.apiEndpoint'
   | 'settings.apiKey'
   | 'settings.apiKeyCount'

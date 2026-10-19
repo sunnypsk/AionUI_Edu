@@ -262,7 +262,7 @@ describe('LocalAgents', () => {
 
     render(<LocalAgents />);
 
-    expect(screen.getByText('settings.agents')).toBeTruthy();
+    expect(screen.getByText('settings.agentsTitle')).toBeTruthy();
     expect(screen.getByText('settings.agentManagement.customAgents')).toBeTruthy();
     // Only Claude Code shows 'missing' now; openclaw-gateway is filtered out as deprecated
     expect(screen.getByText('settings.agentManagement.statusMissing')).toBeTruthy();

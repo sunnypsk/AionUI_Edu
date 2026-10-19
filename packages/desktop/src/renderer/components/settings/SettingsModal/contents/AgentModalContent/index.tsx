@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { Button, Form, Input, Message, Select, Typography } from '@arco-design/web-react';
+import { Button, Form, Input, Message, Select } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import type { CodexSettings } from '@/common/config/configKeys';
 import {
@@ -21,6 +21,7 @@ import { isElectronDesktop } from '@/renderer/utils/platform';
 import CodexAccountPanel from './CodexAccountPanel';
 import CodexUpdatePanel from './CodexUpdatePanel';
 import NetworkProxyPanel from './NetworkProxyPanel';
+import SettingsSection from './SettingsSection';
 
 const AgentModalContent: React.FC = () => {
   const viewMode = useSettingsViewMode();
@@ -53,53 +54,54 @@ const AgentModalContent: React.FC = () => {
   return (
     <div className='flex flex-col h-full w-full'>
       <AionScrollArea className='flex-1 min-h-0 pb-16px scrollbar-hide' disableOverflow={isPageMode}>
-        {!isElectronDesktop() && <CodexAccountPanel />}
-        {!isElectronDesktop() && <CodexUpdatePanel />}
-        <section
-          className='mb-24px rounded-16px border border-border-2 bg-1 p-20px'
-          aria-labelledby='codex-settings-title'
-        >
-          <Typography.Title id='codex-settings-title' heading={5} className='!mt-0'>
-            {t('codex.settings.title')}
-          </Typography.Title>
-          <Typography.Paragraph type='secondary'>{t('codex.settings.description')}</Typography.Paragraph>
-          <Form layout='vertical' onSubmit={() => void saveSettings()}>
-            <Form.Item
-              label={t('codex.settings.model')}
-              validateStatus={invalidModel ? 'error' : undefined}
-              help={invalidModel ? t('codex.settings.invalidModel') : undefined}
-            >
-              <Input
-                aria-label={t('codex.settings.model')}
-                value={settings.model}
-                disabled={saving}
-                onChange={(model) => {
-                  setInvalidModel(false);
-                  setSettings((previous) => ({ ...previous, model }));
-                }}
-              />
-            </Form.Item>
-            <Form.Item label={t('codex.settings.reasoning')}>
-              <Select
-                aria-label={t('codex.settings.reasoning')}
-                value={settings.reasoningEffort}
-                disabled={saving}
-                onChange={(reasoningEffort: CodexSettings['reasoningEffort']) =>
-                  setSettings((previous) => ({ ...previous, reasoningEffort }))
-                }
-                options={CODEX_REASONING_EFFORTS.map((value) => ({
-                  value,
-                  label: t(`codex.settings.efforts.${value}`),
-                }))}
-              />
-            </Form.Item>
-            <Button type='primary' htmlType='submit' loading={saving}>
-              {t('common.save')}
-            </Button>
-          </Form>
-        </section>
-        {!isElectronDesktop() && <NetworkProxyPanel />}
-        <LocalAgents codexOnly />
+        <div className='space-y-16px'>
+          {!isElectronDesktop() && <CodexAccountPanel />}
+          {!isElectronDesktop() && <CodexUpdatePanel />}
+          <SettingsSection
+            id='codex-settings-title'
+            title={t('codex.settings.title')}
+            description={t('codex.settings.description')}
+          >
+            <Form layout='vertical' onSubmit={() => void saveSettings()}>
+              <Form.Item
+                label={t('codex.settings.model')}
+                validateStatus={invalidModel ? 'error' : undefined}
+                help={invalidModel ? t('codex.settings.invalidModel') : undefined}
+              >
+                <Input
+                  aria-label={t('codex.settings.model')}
+                  value={settings.model}
+                  disabled={saving}
+                  onChange={(model) => {
+                    setInvalidModel(false);
+                    setSettings((previous) => ({ ...previous, model }));
+                  }}
+                />
+              </Form.Item>
+              <Form.Item label={t('codex.settings.reasoning')}>
+                <Select
+                  aria-label={t('codex.settings.reasoning')}
+                  value={settings.reasoningEffort}
+                  disabled={saving}
+                  onChange={(reasoningEffort: CodexSettings['reasoningEffort']) =>
+                    setSettings((previous) => ({ ...previous, reasoningEffort }))
+                  }
+                  options={CODEX_REASONING_EFFORTS.map((value) => ({
+                    value,
+                    label: t(`codex.settings.efforts.${value}`),
+                  }))}
+                />
+              </Form.Item>
+              <div className='flex justify-end'>
+                <Button type='primary' htmlType='submit' loading={saving}>
+                  {t('common.save')}
+                </Button>
+              </div>
+            </Form>
+          </SettingsSection>
+          {!isElectronDesktop() && <NetworkProxyPanel />}
+          <LocalAgents codexOnly />
+        </div>
       </AionScrollArea>
     </div>
   );

@@ -141,6 +141,7 @@
   "assistants": "Assistants",
   "assistantBackToList": "Todos os assistentes",
   "agents": "Agents",
+  "agentsTitle": "Agentes",
   "assistantsList": "Available assistants",
   "assistantsEmpty": "No assistants configured.",
   "pdfToPptAssistantName": "PDF to PPT",

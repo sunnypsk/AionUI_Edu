@@ -4,6 +4,7 @@ import { Alert, Button, Link, Message, Space, Typography } from '@arco-design/we
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR, { mutate as swrMutate } from 'swr';
+import SettingsSection from './SettingsSection';
 
 const CodexAccountPanel: React.FC = () => {
   const { t } = useTranslation();
@@ -34,11 +35,11 @@ const CodexAccountPanel: React.FC = () => {
   };
   const pending = data?.login.state === 'pending';
   return (
-    <section className='mb-24px rounded-16px border border-border-2 bg-1 p-20px' aria-labelledby='codex-account-title'>
-      <Typography.Title id='codex-account-title' heading={5} className='!mt-0'>
-        {t('codex.account.title')}
-      </Typography.Title>
-      <Typography.Paragraph type='secondary'>{t('codex.account.description')}</Typography.Paragraph>
+    <SettingsSection
+      id='codex-account-title'
+      title={t('codex.account.title')}
+      description={t('codex.account.description')}
+    >
       {error && <Alert type='error' content={t('codex.account.unavailable')} className='mb-12px' />}
       {data && (
         <Typography.Paragraph>
@@ -63,13 +64,19 @@ const CodexAccountPanel: React.FC = () => {
       <Space wrap>
         {pending ? (
           <Button
+            type='secondary'
             disabled={busy}
             onClick={() => void runAction(() => ipcBridge.webRuntime.codexCancelLogin.invoke({}))}
           >
             {t('common.cancel')}
           </Button>
         ) : data?.authenticated ? (
-          <Button disabled={busy} onClick={() => void runAction(() => ipcBridge.webRuntime.codexLogout.invoke({}))}>
+          <Button
+            type='secondary'
+            status='danger'
+            disabled={busy}
+            onClick={() => void runAction(() => ipcBridge.webRuntime.codexLogout.invoke({}))}
+          >
             {t('codex.account.signOut')}
           </Button>
         ) : (
@@ -83,6 +90,7 @@ const CodexAccountPanel: React.FC = () => {
           </Button>
         )}
         <Button
+          type='secondary'
           disabled={busy || isLoading}
           onClick={() => {
             void mutate().catch(() => Message.error(t('codex.account.actionFailed')));
@@ -91,7 +99,7 @@ const CodexAccountPanel: React.FC = () => {
           {t('codex.account.refresh')}
         </Button>
       </Space>
-    </section>
+    </SettingsSection>
   );
 };
 

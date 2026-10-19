@@ -213,7 +213,7 @@
     "available": "Daha yeni bir Codex CLI sürümü var.",
     "upToDate": "Yüklü sürüm güncel.",
     "checkFailed": "CLI sürümü kontrol edilemedi. Sunucu bağlantısını kontrol edip tekrar deneyin.",
-    "installHint": "Mevcut bir sohbet sürdürülürken de yeni CLI işlemleri güncel sürümü kullanır. Çalışan işlemler mevcut sürümleriyle devam eder.",
+    "installHint": "Güncellemeden sonra yeni sohbetler yeni sürümü kullanır; devam eden sohbetler etkilenmez.",
     "install": "Codex CLI güncelle",
     "installFailed": "Güncelleme tamamlanamadı. Lütfen tekrar deneyin.",
     "installSuccess": "Codex CLI güncellendi. Yeni sürümü kullanmak için yeni bir oturum başlatın.",

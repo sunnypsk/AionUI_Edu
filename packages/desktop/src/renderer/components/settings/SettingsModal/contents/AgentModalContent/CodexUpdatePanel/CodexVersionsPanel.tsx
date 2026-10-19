@@ -60,7 +60,7 @@ const CodexVersionsPanel: React.FC<Props> = ({ installedVersion, installing, onB
 
   if (data?.supported === false) return null;
   return (
-    <section className='mt-24px' aria-labelledby='codex-versions-title'>
+    <section className='mt-24px border-t border-border-2 pt-16px' aria-labelledby='codex-versions-title'>
       <Typography.Title heading={6} id='codex-versions-title'>
         {t('codex.versions.title')}
       </Typography.Title>
@@ -117,10 +117,16 @@ const CodexVersionsPanel: React.FC<Props> = ({ installedVersion, installing, onB
         ]}
       />
       <Space wrap className='mt-12px'>
-        <Button loading={isValidating} disabled={installing || cleaning} onClick={() => void mutate().catch(() => {})}>
+        <Button
+          type='secondary'
+          loading={isValidating}
+          disabled={installing || cleaning}
+          onClick={() => void mutate().catch(() => {})}
+        >
           {t('codex.versions.refresh')}
         </Button>
         <Button
+          type='secondary'
           status='danger'
           loading={cleaning}
           disabled={disabled || !selected.length}

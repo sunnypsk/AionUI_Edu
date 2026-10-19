@@ -4,6 +4,7 @@ import { Alert, Button, Form, Input, Message, Switch, Typography } from '@arco-d
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
+import SettingsSection from './SettingsSection';
 
 const NetworkProxyPanel: React.FC = () => {
   const { t } = useTranslation();
@@ -76,11 +77,7 @@ const NetworkProxyPanel: React.FC = () => {
     />
   );
   return (
-    <section className='mb-24px rounded-16px border border-border-2 bg-1 p-20px' aria-labelledby='network-proxy-title'>
-      <Typography.Title id='network-proxy-title' heading={5} className='!mt-0'>
-        {t('codex.proxy.title')}
-      </Typography.Title>
-      <Typography.Paragraph type='secondary'>{t('codex.proxy.description')}</Typography.Paragraph>
+    <SettingsSection id='network-proxy-title' title={t('codex.proxy.title')} description={t('codex.proxy.description')}>
       {error && <Alert type='error' content={t('codex.proxy.loadFailed')} className='mb-12px' />}
       {data && (
         <>
@@ -129,7 +126,16 @@ const NetworkProxyPanel: React.FC = () => {
             {data.hasCredentials ? ` · ${t('codex.proxy.credentialsStored')}` : ''}
           </Typography.Paragraph>
         )}
-        <div className='flex flex-col sm:flex-row gap-12px'>
+        <div className='flex flex-col-reverse sm:flex-row sm:justify-end gap-12px'>
+          <Button
+            type='secondary'
+            htmlType='button'
+            loading={testing}
+            disabled={!data || saving}
+            onClick={() => void test()}
+          >
+            {testing ? t('codex.proxy.testing') : t('codex.proxy.test')}
+          </Button>
           <Button
             type='primary'
             htmlType='submit'
@@ -137,9 +143,6 @@ const NetworkProxyPanel: React.FC = () => {
             disabled={!data || testing || data.managedByEnvironment}
           >
             {t('codex.proxy.save')}
-          </Button>
-          <Button htmlType='button' loading={testing} disabled={!data || saving} onClick={() => void test()}>
-            {testing ? t('codex.proxy.testing') : t('codex.proxy.test')}
           </Button>
         </div>
       </Form>
@@ -155,7 +158,7 @@ const NetworkProxyPanel: React.FC = () => {
           </>
         )}
       </div>
-    </section>
+    </SettingsSection>
   );
 };
 
