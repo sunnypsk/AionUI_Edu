@@ -762,7 +762,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
               {processedList.map((item, index) => (
                 <React.Fragment key={getProcessedItemAnchorId(item) || index}>{renderItem(index, item)}</React.Fragment>
               ))}
-              <div className='h-20px' />
+              <div className='h-72px' data-testid='message-list-bottom-spacer' />
             </div>
           </div>
         </ImagePreviewContext.Provider>

@@ -65,7 +65,7 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
             onClick={onSettingsClick}
             className={classNames(
               'group h-34px flex items-center rd-0.5rem cursor-pointer transition-colors',
-              collapsed ? 'w-full justify-center' : 'flex-1 min-w-0 justify-start gap-8px ps-10px pe-8px',
+              collapsed ? 'w-full justify-center' : 'shrink-0 whitespace-nowrap justify-start gap-8px ps-10px pe-8px',
               isMobile && 'sider-footer-btn-mobile',
               {
                 'bg-fill-3': isSettings,
@@ -74,7 +74,7 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
             )}
           >
             <span className='size-22px flex items-center justify-center shrink-0 text-t-secondary'>{settingsIcon}</span>
-            <span className='collapsed-hidden text-t-primary text-14px font-[500] leading-24px truncate'>
+            <span className='collapsed-hidden text-t-primary text-14px font-[500] leading-24px whitespace-nowrap'>
               {isSettings ? t('common.back') : t('common.settings')}
             </span>
           </div>
@@ -85,7 +85,7 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
               onClick={onLogoutClick}
               className={classNames(
                 'h-32px flex items-center rd-0.5rem cursor-pointer transition-colors hover:bg-[rgba(var(--primary-6),0.14)] active:bg-fill-2',
-                collapsed ? 'w-full justify-center' : 'flex-1 min-w-0 justify-start gap-10px px-14px',
+                collapsed ? 'w-full justify-center' : 'flex-1 min-w-0 justify-start gap-8px px-10px',
                 isMobile && 'sider-footer-btn-mobile'
               )}
             >
