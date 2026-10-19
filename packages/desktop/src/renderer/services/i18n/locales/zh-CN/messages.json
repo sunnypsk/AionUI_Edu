@@ -109,10 +109,21 @@
     "followUp": "按这些选项继续。",
     "invalid": "部分界面无法显示。",
     "source": "查看原始内容",
+    "hideSource": "隐藏原始内容",
     "reapply": "重新应用草稿",
     "repair": "请助手修复界面",
     "repairRequest": "请修复这个 OpenUI 界面。",
     "selectDate": "选择日期",
     "selectDateRange": "选择日期范围"
+  },
+  "toolSummary": {
+    "viewSteps": "查看步骤 · {{count}}",
+    "viewStepsEmpty": "查看步骤",
+    "names": {
+      "webSearch": "网络搜索",
+      "shell": "执行命令",
+      "readFile": "读取文件",
+      "browser": "浏览网页"
+    }
   }
 }

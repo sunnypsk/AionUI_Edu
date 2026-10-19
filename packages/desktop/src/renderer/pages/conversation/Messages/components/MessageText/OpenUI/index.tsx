@@ -274,8 +274,8 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
       )}
       {invalid && <Alert type='warning' content={t('messages.openui.invalid')} />}
       <div className={styles.controls}>
-        <Button size='mini' onClick={() => setShowSource((value) => !value)}>
-          {t('messages.openui.source')}
+        <Button size='mini' aria-expanded={showSource} onClick={() => setShowSource((value) => !value)}>
+          {showSource ? t('messages.openui.hideSource') : t('messages.openui.source')}
         </Button>
         {invalid && compatible && persistedMessage && (
           <Button size='mini' onClick={requestRepair}>

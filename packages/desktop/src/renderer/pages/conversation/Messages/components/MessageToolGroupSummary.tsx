@@ -28,6 +28,13 @@ const statusToBadge = (status: NormalizedToolStatus): BadgeProps['status'] => {
   }
 };
 
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  webSearch: 'messages.toolSummary.names.webSearch',
+  shell: 'messages.toolSummary.names.shell',
+  readFile: 'messages.toolSummary.names.readFile',
+  browser: 'messages.toolSummary.names.browser',
+};
+
 const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -87,7 +94,9 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
           }
           onClick={hasDetail ? toggleExpanded : undefined}
         >
-          <span className='font-medium text-13px'>{displayItem.name}</span>
+          <span className='font-medium text-13px'>
+            {TOOL_DISPLAY_NAMES[displayItem.name] ? t(TOOL_DISPLAY_NAMES[displayItem.name]) : displayItem.name}
+          </span>
           {displayItem.description && displayItem.description !== displayItem.name && (
             <span className='m-l-4px opacity-80 text-13px'>{displayItem.description}</span>
           )}
@@ -141,6 +150,7 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
 };
 
 const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messages }) => {
+  const { t } = useTranslation();
   const hasRunning = hasRunningToolMessages(messages);
   const [showMore, setShowMore] = useState(hasRunning);
 
@@ -152,11 +162,28 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
 
   return (
     <div className='tool-group-summary'>
-      <div className='tool-group-summary__header' onClick={() => setShowMore(!showMore)}>
+      <div
+        className='tool-group-summary__header'
+        role='button'
+        tabIndex={0}
+        aria-expanded={showMore}
+        onClick={() => setShowMore(!showMore)}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setShowMore(!showMore);
+          }
+        }}
+      >
         <span className='tool-group-summary__icon'>
           {hasRunning ? <Spin size={12} /> : <Checklist theme='outline' size='14' />}
         </span>
-        <span className='tool-group-summary__label'>View Steps {tools.length > 0 ? `· ${tools.length}` : ''}</span>
+        <span className='tool-group-summary__label'>
+          {tools.length > 0
+            ? t('messages.toolSummary.viewSteps', { count: tools.length })
+            : t('messages.toolSummary.viewStepsEmpty')}
+        </span>
         <span className={`tool-group-summary__arrow${showMore ? ' tool-group-summary__arrow--open' : ''}`}>
           <Right theme='outline' size='12' />
         </span>

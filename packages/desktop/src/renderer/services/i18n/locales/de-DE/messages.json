@@ -109,10 +109,21 @@
     "followUp": "Mit dieser Auswahl fortfahren.",
     "invalid": "Ein Teil dieser Oberfläche konnte nicht angezeigt werden.",
     "source": "Quelltext anzeigen",
+    "hideSource": "Quelltext ausblenden",
     "reapply": "Entwurf erneut anwenden",
     "repair": "Assistenten um Korrektur bitten",
     "repairRequest": "Bitte korrigiere diese OpenUI-Oberfläche.",
     "selectDate": "Datum auswählen",
     "selectDateRange": "Datumsbereich auswählen"
+  },
+  "toolSummary": {
+    "viewSteps": "Schritte anzeigen · {{count}}",
+    "viewStepsEmpty": "Schritte anzeigen",
+    "names": {
+      "webSearch": "Websuche",
+      "shell": "Befehl ausführen",
+      "readFile": "Datei lesen",
+      "browser": "Web durchsuchen"
+    }
   }
 }

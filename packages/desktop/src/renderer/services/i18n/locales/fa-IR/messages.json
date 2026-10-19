@@ -109,10 +109,21 @@
     "followUp": "با این انتخاب‌ها ادامه بده.",
     "invalid": "بخشی از این رابط نمایش داده نشد.",
     "source": "نمایش منبع",
+    "hideSource": "پنهان کردن منبع",
     "reapply": "اعمال دوباره پیش‌نویس",
     "repair": "درخواست اصلاح از دستیار",
     "repairRequest": "لطفاً این رابط OpenUI را اصلاح کنید.",
     "selectDate": "انتخاب تاریخ",
     "selectDateRange": "انتخاب بازهٔ تاریخ"
+  },
+  "toolSummary": {
+    "viewSteps": "مشاهده مراحل · {{count}}",
+    "viewStepsEmpty": "مشاهده مراحل",
+    "names": {
+      "webSearch": "جستجوی وب",
+      "shell": "اجرای فرمان",
+      "readFile": "خواندن فایل",
+      "browser": "مرور وب"
+    }
   }
 }

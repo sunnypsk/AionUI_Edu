@@ -250,4 +250,18 @@ describe('official OpenUI renderer integration', () => {
     fireEvent.click(screen.getByText('messages.openui.source'));
     expect(document.querySelector('pre')?.textContent).toBe(program);
   });
+
+  it('toggles the source button label and aria-expanded', async () => {
+    api.openUiCapabilities.mockResolvedValueOnce({ hash: 'old' });
+    display(program);
+    await screen.findByText('messages.openui.unavailable');
+    const button = screen.getByRole('button', { name: 'messages.openui.source' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(button);
+    const hide = screen.getByRole('button', { name: 'messages.openui.hideSource' });
+    expect(hide.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.queryByText('messages.openui.source')).toBeNull();
+    fireEvent.click(hide);
+    expect(screen.getByRole('button', { name: 'messages.openui.source' }).getAttribute('aria-expanded')).toBe('false');
+  });
 });

@@ -64,7 +64,7 @@ describe('MessageToolGroupSummary', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('View Steps · 1'));
+    fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
     fireEvent.click(screen.getByText('rg'));
 
     await waitFor(() => {

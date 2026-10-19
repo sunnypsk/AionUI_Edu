@@ -109,10 +109,21 @@
     "followUp": "Continuar con estas selecciones.",
     "invalid": "No se pudo mostrar parte de esta interfaz.",
     "source": "Ver código fuente",
+    "hideSource": "Ocultar código fuente",
     "reapply": "Volver a aplicar el borrador",
     "repair": "Pedir al asistente que lo corrija",
     "repairRequest": "Corrige esta interfaz de OpenUI.",
     "selectDate": "Seleccionar fecha",
     "selectDateRange": "Seleccionar intervalo de fechas"
+  },
+  "toolSummary": {
+    "viewSteps": "Ver pasos · {{count}}",
+    "viewStepsEmpty": "Ver pasos",
+    "names": {
+      "webSearch": "Búsqueda web",
+      "shell": "Ejecutar comando",
+      "readFile": "Leer archivo",
+      "browser": "Navegar por la web"
+    }
   }
 }

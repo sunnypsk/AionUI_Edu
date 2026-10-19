@@ -109,10 +109,21 @@
     "followUp": "Continue with these selections.",
     "invalid": "Part of this interface could not be rendered.",
     "source": "View source",
+    "hideSource": "Hide source",
     "reapply": "Reapply draft",
     "repair": "Ask assistant to fix this interface",
     "repairRequest": "Please fix this OpenUI interface.",
     "selectDate": "Select a date",
     "selectDateRange": "Select a date range"
+  },
+  "toolSummary": {
+    "viewSteps": "View steps · {{count}}",
+    "viewStepsEmpty": "View steps",
+    "names": {
+      "webSearch": "Web search",
+      "shell": "Run command",
+      "readFile": "Read file",
+      "browser": "Browse web"
+    }
   }
 }

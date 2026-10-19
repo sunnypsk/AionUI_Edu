@@ -109,10 +109,21 @@
     "followUp": "Bu seçimlerle devam et.",
     "invalid": "Bu arayüzün bir bölümü görüntülenemedi.",
     "source": "Kaynağı görüntüle",
+    "hideSource": "Kaynağı gizle",
     "reapply": "Taslağı yeniden uygula",
     "repair": "Asistandan düzeltmesini iste",
     "repairRequest": "Lütfen bu OpenUI arayüzünü düzeltin.",
     "selectDate": "Tarih seçin",
     "selectDateRange": "Tarih aralığı seçin"
+  },
+  "toolSummary": {
+    "viewSteps": "Adımları görüntüle · {{count}}",
+    "viewStepsEmpty": "Adımları görüntüle",
+    "names": {
+      "webSearch": "Web araması",
+      "shell": "Komut çalıştır",
+      "readFile": "Dosya oku",
+      "browser": "Web'de gezin"
+    }
   }
 }

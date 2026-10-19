@@ -46,4 +46,25 @@ describe('normalizeAcpToolCall', () => {
       '/Users/test/.codex/generated_images/session/ig_test_image.png'
     );
   });
+
+  it('reads the nested action.query of a Codex webSearch as the description', () => {
+    const normalized = normalizeAcpToolCall({
+      id: 'ws-1',
+      conversation_id: 'conv-1',
+      type: 'acp_tool_call',
+      content: {
+        sessionId: 'sess-1',
+        update: {
+          sessionUpdate: 'tool_call',
+          tool_call_id: 'ws-1',
+          status: 'completed',
+          title: 'webSearch',
+          kind: 'fetch',
+          raw_input: { action: { query: '香港天文台 明日天氣' } },
+        },
+      },
+    } as unknown as IMessageAcpToolCall);
+    expect(normalized?.name).toBe('webSearch');
+    expect(normalized?.description).toBe('香港天文台 明日天氣');
+  });
 });

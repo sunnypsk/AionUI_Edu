@@ -109,10 +109,21 @@
     "followUp": "按呢啲選項繼續。",
     "invalid": "部分介面未能顯示。",
     "source": "查看原始內容",
+    "hideSource": "隱藏原始內容",
     "reapply": "重新套用草稿",
     "repair": "請助理修正介面",
     "repairRequest": "請修正呢個 OpenUI 介面。",
     "selectDate": "選擇日期",
     "selectDateRange": "選擇日期範圍"
+  },
+  "toolSummary": {
+    "viewSteps": "查看步驟 · {{count}}",
+    "viewStepsEmpty": "查看步驟",
+    "names": {
+      "webSearch": "網上搜尋",
+      "shell": "執行指令",
+      "readFile": "讀取檔案",
+      "browser": "瀏覽網頁"
+    }
   }
 }

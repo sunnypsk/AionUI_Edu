@@ -109,10 +109,21 @@
     "followUp": "この選択で続行してください。",
     "invalid": "画面の一部を表示できませんでした。",
     "source": "ソースを表示",
+    "hideSource": "ソースを非表示",
     "reapply": "下書きを再適用",
     "repair": "アシスタントに修正を依頼",
     "repairRequest": "この OpenUI インターフェースを修正してください。",
     "selectDate": "日付を選択",
     "selectDateRange": "日付の範囲を選択"
+  },
+  "toolSummary": {
+    "viewSteps": "ステップを表示 · {{count}}",
+    "viewStepsEmpty": "ステップを表示",
+    "names": {
+      "webSearch": "ウェブ検索",
+      "shell": "コマンド実行",
+      "readFile": "ファイル読み込み",
+      "browser": "ウェブ閲覧"
+    }
   }
 }

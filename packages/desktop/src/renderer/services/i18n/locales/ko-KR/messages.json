@@ -109,10 +109,21 @@
     "followUp": "이 선택으로 계속해 주세요.",
     "invalid": "화면 일부를 표시하지 못했습니다.",
     "source": "소스 보기",
+    "hideSource": "소스 숨기기",
     "reapply": "초안 다시 적용",
     "repair": "어시스턴트에게 수정 요청",
     "repairRequest": "이 OpenUI 인터페이스를 수정해 주세요.",
     "selectDate": "날짜 선택",
     "selectDateRange": "날짜 범위 선택"
+  },
+  "toolSummary": {
+    "viewSteps": "단계 보기 · {{count}}",
+    "viewStepsEmpty": "단계 보기",
+    "names": {
+      "webSearch": "웹 검색",
+      "shell": "명령 실행",
+      "readFile": "파일 읽기",
+      "browser": "웹 탐색"
+    }
   }
 }

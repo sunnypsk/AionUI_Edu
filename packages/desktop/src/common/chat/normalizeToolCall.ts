@@ -128,6 +128,12 @@ const buildParamSummary = (kind: string, rawInput?: Record<string, unknown>): st
   for (const key of ['file_path', 'command', 'path', 'pattern', 'query', 'url']) {
     if (rawInput[key] && typeof rawInput[key] === 'string') return rawInput[key] as string;
   }
+  // Codex webSearch nests its query under `action`
+  const action = rawInput.action;
+  if (action && typeof action === 'object') {
+    const nestedQuery = (action as Record<string, unknown>).query;
+    if (typeof nestedQuery === 'string' && nestedQuery) return nestedQuery;
+  }
   return undefined;
 };
 
