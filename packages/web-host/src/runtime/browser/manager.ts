@@ -22,13 +22,12 @@ import {
 
 const VIEWPORT = { width: 1280, height: 800 };
 /**
- * Chromium-only network paths that the container's SOCKS5 TUN route cannot be relied on to carry:
- * - QUIC is UDP, which needs SOCKS5 UDP ASSOCIATE; many providers do not offer it.
- * - The built-in stub resolver (AsyncDns) issues its own queries and orders addresses itself;
- *   glibc is the resolver that curl and Codex already use successfully through TUN_DNS.
- * Both fall back to the TCP/glibc paths that the rest of the container uses.
+ * Chromium-only network path that the container's SOCKS5 TUN route cannot be relied on to carry:
+ * QUIC is UDP, which needs SOCKS5 UDP ASSOCIATE; many providers do not offer it.
+ * Do not add a `--disable-features=` argument here: Playwright already passes its own list, Chromium keeps
+ * only the last value of a repeated switch, so ours would replace Playwright's instead of extending it.
  */
-export const BROWSER_LAUNCH_ARGS = ['--disable-dev-shm-usage', '--disable-quic', '--disable-features=AsyncDns'];
+export const BROWSER_LAUNCH_ARGS = ['--disable-dev-shm-usage', '--disable-quic'];
 type LaunchOptions = NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>;
 type Tab = { id: string; page: Page; requestedUrl?: string; chooser?: FileChooser; dialog?: Dialog };
 type Download = { id: string; name: string; state: 'saving' | 'ready' | 'failed'; path?: string };

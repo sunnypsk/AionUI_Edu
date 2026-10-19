@@ -194,8 +194,9 @@ describe('task-scoped shared browser', () => {
     expect(launchOptions[0].chromiumSandbox).toBe(true);
     // QUIC needs SOCKS5 UDP relay, which the TUN path cannot guarantee.
     expect(launchOptions[0].args).toContain('--disable-quic');
-    // Chromium's built-in stub resolver is replaced by glibc, the path curl and Codex already use.
-    expect(launchOptions[0].args).toContain('--disable-features=AsyncDns');
+    // Playwright passes its own --disable-features list and Chromium keeps only the last occurrence of a
+    // repeated switch, so any --disable-features we add would silently replace Playwright's list.
+    expect(launchOptions[0].args).not.toEqual(expect.arrayContaining([expect.stringMatching(/^--disable-features/)]));
     expect(launchOptions[0].args).not.toEqual(expect.arrayContaining([expect.stringMatching(/^--proxy-server/)]));
   });
 

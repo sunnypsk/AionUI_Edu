@@ -168,9 +168,8 @@ docker exec -u $U -e HOME=/tmp $C chromium --headless=new --disable-gpu --disabl
   --user-data-dir=/tmp/diag-$RANDOM --log-net-log=/tmp/netlog.json --dump-dom $SITE | head -c 300
 #    a) no extra flags (the old launch arguments)
 #    b) --disable-quic
-#    c) --disable-features=AsyncDns
-#    d) --disable-quic --disable-features=AsyncDns   (the current launch arguments)
-#    e) --proxy-server=socks5://<proxy-ip>:<port>    (only for a proxy without a password; Chromium cannot send SOCKS5 credentials)
+#    c) --disable-quic --disable-features=AsyncDns   (manual experiment only, see the note below)
+#    d) --proxy-server=socks5://<proxy-ip>:<port>    (only for a proxy without a password; Chromium cannot send SOCKS5 credentials)
 # 5. If Chromium still fails, find the first network error in the net log.
 docker exec $C grep -o '"net_error":-[0-9]*' /tmp/netlog.json | sort | uniq -c
 ```
@@ -180,8 +179,9 @@ How to read the results:
 - Steps 1–2 fail: the tunnel or the SOCKS5 server is the problem, not the browser. Recheck the proxy address and credentials, then restart the container.
 - Step 2 works as root but not as the app user: report the output of `docker exec $C iptables -S AIONUI_EGRESS` and `ip6tables -S AIONUI_EGRESS`.
 - Step 3 fails only with `-6`: the SOCKS5 server cannot reach IPv6 sites. Ask the provider for IPv6 egress, or report it so IPv6 can be turned off in the tunnel.
-- Step 4a fails but 4b, 4c or 4d works: the current launch arguments already fix it. Pull the latest image.
-- Only 4e works: the tunnel cannot carry Chromium's traffic; report the step 5 output with the issue.
+- Step 4a fails but 4b works: the current launch arguments (`--disable-quic`) already fix it. Pull the latest image.
+- Step 4c (AsyncDns off) is a manual experiment, not a default. The shared browser launches through Playwright, which already passes its own `--disable-features=...` list; Chromium keeps only the last value of a repeated switch, so a second flag replaces that list. If you try it in the app, MERGE `AsyncDns` into Playwright's existing list and never replace it.
+- Only 4d works: the tunnel cannot carry Chromium's traffic; report the step 5 output with the issue.
 - Every step works but the shared browser still fails: close all its tabs, use **Clear browsing data** in Settings for the affected user, and try again. An old profile can keep cached HTTP/3 hints.
 
 ## Verify on the target before regular use
