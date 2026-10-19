@@ -316,6 +316,7 @@ fmt-check:
 # Type check
 typecheck:
     bunx tsc --noEmit
+    bunx tsc --noEmit -p packages/web-host/tsconfig.json
 
 # Run i18n type generation and validation
 i18n-check:
