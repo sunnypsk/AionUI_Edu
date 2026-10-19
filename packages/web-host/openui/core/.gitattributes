@@ -1,0 +1,2 @@
+# Unified diffs require a space prefix for blank context lines.
+openui.patch -whitespace

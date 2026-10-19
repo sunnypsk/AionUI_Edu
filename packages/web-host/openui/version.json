@@ -1,0 +1,9 @@
+{
+  "protocol": "openui/1",
+  "versions": {
+    "ui": "0.18.1",
+    "lang": "1.0.1",
+    "headless": "0.18.1"
+  },
+  "hash": "aa93958b9ae3699bab1bc94034ecb307b2568d549bc5624585c84616dec26c81"
+}

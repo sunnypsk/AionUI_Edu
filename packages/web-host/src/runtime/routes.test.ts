@@ -61,7 +61,7 @@ describe('authenticated WebUI runtime controls', () => {
     dataDir = await mkdtemp(path.join(os.tmpdir(), 'aionui-controls-test-'));
     backendHealthy = true;
     backend = http.createServer((req, res) => {
-      const healthProbe = req.url === '/api/auth/internal/users/system';
+      const healthProbe = req.url === '/health';
       res.writeHead(
         healthProbe ? (backendHealthy ? 200 : 503) : req.headers.cookie === 'test-session=valid' ? 200 : 401,
         { 'content-type': 'application/json' }

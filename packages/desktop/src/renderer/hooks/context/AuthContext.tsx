@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PREVIEW_SCOPE_KEY_PREFIX } from '@/renderer/pages/conversation/Preview/context/previewScope';
 import { refreshSession } from '@/common/adapter/sessionRefresh';
-// M6: CSRF removed with legacy webserver — stub functions for compatibility, re-implement in M7
+import { resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
+// Legacy login-body helpers; Core's double-submit token is sent in a request header.
 const withCsrfToken = <T extends Record<string, unknown>>(data: T): T => data;
 const hasValidCsrfToken = (): boolean => true;
 const clearCookie = (_name: string, _path?: string): void => {};
@@ -282,6 +283,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         // Logout also needs CSRF token / 登出同样需要 CSRF Token
         headers: {
           'Content-Type': 'application/json',
+          'x-csrf-token': resolveCoreCsrfToken(),
         },
         credentials: 'include',
         body: JSON.stringify(withCsrfToken({})),

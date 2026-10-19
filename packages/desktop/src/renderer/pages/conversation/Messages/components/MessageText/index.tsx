@@ -5,9 +5,9 @@
  */
 
 import type { IMessageText } from '@/common/chat/chatLib';
-import { parseFileMarker, resolveMessageFilePath } from './fileMarker';
-import SessionMentionAction from './SessionMentionAction';
-import { parseSessionMessageBlock, parseSessionsBlock } from './sessionMarkers';
+import { parseFileMarker, resolveMessageFilePath } from '../fileMarker';
+import SessionMentionAction from '../SessionMentionAction';
+import { parseSessionMessageBlock, parseSessionsBlock } from '../sessionMarkers';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useLocalFilePreview } from '@/renderer/pages/conversation/Preview/hooks/useLocalFilePreview';
@@ -15,7 +15,12 @@ import { iconColors } from '@/renderer/styles/colors';
 import { Alert, Message, Tooltip } from '@arco-design/web-react';
 import { Copy } from '@icon-park/react';
 import classNames from 'classnames';
-import React, { useMemo, useState } from 'react';
+import React, { lazy, Suspense, useMemo, useState, useSyncExternalStore } from 'react';
+import { isElectronDesktop } from '@/renderer/utils/platform';
+import {
+  getConversationRuntimeViewSnapshot,
+  subscribeConversationRuntimeView,
+} from '@/renderer/pages/conversation/runtime/conversationRuntimeViewStore';
 import { useTranslation } from 'react-i18next';
 import { copyText } from '@/renderer/utils/ui/clipboard';
 import CollapsibleContent from '@renderer/components/chat/CollapsibleContent';
@@ -51,10 +56,12 @@ export const formatMessageTime = (timestamp: number): string => {
   }
   return time;
 };
-import MessageCronBadge from './MessageCronBadge';
+import MessageCronBadge from '../MessageCronBadge';
 import { resolveAgentLogo, useAgentLogos } from '@/renderer/utils/model/agentLogo';
-import TeammateMessageAvatar from './TeammateMessageAvatar';
+import TeammateMessageAvatar from '../TeammateMessageAvatar';
 import { useTeammateColor } from '@/renderer/pages/team/identity/TeamIdentityContext';
+
+const OpenUIMessage = lazy(() => import('./OpenUI'));
 
 const CODE_STYLE = { marginTop: 4, marginBlock: 4 };
 
@@ -164,6 +171,16 @@ const MessageText: React.FC<{
     : visibleText;
   const { data, json } = useFormatContent(renderedText);
   const shouldRenderPlainText = isUserMessage || Boolean(contextResetNotice);
+  const runtime = useSyncExternalStore(
+    subscribeConversationRuntimeView,
+    () => getConversationRuntimeViewSnapshot(message.conversation_id),
+    () => getConversationRuntimeViewSnapshot(message.conversation_id)
+  );
+  const isOpenUI =
+    !isElectronDesktop() &&
+    typeof data === 'string' &&
+    /^(?: {0,3}(?:`{3,}|~{3,})openui(?:-chat)?(?:\s|$)|\s*root\s*=|\]\]>openui:content)/m.test(data);
+
   const conversationContext = useConversationContextSafe();
   const forkConversation = useForkConversation(conversationContext?.conversation_id);
   const layout = useLayoutContext();
@@ -339,9 +356,22 @@ const MessageText: React.FC<{
             </CollapsibleContent>
           ) : (
             <div data-testid='message-text-content'>
-              <MarkdownView codeStyle={CODE_STYLE} onLocalFileLink={handleLocalFileLink}>
-                {data}
-              </MarkdownView>
+              {isOpenUI ? (
+                <Suspense fallback={<MarkdownView>{data}</MarkdownView>}>
+                  <OpenUIMessage
+                    content={data}
+                    conversation={message.conversation_id}
+                    message={message.id}
+                    sourceMessage={message.msg_id}
+                    streaming={message.status === 'work' || (isLastMessage && runtime.isProcessing)}
+                    onLocalFileLink={handleLocalFileLink}
+                  />
+                </Suspense>
+              ) : (
+                <MarkdownView codeStyle={CODE_STYLE} onLocalFileLink={handleLocalFileLink}>
+                  {data}
+                </MarkdownView>
+              )}
             </div>
           )}
         </div>

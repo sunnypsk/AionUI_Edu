@@ -1,3 +1,4 @@
+import type { OpenUiActionContext } from '@/common/adapter/ipcBridge';
 import { ipcBridge } from '@/common';
 import type { ChatFileRef } from '@/common/types/chatFile';
 import type { IConversationMcpStatus, IProvider, TChatConversation, TProviderWithModel } from '@/common/config/storage';
@@ -19,6 +20,7 @@ import TeamChatEmptyState from './TeamChatEmptyState';
 import { useTeamTabs } from '@/renderer/pages/team/hooks/TeamTabsContext';
 import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
 import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { useOpenUiNavigationReady } from '@/renderer/pages/conversation/Messages/components/MessageText/integration';
 
 const AcpChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/acp/AcpChat'));
 const AionrsChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/aionrs/AionrsChat'));
@@ -28,7 +30,11 @@ const LegacyReadOnlyConversation = React.lazy(
 
 // Narrow to Aionrs conversations so model field is always available
 type AionrsConversation = Extract<TChatConversation, { type: 'aionrs' }>;
-type TeamSendOverride = (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
+type TeamSendOverride = (payload: {
+  input: string;
+  files: ChatFileRef[];
+  ui_action?: OpenUiActionContext;
+}) => Promise<void>;
 type TeamConversationCapabilitySnapshot = {
   skills?: string[];
   mcp_servers?: string[];
@@ -136,6 +142,7 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
   onTeamSlotPaused,
 }) => {
   const { t } = useTranslation();
+  const navigationReady = useOpenUiNavigationReady(conversation.id);
   const { activeSlotId, switchTab } = useTeamTabs();
   const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
   const capabilitySnapshot = conversation.extra as TeamConversationCapabilitySnapshot | undefined;
@@ -154,15 +161,26 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
     />
   ) : undefined;
   const teamSendMessage = useCallback<TeamSendOverride>(
-    async ({ input, files }) => {
+    async ({ input, files, ui_action }) => {
       if (!team_id) throw new Error('Missing team id for team send');
       if (isLeader) {
-        const ack = await ipcBridge.team.sendMessage.invoke({ team_id, input, files });
+        const ack = await ipcBridge.team.sendMessage.invoke({
+          team_id,
+          input,
+          files,
+          ...(ui_action ? { ui_action } : {}),
+        });
         onTeamRunAck?.(ack);
         return;
       }
       if (!slot_id) throw new Error('Missing slot id for team agent send');
-      const ack = await ipcBridge.team.sendMessageToAgent.invoke({ team_id, slot_id, input, files });
+      const ack = await ipcBridge.team.sendMessageToAgent.invoke({
+        team_id,
+        slot_id,
+        input,
+        files,
+        ...(ui_action ? { ui_action } : {}),
+      });
       onTeamRunAck?.(ack);
     },
     [isLeader, onTeamRunAck, slot_id, team_id]
@@ -292,7 +310,11 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
     }
   })();
 
-  return <Suspense fallback={<Spin loading className='flex flex-1 items-center justify-center' />}>{content}</Suspense>;
+  return navigationReady ? (
+    <Suspense fallback={<Spin loading className='flex flex-1 items-center justify-center' />}>{content}</Suspense>
+  ) : (
+    <Spin loading className='flex flex-1 items-center justify-center' />
+  );
 };
 
 export default TeamChatView;

@@ -97,5 +97,22 @@
   "requestDetails": "請求內容：",
   "delivery": {
     "pending": "未讀"
+  },
+  "openui": {
+    "unavailable": "互動內容需要相容嘅伺服器更新。",
+    "unsafeQuery": "呢個介面嘗試用未提供或會寫入資料嘅工具讀取資料。",
+    "toolsFailed": "未能載入呢個對話嘅工具。",
+    "load": "未能載入已儲存嘅介面。",
+    "save": "未能儲存修改，草稿仍然保留。",
+    "conflict": "另一部裝置已更新呢個介面，草稿仍然保留。",
+    "submitFailed": "未能提交呢次操作。",
+    "followUp": "按呢啲選項繼續。",
+    "invalid": "部分介面未能顯示。",
+    "source": "查看原始內容",
+    "reapply": "重新套用草稿",
+    "repair": "請助理修正介面",
+    "repairRequest": "請修正呢個 OpenUI 介面。",
+    "selectDate": "選擇日期",
+    "selectDateRange": "選擇日期範圍"
   }
 }

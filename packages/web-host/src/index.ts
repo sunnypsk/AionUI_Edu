@@ -1,6 +1,7 @@
 import type { WebHostOptions, WebHostHandle } from './types.js';
 
 export type { AppMetadata, BackendBinaryResolver, WebHostOptions, WebHostHandle } from './types.js';
+export { readWebUiAdminUsername, resetWebUiPassword } from '../openui/core/accounts.js';
 export { startStaticServer, stopStaticServer } from './static-server.js';
 export type { StaticServerOptions, StaticServerHandle } from './static-server.js';
 

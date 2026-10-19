@@ -88,6 +88,12 @@ describe('createBrowserNotificationController.onStreamMessage', () => {
     expect(show).toHaveBeenCalledWith({ body: 'confirmation', conversationId: 'c2', kind: 'confirmation' });
   });
 
+  it('shows a confirmation notification for an OpenUI tool action', () => {
+    const { show, controller } = makeDeps();
+    controller.onStreamMessage({ type: 'openui_permission', conversation_id: 'c2', msg_id: 'openui-card' });
+    expect(show).toHaveBeenCalledWith({ body: 'confirmation', conversationId: 'c2', kind: 'confirmation' });
+  });
+
   it('shows a confirmation notification on a permission stream message (aionrs)', () => {
     const { show, controller } = makeDeps();
     controller.onStreamMessage({ type: 'permission', conversation_id: 'c3' });

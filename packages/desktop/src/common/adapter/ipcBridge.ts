@@ -405,6 +405,7 @@ export const conversation = {
       sessions: p.sessions,
       loading_id: p.loading_id,
       inject_skills: p.inject_skills,
+      ...(p.ui_action ? { ui_action: p.ui_action } : {}),
     })
   ),
   getSlashCommands: httpGet<AcpSlashCommandApiItem[], { conversation_id: string }>(
@@ -1801,6 +1802,14 @@ export interface ICronJobUpdateParams {
 // Shared types (re-exported for consumers)
 // ---------------------------------------------------------------------------
 
+export type OpenUiActionContext = {
+  message_id: string;
+  block_id: string;
+  form_state: Record<string, unknown>;
+  form_name?: string;
+  context?: unknown;
+};
+
 interface ISendMessageParams {
   input: string;
   conversation_id: string;
@@ -1809,6 +1818,7 @@ interface ISendMessageParams {
   files?: ChatFileRef[];
   loading_id?: string;
   inject_skills?: string[];
+  ui_action?: OpenUiActionContext;
   /** Conversations the user referenced with `@@`. Ids only — the backend
    *  resolves the (mutable) name from the id. */
   sessions?: SessionRef[];
@@ -2365,18 +2375,20 @@ export const team = {
     if (p.kind) q.set('kind', p.kind);
     return `/api/teams/${p.team_id}/activity?${q.toString()}`;
   }),
-  sendMessage: httpPost<ITeamRunAck, ISendTeamMessageParams>(
+  sendMessage: httpPost<ITeamRunAck, ISendTeamMessageParams & { ui_action?: OpenUiActionContext }>(
     (p) => `/api/teams/${p.team_id}/messages`,
     (p) => ({
       content: p.input,
       files: p.files,
+      ...(p.ui_action ? { ui_action: p.ui_action } : {}),
     })
   ),
-  sendMessageToAgent: httpPost<ITeamRunAck, ISendTeamAgentMessageParams>(
+  sendMessageToAgent: httpPost<ITeamRunAck, ISendTeamAgentMessageParams & { ui_action?: OpenUiActionContext }>(
     (p) => `/api/teams/${p.team_id}/agents/${p.slot_id}/messages`,
     (p) => ({
       content: p.input,
       files: p.files,
+      ...(p.ui_action ? { ui_action: p.ui_action } : {}),
     })
   ),
   interruptAgent: httpPost<ITeamInterruptAgentResponse, IInterruptTeamAgentParams>(

@@ -52,6 +52,15 @@ function makeDeps(opts: { handlers: Array<(url: string, init?: RequestInit) => R
 }
 
 describe('ensureAdminPassword', () => {
+  it('uses the account CLI for a WebUI backend without calling local-only management endpoints', async () => {
+    const { deps, calls, logs } = makeDeps({ handlers: [() => mockResponse(200, { needs_setup: true })] });
+    deps.resetPassword = () => 'FixturePassword';
+    deps.readAdminUsername = () => 'fixture-admin';
+    await ensureAdminPassword({ backendPort: 25808, backendBinary: '/core', dataDir: '/test' }, deps);
+    expect(calls).toHaveLength(1);
+    expect(logs).toContain('[aionui-web] Generated initial admin password: FixturePassword');
+    expect(logs.some((message) => message.includes('fixture-admin'))).toBe(true);
+  });
   it('seeds password on fresh install (needs_setup=true)', async () => {
     const { deps, calls, logs, warns } = makeDeps({
       handlers: [

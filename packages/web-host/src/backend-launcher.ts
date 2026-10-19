@@ -736,7 +736,7 @@ export class BackendLifecycleManager {
     const args = buildSpawnArgs({
       port: this._port,
       dbPath,
-      local: true,
+      local: false,
       parentPid: process.pid,
       logDir,
       workDir: dirs?.workDir,

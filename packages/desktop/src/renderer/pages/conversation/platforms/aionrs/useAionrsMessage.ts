@@ -341,6 +341,9 @@ export const useAionrsMessage = (
             mergeLiveMessage(transformMessage(message));
           }
           break;
+        case 'openui_permission':
+          mergeLiveMessage(transformMessage({ ...message, type: 'permission' }));
+          break;
         case 'permission':
         case 'acp_permission':
           if (!streamRunningRef.current) {

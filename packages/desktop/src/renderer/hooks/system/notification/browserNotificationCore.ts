@@ -92,7 +92,7 @@ export type StreamMessage = {
 // permission request (`acp_permission` from ACP; `permission` too from aionrs)
 // or a structured question (`ask`, AskUserQuestion). All surface the same
 // "needs your input" notification.
-const CONFIRMATION_TYPES = new Set(['acp_permission', 'permission', 'ask']);
+const CONFIRMATION_TYPES = new Set(['acp_permission', 'permission', 'openui_permission', 'ask']);
 
 export const createBrowserNotificationController = (deps: BrowserNotificationDeps) => {
   // Track the last turn we actually notified for, so repeated finish events

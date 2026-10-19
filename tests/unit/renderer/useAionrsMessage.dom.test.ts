@@ -47,6 +47,24 @@ vi.mock('@/common', () => ({
 }));
 
 describe('useAionrsMessage turn clock', () => {
+  it('renders an OpenUI permission without starting an agent turn or spinner', async () => {
+    vi.mocked(getConversationOrNull).mockResolvedValue(null);
+    const { result } = renderHook(() => useAionrsMessage('openui-conversation'));
+    await waitFor(() => expect(result.current.hasHydratedRunningState).toBe(true));
+    act(() =>
+      responseStreamHandlerRef.current?.({
+        type: 'openui_permission',
+        conversation_id: 'openui-conversation',
+        msg_id: 'openui-card',
+        data: { id: 'openui-card', call_id: 'openui-card', title: 'Tool', options: [] },
+      })
+    );
+    expect(result.current.running).toBe(false);
+    expect(result.current.turnStartedAtMs).toBeNull();
+    expect(addOrUpdateMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'permission', content: expect.objectContaining({ call_id: 'openui-card' }) })
+    );
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     resetConversationTurnClockForTests();

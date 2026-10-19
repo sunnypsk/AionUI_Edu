@@ -97,5 +97,22 @@
   "requestDetails": "Detalhes da solicitação:",
   "delivery": {
     "pending": "Não lido"
+  },
+  "openui": {
+    "unavailable": "O conteúdo interativo exige uma atualização compatível do servidor.",
+    "unsafeQuery": "Esta interface tentou ler dados com uma ferramenta indisponível ou de escrita.",
+    "toolsFailed": "Não foi possível carregar as ferramentas desta conversa.",
+    "load": "Não foi possível carregar a interface salva.",
+    "save": "Não foi possível salvar as alterações. O rascunho foi mantido.",
+    "conflict": "Esta interface foi atualizada em outro dispositivo. O rascunho foi mantido.",
+    "submitFailed": "Não foi possível enviar a ação.",
+    "followUp": "Continuar com estas escolhas.",
+    "invalid": "Não foi possível exibir parte desta interface.",
+    "source": "Ver código-fonte",
+    "reapply": "Reaplicar rascunho",
+    "repair": "Pedir ao assistente para corrigir",
+    "repairRequest": "Corrija esta interface OpenUI.",
+    "selectDate": "Selecione uma data",
+    "selectDateRange": "Selecione um intervalo de datas"
   }
 }

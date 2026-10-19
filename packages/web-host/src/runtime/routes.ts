@@ -53,7 +53,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
       const route = req.url?.split('?')[0];
       if (route === '/healthz' && req.method === 'GET') {
         try {
-          const backend = await fetch(`http://127.0.0.1:${options.backendPort}/api/auth/internal/users/system`, {
+          const backend = await fetch(`http://127.0.0.1:${options.backendPort}/health`, {
             signal: AbortSignal.timeout(3000),
           });
           await backend.arrayBuffer();

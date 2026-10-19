@@ -10,6 +10,7 @@ export type ImageGenerationModelSetting = TProviderWithModel & {
 };
 
 export type ClientBusinessSettingMap = {
+  openuiEnabled: boolean | undefined;
   'google.config': GoogleClientSetting;
   'mcp.config': IMcpServer[] | undefined;
   'tools.imageGenerationModel': ImageGenerationModelSetting | undefined;

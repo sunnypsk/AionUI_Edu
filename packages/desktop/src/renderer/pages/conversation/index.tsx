@@ -13,9 +13,11 @@ import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { getSnapshotConversationProjectId } from '@/renderer/pages/conversation/GroupedHistory/hooks/useConversationListSync';
 import { useBrowserActivity } from './Preview/browser/WebBrowserViewer/useBrowserActivity';
+import { useOpenUiNavigationReady } from './Messages/components/MessageText/integration';
 
 const ChatConversationIndex: React.FC = () => {
   const { id } = useParams();
+  const navigationReady = useOpenUiNavigationReady(id);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { closePreviewIfScopeChanged, openBrowserTab } = usePreviewContext();
@@ -109,7 +111,7 @@ const ChatConversationIndex: React.FC = () => {
     navigate('/', { replace: true });
   }, [id, isLoading, data, navigate, t]);
 
-  if (isLoading) return <Spin loading></Spin>;
+  if (isLoading || !navigationReady) return <Spin loading></Spin>;
   return <ChatConversation conversation={data ?? undefined}></ChatConversation>;
 };
 

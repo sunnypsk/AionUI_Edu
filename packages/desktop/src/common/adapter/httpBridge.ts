@@ -153,6 +153,7 @@ export function isBackendHttpError(error: unknown): error is BackendHttpError {
 export type HttpRequestOptions = {
   /** Never log input bodies containing browser text, clipboard content or uploaded files. */
   sensitive?: boolean;
+  signal?: AbortSignal;
   silentStatuses?: number[];
   /** Extra request headers merged on top of the default `Content-Type`. */
   headers?: Record<string, string>;
@@ -188,35 +189,57 @@ function isAuthEndpoint(path: string): boolean {
 
 /**
  * Resolve the Core CSRF double-submit token for the current context.
- *
- * The open-source WebUI removed its CSRF layer with the legacy webserver (M6);
- * a double-submit scheme is slated to return in M7. Until then this is a stub
- * that reports "no token available", so the shared session-refresh primitive
- * (`sessionRefresh.ts`) attaches no `x-csrf-token` header and the backend —
- * which enforces no CSRF check here — accepts the request unchanged.
- *
- * It exists as the single seam every state-changing request would call for its
- * token, so restoring CSRF in M7 (and the aionpro superset, whose backend does
- * enforce the double-submit check) only swaps this body — no caller changes.
- *
- * Returns '' — always, for now.
+ * Read it for each request because a login or session refresh can rotate cookies.
+ * Electron and main-process requests use local authentication without this cookie.
  */
 export function resolveCoreCsrfToken(): string {
-  return '';
+  if (!isWebUiBrowserMode()) return '';
+  const cookie = document.cookie
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith('aionui-csrf-token='));
+  if (!cookie) return '';
+  try {
+    return decodeURIComponent(cookie.slice('aionui-csrf-token='.length));
+  } catch {
+    return '';
+  }
 }
 
 function sendHttpRequest(
   method: string,
   path: string,
   headers: Record<string, string>,
-  body?: unknown
+  body?: unknown,
+  signal?: AbortSignal
 ): Promise<Response> {
   const url = `${getBaseUrl()}${path}`;
+  const requestHeaders = { ...headers };
+  if (/^(POST|PUT|PATCH|DELETE)$/i.test(method)) {
+    const csrf = resolveCoreCsrfToken();
+    if (csrf) requestHeaders['x-csrf-token'] = csrf;
+  }
   return fetch(url, {
+    signal,
     method,
-    headers,
+    headers: requestHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+}
+
+let clientRenderCapabilities: string[] = [];
+let clientRenderCapabilitiesReady = Promise.resolve();
+let clientRenderCapabilitiesEpoch = 0;
+
+/** Advertise only capabilities verified against the current authenticated backend. */
+export function setClientRenderCapabilities(capabilities: string[] | Promise<string[]>): void {
+  const epoch = ++clientRenderCapabilitiesEpoch;
+  clientRenderCapabilities = Array.isArray(capabilities) ? [...capabilities] : [];
+  clientRenderCapabilitiesReady = Promise.resolve(capabilities)
+    .then((resolved) => {
+      if (epoch === clientRenderCapabilitiesEpoch) clientRenderCapabilities = [...resolved];
+    })
+    .catch(() => {});
 }
 
 export async function httpRequest<T>(
@@ -225,6 +248,17 @@ export async function httpRequest<T>(
   body?: unknown,
   options?: HttpRequestOptions
 ): Promise<T> {
+  if (
+    isWebUiBrowserMode() &&
+    method === 'POST' &&
+    /^\/api\/(?:conversations|teams)\/[^?]+\/messages(?:\?|$)/.test(path) &&
+    body &&
+    typeof body === 'object' &&
+    !Array.isArray(body)
+  ) {
+    await clientRenderCapabilitiesReady;
+    if (clientRenderCapabilities.length) body = { ...body, ui_capabilities: clientRenderCapabilities };
+  }
   const headers: Record<string, string> = {};
 
   if (body !== undefined) {
@@ -235,13 +269,14 @@ export async function httpRequest<T>(
     Object.assign(headers, options.headers);
   }
 
-  if (!options?.sensitive)
+  const sensitive = options?.sensitive || Boolean(body && typeof body === 'object' && 'ui_action' in body);
+  if (!sensitive)
     console.debug(
       `[httpBridge] ${method} ${path}`,
       body !== undefined ? JSON.stringify(redactForLog(body)).slice(0, 500) : '(no body)'
     );
 
-  let response = await sendHttpRequest(method, path, headers, body);
+  let response = await sendHttpRequest(method, path, headers, body, options?.signal);
 
   // Expired access cookie → 401. Attempt one silent session refresh, then replay
   // the original request — the WebUI half of the #4124 fix. refreshSession() is a
@@ -252,7 +287,7 @@ export async function httpRequest<T>(
     const refreshed = await refreshSession();
     if (refreshed) {
       console.debug(`[httpBridge] session refreshed, replaying ${method} ${path}`);
-      response = await sendHttpRequest(method, path, headers, body);
+      response = await sendHttpRequest(method, path, headers, body, options?.signal);
     }
   }
 
@@ -273,7 +308,7 @@ export async function httpRequest<T>(
     throw new BackendHttpError({ method, path, status: response.status, body: errorBody });
   }
 
-  if (!options?.sensitive) console.debug(`[httpBridge] ${method} ${path} → ${response.status} OK`);
+  if (!sensitive) console.debug(`[httpBridge] ${method} ${path} → ${response.status} OK`);
 
   const contentType = response.headers.get('Content-Type');
   if (!contentType?.includes('application/json')) {

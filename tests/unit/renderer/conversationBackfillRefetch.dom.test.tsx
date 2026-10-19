@@ -115,3 +115,6 @@ describe('conversation project_id backfill — responsive refetch on listChanged
     expect(getCurrentProject()).toBeNull();
   });
 });
+vi.mock('@/renderer/pages/conversation/Messages/components/MessageText/integration', () => ({
+  useOpenUiNavigationReady: () => true,
+}));

@@ -1,3 +1,4 @@
+import type { OpenUiActionContext } from '@/common/adapter/ipcBridge';
 /**
  * @license
  * Copyright 2025 AionUi (aionui.com)
@@ -38,7 +39,11 @@ const AionrsChat: React.FC<{
   loadedMcpServers?: string[];
   loadedMcpStatuses?: IConversationMcpStatus[];
   agent_name?: string;
-  teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
+  teamSendMessage?: (payload: {
+    input: string;
+    files: ChatFileRef[];
+    ui_action?: OpenUiActionContext;
+  }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
   assistantId?: string;
   forkCapability?: { at_turn: boolean };

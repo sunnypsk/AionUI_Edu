@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { prepareAioncore } = require('../packages/shared-scripts/src/prepare-aioncore.js');
 const { resolveAioncoreVersion } = require('./resolveAioncoreVersion.js');
 
@@ -25,12 +25,22 @@ console.log(`Packing web-cli for ${platform}-${arch}...`);
 
 // 1. Prepare bundled-aioncore
 console.log('1. Preparing aioncore...');
-prepareAioncore({
-  projectRoot,
-  platform,
-  arch,
-  version: resolveAioncoreVersion(projectRoot),
-});
+const coreBuild = path.join(projectRoot, 'packages/web-host/openui/core/build.ts');
+const coreEnv = { ...process.env, PACK_PLATFORM: platform, PACK_ARCH: arch };
+// An explicit development override must never replace the binary shipped in a release archive.
+delete coreEnv.AIONUI_BACKEND_BIN;
+delete coreEnv.AIONUI_BACKEND_BUNDLED_DIR;
+delete coreEnv.AIONUI_OPENUI_CORE_OUTPUT;
+if (platform === process.platform) {
+  execFileSync('bun', [coreBuild], { cwd: projectRoot, env: coreEnv, stdio: 'inherit' });
+}
+const coreBinary = execFileSync('bun', [coreBuild, '--resolve-only'], {
+  cwd: projectRoot,
+  env: coreEnv,
+  encoding: 'utf8',
+}).trim();
+// Retain the pinned upstream managed runtimes and resource contracts beside the extension.
+prepareAioncore({ projectRoot, platform, arch, version: resolveAioncoreVersion(projectRoot) });
 
 // 2. Create staging dir
 console.log('3. Creating staging dir...');
@@ -78,13 +88,15 @@ if (fs.existsSync(rendererOutDir)) {
 }
 
 // 7. Copy bundled-aioncore
-const backendSrc = path.join(projectRoot, 'resources/bundled-aioncore', `${platform}-${arch}`);
 const backendDest = path.join(tarballContentDir, 'bundled-aioncore', `${platform}-${arch}`);
-if (!fs.existsSync(backendSrc)) {
-  throw new Error(`Backend bundle dir missing at ${backendSrc}. Ensure prepareAioncore succeeded.`);
-}
-fs.mkdirSync(path.dirname(backendDest), { recursive: true });
-fs.cpSync(backendSrc, backendDest, { recursive: true });
+fs.mkdirSync(backendDest, { recursive: true });
+fs.cpSync(path.join(projectRoot, 'resources/bundled-aioncore', `${platform}-${arch}`), backendDest, {
+  recursive: true,
+});
+const coreName = platform === 'win32' ? 'aioncore.exe' : 'aioncore';
+fs.copyFileSync(coreBinary, path.join(backendDest, coreName));
+fs.copyFileSync(coreBinary + '.json', path.join(backendDest, coreName + '.json'));
+if (platform !== 'win32') fs.chmodSync(path.join(backendDest, coreName), 0o755);
 
 // 8. Create tarball
 fs.mkdirSync(distDir, { recursive: true });

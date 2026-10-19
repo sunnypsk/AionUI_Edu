@@ -14,9 +14,12 @@ import {
 } from '@/renderer/pages/conversation/GroupedHistory/hooks/useConversationListSync';
 
 describe('isWaitingConfirmationStreamMessage', () => {
-  it.each(['permission', 'acp_permission', 'ask'])('treats %s as a waiting-confirmation frame', (type) => {
-    expect(isWaitingConfirmationStreamMessage(type)).toBe(true);
-  });
+  it.each(['permission', 'acp_permission', 'openui_permission', 'ask'])(
+    'treats %s as a waiting-confirmation frame',
+    (type) => {
+      expect(isWaitingConfirmationStreamMessage(type)).toBe(true);
+    }
+  );
 
   it.each(['content', 'tool_call', 'finish', 'thinking', 'plan'])('does not treat %s as waiting', (type) => {
     expect(isWaitingConfirmationStreamMessage(type)).toBe(false);
@@ -30,6 +33,12 @@ describe('extractConfirmationId', () => {
 
   it('prefers call_id on a permission frame', () => {
     expect(extractConfirmationId({ type: 'permission', data: { id: 'conf-1', call_id: 'call-1' } })).toBe('call-1');
+  });
+
+  it('uses the OpenUI host confirmation id for waiting and removal', () => {
+    expect(extractConfirmationId({ type: 'openui_permission', data: { id: 'host-card', call_id: 'host-card' } })).toBe(
+      'host-card'
+    );
   });
 
   it('falls back to id on a permission frame without call_id', () => {

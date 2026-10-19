@@ -18,17 +18,23 @@
  * that script.
  */
 
+import { readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
+
 export type EnsureAdminPasswordDeps = {
   fetch: typeof fetch;
   log: (msg: string) => void;
   warn: (msg: string) => void;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
+  resetPassword?: () => string;
+  readAdminUsername?: () => string;
 };
 
 export type EnsureAdminPasswordOptions = {
   /** 127.0.0.1 port where aioncore listens (from WebHostHandle.backendPort). */
   backendPort: number;
+  backendBinary?: string;
+  dataDir?: string;
   /** Total wait budget for /api/auth/status coming up. Default: 15s. */
   statusTimeoutMs?: number;
   /** Poll interval between /api/auth/status attempts. Default: 500ms. */
@@ -113,6 +119,23 @@ export async function ensureAdminPassword(
   }
 
   const needsSetup = status.needs_setup ?? status.data?.needs_setup ?? false;
+  if (opts.backendBinary && opts.dataDir) {
+    try {
+      if (needsSetup) {
+        const password = deps.resetPassword
+          ? deps.resetPassword()
+          : resetWebUiPassword(opts.backendBinary, opts.dataDir);
+        deps.log(`[aionui-web] Generated initial admin password: ${password}`);
+      }
+      const username = deps.readAdminUsername
+        ? deps.readAdminUsername()
+        : readWebUiAdminUsername(opts.backendBinary, opts.dataDir);
+      deps.log(`[aionui-web] Log in with username "${username}". Forgot the password? Run \`${resetCmd}\`.`);
+    } catch {
+      deps.warn(`[aionui-web] could not provision the local account — run \`${resetCmd}\``);
+    }
+    return;
+  }
 
   if (!needsSetup) {
     const username = await fetchAdminUsername(deps, opts.backendPort);

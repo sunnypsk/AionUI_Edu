@@ -21,6 +21,7 @@ import {
 import { notifyManualRestartRequired } from '@/renderer/utils/appRestart';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Alert, Collapse, Form, InputNumber, Message, Modal, Switch } from '@arco-design/web-react';
+import { OpenUISettings } from '@/renderer/pages/conversation/Messages/components/MessageText/integration';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
@@ -441,6 +442,16 @@ const SystemModalContent: React.FC = () => {
       label: t('settings.saveUploadToWorkspace'),
       component: <Switch checked={saveUploadToWorkspace} onChange={handleSaveUploadToWorkspaceChange} />,
     },
+    ...(!isDesktop
+      ? [
+          {
+            key: 'openui',
+            label: t('settings.openuiTitle'),
+            description: t('settings.openuiDescription'),
+            component: <OpenUISettings />,
+          },
+        ]
+      : []),
     {
       // Positive wording, default on (spec §5.7): every other switch on this
       // page is phrased affirmatively, and a negated one would read as a double

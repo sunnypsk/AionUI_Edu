@@ -5,6 +5,7 @@
  */
 
 import EventEmitter from 'eventemitter3';
+import type { OpenUiActionContext } from '@/common/adapter/ipcBridge';
 import type { DependencyList } from 'react';
 import { useEffect } from 'react';
 import type { FileOrFolderItem } from '@/renderer/utils/file/fileTypes';
@@ -17,6 +18,15 @@ export type ReplyQuote = {
 };
 
 interface EventTypes {
+  'openui.followUp': [
+    {
+      conversation_id: string;
+      input: string;
+      ui_action: OpenUiActionContext;
+      resolve: () => void;
+      reject: (error: Error) => void;
+    },
+  ];
   // The 2nd arg is the target conversation id: only the send box whose
   // conversation matches consumes the event (team renders one send box per
   // member column, so a bare type prefix alone would leak to same-type peers).

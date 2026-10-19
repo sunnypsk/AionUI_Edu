@@ -113,3 +113,6 @@ describe('conversation route — synchronous project publish from list snapshot 
     expect(getCurrentProject()).toBeNull();
   });
 });
+vi.mock('@/renderer/pages/conversation/Messages/components/MessageText/integration', () => ({
+  useOpenUiNavigationReady: () => true,
+}));

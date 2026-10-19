@@ -1,3 +1,4 @@
+import type { OpenUiActionContext } from '@/common/adapter/ipcBridge';
 import { ipcBridge } from '@/common';
 import type { IConversationMcpStatus } from '@/common/config/storage';
 import { isBackendHttpError } from '@/common/adapter/httpBridge';
@@ -110,7 +111,11 @@ const AcpSendBox: React.FC<{
   session_mode?: string;
   agent_name?: string;
   messageState: UseAcpMessageReturn;
-  teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
+  teamSendMessage?: (payload: {
+    input: string;
+    files: ChatFileRef[];
+    ui_action?: OpenUiActionContext;
+  }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
 }> = ({ conversation_id, backend, session_mode, agent_name, messageState, teamSendMessage, teamRuntime }) => {
   const {
@@ -260,14 +265,19 @@ const AcpSendBox: React.FC<{
   });
 
   const executeCommand = useCallback(
-    async ({ input, files, sessions }: Pick<ConversationCommandQueueItem, 'input' | 'files' | 'sessions'>) => {
+    async ({
+      input,
+      files,
+      sessions,
+      ui_action,
+    }: Pick<ConversationCommandQueueItem, 'input' | 'files' | 'sessions' | 'ui_action'>) => {
       // Plain user text; the backend resolves each ChatFileRef and injects the
       // [[AION_FILES]] marker at the send edge (no front-end path/marker building).
       try {
         if (teamPermission) await teamPermission.warmupSession();
         void checkAndUpdateTitle(conversation_id, input);
         if (teamSendMessage) {
-          await teamSendMessage({ input, files });
+          await teamSendMessage({ input, files, ui_action });
           emitter.emit('chat.history.refresh');
           if (files.length > 0) {
             emitter.emit('acp.workspace.refresh');
@@ -284,6 +294,7 @@ const AcpSendBox: React.FC<{
           // `@@` references. Dropping this here is a silent failure: the agent
           // simply never receives the session block.
           sessions,
+          ui_action,
         });
         markSendAccepted(result.turn_id, result.runtime, result.msg_id);
         emitter.emit('chat.history.refresh');
@@ -673,14 +684,24 @@ Please check your local CLI tool authentication status`,
         // Removing first closes that race in both cases.
         remove(item.id);
         try {
-          await executeCommand({ input: item.input, files: item.files, sessions: item.sessions });
+          await executeCommand({
+            input: item.input,
+            files: item.files,
+            sessions: item.sessions,
+            ui_action: item.ui_action,
+          });
         } catch {
           // executeCommand already surfaces the failure (busy-conflict toast,
           // error message card, etc.) via its own catch path — don't show a
           // second one. Restore the user's content instead of dropping it:
           // enqueue appends to the end, so promote it back to the front to
           // match "send now" intent (it was already next in line).
-          const restored = enqueue({ input: item.input, files: item.files, sessions: item.sessions });
+          const restored = enqueue({
+            input: item.input,
+            files: item.files,
+            sessions: item.sessions,
+            ui_action: item.ui_action,
+          });
           if (restored) prioritize(restored.id);
         }
         return;

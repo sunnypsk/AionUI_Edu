@@ -1,0 +1,39 @@
+.root {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.datePicker :global(.openui-date-picker-renderer-floating-input-container) {
+  display: none;
+}
+.modalPopup {
+  z-index: 10001 !important;
+}
+.tableChanges:global(.openui-editable-table-changes-container) {
+  flex-wrap: wrap;
+}
+.tableChanges :global(.openui-editable-table-changes-buttons) {
+  flex-shrink: 0;
+}
+.tableChanges button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.root :global(.openui-theme-provider) {
+  max-width: 100%;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.source {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--bg-2);
+  color: var(--text-primary);
+  padding: 12px;
+}

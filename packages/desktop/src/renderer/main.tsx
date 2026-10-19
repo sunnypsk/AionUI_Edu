@@ -93,6 +93,7 @@ import { isRtlLanguage } from './services/i18n/direction';
 import { registerPwa } from './services/registerPwa';
 
 import { ipcBridge } from '@/common';
+import { setClientRenderCapabilities } from '@/common/adapter/httpBridge';
 import { repairAllCronJobTimeZonesOnce } from '@renderer/pages/cron/repairCronJobTimeZone';
 import { bootstrapRendererConfig } from '@renderer/services/bootstrapRenderer';
 
@@ -340,8 +341,20 @@ const Config: React.FC<PropsWithChildren> = ({ children }) => {
 };
 
 const Main = () => {
-  const { ready } = useAuth();
+  const { ready, user } = useAuth();
   const [configReady, setConfigReady] = useState(false);
+
+  useEffect(() => {
+    setClientRenderCapabilities([]);
+    if (!ready || !user || window.electronAPI) return;
+    setClientRenderCapabilities(
+      import('./pages/conversation/Messages/components/MessageText/integration').then(async (api) => {
+        const capability = await api.getOpenUiCapabilities();
+        return api.isOpenUiCompatible(capability) ? ['openui/1'] : [];
+      })
+    );
+    return () => setClientRenderCapabilities([]);
+  }, [ready, user?.id]);
 
   useEffect(() => {
     if (!ready) return;

@@ -14,17 +14,18 @@
  *   AIONUI_DATA_DIR       : override userData path (default Electron-compatible)
  *   AIONUI_LOG_DIR        : override log dir (default <dataDir>/logs)
  *   AIONUI_STATIC_DIR     : override static dir (default out/renderer)
- *   AIONUI_BACKEND_BIN    : absolute path to aioncore binary (else PATH lookup)
+ *   AIONUI_BACKEND_BIN    : explicit Core override (default: verified OpenUI Core build)
  *   AIONUI_BACKEND_BUNDLED_DIR : dir containing bundled-aioncore/<plat-arch>/binary
  *   AIONUI_OPEN_BROWSER   : "1"/"true" to force open, "0"/"false" to disable
  */
 
 import { execSync } from 'child_process';
+import { resolveOpenUiCore } from '../packages/web-host/openui/core/resolve';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startWebHost } from '@aionui/web-host';
+import { startWebHost, readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
 import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-cli/src/browser.js';
 
 // Aligned with packages/desktop/src/common/config/constants.ts WEBUI_DEFAULT_PORT.
@@ -137,24 +138,7 @@ function runPackageIfNeeded(): void {
 }
 
 function resolveBackendBinary(): string {
-  if (process.env.AIONUI_BACKEND_BIN) return process.env.AIONUI_BACKEND_BIN;
-
-  const bundledBase = process.env.AIONUI_BACKEND_BUNDLED_DIR ?? path.join(repoRoot, 'resources', 'bundled-aioncore');
-  const runtimeKey = `${process.platform}-${process.arch}`;
-  const bundled = path.join(bundledBase, runtimeKey, BACKEND_BINARY);
-  if (fs.existsSync(bundled)) return bundled;
-
-  try {
-    const cmd = process.platform === 'win32' ? `where ${BACKEND_BINARY}` : `which ${BACKEND_BINARY}`;
-    const found = execSync(cmd, { encoding: 'utf-8', timeout: 5000 }).trim().split(/\r?\n/)[0];
-    if (found && fs.existsSync(found)) return found;
-  } catch {
-    // fall through
-  }
-
-  throw new Error(
-    `Cannot find "${BACKEND_BINARY}". Set AIONUI_BACKEND_BIN, put it on PATH, or place it at ${bundled}.`
-  );
+  return resolveOpenUiCore(repoRoot);
 }
 
 /**
@@ -180,22 +164,6 @@ function augmentPathWithNvm(): void {
     }
   } catch {
     // best-effort
-  }
-}
-
-/**
- * Read the WebUI admin username from backend. Returns 'admin' as a best-effort
- * fallback — useful when the backend is unreachable or the SQLite users row
- * has not been seeded yet.
- */
-async function fetchAdminUsername(backendPort: number): Promise<string> {
-  try {
-    const res = await fetch(`http://127.0.0.1:${backendPort}/api/auth/internal/users/system`);
-    if (!res.ok) return 'admin';
-    const json = (await res.json()) as { data?: { username?: string } };
-    return json.data?.username || 'admin';
-  } catch {
-    return 'admin';
   }
 }
 
@@ -278,23 +246,15 @@ async function main(): Promise<void> {
     if (statusRes.ok) {
       const status = (await statusRes.json()) as { needs_setup?: boolean };
       if (status.needs_setup === true) {
-        const resetRes = await fetch(`http://127.0.0.1:${handle.backendPort}/api/webui/reset-password`, {
-          method: 'POST',
-        });
-        if (resetRes.ok) {
-          const payload = (await resetRes.json()) as { data?: { new_password?: string } };
-          const initialPassword = payload.data?.new_password;
-          if (initialPassword) {
-            const adminUsername = await fetchAdminUsername(handle.backendPort);
-            console.log('');
-            console.log(`Initial admin username: ${adminUsername}`);
-            console.log(`Initial admin password: ${initialPassword}`);
-            console.log('(change them after first login)');
-          }
-        }
+        const initialPassword = resetWebUiPassword(backendBin, workDir);
+        const adminUsername = readWebUiAdminUsername(backendBin, workDir);
+        console.log('');
+        console.log(`Initial admin username: ${adminUsername}`);
+        console.log(`Initial admin password: ${initialPassword}`);
+        console.log('(change them after first login)');
       } else {
         // Credentials already exist; just remind the user what username to use.
-        const adminUsername = await fetchAdminUsername(handle.backendPort);
+        const adminUsername = readWebUiAdminUsername(backendBin, workDir);
         console.log('');
         console.log(`Login username: ${adminUsername}`);
         console.log('(forgot the password? run `bun run resetpass` to generate a new one)');

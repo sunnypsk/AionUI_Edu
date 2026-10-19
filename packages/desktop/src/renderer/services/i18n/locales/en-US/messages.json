@@ -97,5 +97,22 @@
   "requestDetails": "Request details:",
   "delivery": {
     "pending": "Unread"
+  },
+  "openui": {
+    "unavailable": "Interactive content requires a compatible server update.",
+    "unsafeQuery": "This interface tried to read data using an unavailable or writable tool.",
+    "toolsFailed": "The conversation tools could not be loaded.",
+    "load": "The saved interface could not be loaded.",
+    "save": "The changes could not be saved. Your draft is kept here.",
+    "conflict": "This interface was updated on another device. Your draft is kept here.",
+    "submitFailed": "The interaction could not be submitted.",
+    "followUp": "Continue with these selections.",
+    "invalid": "Part of this interface could not be rendered.",
+    "source": "View source",
+    "reapply": "Reapply draft",
+    "repair": "Ask assistant to fix this interface",
+    "repairRequest": "Please fix this OpenUI interface.",
+    "selectDate": "Select a date",
+    "selectDateRange": "Select a date range"
   }
 }

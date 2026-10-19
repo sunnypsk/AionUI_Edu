@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { httpRequest } from '@/common/adapter/httpBridge';
+import { httpRequest, resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
 
 type WindowWithPort = { __backendPort?: number };
 
@@ -33,12 +33,14 @@ describe('httpRequest 401 → refresh → replay (WebUI #4124 fix)', () => {
   beforeEach(() => {
     // Browser mode so getBaseUrl() === '' and refresh is active.
     delete (window as WindowWithPort).__backendPort;
+    document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     delete (window as WindowWithPort).__backendPort;
+    document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
   });
 
   it('refreshes once and replays the original request on 401, returning unwrapped data', async () => {
@@ -96,5 +98,38 @@ describe('httpRequest 401 → refresh → replay (WebUI #4124 fix)', () => {
 
     // Called exactly once — the auth endpoint is exempt from refresh-replay.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('replays the same mutation with the refreshed CSRF cookie and operation identity', async () => {
+    document.cookie = 'aionui-csrf-token=first; Path=/';
+    let calls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/auth/refresh') {
+        document.cookie = 'aionui-csrf-token=second; Path=/';
+        return { ok: true };
+      }
+      return ++calls === 1 ? errorResponse(401, {}) : jsonResponse(200, { data: { ok: true } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await httpRequest('POST', '/api/conversations/c/openui/tools/call', { operation_id: 'stable-operation' });
+    const requests = (fetchMock.mock.calls as unknown as Array<[string, RequestInit]>).filter(
+      ([url]) => url !== '/api/auth/refresh'
+    );
+    expect(requests.map(([, init]) => (init.headers as Record<string, string>)['x-csrf-token'])).toEqual([
+      'first',
+      'second',
+    ]);
+    expect(requests.map(([, init]) => init.body)).toEqual([
+      JSON.stringify({ operation_id: 'stable-operation' }),
+      JSON.stringify({ operation_id: 'stable-operation' }),
+    ]);
+  });
+
+  it('treats malformed cookie encoding as missing and ignores cookies in Electron', () => {
+    document.cookie = 'aionui-csrf-token=%invalid; Path=/';
+    expect(resolveCoreCsrfToken()).toBe('');
+    document.cookie = 'aionui-csrf-token=browser-only; Path=/';
+    (window as WindowWithPort).__backendPort = 13400;
+    expect(resolveCoreCsrfToken()).toBe('');
   });
 });

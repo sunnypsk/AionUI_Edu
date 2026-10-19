@@ -97,5 +97,22 @@
   "requestDetails": "İstek ayrıntıları:",
   "delivery": {
     "pending": "Okunmadı"
+  },
+  "openui": {
+    "unavailable": "Etkileşimli içerik için uyumlu bir sunucu güncellemesi gerekir.",
+    "unsafeQuery": "Bu arayüz, kullanılamayan veya yazma yetkili bir araçla veri okumaya çalıştı.",
+    "toolsFailed": "Bu konuşmanın araçları yüklenemedi.",
+    "load": "Kaydedilen arayüz yüklenemedi.",
+    "save": "Değişiklikler kaydedilemedi. Taslağınız korunuyor.",
+    "conflict": "Bu arayüz başka bir cihazda güncellendi. Taslağınız korunuyor.",
+    "submitFailed": "İşlem gönderilemedi.",
+    "followUp": "Bu seçimlerle devam et.",
+    "invalid": "Bu arayüzün bir bölümü görüntülenemedi.",
+    "source": "Kaynağı görüntüle",
+    "reapply": "Taslağı yeniden uygula",
+    "repair": "Asistandan düzeltmesini iste",
+    "repairRequest": "Lütfen bu OpenUI arayüzünü düzeltin.",
+    "selectDate": "Tarih seçin",
+    "selectDateRange": "Tarih aralığı seçin"
   }
 }

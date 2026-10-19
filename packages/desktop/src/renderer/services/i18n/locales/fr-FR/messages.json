@@ -97,5 +97,22 @@
   "requestDetails": "Détails de la demande :",
   "delivery": {
     "pending": "Non lu"
+  },
+  "openui": {
+    "unavailable": "Le contenu interactif nécessite une mise à jour compatible du serveur.",
+    "unsafeQuery": "Cette interface a tenté de lire des données avec un outil indisponible ou permettant des écritures.",
+    "toolsFailed": "Impossible de charger les outils de cette conversation.",
+    "load": "Impossible de charger l’interface enregistrée.",
+    "save": "Impossible d’enregistrer les modifications. Le brouillon est conservé.",
+    "conflict": "Cette interface a été mise à jour sur un autre appareil. Le brouillon est conservé.",
+    "submitFailed": "Impossible d’envoyer cette action.",
+    "followUp": "Continuer avec ces choix.",
+    "invalid": "Une partie de cette interface n’a pas pu être affichée.",
+    "source": "Voir le code source",
+    "reapply": "Réappliquer le brouillon",
+    "repair": "Demander une correction à l’assistant",
+    "repairRequest": "Veuillez corriger cette interface OpenUI.",
+    "selectDate": "Choisir une date",
+    "selectDateRange": "Choisir une période"
   }
 }

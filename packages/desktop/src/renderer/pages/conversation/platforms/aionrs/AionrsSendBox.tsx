@@ -1,3 +1,4 @@
+import type { OpenUiActionContext } from '@/common/adapter/ipcBridge';
 /**
  * @license
  * Copyright 2025 AionUi (aionui.com)
@@ -121,7 +122,11 @@ const AionrsSendBox: React.FC<{
   modelSelection: AionrsModelSelection;
   session_mode?: string;
   agent_name?: string;
-  teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
+  teamSendMessage?: (payload: {
+    input: string;
+    files: ChatFileRef[];
+    ui_action?: OpenUiActionContext;
+  }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
 }> = ({ conversation_id, modelSelection, session_mode, agent_name, teamSendMessage, teamRuntime }) => {
   const [dynamicModes, setDynamicModes] = useState<AgentModeOption[]>([]);
@@ -252,7 +257,12 @@ const AionrsSendBox: React.FC<{
   });
 
   const executeCommand = useCallback(
-    async ({ input, files, sessions }: Pick<ConversationCommandQueueItem, 'input' | 'files' | 'sessions'>) => {
+    async ({
+      input,
+      files,
+      sessions,
+      ui_action,
+    }: Pick<ConversationCommandQueueItem, 'input' | 'files' | 'sessions' | 'ui_action'>) => {
       if (teamPermission) await teamPermission.warmupSession();
       if (!current_model?.use_model) {
         Message.warning(t('conversation.chat.noModelSelected'));
@@ -265,7 +275,7 @@ const AionrsSendBox: React.FC<{
       try {
         void checkAndUpdateTitle(conversation_id, input);
         if (teamSendMessage) {
-          await teamSendMessage({ input, files });
+          await teamSendMessage({ input, files, ui_action });
           emitter.emit('chat.history.refresh');
           if (files.length > 0) {
             emitter.emit('aionrs.workspace.refresh');
@@ -282,6 +292,7 @@ const AionrsSendBox: React.FC<{
           // `@@` references. Omitting this makes the whole feature silently
           // no-op for this platform.
           sessions,
+          ui_action,
         });
         setActiveMsgId(res.msg_id);
         markSendAccepted(res.turn_id, res.runtime, res.msg_id);

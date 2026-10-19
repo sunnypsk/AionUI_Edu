@@ -97,5 +97,22 @@
   "requestDetails": "Anfragedetails:",
   "delivery": {
     "pending": "Ungelesen"
+  },
+  "openui": {
+    "unavailable": "Interaktive Inhalte benötigen ein kompatibles Serverupdate.",
+    "unsafeQuery": "Diese Oberfläche versucht, Daten mit einem nicht verfügbaren oder schreibenden Werkzeug zu lesen.",
+    "toolsFailed": "Die Werkzeuge dieser Unterhaltung konnten nicht geladen werden.",
+    "load": "Die gespeicherte Oberfläche konnte nicht geladen werden.",
+    "save": "Die Änderungen konnten nicht gespeichert werden. Der Entwurf bleibt erhalten.",
+    "conflict": "Diese Oberfläche wurde auf einem anderen Gerät aktualisiert. Der Entwurf bleibt erhalten.",
+    "submitFailed": "Die Aktion konnte nicht gesendet werden.",
+    "followUp": "Mit dieser Auswahl fortfahren.",
+    "invalid": "Ein Teil dieser Oberfläche konnte nicht angezeigt werden.",
+    "source": "Quelltext anzeigen",
+    "reapply": "Entwurf erneut anwenden",
+    "repair": "Assistenten um Korrektur bitten",
+    "repairRequest": "Bitte korrigiere diese OpenUI-Oberfläche.",
+    "selectDate": "Datum auswählen",
+    "selectDateRange": "Datumsbereich auswählen"
   }
 }

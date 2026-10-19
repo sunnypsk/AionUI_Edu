@@ -477,3 +477,6 @@ describe('TeamChatView', () => {
     expect(props.teamRuntime?.isActive).toBe(false);
   });
 });
+vi.mock('@/renderer/pages/conversation/Messages/components/MessageText/integration', () => ({
+  useOpenUiNavigationReady: () => true,
+}));

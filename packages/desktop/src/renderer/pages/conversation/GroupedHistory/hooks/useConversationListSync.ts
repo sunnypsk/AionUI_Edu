@@ -131,7 +131,7 @@ export const getSidebarStreamGuardDecision = ({
  * distinct "needs you" icon instead of the generic generating spinner.
  */
 export const isWaitingConfirmationStreamMessage = (type: string): boolean => {
-  return type === 'permission' || type === 'acp_permission' || type === 'ask';
+  return type === 'permission' || type === 'acp_permission' || type === 'openui_permission' || type === 'ask';
 };
 
 /**
@@ -153,7 +153,7 @@ export const extractConfirmationId = (message: { type?: string; data?: unknown }
   if (message.type === 'ask') {
     return typeof record.request_id === 'string' && record.request_id ? record.request_id : undefined;
   }
-  if (message.type === 'permission') {
+  if (message.type === 'permission' || message.type === 'openui_permission') {
     if (typeof record.call_id === 'string' && record.call_id) {
       return record.call_id;
     }

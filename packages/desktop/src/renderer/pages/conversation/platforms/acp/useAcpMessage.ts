@@ -296,6 +296,7 @@ export const useAcpMessage = (
           'agent_status',
           'user_content',
           'teammate_message',
+          'openui_permission',
         ].includes(message.type);
 
       if (shouldCompleteThinking) {
@@ -448,6 +449,9 @@ export const useAcpMessage = (
           }
           break;
         }
+        case 'openui_permission':
+          mergeLiveMessage(transformMessage({ ...message, type: 'permission' }));
+          break;
         case 'acp_permission':
           // Auto-recover running state only if turn hasn't finished
           if (!runningRef.current && !turnFinishedRef.current) {

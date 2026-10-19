@@ -97,5 +97,22 @@
   "requestDetails": "요청 내용:",
   "delivery": {
     "pending": "읽지 않음"
+  },
+  "openui": {
+    "unavailable": "대화형 콘텐츠를 사용하려면 호환되는 서버 업데이트가 필요합니다.",
+    "unsafeQuery": "이 화면에서 사용할 수 없거나 쓰기 가능한 도구로 데이터를 읽으려고 했습니다.",
+    "toolsFailed": "대화 도구를 불러오지 못했습니다.",
+    "load": "저장된 화면을 불러오지 못했습니다.",
+    "save": "변경 사항을 저장하지 못했습니다. 초안은 유지됩니다.",
+    "conflict": "다른 기기에서 업데이트되었습니다. 초안은 유지됩니다.",
+    "submitFailed": "작업을 전송하지 못했습니다.",
+    "followUp": "이 선택으로 계속해 주세요.",
+    "invalid": "화면 일부를 표시하지 못했습니다.",
+    "source": "소스 보기",
+    "reapply": "초안 다시 적용",
+    "repair": "어시스턴트에게 수정 요청",
+    "repairRequest": "이 OpenUI 인터페이스를 수정해 주세요.",
+    "selectDate": "날짜 선택",
+    "selectDateRange": "날짜 범위 선택"
   }
 }

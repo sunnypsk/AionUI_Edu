@@ -8,6 +8,21 @@ COPY . .
 RUN bun install --frozen-lockfile --ignore-scripts
 RUN bun run package
 
+FROM rust:1.95.0-bookworm AS core-builder
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake clang libssl-dev pkg-config patch \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /source
+COPY packages/web-host/openui ./packages/web-host/openui
+ARG TARGETARCH
+ENV CARGO_TARGET_DIR=/build-target \
+    AIONUI_OPENUI_CORE_OUTPUT=/output/aioncore
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,id=openui-core-${TARGETARCH},target=/build-target \
+    bun packages/web-host/openui/core/build.ts
+
 FROM node:24-bookworm-slim AS runtime
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=proxy /usr/local/bin/sing-box /usr/local/bin/sing-box
@@ -29,22 +44,9 @@ COPY --from=builder /app/scripts/webui.ts ./scripts/webui.ts
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY --from=builder /app/out/renderer ./out/renderer
 
-# Pinned official AionCore archives; checksums come from the v0.2.2 release metadata.
-ARG TARGETARCH
-RUN set -eu; \
-    case "$TARGETARCH" in \
-      amd64) core_arch=x86_64; core_sha=1c3f241c7deff8e9d6da189c1017e6b12df7b538a1f557276c79b3c33d257335 ;; \
-      arm64) core_arch=aarch64; core_sha=e9bbb4a6f909cd14aa8b3d78a5c139557c2063930d155f6102df424d27155292 ;; \
-      *) exit 1 ;; \
-    esac; \
-    curl --fail --location --retry 3 "https://github.com/iOfficeAI/AionCore/releases/download/v0.2.2/aioncore-v0.2.2-$core_arch-unknown-linux-gnu.tar.gz" -o /tmp/aioncore.tar.gz; \
-    printf '%s  %s\n' "$core_sha" /tmp/aioncore.tar.gz | sha256sum --check --status; \
-    mkdir /tmp/aioncore-unpack; \
-    tar -xzf /tmp/aioncore.tar.gz -C /tmp/aioncore-unpack; \
-    core_binary="$(find /tmp/aioncore-unpack -type f -name aioncore -print -quit)"; \
-    test -n "$core_binary"; \
-    install -m 755 "$core_binary" /usr/local/bin/aioncore; \
-    rm -rf /tmp/aioncore.tar.gz /tmp/aioncore-unpack
+# Built natively for each requested Linux architecture from the pinned source and patch set.
+COPY --from=core-builder /output/aioncore /usr/local/bin/aioncore
+COPY --from=core-builder /output/aioncore.json /usr/local/share/aioncore/build.json
 
 ENV NODE_ENV=production \
     AIONUI_CONTAINER=1 \

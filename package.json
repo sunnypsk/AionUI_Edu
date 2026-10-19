@@ -23,7 +23,7 @@
     "webui:prod": "cross-env NODE_ENV=production tsx scripts/webui.ts",
     "webui:prod:remote": "cross-env NODE_ENV=production tsx scripts/webui.ts --remote",
     "resetpass": "tsx scripts/resetpass.ts",
-    "package": "electron-vite build --config packages/desktop/electron.vite.config.ts",
+    "package": "bun run openui:check && electron-vite build --config packages/desktop/electron.vite.config.ts",
     "make": "electron-vite build --config packages/desktop/electron.vite.config.ts",
     "dist": "node scripts/build-with-builder.js",
     "dist:mac": "node scripts/build-with-builder.js auto --mac",
@@ -44,6 +44,9 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "i18n:types": "node scripts/generate-i18n-types.js",
+    "openui:core:build": "bun packages/web-host/openui/core/build.ts",
+    "openui:core:test": "bun packages/web-host/openui/core/build.ts --test",
+    "openui:qa": "tsx packages/web-host/openui/qa/browser.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -73,7 +76,9 @@
     "test:smoke:installer:rstrtmgr-ui": "node scripts/smoke-installer-rstrtmgr-ui.js",
     "prepare": "husky",
     "postinstall": "node scripts/postinstall.js",
-    "test:bun": "bun test packages/desktop/src/process/services/database/drivers/*.bun.test.ts"
+    "test:bun": "bun test packages/desktop/src/process/services/database/drivers/*.bun.test.ts",
+    "openui:generate": "bun packages/web-host/openui/generate.ts",
+    "openui:check": "bun packages/web-host/openui/generate.ts --check"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.18.2",
@@ -105,6 +110,9 @@
     "@modelcontextprotocol/sdk": "^1.20.0",
     "@monaco-editor/react": "^4.7.0",
     "@openai/codex": "0.163.0",
+    "@openuidev/react-headless": "0.18.1",
+    "@openuidev/react-lang": "1.0.1",
+    "@openuidev/react-ui": "0.18.1",
     "@sentry/electron": "^7.10.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -180,7 +188,8 @@
     "ws": "^8.18.3",
     "xlsx-republish": "^0.20.3",
     "yauzl": "^3.2.1",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "4.5.5"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",

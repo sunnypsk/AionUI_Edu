@@ -13,12 +13,14 @@ describe('refreshSession (WebUI session refresh)', () => {
   beforeEach(() => {
     // Browser mode: real DOM (jsdom) with no Electron preload port.
     delete (window as WindowWithPort).__backendPort;
+    document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     delete (window as WindowWithPort).__backendPort;
+    document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
   });
 
   it('POSTs /api/auth/refresh (cookie-borne, no body) and resolves true on success', async () => {
@@ -35,10 +37,7 @@ describe('refreshSession (WebUI session refresh)', () => {
     expect(init.body).toBeUndefined();
   });
 
-  it('sends no x-csrf-token header (open-source WebUI has no CSRF layer — M6 removed, M7 restores)', async () => {
-    // resolveCoreCsrfToken() is a stub returning '' here, so the shared refresh
-    // primitive attaches no CSRF header. The aionpro superset resolves a real
-    // token and asserts the header is present instead.
+  it('omits the CSRF header when the backend has not issued a cookie', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -46,6 +45,14 @@ describe('refreshSession (WebUI session refresh)', () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers ?? {}).not.toHaveProperty('x-csrf-token');
+  });
+
+  it('sends the current Core double-submit cookie on refresh', async () => {
+    document.cookie = 'aionui-csrf-token=fixture-token; Path=/';
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(refreshSession()).resolves.toBe(true);
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'x-csrf-token': 'fixture-token' });
   });
 
   it('resolves false when the refresh token is also expired (non-ok response)', async () => {
