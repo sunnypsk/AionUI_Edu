@@ -185,7 +185,7 @@
     "takingOver": "等候目前動作完成…",
     "humanControl": "由你操作 · AI 瀏覽器操作已暫停",
     "agentControl": "AI 可操作此瀏覽器",
-    "returnToAi": "交返 AI",
+    "returnToAi": "交還 AI",
     "takeOver": "接管",
     "invalidUrl": "請輸入 HTTP 或 HTTPS 網址。",
     "fileTooLarge": "檔案大小上限為 30 MB。",
@@ -202,6 +202,6 @@
     "keyboard": "在共用瀏覽器輸入文字",
     "downloadFailed": "下載失敗",
     "downloading": "儲存中…",
-    "webDescription": "Docker 會在對話側邊顯示共用瀏覽器，你和 AI 操作同一批網頁。按「接管」可暫停 AI 的瀏覽器操作，完成後再交返 AI。"
+    "webDescription": "對話旁會顯示共用瀏覽器，你和 AI 可操作同一組網頁。按「接管」可暫停 AI 操作，完成後再交還 AI。"
   }
 }

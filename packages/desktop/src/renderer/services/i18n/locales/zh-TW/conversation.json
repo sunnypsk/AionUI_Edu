@@ -270,7 +270,7 @@
       },
       "USER_LLM_PROVIDER_NETWORK_ERROR": {
         "title": "無法連線模型服務商",
-        "body": "網路或 DNS 錯誤導致無法存取服務商。請檢查網路、代理和 Base URL。"
+        "body": "網絡或 DNS 錯誤導致無法存取服務商。請檢查網絡、代理和 Base URL。"
       },
       "USER_LLM_PROVIDER_GATEWAY_ERROR": {
         "title": "模型服務商暫不可用",
@@ -315,7 +315,7 @@
       },
       "UNKNOWN_UPSTREAM_ERROR": {
         "title": "上游 Agent 或模型服務商出錯",
-        "body": "收到上游錯誤，但暫時無法判斷它來自 Agent、模型服務商、網路還是本機環境。"
+        "body": "收到上游錯誤，但暫時無法判斷它來自 Agent、模型服務商、網絡還是本機環境。"
       },
       "MCP_HTTP_RESPONSE_READ_FAILED": {
         "title": "讀取團隊輔助程序回應失敗",
@@ -471,7 +471,7 @@
       "audioCaptureError": "未偵測到可用麥克風",
       "emptyTranscript": "未識別到語音內容",
       "fileTooLarge": "音訊檔案過大",
-      "networkError": "音訊轉寫時發生網路錯誤",
+      "networkError": "音訊轉寫時發生網絡錯誤",
       "notConfigured": "語音轉文字尚未設定",
       "permissionDenied": "麥克風權限被拒絕",
       "recordingUnsupported": "目前環境不支援直接錄音，請改為上傳音訊檔案",
