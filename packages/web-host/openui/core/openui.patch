@@ -1125,7 +1125,7 @@
          deps.database.pool().clone(),
 --- a/crates/aionui-app/tests/conversation_e2e.rs
 +++ b/crates/aionui-app/tests/conversation_e2e.rs
-@@ -1,6 +1,410 @@
+@@ -1,6 +1,413 @@
  //! E2E tests for conversation CRUD, clone, reset, associated, and auth protection.
  
  mod common;
@@ -1356,6 +1356,9 @@
 +        assert!(content.contains("[OpenUI profile openui-chat: contract"));
 +        assert!(content.contains("## Mutation"));
 +        assert!(content.contains("## Query"));
++        assert!(content.contains(
++            "When the user asks to open or use a web page and a browser tool is available, use the browser tool directly; do not offer an @OpenUrl button instead."
++        ));
 +        assert!(content.contains("mcp.c2VydmVyLW9uZQ.cmVhZA"));
 +        assert!(content.ends_with("User message:\nCreate a lesson form"));
 +        let untouched = f
@@ -2254,7 +2257,7 @@
 +            prefix.push('\n');
 +        }
 +        if context.ui_capabilities.iter().any(|cap| cap == "openui/1") && self.generation_enabled(user).await? {
-+            prefix.push_str("This client supports OpenUI protocol openui/1. Keep normal prose and Markdown for ordinary answers, honoring the conversation's existing skills and style. Choose an interactive OpenUI interface automatically when a form, chart, data table, or interactive result helps the user. You may mix Markdown and multiple fenced `openui` / `openui-chat` blocks in one answer. Every block is a complete standalone program with a root. The profile contracts below apply ONLY INSIDE that profile's code fence; their 'entire response' restriction never applies to the surrounding answer. Never mix the two profiles' schemas. Use actual Query/Mutation tool keys from the catalog below, not CLI MCP aliases. Query requires read_only:true. Mutation runs only after a user action and is subject to the conversation's confirmation policy. @ToAssistant continues this conversation with the form state; @OpenUrl accepts http/https URLs. Never include credentials or arbitrary executable JavaScript. Do not invent tools.\n");
++            prefix.push_str("This client supports OpenUI protocol openui/1. Keep normal prose and Markdown for ordinary answers, honoring the conversation's existing skills and style. Choose an interactive OpenUI interface automatically when a form, chart, data table, or interactive result helps the user. You may mix Markdown and multiple fenced `openui` / `openui-chat` blocks in one answer. Every block is a complete standalone program with a root. The profile contracts below apply ONLY INSIDE that profile's code fence; their 'entire response' restriction never applies to the surrounding answer. Never mix the two profiles' schemas. Use actual Query/Mutation tool keys from the catalog below, not CLI MCP aliases. Query requires read_only:true. Mutation runs only after a user action and is subject to the conversation's confirmation policy. @ToAssistant continues this conversation with the form state; @OpenUrl accepts http/https URLs. When the user asks to open or use a web page and a browser tool is available, use the browser tool directly; do not offer an @OpenUrl button instead. Never include credentials or arbitrary executable JavaScript. Do not invent tools.\n");
 +            // Do not let an unavailable MCP server prevent ordinary component generation.
 +            let tools = self.tools(conversation, user, id).await?;
 +            prefix.push_str("Available conversation MCP tools (empty means no tool bindings):\n");

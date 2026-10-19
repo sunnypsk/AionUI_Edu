@@ -26,6 +26,8 @@ describe('bundled Humanizer-zh installation', () => {
 
     expect(manifest).toMatch(/^---\nname: humanizer-zh\n/);
     expect(manifest).toContain('交付前自動依照以下規則作最後潤飾');
+    expect(manifest).toContain('進度說明及開場白同樣適用');
+    expect(manifest).toContain('不要提及技能名稱');
     expect(await readFile(path.join(builtinDir, relativeDir, 'LICENSE'), 'utf8')).toContain('MIT License');
   });
 
