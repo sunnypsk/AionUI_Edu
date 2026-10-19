@@ -1,5 +1,6 @@
 import type { TMessage } from '@/common/chat/chatLib';
 import { readMessageContent } from '@/renderer/utils/chat/conversationExport';
+import { parseFileMarker } from '@/renderer/pages/conversation/Messages/components/fileMarker';
 import { hasThinkTags, stripThinkTags } from '@/renderer/utils/chat/thinkTagFilter';
 
 export const buildAutoTitleFromContent = (content: string): string | null => {
@@ -20,6 +21,19 @@ export const buildAutoTitleFromContent = (content: string): string | null => {
   return normalized || null;
 };
 
+const fileBaseName = (filePath: string): string => filePath.split(/[\\/]/).filter(Boolean).pop() ?? '';
+
+/** Title from the text of a user message; an attachment-only message falls back to its first file name. */
+const buildAutoTitleFromUserContent = (content: string): string | null => {
+  const { text, files } = parseFileMarker(content, true);
+  const title = buildAutoTitleFromContent(text);
+  if (title) {
+    return title;
+  }
+  const firstFileName = files.length > 0 ? fileBaseName(files[0]) : '';
+  return firstFileName ? firstFileName.slice(0, 50) : null;
+};
+
 /**
  * Pick the very first user prompt from conversation history.
  * Falls back to the current send-box content when history has no user prompt yet.
@@ -30,14 +44,14 @@ export const deriveAutoTitleFromMessages = (messages: TMessage[], fallbackConten
       continue;
     }
 
-    const title = buildAutoTitleFromContent(readMessageContent(message));
+    const title = buildAutoTitleFromUserContent(readMessageContent(message));
     if (title) {
       return title;
     }
   }
 
   if (fallbackContent) {
-    return buildAutoTitleFromContent(fallbackContent);
+    return buildAutoTitleFromUserContent(fallbackContent);
   }
 
   return null;

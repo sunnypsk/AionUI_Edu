@@ -134,6 +134,25 @@ describe('autoTitle', () => {
       expect(deriveAutoTitleFromMessages([])).toBeNull();
     });
 
+    it('titles an attachment-only message by the file name, not the path or marker', () => {
+      const messages = [mockUserMessage('[[AION_FILES]]\n/Users/t/Documents/學生成績表.xlsx')];
+      expect(deriveAutoTitleFromMessages(messages)).toBe('學生成績表.xlsx');
+    });
+
+    it('handles Windows paths and a leading blank line for attachment-only messages', () => {
+      const messages = [mockUserMessage('\n[[AION_FILES]]\nC:\\docs\\notes.docx')];
+      expect(deriveAutoTitleFromMessages(messages)).toBe('notes.docx');
+    });
+
+    it('prefers the text over the attachment name', () => {
+      const messages = [mockUserMessage('請幫我整理成績\n[[AION_FILES]]\n/tmp/a/成績.xlsx')];
+      expect(deriveAutoTitleFromMessages(messages)).toBe('請幫我整理成績');
+    });
+
+    it('keeps a plain greeting as the title', () => {
+      expect(deriveAutoTitleFromMessages([mockUserMessage('你好')])).toBe('你好');
+    });
+
     it('processes markdown in user messages', () => {
       const messages = [mockUserMessage('## Title')];
       expect(deriveAutoTitleFromMessages(messages)).toBe('Title');
