@@ -13,11 +13,31 @@ import uuid
 SCRIPT = "/app/packages/web-host/docker/smokeNetwork.py"
 
 
+def safe_output(text):
+    """Keep actionable errors while omitting account and proxy credentials."""
+    lines = []
+    for line in text.splitlines():
+        if re.search(r"password|username|token|secret|cookie|usercode|verificationurl|authorization|bearer", line, re.I):
+            lines.append("[redacted sensitive line]")
+        else:
+            lines.append(re.sub(r"(?<=://)[^\s/@]+:[^\s/@]+@", "[REDACTED]@", line))
+    return "\n".join(lines[-40:])
+
+
 def docker(*args, check=True):
     result = subprocess.run(["docker", *args], capture_output=True, text=True, timeout=180)
     if check and result.returncode:
-        raise RuntimeError(f"Docker {args[0]} failed (exit {result.returncode})")
+        detail = safe_output(result.stdout + "\n" + result.stderr)
+        raise RuntimeError(f"Docker {args[0]} failed (exit {result.returncode})\n{detail}")
     return result
+
+
+def app_exec(app, *args, check=True, env=None):
+    """Match the non-root application's home for browser and CLI probes."""
+    flags = ["-e", "HOME=/data/home"]
+    for name, value in (env or {}).items():
+        flags.extend(["-e", name + "=" + value])
+    return docker("exec", "--user", "99:100", *flags, app, *args, check=check)
 
 
 def inspect(name):
@@ -38,7 +58,15 @@ def check(image, revision):
     proxy, target, app = [prefix + suffix for suffix in ("-socks", "-http", "-app")]
     created = []
     networks = []
+    volumes = []
     try:
+        # Managed runtimes and browser profiles need an ordinary data filesystem.
+        # This named volume is disposable and never mounts host application data.
+        data_volume = prefix + "-data"
+        docker("volume", "create", data_volume)
+        volumes.append(data_volume)
+        data_mount = "type=volume,src=" + data_volume + ",dst=/data"
+        docker("run", "--rm", "--mount", data_mount, "--entrypoint", "chmod", image, "700", "/data")
         for name in [network, remote_network]:
             docker("network", "create", name)
             networks.append(name)
@@ -64,7 +92,7 @@ def check(image, revision):
                "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun:/dev/net/tun",
                "--security-opt", "no-new-privileges:true", "--security-opt", "seccomp=" + str(Path(__file__).resolve().parent.parent / "src/runtime/browser/security/seccomp.json"),
                "--shm-size", "256m",
-               "--tmpfs", "/data:rw,size=256m,mode=0700", "-p", "127.0.0.1::25808",
+               "--mount", data_mount, "-p", "127.0.0.1::25808",
                "-e", "AIONUI_SOCKS5_PROXY=socks5://" + proxy_ip + ":1080", image)
         created.append(app)
         port = inspect(app)["NetworkSettings"]["Ports"]["25808/tcp"][0]["HostPort"]
@@ -82,26 +110,26 @@ def check(image, revision):
         else:
             raise RuntimeError("WebUI did not become healthy")
         docker("top", app, "-eo", "pid,args")
-        result = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
+        result = app_exec(app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
-        browser_check = docker("exec", "--user", "99:100", app, "bun", "-e",
+        browser_check = app_exec(app, "bun", "-e",
                                "const {createRequire}=await import('node:module'); const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core'); const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage']}); try {const page=await browser.newPage(); await page.goto('http://" + target_ip + ":18080',{timeout:15000}); const result=JSON.parse(await page.locator('body').innerText()); if(result.peer!=='" + proxy_remote_ip + "') throw Error('browser route bypass'); console.log('Sandboxed Chromium uses SOCKS5');} finally {await browser.close();}")
         print(browser_check.stdout.strip())
-        shared_browser = docker("exec", "--user", "99:100", "-e", "AIONUI_BUNDLED_CODEX=/app/node_modules/.bin/codex", app,
-                                "bun", "/app/packages/web-host/src/runtime/browser/smoke.ts")
+        shared_browser = app_exec(app, "bun", "/app/packages/web-host/src/runtime/browser/smoke.ts",
+                                  env={"AIONUI_BUNDLED_CODEX": "/app/node_modules/.bin/codex"})
         print(shared_browser.stdout.strip())
-        docker("exec", "--user", "99:100", app, "bun", "-e", "await import('node:dns/promises').then(d => d.resolve4('example.com'));", check=True)
+        app_exec(app, "bun", "-e", "await import('node:dns/promises').then(d => d.resolve4('example.com'));", check=True)
         if '"host": "1.1.1.1"' not in docker("logs", proxy).stdout:
             raise RuntimeError("DNS did not use HTTPS through SOCKS5")
-        bypass = docker("exec", "--user", "99:100", app, "curl", "--interface", "eth0", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
+        bypass = app_exec(app, "curl", "--interface", "eth0", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
         if bypass.returncode == 0 and json.loads(bypass.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("A tool bound to eth0 bypassed the tunnel")
-        local = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--max-time", "5", f"http://{proxy_ip}:18080", check=False)
+        local = app_exec(app, "curl", "--fail", "--silent", "--max-time", "5", f"http://{proxy_ip}:18080", check=False)
         if local.returncode == 0:
             raise RuntimeError("An attached-subnet destination bypassed SOCKS5")
         docker("stop", proxy)
-        failed = docker("exec", "--user", "99:100", app, "curl", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
+        failed = app_exec(app, "curl", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)
         if failed.returncode == 0:
             raise RuntimeError("Proxy outage fell back to direct egress")
         # Locate the supervisor child without adding procps to the runtime image.
@@ -119,13 +147,13 @@ def check(image, revision):
                 print(docker("exec", app, *args, check=False).stdout)
             print(docker("logs", proxy, check=False).stdout)
             diagnostic = docker("logs", "--tail", "60", app, check=False)
-            for line in (diagnostic.stdout + diagnostic.stderr).splitlines():
-                if not re.search(r"password|username|token|secret|cookie|usercode|verificationurl", line, re.I):
-                    print(line)
+            print(safe_output(diagnostic.stdout + diagnostic.stderr))
         raise
     finally:
         for name in reversed(created):
             docker("rm", "-f", "-v", name, check=False)
+        for name in reversed(volumes):
+            docker("volume", "rm", name, check=False)
         for name in reversed(networks):
             docker("network", "rm", name, check=False)
 

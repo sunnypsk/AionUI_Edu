@@ -14,6 +14,9 @@ from unittest.mock import MagicMock, patch
 spec = importlib.util.spec_from_file_location("deploy", Path(__file__).with_name("deployUnraid.py"))
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
+container_spec = importlib.util.spec_from_file_location("container_check", Path(__file__).with_name("checkContainer.py"))
+container_check = importlib.util.module_from_spec(container_spec)
+container_spec.loader.exec_module(container_check)
 
 
 def image():
@@ -22,6 +25,40 @@ def image():
             "Config": {"Labels": {"org.opencontainers.image.source": "https://github.com/sunnypsk/AionUI_Edu",
                                   "org.opencontainers.image.revision": "a" * 40,
                                   "uk.littlething.aionui-edu.release-sequence": "12.1"}}}
+
+
+class ContainerSmoke(unittest.TestCase):
+    def test_failed_commands_preserve_actionable_stderr(self):
+        result = subprocess.CompletedProcess([], 1, "", "chrome_crashpad_handler: --database is required")
+        with patch.object(container_check.subprocess, "run", return_value=result):
+            with self.assertRaisesRegex(RuntimeError, "database is required"):
+                container_check.docker("exec", "fixture-app", "browser")
+
+    def test_diagnostics_redact_account_details_and_proxy_userinfo(self):
+        result = subprocess.CompletedProcess([], 1, "Browser failed\npassword: fixture-value\n",
+                                             "Authorization: Bearer fixture-value\nsocks5://fixture-user:fixture-pass@192.0.2.20:1080")
+        with patch.object(container_check.subprocess, "run", return_value=result):
+            with self.assertRaises(RuntimeError) as failure:
+                container_check.docker("exec", "fixture-app", "browser", "private-argument")
+        message = str(failure.exception)
+        self.assertIn("Browser failed", message)
+        self.assertIn("socks5://[REDACTED]@192.0.2.20:1080", message)
+        self.assertNotIn("fixture-value", message)
+        self.assertNotIn("fixture-user", message)
+        self.assertNotIn("private-argument", message)
+
+    def test_browser_probes_use_the_application_user_and_its_owned_home(self):
+        with patch.object(container_check, "docker") as command:
+            container_check.app_exec("fixture-app", "bun", "browser.ts",
+                                     env={"AIONUI_BUNDLED_CODEX": "/app/node_modules/.bin/codex"})
+        command.assert_called_once_with("exec", "--user", "99:100", "-e", "HOME=/data/home",
+                                        "-e", "AIONUI_BUNDLED_CODEX=/app/node_modules/.bin/codex",
+                                        "fixture-app", "bun", "browser.ts", check=True)
+
+    def test_negative_network_probes_preserve_their_exit_status(self):
+        result = subprocess.CompletedProcess([], 7, "", "connection refused")
+        with patch.object(container_check.subprocess, "run", return_value=result):
+            self.assertIs(container_check.docker("exec", "fixture-app", "curl", check=False), result)
 
 
 class Release(unittest.TestCase):
