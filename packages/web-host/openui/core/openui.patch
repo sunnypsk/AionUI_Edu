@@ -1125,7 +1125,7 @@
          deps.database.pool().clone(),
 --- a/crates/aionui-app/tests/conversation_e2e.rs
 +++ b/crates/aionui-app/tests/conversation_e2e.rs
-@@ -1,6 +1,349 @@
+@@ -1,6 +1,410 @@
  //! E2E tests for conversation CRUD, clone, reset, associated, and auth protection.
  
  mod common;
@@ -1393,6 +1393,67 @@
 +                .prepare_openui_content("system_default_user", "openui-conversation", "Continue", &action)
 +                .await
 +                .is_err()
++        );
++    }
++
++    /// Agents title a conversation from their own input, which starts with the
++    /// injected guidance; the user-derived title must survive their titles.
++    #[tokio::test]
++    async fn openui_send_keeps_the_user_derived_title_against_agent_titles() {
++        use aionui_ai_agent::{AgentStreamEvent, protocol::events::FinishEventData};
++        use aionui_conversation::stream_relay::StreamRelay;
++
++        let f = fixture().await;
++        let user_title = "可唔可以幫我睇下聽日嘅香港天氣。";
++        // The renderer's `auto` rename leaves `name_source` NULL.
++        f.services
++            .conversation_repo
++            .update(
++                "system_default_user",
++                "openui-conversation",
++                &aionui_db::ConversationRowUpdate {
++                    name: Some(user_title.into()),
++                    ..Default::default()
++                },
++            )
++            .await
++            .unwrap();
++        let context: aionui_api_types::OpenUiSendContext =
++            serde_json::from_value(json!({"ui_capabilities":["openui/1"]})).unwrap();
++        let content = f
++            .services
++            .conversation_service
++            .prepare_openui_content("system_default_user", "openui-conversation", user_title, &context)
++            .await
++            .unwrap();
++        assert!(content.starts_with("This client supports OpenUI protocol openui/1."));
++
++        let (tx, _) = tokio::sync::broadcast::channel(16);
++        let relay = StreamRelay::new(
++            "openui-conversation".into(),
++            "assistant".into(),
++            "turn".into(),
++            "system_default_user".into(),
++            f.services.conversation_repo.clone(),
++            std::sync::Arc::new(aionui_realtime::BroadcastEventBus::new(16)),
++        );
++        let rx = tx.subscribe();
++        tx.send(AgentStreamEvent::AcpSessionInfo(json!({ "title": "OpenUI Protocol Interface Guidelines" })))
++            .unwrap();
++        tx.send(AgentStreamEvent::Finish(FinishEventData::default())).unwrap();
++        relay.consume(rx).await;
++
++        let row = f
++            .services
++            .conversation_repo
++            .get("system_default_user", "openui-conversation")
++            .await
++            .unwrap()
++            .unwrap();
++        assert_eq!(row.name, user_title);
++        assert_eq!(
++            row.name_source.as_deref(),
++            Some(aionui_conversation::service::OPENUI_NAME_SOURCE)
 +        );
 +    }
 +
@@ -2151,7 +2212,7 @@
 +}
 --- /dev/null
 +++ b/crates/aionui-conversation/src/openui/prompt.rs
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,70 @@
 +use aionui_api_types::OpenUiSendContext;
 +use aionui_db::OpenUiStateKey;
 +use serde_json::json;
@@ -2213,6 +2274,10 @@
 +        }
 +        if prefix.is_empty() {
 +            return Ok(content.into());
++        }
++        // Best effort: a failed title guard must not block the user's message.
++        if let Err(error) = self.keep_title_from_guidance(user, id).await {
++            tracing::warn!(conversation_id = id, error = %error, "OpenUI title guard not recorded");
 +        }
 +        // Prefixing preserves the final attachment marker consumed by existing agents.
 +        Ok(format!("{prefix}\nUser message:\n{content}"))
@@ -2632,12 +2697,13 @@
 +}
 --- /dev/null
 +++ b/crates/aionui-conversation/src/openui/service.rs
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,248 @@
 +use std::sync::Arc;
 +
 +use aionui_api_types::{OpenUiCapabilities, OpenUiState};
 +use aionui_db::{
-+    IClientPreferenceRepository, IConversationRepository, IOpenUiRepository, OpenUiStateKey, OpenUiStateRow,
++    ConversationRowUpdate, IClientPreferenceRepository, IConversationRepository, IOpenUiRepository, OpenUiStateKey,
++    OpenUiStateRow,
 +};
 +use serde_json::{Map, Value};
 +
@@ -2728,6 +2794,30 @@
 +        Ok(!preferences
 +            .iter()
 +            .any(|item| item.key == "openuiEnabled" && item.value == "false"))
++    }
++
++    /// Keep the conversation's user-derived title once OpenUI guidance reaches the agent.
++    ///
++    /// Agents title a conversation from their own input, which now starts with the
++    /// injected guidance, so their titles would describe the guidance instead of the
++    /// user's request. An explicit user rename keeps its own origin.
++    pub async fn keep_title_from_guidance(
++        &self,
++        user_id: &str,
++        conversation_id: &str,
++    ) -> Result<(), ConversationError> {
++        let Some(row) = self.conversations.get(user_id, conversation_id).await? else {
++            return Ok(());
++        };
++        if matches!(row.name_source.as_deref(), Some("user") | Some(crate::service::OPENUI_NAME_SOURCE)) {
++            return Ok(());
++        }
++        let update = ConversationRowUpdate {
++            name_source: Some(crate::service::OPENUI_NAME_SOURCE.to_string()),
++            ..Default::default()
++        };
++        self.conversations.update(user_id, conversation_id, &update).await?;
++        Ok(())
 +    }
 +
 +    pub async fn capabilities(&self, user_id: &str) -> Result<OpenUiCapabilities, ConversationError> {
@@ -2892,7 +2982,21 @@
      // B5: a mid-turn delivery already handed the message to the RUNNING turn —
 --- a/crates/aionui-conversation/src/service.rs
 +++ b/crates/aionui-conversation/src/service.rs
-@@ -312,6 +312,7 @@
+@@ -71,6 +71,13 @@
+     "This historical conversation can no longer be continued. Please start a new conversation.";
+ const DEPRECATED_AGENT_TYPE_MESSAGE: &str = "This agent type is no longer supported for new conversations.";
+ 
++/// `name_source` for a conversation whose agent input carried injected OpenUI
++/// guidance. Agents title a conversation from their own input, which then
++/// starts with the guidance, so their titles describe the guidance instead of
++/// the user's request. Such a conversation keeps its user-derived (`auto`) or
++/// default name and ignores agent titles; an explicit rename still wins.
++pub const OPENUI_NAME_SOURCE: &str = "openui";
++
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+ pub(crate) struct AssistantConversationOverrides {
+     #[serde(default)]
+@@ -312,6 +319,7 @@
  
  #[derive(Clone)]
  pub struct ConversationService {
@@ -2900,7 +3004,7 @@
      workspace_root: PathBuf,
      broadcaster: Arc<dyn EventBroadcaster>,
      skill_resolver: Arc<dyn SkillResolver>,
-@@ -407,6 +408,7 @@
+@@ -407,6 +415,7 @@
          acp_session_repo: Arc<dyn IAcpSessionRepository>,
      ) -> Self {
          Self {
@@ -2908,7 +3012,7 @@
              workspace_root,
              broadcaster,
              skill_resolver,
-@@ -436,6 +438,119 @@
+@@ -436,6 +445,119 @@
      pub fn with_runtime_state(mut self, runtime_state: Arc<ConversationRuntimeStateService>) -> Self {
          self.runtime_state = runtime_state;
          self
@@ -3028,7 +3132,7 @@
      }
  
      pub fn with_runtime_helper_context(mut self, helper_bin: String, base_url: String) -> Self {
-@@ -2615,6 +2730,9 @@
+@@ -2615,6 +2737,9 @@
          }
  
          let had_active_turn = self.runtime_state.mark_deleting(id);
@@ -3038,7 +3142,7 @@
  
          // Snapshot the hook list under the read lock, then drop the guard
          // before awaiting — `RwLockReadGuard` is not `Send`, so holding it
-@@ -3428,12 +3546,14 @@
+@@ -3428,12 +3553,14 @@
                  id: conversation_id.to_owned(),
              })?;
  
@@ -3059,7 +3163,7 @@
      }
  
      /// Confirm a pending tool call.
-@@ -3454,6 +3574,12 @@
+@@ -3454,6 +3581,12 @@
              .ok_or_else(|| ConversationError::NotFound {
                  id: conversation_id.to_owned(),
              })?;
@@ -3072,7 +3176,7 @@
  
          let agent = task_manager
              .get_task(conversation_id)
-@@ -3680,6 +3806,7 @@
+@@ -3680,6 +3813,7 @@
          agent: AgentInstance,
          active_turn_id: String,
          inject_skills: Vec<String>,
@@ -3080,7 +3184,7 @@
      ) -> Result<MidturnOutcome, ConversationError> {
          let user_msg_id = Self::mint_msg_id();
          let persisted = self
-@@ -3721,7 +3848,7 @@
+@@ -3721,7 +3855,7 @@
              ));
          }
          let data = aionui_ai_agent::types::SendMessageData {
@@ -3089,7 +3193,7 @@
              msg_id: user_msg_id.clone(),
              turn_id: Some(active_turn_id.clone()),
              files: resolved.files.clone(),
-@@ -3815,6 +3942,19 @@
+@@ -3815,6 +3949,19 @@
          req: SendMessageRequest,
          task_manager: &Arc<dyn IWorkerTaskManager>,
      ) -> Result<SendMessageResponse, ConversationError> {
@@ -3109,7 +3213,7 @@
          if req.content.trim().is_empty() {
              return Err(ConversationError::BadRequest {
                  reason: "Message content must not be empty".into(),
-@@ -3877,6 +4017,9 @@
+@@ -3877,6 +4024,9 @@
          // `[[AION_FILES]]` content used for persistence, broadcast, and the turn.
          let resolved = self
              .resolve_message_attachments(user_id, &content_with_sessions, &req.files)
@@ -3119,7 +3223,7 @@
              .await?;
  
          // ── Mid-turn delivery (B5, spec §4.3) ────────────────────────────
-@@ -3923,6 +4066,7 @@
+@@ -3923,6 +4073,7 @@
                          agent,
                          active_turn_id,
                          req.inject_skills.clone(),
@@ -3127,7 +3231,7 @@
                      )
                      .await?
                  {
-@@ -4033,7 +4177,7 @@
+@@ -4033,7 +4184,7 @@
          ConversationTurnOrchestrator::new(self.clone(), Arc::clone(task_manager)).spawn_user_turn(TurnStartInput {
              user_id: user_id.to_owned(),
              conversation: row,
@@ -3136,6 +3240,45 @@
              files: resolved.files,
              inject_skills: req.inject_skills,
              required_runtime_mode: None,
+@@ -5954,13 +6105,15 @@
+ /// Apply an agent-proposed session title under the `name_source` guard.
+ ///
+ /// Origin rules (migration 035): NULL (default/placeholder name) and "agent"
+-/// accept a new agent title; "user" (explicit rename) never does. On apply the
+-/// row is renamed with `name_source='agent'` and a `conversation.nameUpdated`
++/// accept a new agent title; "user" (explicit rename) and
++/// [`OPENUI_NAME_SOURCE`] (agent input carried OpenUI guidance) never do. On
++/// apply the row is renamed with `name_source='agent'` and a `conversation.nameUpdated`
+ /// websocket event is broadcast (payload + `user_id` for connection routing,
+ /// mirroring the `conversation.artifact` event).
+ ///
+ /// Returns `Ok(true)` if the name was updated, `Ok(false)` if the title was
+-/// discarded (user-owned name, unchanged title, or unknown conversation).
++/// discarded (user-owned or OpenUI-guided name, unchanged title, or unknown
++/// conversation).
+ ///
+ /// A free function (not a `ConversationService` method) so the per-turn
+ /// `StreamRelay` can call it with just the repo + broadcaster it already owns.
+@@ -5980,9 +6133,16 @@
+         debug!(conversation_id, consumer, "agent title dropped: conversation not found");
+         return Ok(false);
+     };
+-    if existing.name_source.as_deref() == Some("user") {
+-        debug!(conversation_id, consumer, "agent title dropped: name is user-owned");
+-        return Ok(false);
++    match existing.name_source.as_deref() {
++        Some("user") => {
++            debug!(conversation_id, consumer, "agent title dropped: name is user-owned");
++            return Ok(false);
++        }
++        Some(OPENUI_NAME_SOURCE) => {
++            debug!(conversation_id, consumer, "agent title dropped: agent input carried OpenUI guidance");
++            return Ok(false);
++        }
++        _ => {}
+     }
+     if existing.name == title {
+         return Ok(false);
 --- /dev/null
 +++ b/crates/aionui-conversation/tests/openui_state.rs
 @@ -0,0 +1,147 @@
@@ -3284,6 +3427,109 @@
 +        .insert("text".into(), serde_json::json!("x".repeat(2 * 1024 * 1024)));
 +    assert!(
 +        matches!(service.write_state(&key, large).await, Err(ConversationError::BadRequest { reason }) if reason == "OPENUI_STATE_TOO_LARGE")
++    );
++}
+--- /dev/null
++++ b/crates/aionui-conversation/tests/openui_title.rs
+@@ -0,0 +1,100 @@
++use std::sync::Arc;
++
++use aionui_ai_agent::{AgentStreamEvent, protocol::events::FinishEventData};
++use aionui_conversation::{OpenUiService, service::OPENUI_NAME_SOURCE, stream_relay::StreamRelay};
++use aionui_db::{
++    ConversationRowUpdate, IConversationRepository, SqliteClientPreferenceRepository, SqliteConversationRepository,
++    SqliteOpenUiRepository, init_database_memory,
++};
++use aionui_realtime::BroadcastEventBus;
++use tokio::sync::broadcast;
++
++const USER: &str = "system_default_user";
++const CONVERSATION: &str = "conversation";
++const USER_TITLE: &str = "可唔可以幫我睇下聽日嘅香港天氣。";
++const GUIDANCE_TITLE: &str = "OpenUI Protocol Interface Guidelines";
++
++async fn service() -> (OpenUiService, Arc<SqliteConversationRepository>, aionui_db::Database) {
++    let db = init_database_memory().await.unwrap();
++    // The renderer's `auto` title leaves `name_source` NULL (agent-overwritable).
++    sqlx::query("INSERT INTO conversations (id,user_id,name,type,extra,created_at,updated_at) VALUES (?,?,?,'acp','{}',1,1)")
++        .bind(CONVERSATION)
++        .bind(USER)
++        .bind(USER_TITLE)
++        .execute(db.pool())
++        .await
++        .unwrap();
++    let conversations = Arc::new(SqliteConversationRepository::new(db.pool().clone()));
++    let state = OpenUiService::new(
++        Arc::new(SqliteOpenUiRepository::new(db.pool().clone())),
++        conversations.clone(),
++        Arc::new(SqliteClientPreferenceRepository::new(db.pool().clone())),
++    );
++    (state, conversations, db)
++}
++
++/// Deliver an agent session title the way a live turn does.
++async fn agent_reports_title(conversations: &Arc<SqliteConversationRepository>, title: &str) {
++    let (tx, _) = broadcast::channel(16);
++    let relay = StreamRelay::new(
++        CONVERSATION.into(),
++        "assistant".into(),
++        "turn".into(),
++        USER.into(),
++        conversations.clone(),
++        Arc::new(BroadcastEventBus::new(16)),
++    );
++    let rx = tx.subscribe();
++    tx.send(AgentStreamEvent::AcpSessionInfo(serde_json::json!({ "title": title }))).unwrap();
++    tx.send(AgentStreamEvent::Finish(FinishEventData::default())).unwrap();
++    relay.consume(rx).await;
++}
++
++async fn stored_name(conversations: &Arc<SqliteConversationRepository>) -> (String, Option<String>) {
++    let row = conversations.get(USER, CONVERSATION).await.unwrap().unwrap();
++    (row.name, row.name_source)
++}
++
++#[tokio::test]
++async fn agent_title_ignored_when_openui_guidance_injected() {
++    let (service, conversations, _db) = service().await;
++    service.keep_title_from_guidance(USER, CONVERSATION).await.unwrap();
++    agent_reports_title(&conversations, GUIDANCE_TITLE).await;
++    assert_eq!(
++        stored_name(&conversations).await,
++        (USER_TITLE.to_string(), Some(OPENUI_NAME_SOURCE.to_string()))
++    );
++}
++
++#[tokio::test]
++async fn agent_title_still_applies_without_openui_guidance() {
++    let (_service, conversations, _db) = service().await;
++    agent_reports_title(&conversations, "Hong Kong weather").await;
++    assert_eq!(
++        stored_name(&conversations).await,
++        ("Hong Kong weather".to_string(), Some("agent".to_string()))
++    );
++}
++
++#[tokio::test]
++async fn guidance_keeps_an_explicit_user_rename_user_owned() {
++    let (service, conversations, _db) = service().await;
++    conversations
++        .update(
++            USER,
++            CONVERSATION,
++            &ConversationRowUpdate {
++                name: Some("天氣".into()),
++                name_source: Some("user".into()),
++                ..Default::default()
++            },
++        )
++        .await
++        .unwrap();
++    service.keep_title_from_guidance(USER, CONVERSATION).await.unwrap();
++    agent_reports_title(&conversations, GUIDANCE_TITLE).await;
++    assert_eq!(
++        stored_name(&conversations).await,
++        ("天氣".to_string(), Some("user".to_string()))
 +    );
 +}
 --- /dev/null
