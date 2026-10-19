@@ -36,8 +36,11 @@ export const BROWSER_TAB_FALLBACK_TITLE = 'New Tab';
  */
 export const MAX_BROWSER_TABS = 10;
 
-/** 默认搜索引擎，地址栏输入非 URL 时使用 / Default search engine for non-URL input. */
-const SEARCH_URL_TEMPLATE = 'https://www.bing.com/search?q={query}';
+/**
+ * 默认搜索引擎，地址栏输入非 URL 时使用。香港教师习惯使用 Google 香港。
+ * Default search engine for non-URL input; Hong Kong teachers expect Google Hong Kong.
+ */
+const SEARCH_URL_TEMPLATE = 'https://www.google.com.hk/search?q={query}';
 
 /**
  * 已知的无主机名 scheme：这些直接原样通过，不做域名猜测。
@@ -102,3 +105,13 @@ export const browserTabLabelFromUrl = (url: string): string => {
     return BROWSER_TAB_FALLBACK_TITLE;
   }
 };
+
+/** Chromium's internal error page; its address never says which page failed. */
+export const isBrowserErrorUrl = (url: string): boolean => url.startsWith('chrome-error:');
+
+/**
+ * The address shown for a shared-browser tab. Both the address bar and the tab label read this, so they
+ * never disagree. A failed load shows the address that was requested instead of `chrome-error://…`.
+ */
+export const browserTabAddress = (tab: { url: string; requestedUrl?: string }): string =>
+  isBrowserErrorUrl(tab.url) ? (tab.requestedUrl ?? '') : tab.url;

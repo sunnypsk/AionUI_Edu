@@ -2,7 +2,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, realpath, stat, open, unlink, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { chromium, type BrowserContext, type Page, type FileChooser, type Dialog } from 'playwright-core';
+import {
+  chromium,
+  type BrowserContext,
+  type BrowserType,
+  type Page,
+  type FileChooser,
+  type Dialog,
+} from 'playwright-core';
 import {
   browserUrl,
   type BrowserAction,
@@ -14,7 +21,16 @@ import {
 } from './types.js';
 
 const VIEWPORT = { width: 1280, height: 800 };
-type Tab = { id: string; page: Page; chooser?: FileChooser; dialog?: Dialog };
+/**
+ * Chromium-only network paths that the container's SOCKS5 TUN route cannot be relied on to carry:
+ * - QUIC is UDP, which needs SOCKS5 UDP ASSOCIATE; many providers do not offer it.
+ * - The built-in stub resolver (AsyncDns) issues its own queries and orders addresses itself;
+ *   glibc is the resolver that curl and Codex already use successfully through TUN_DNS.
+ * Both fall back to the TCP/glibc paths that the rest of the container uses.
+ */
+export const BROWSER_LAUNCH_ARGS = ['--disable-dev-shm-usage', '--disable-quic', '--disable-features=AsyncDns'];
+type LaunchOptions = NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>;
+type Tab = { id: string; page: Page; requestedUrl?: string; chooser?: FileChooser; dialog?: Dialog };
 type Download = { id: string; name: string; state: 'saving' | 'ready' | 'failed'; path?: string };
 type Session = {
   owner: BrowserOwner;
@@ -28,7 +44,11 @@ type Session = {
   downloads: Download[];
   touched: number;
 };
-type Options = { executablePath?: string; launch?: (directory: string) => Promise<BrowserContext>; idleMs?: number };
+type Options = {
+  executablePath?: string;
+  launch?: (directory: string, options: LaunchOptions) => Promise<BrowserContext>;
+  idleMs?: number;
+};
 
 /** A user owns one persistent Chromium profile; each task owns a separate set of pages and a control lock. */
 export class SharedBrowserManager {
@@ -85,6 +105,8 @@ export class SharedBrowserManager {
         id: t.id,
         title: '',
         url: t.page.url(),
+        // A failed load leaves `url` on chrome-error://; keep what the user or agent actually asked for.
+        requestedUrl: t.requestedUrl ?? t.page.url(),
         fileChooser: Boolean(t.chooser),
         ...(t.dialog ? { dialog: { type: t.dialog.type(), message: t.dialog.message().slice(0, 2000) } } : {}),
       })),
@@ -155,16 +177,19 @@ export class SharedBrowserManager {
       pending = (async () => {
         const directory = this.profile(userId);
         await mkdir(directory, { recursive: true, mode: 0o700 });
-        const context = await (this.options.launch?.(directory) ??
-          chromium.launchPersistentContext(directory, {
-            executablePath: this.options.executablePath ?? process.env.AIONUI_BROWSER_EXECUTABLE,
-            headless: true,
-            chromiumSandbox: true,
-            viewport: VIEWPORT,
-            acceptDownloads: true,
-            timeout: 10000,
-            args: ['--disable-dev-shm-usage'],
-          }));
+        const options: LaunchOptions = {
+          executablePath: this.options.executablePath ?? process.env.AIONUI_BROWSER_EXECUTABLE,
+          headless: true,
+          chromiumSandbox: true,
+          viewport: VIEWPORT,
+          acceptDownloads: true,
+          timeout: 10000,
+          args: [...BROWSER_LAUNCH_ARGS],
+        };
+        const context = await (this.options.launch ?? ((dir, opts) => chromium.launchPersistentContext(dir, opts)))(
+          directory,
+          options
+        );
         context.setDefaultTimeout(10000);
         context.setDefaultNavigationTimeout(10000);
         // Restore cookies and storage, but never expose Chrome's unassigned startup pages.
@@ -196,7 +221,7 @@ export class SharedBrowserManager {
       void page.close();
       throw new Error('BROWSER_TAB_LIMIT');
     }
-    const tab = { id: randomUUID(), page };
+    const tab: Tab = { id: randomUUID(), page };
     s.tabs.push(tab);
     s.active = tab.id;
     s.revision++;
@@ -206,6 +231,10 @@ export class SharedBrowserManager {
       } catch {
         void popup.close();
       }
+    });
+    page.on('request', (request) => {
+      // Link clicks and redirects bypass goto(); record top-level navigations so a failed load keeps its address.
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) tab.requestedUrl = request.url();
     });
     page.on('close', () => {
       s.tabs = s.tabs.filter((t) => t !== tab);
@@ -307,6 +336,7 @@ export class SharedBrowserManager {
         const url = browserUrl(action.url);
         if (s.tabs.length >= 8) throw new Error('BROWSER_TAB_LIMIT');
         const tab = this.attach(s, await (await this.context(owner.userId)).newPage());
+        tab.requestedUrl = url;
         if (url !== 'about:blank') await tab.page.goto(url, { waitUntil: 'domcontentloaded' });
       } else {
         const tab = s.tabs.find((t) => t.id === action.tabId);
@@ -318,7 +348,8 @@ export class SharedBrowserManager {
             await page.setViewportSize({ width: action.width, height: action.height });
             break;
           case 'navigate':
-            await page.goto(browserUrl(action.url), { waitUntil: 'domcontentloaded' });
+            tab.requestedUrl = browserUrl(action.url);
+            await page.goto(tab.requestedUrl, { waitUntil: 'domcontentloaded' });
             break;
           case 'back':
             await page.goBack({ waitUntil: 'domcontentloaded' });

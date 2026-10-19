@@ -87,7 +87,15 @@ export type BrowserState = {
   takingOver: boolean;
   revision: number;
   activeTabId: string | null;
-  tabs: { id: string; title: string; url: string; fileChooser: boolean; dialog?: { type: string; message: string } }[];
+  tabs: {
+    id: string;
+    title: string;
+    url: string;
+    /** The last top-level address requested for this tab; differs from `url` when the load failed. */
+    requestedUrl?: string;
+    fileChooser: boolean;
+    dialog?: { type: string; message: string };
+  }[];
   downloads: { id: string; name: string; state: 'saving' | 'ready' | 'failed' }[];
   viewport: { width: number; height: number };
 };

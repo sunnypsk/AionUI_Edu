@@ -3,7 +3,7 @@ import { mkdtemp, rm, mkdir, writeFile, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BrowserContext, Page } from 'playwright-core';
+import type { BrowserContext, BrowserType, Page } from 'playwright-core';
 import { SharedBrowserManager } from './manager.js';
 import { browserActionSchema, browserUrl, type BrowserOwner } from './types.js';
 
@@ -19,6 +19,8 @@ class FakePage extends EventEmitter {
     fill: this.fill,
     setInputFiles: this.upload,
   }));
+  frame = { url: (): string => this.address };
+  mainFrame = (): { url: () => string } => this.frame;
   url = (): string => this.address;
   viewportSize = (): { width: number; height: number } => ({ width: 1280, height: 800 });
   title = async (): Promise<string> => 'Page';
@@ -39,6 +41,7 @@ describe('task-scoped shared browser', () => {
   let owner: BrowserOwner;
   let pages: FakePage[];
   let launched: string[];
+  let launchOptions: NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>[];
   beforeEach(async () => {
     directory = await mkdtemp(path.join(os.tmpdir(), 'shared-browser-'));
     const workspace = path.join(directory, 'task-one');
@@ -46,9 +49,11 @@ describe('task-scoped shared browser', () => {
     owner = { userId: 'teacher-one', conversationId: 'task-one', workspace };
     pages = [];
     launched = [];
+    launchOptions = [];
     manager = new SharedBrowserManager(directory, {
-      launch: async (profile) => {
+      launch: async (profile, options) => {
         launched.push(profile);
+        launchOptions.push(options);
         const context = new EventEmitter();
         return Object.assign(context, {
           pages: () => [],
@@ -181,6 +186,48 @@ describe('task-scoped shared browser', () => {
     await expect(
       (await import('node:fs/promises')).readFile(path.join(owner.workspace, 'keep.txt'), 'utf8')
     ).resolves.toBe('keep');
+  });
+
+  it('launches sandboxed chromium over TCP only, resolving names like the rest of the container', async () => {
+    await tab();
+    expect(launchOptions).toHaveLength(1);
+    expect(launchOptions[0].chromiumSandbox).toBe(true);
+    // QUIC needs SOCKS5 UDP relay, which the TUN path cannot guarantee.
+    expect(launchOptions[0].args).toContain('--disable-quic');
+    // Chromium's built-in stub resolver is replaced by glibc, the path curl and Codex already use.
+    expect(launchOptions[0].args).toContain('--disable-features=AsyncDns');
+    expect(launchOptions[0].args).not.toEqual(expect.arrayContaining([expect.stringMatching(/^--proxy-server/)]));
+  });
+
+  it('remembers the requested address when a page fails to load', async () => {
+    const id = await tab();
+    pages[0].goto = async (url: string): Promise<void> => {
+      void url;
+      pages[0].address = 'chrome-error://chromewebdata/';
+      throw new Error('net::ERR_CONNECTION_RESET');
+    };
+    await expect(
+      manager.act(owner, 'agent', { kind: 'navigate', tabId: id, url: 'https://www.hko.gov.hk/tc/' })
+    ).rejects.toThrow('ERR_CONNECTION_RESET');
+    expect(manager.state(owner).tabs[0]).toMatchObject({
+      url: 'chrome-error://chromewebdata/',
+      requestedUrl: 'https://www.hko.gov.hk/tc/',
+    });
+  });
+
+  it('tracks the requested address for in-page navigations as well', async () => {
+    await tab();
+    expect(manager.state(owner).tabs[0].requestedUrl).toBe('https://example.com/');
+    const request = (url: string, frame: unknown, navigation = true) => ({
+      url: () => url,
+      frame: () => frame,
+      isNavigationRequest: () => navigation,
+    });
+    pages[0].emit('request', request('https://example.com/image.png', pages[0].frame, false));
+    pages[0].emit('request', request('https://ads.example.net/frame', {}));
+    expect(manager.state(owner).tabs[0].requestedUrl).toBe('https://example.com/');
+    pages[0].emit('request', request('https://www.edb.gov.hk/', pages[0].frame));
+    expect(manager.state(owner).tabs[0].requestedUrl).toBe('https://www.edb.gov.hk/');
   });
 
   it('rejects internal URLs and malformed browser inputs', () => {

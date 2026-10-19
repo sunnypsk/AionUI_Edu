@@ -147,6 +147,43 @@ The container uses a Linux TUN interface and sing-box to route AionCore, Codex, 
 
 Loopback communication and replies to incoming WebUI connections remain available. New direct connections to the attached LAN are blocked too; they do not become a proxy bypass. The user's browser, the NAS host, other containers, Docker image downloads/builds, and remote hosted tools use their own networks. This routing applies to runtime traffic originating inside this container. The Settings form in a native macOS/Windows WebUI only saves the preference; it cannot change the host's routes.
 
+## Troubleshooting the shared browser
+
+Use this when the shared browser shows "This site can't be reached" (`ERR_CONNECTION_RESET`, `chrome-error://chromewebdata/`). Codex's web search runs on OpenAI's servers, so a working search does not prove that this container can reach the site. Set `C` to the container name (`docker ps`) and `U` to the app user (`99:100` unless `PUID`/`PGID` were changed). Run the steps in order and note the first one that fails.
+
+```bash
+C=aionui; U=99:100; SITE=https://www.hko.gov.hk/tc/
+# 1. Routing is up and DNS points at the tunnel (expect aionedu0 UP and nameserver 198.18.0.2).
+docker exec $C ip -br addr show aionedu0
+docker exec $C cat /etc/resolv.conf
+# 2. Same URL as root and as the app user. Both must print 200/301/302.
+docker exec $C curl -sS -o /dev/null -w '%{http_code} %{remote_ip}\n' --max-time 20 $SITE
+docker exec -u $U $C curl -sS -o /dev/null -w '%{http_code} %{remote_ip}\n' --max-time 20 $SITE
+# 3. IPv4 and IPv6 separately. An IPv6-only failure means the SOCKS5 server has no IPv6 egress.
+docker exec -u $U $C curl -4 -sS -o /dev/null -w '%{http_code}\n' --max-time 20 $SITE
+docker exec -u $U $C curl -6 -sS -o /dev/null -w '%{http_code}\n' --max-time 20 $SITE
+docker exec $C getent ahosts www.hko.gov.hk
+# 4. Chromium itself, as the app user, with a throwaway profile. Repeat with each flag set below.
+docker exec -u $U -e HOME=/tmp $C chromium --headless=new --disable-gpu --disable-dev-shm-usage \
+  --user-data-dir=/tmp/diag-$RANDOM --log-net-log=/tmp/netlog.json --dump-dom $SITE | head -c 300
+#    a) no extra flags (the old launch arguments)
+#    b) --disable-quic
+#    c) --disable-features=AsyncDns
+#    d) --disable-quic --disable-features=AsyncDns   (the current launch arguments)
+#    e) --proxy-server=socks5://<proxy-ip>:<port>    (only for a proxy without a password; Chromium cannot send SOCKS5 credentials)
+# 5. If Chromium still fails, find the first network error in the net log.
+docker exec $C grep -o '"net_error":-[0-9]*' /tmp/netlog.json | sort | uniq -c
+```
+
+How to read the results:
+
+- Steps 1–2 fail: the tunnel or the SOCKS5 server is the problem, not the browser. Recheck the proxy address and credentials, then restart the container.
+- Step 2 works as root but not as the app user: report the output of `docker exec $C iptables -S AIONUI_EGRESS` and `ip6tables -S AIONUI_EGRESS`.
+- Step 3 fails only with `-6`: the SOCKS5 server cannot reach IPv6 sites. Ask the provider for IPv6 egress, or report it so IPv6 can be turned off in the tunnel.
+- Step 4a fails but 4b, 4c or 4d works: the current launch arguments already fix it. Pull the latest image.
+- Only 4e works: the tunnel cannot carry Chromium's traffic; report the step 5 output with the issue.
+- Every step works but the shared browser still fails: close all its tabs, use **Clear browsing data** in Settings for the affected user, and try again. An old profile can keep cached HTTP/3 hints.
+
 ## Verify on the target before regular use
 
 After enabling and restarting, confirm Settings shows routing as active. Compare the container's public egress address with the expected proxy address:

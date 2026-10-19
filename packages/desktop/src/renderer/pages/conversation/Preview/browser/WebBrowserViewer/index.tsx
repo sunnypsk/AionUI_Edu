@@ -1,10 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Input, Link, Spin, Upload } from '@arco-design/web-react';
+import { Alert, Button, Input, Link, Result, Spin, Upload } from '@arco-design/web-react';
 import { ArrowLeft, ArrowRight, Close, Plus, Refresh } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { BrowserAction, BrowserResult } from '@/common/types/platform/webRuntime';
 import { useCurrentConversation } from '../../../explorer/currentConversationStore';
-import { resolveAddressBarInput } from '../constants';
+import {
+  BROWSER_BLANK_URL,
+  browserTabAddress,
+  browserTabLabelFromUrl,
+  isBrowserErrorUrl,
+  resolveAddressBarInput,
+} from '../constants';
 import { browserApi } from './api';
 import { useTouchScroll } from './useTouchScroll';
 import styles from './WebBrowserViewer.module.css';
@@ -31,6 +37,8 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
   const state = result?.state;
   const tab = state?.tabs.find((item) => item.id === state.activeTabId);
   const human = state?.control === 'human' && !state.takingOver;
+  const tabAddress = tab ? browserTabAddress(tab) : '';
+  const loadFailed = Boolean(tab && isBrowserErrorUrl(tab.url));
 
   const accept = useCallback((value: BrowserResult): void => {
     setResult((previous) =>
@@ -49,8 +57,8 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
     );
   }, []);
   useEffect(() => {
-    setAddress(tab?.url === 'about:blank' ? '' : (tab?.url ?? ''));
-  }, [tab?.url, tab?.id]);
+    setAddress(tabAddress === BROWSER_BLANK_URL ? '' : tabAddress);
+  }, [tabAddress, tab?.id]);
   useEffect(() => {
     generation.current++;
     setResult(undefined);
@@ -191,6 +199,15 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
     });
     return false;
   };
+  const tabLabel = (item: { title: string; url: string; requestedUrl?: string }): string => {
+    const shown = browserTabAddress(item);
+    // Chrome titles its error page with a host that may not match the requested page.
+    if (item.title && !isBrowserErrorUrl(item.url)) return item.title;
+    return !shown || shown === BROWSER_BLANK_URL ? t('preview.browser.newTab') : browserTabLabelFromUrl(shown);
+  };
+  const retry = (): void => {
+    if (tab && tabAddress) void action({ kind: 'navigate', tabId: tab.id, url: tabAddress });
+  };
   const errorKey =
     error === 'INVALID_BROWSER_URL'
       ? 'invalidUrl'
@@ -236,7 +253,7 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
                   disabled={!human}
                   onClick={() => void action({ kind: 'select', tabId: item.id })}
                 >
-                  {item.title || (item.url === 'about:blank' ? t('preview.browser.newTab') : item.url)}
+                  {tabLabel(item)}
                 </Button>
                 <Button
                   type='text'
@@ -325,7 +342,18 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
         </div>
       )}
       <div className={styles.viewport} ref={viewport}>
-        {result?.image && tab ? (
+        {tab && loadFailed ? (
+          <Result
+            status='warning'
+            title={t('preview.browser.loadFailed')}
+            subTitle={t('preview.browser.loadFailedHint')}
+            extra={
+              <Button type='primary' disabled={!human || !tabAddress} onClick={retry}>
+                {t('common.retry')}
+              </Button>
+            }
+          />
+        ) : result?.image && tab ? (
           <div
             className={styles.surface}
             ref={surface}

@@ -1396,6 +1396,8 @@ export type I18nKey =
   | 'preview.browser.agentFirstUseAction'
   | 'preview.browser.agentFirstUseContent'
   | 'preview.browser.agentFirstUseTitle'
+  | 'preview.browser.loadFailed'
+  | 'preview.browser.loadFailedHint'
   | 'preview.browser.newTab'
   | 'preview.browser.tabLimitReached'
   | 'preview.close'
