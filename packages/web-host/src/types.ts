@@ -99,6 +99,8 @@ export type NetworkProxyTestResult = {
 
 export type CodexUpdateStatus = {
   installedVersion: string;
+  /** Newest version AionUi has verified; null when the runtime cannot report it. */
+  verifiedVersion?: string | null;
   latestVersion: string | null;
   checkedAt: string | null;
   updateAvailable: boolean | null;
@@ -115,7 +117,7 @@ export type CodexInstalledVersion = {
   id: string;
   version: string | null;
   installedAt: string | null;
-  protection: 'selected' | 'latest' | 'previous' | 'inUse' | 'unverified' | null;
+  protection: 'selected' | 'latest' | 'previous' | 'inUse' | 'unverified' | 'bundled' | null;
   removable: boolean;
 };
 

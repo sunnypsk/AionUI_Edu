@@ -2,6 +2,7 @@ import { ipcBridge } from '@/common';
 import { Alert, Button, Descriptions, Space, Typography } from '@arco-design/web-react';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { gt, valid } from 'semver';
 import useSWR from 'swr';
 import CodexVersionsPanel from './CodexVersionsPanel';
 
@@ -90,6 +91,12 @@ const CodexUpdatePanel: React.FC = () => {
               },
             ]}
           />
+          {data.verifiedVersion &&
+            valid(data.installedVersion) &&
+            valid(data.verifiedVersion) &&
+            gt(data.installedVersion, data.verifiedVersion) && (
+              <Alert type='info' content={t('codex.update.newerThanVerified')} className='mb-12px mt-12px' />
+            )}
           {data.updateAvailable !== null && !installing && (
             <Alert
               type={data.updateAvailable ? 'info' : 'success'}

@@ -101,8 +101,9 @@ export class CodexUpdateService {
 
   /** Reports deletion eligibility without selecting or removing anything. */
   async versions(): Promise<CodexVersionInventory> {
+    const bundled = await this.readVersion().catch((): null => null);
     return (
-      this.retention?.inventory(!!this.installTask || this.cleaning) ?? {
+      (await this.retention?.inventory(!!this.installTask || this.cleaning, bundled)) ?? {
         versions: [],
         supported: false,
         inspectionComplete: false,

@@ -222,6 +222,9 @@
     "downloading": "正在下載 Codex CLI…",
     "verifying": "正在驗證新版本…"
   },
+  "update": {
+    "newerThanVerified": "目前版本較 AionUi 已測試的版本新，一般可正常使用。"
+  },
   "versions": {
     "title": "已安裝 CLI 版本",
     "policy": "保留最新兩個已安裝版本，以及仍在使用或未能驗證的版本。只會清理你勾選的 CLI 安裝檔；對話、檔案及記憶會保留。",
@@ -241,6 +244,7 @@
     "status": "狀態",
     "available": "可清理",
     "refresh": "重新整理版本",
-    "cleanup": "清理已選舊版本"
+    "cleanup": "清理已選舊版本",
+    "bundled": "系統內置"
   }
 }

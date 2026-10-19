@@ -222,6 +222,9 @@
     "downloading": "Codex CLI indiriliyor…",
     "verifying": "Yeni sürüm doğrulanıyor…"
   },
+  "update": {
+    "newerThanVerified": "Yüklü sürüm, AionUi'nin test ettiği sürümden daha yeni. Genellikle sorunsuz çalışır."
+  },
   "versions": {
     "title": "Yüklü CLI sürümleri",
     "policy": "En yeni iki yüklü sürüm ile kullanılan veya doğrulanamayan sürümler korunur. Yalnızca seçilen CLI kurulumları silinir; sohbetler, dosyalar ve anılar korunur.",
@@ -241,6 +244,7 @@
     "status": "Durum",
     "available": "Temizlenebilir",
     "refresh": "Sürümleri yenile",
-    "cleanup": "Seçilen eski sürümleri temizle"
+    "cleanup": "Seçilen eski sürümleri temizle",
+    "bundled": "Yerleşik"
   }
 }

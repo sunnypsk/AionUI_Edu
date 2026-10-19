@@ -222,6 +222,9 @@
     "downloading": "Downloading Codex CLI…",
     "verifying": "Verifying the new version…"
   },
+  "update": {
+    "newerThanVerified": "The installed version is newer than the one AionUi has tested. It normally works fine."
+  },
   "versions": {
     "title": "Installed CLI versions",
     "policy": "Keep the two newest installed versions, plus versions in use or unverified. Cleanup removes only selected CLI installations; chats, files and memories are preserved.",
@@ -241,6 +244,7 @@
     "status": "Status",
     "available": "Available for cleanup",
     "refresh": "Refresh versions",
-    "cleanup": "Clean up selected versions"
+    "cleanup": "Clean up selected versions",
+    "bundled": "Built in"
   }
 }

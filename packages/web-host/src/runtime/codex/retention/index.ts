@@ -23,7 +23,21 @@ export class CodexRetention {
   }
 
   /** Keeps the newest two installations, the selected default, and all active or unknown versions. */
-  async inventory(busy = false): Promise<CodexVersionInventory> {
+  async inventory(busy = false, bundledVersion?: string | null): Promise<CodexVersionInventory> {
+    const inventory = await this.scan(busy);
+    // The image-bundled CLI lives outside versions/; list it (never removable) while no managed install is selected.
+    if (inventory.supported && bundledVersion && !inventory.versions.some((entry) => entry.protection === 'selected'))
+      inventory.versions.push({
+        id: 'bundled',
+        version: bundledVersion,
+        installedAt: null,
+        protection: 'bundled',
+        removable: false,
+      });
+    return inventory;
+  }
+
+  private async scan(busy: boolean): Promise<CodexVersionInventory> {
     const result: CodexVersionInventory = { versions: [], inspectionComplete: true, supported: this.available, busy };
     if (!this.available) return result;
     try {
@@ -92,7 +106,7 @@ export class CodexRetention {
       ids.some((id) => typeof id !== 'string' || !isInstallId(id))
     )
       throw new Error('INVALID_REQUEST');
-    const inventory = await this.inventory();
+    const inventory = await this.scan(false);
     const removable = new Set(inventory.versions.filter((entry) => entry.removable).map((entry) => entry.id));
     const removed: string[] = [];
     const retained: string[] = [];
@@ -105,6 +119,6 @@ export class CodexRetention {
       await rm(directory, { recursive: true });
       removed.push(id);
     }
-    return { removed, retained, inventory: await this.inventory() };
+    return { removed, retained, inventory: await this.scan(false) };
   }
 }

@@ -11,6 +11,7 @@ const STATUS_KEYS = {
   previous: 'codex.versions.previous',
   inUse: 'codex.versions.inUse',
   unverified: 'codex.versions.unverified',
+  bundled: 'codex.versions.bundled',
 } as const;
 
 type Props = { installedVersion?: string; installing: boolean; onBusyChange: (busy: boolean) => void };

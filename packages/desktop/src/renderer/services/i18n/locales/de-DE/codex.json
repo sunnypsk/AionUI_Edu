@@ -222,6 +222,9 @@
     "downloading": "Codex CLI wird heruntergeladen…",
     "verifying": "Neue Version wird geprüft…"
   },
+  "update": {
+    "newerThanVerified": "Die installierte Version ist neuer als die von AionUi getestete Version. Sie funktioniert in der Regel einwandfrei."
+  },
   "versions": {
     "title": "Installierte CLI-Versionen",
     "policy": "Die zwei neuesten sowie verwendete oder ungeprüfte Versionen bleiben erhalten. Nur ausgewählte CLI-Installationen werden entfernt; Chats, Dateien und Erinnerungen bleiben erhalten.",
@@ -241,6 +244,7 @@
     "status": "Status",
     "available": "Bereinigung möglich",
     "refresh": "Versionen aktualisieren",
-    "cleanup": "Ausgewählte alte Versionen bereinigen"
+    "cleanup": "Ausgewählte alte Versionen bereinigen",
+    "bundled": "Integriert"
   }
 }

@@ -15,6 +15,7 @@ import ButlerDiagnoseButton from '@renderer/components/base/ButlerDiagnoseButton
 import FeedbackButton from '@renderer/components/base/FeedbackButton';
 import CollapsibleContent from '@renderer/components/chat/CollapsibleContent';
 import { iconColors } from '@/renderer/styles/colors';
+import { isElectronDesktop } from '@/renderer/utils/platform';
 
 // One entry per `IMessageTips['type']`. `info` was missing, and the render
 // falls back to `warning`, so every informational tip was drawn with the alarm
@@ -65,6 +66,8 @@ const MessageTips: React.FC<{ message: IMessageTips }> = ({ message }) => {
   const { t } = useTranslation();
   const { content, type, code, params } = message.content;
   const structuredError = type === 'error' ? message.content.error : undefined;
+  // Teachers on the WebUI cannot act on "newer than verified"; the settings panel explains it instead.
+  const hideVersionDrift = code === 'CLI_VERSION_NEWER' && !isElectronDesktop();
   const localizedTipBody = resolveAgentTipBody(content, code, params, t);
   const { json, data } = useFormatContent(localizedTipBody);
 
@@ -75,6 +78,8 @@ const MessageTips: React.FC<{ message: IMessageTips }> = ({ message }) => {
   // what the Butler diagnoses best.
   const shouldShowButler = type === 'error';
   const shouldShowFeedback = type === 'error' && structuredError?.feedback_recommended !== false;
+
+  if (hideVersionDrift) return null;
 
   if (structuredError) {
     const errorCode = structuredError.code;

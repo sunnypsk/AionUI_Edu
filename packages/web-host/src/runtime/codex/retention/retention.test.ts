@@ -117,6 +117,30 @@ describe.skipIf(process.platform === 'win32')('manual CLI version retention', ()
     expect((await retention.cleanup([ids[0]])).removed).toEqual([]);
   });
 
+  it('lists the image-bundled CLI as a non-removable entry when no managed install is selected', async () => {
+    await rm(path.join(root, 'current'));
+    const inventory = await retention.inventory(false, '0.163.0');
+    const bundled = inventory.versions.find((entry) => entry.id === 'bundled');
+    expect(bundled).toMatchObject({ version: '0.163.0', protection: 'bundled', removable: false });
+    expect(inventory.versions.filter((entry) => entry.id === 'bundled')).toHaveLength(1);
+  });
+
+  it('does not list the bundled CLI while a managed install is selected', async () => {
+    expect((await retention.inventory(false, '0.163.0')).versions.some((entry) => entry.id === 'bundled')).toBe(false);
+  });
+
+  it('lists the bundled CLI even when versions/ is empty', async () => {
+    await rm(path.join(root, 'versions'), { recursive: true });
+    await mkdir(path.join(root, 'versions'));
+    await rm(path.join(root, 'current'));
+    const inventory = await retention.inventory(false, '0.163.0');
+    expect(inventory.versions.map((entry) => entry.id)).toEqual(['bundled']);
+  });
+
+  it('cannot clean up the bundled CLI', async () => {
+    await expect(retention.cleanup(['bundled'])).rejects.toThrow('INVALID_REQUEST');
+  });
+
   it.each(
     [['../codex'], ['/data/codex'], ['current'], [], Array(65).fill('invalid')].map((selection) => ({ selection }))
   )('rejects unsafe or invalid cleanup selections %#', async ({ selection }) => {
