@@ -35,7 +35,7 @@ vi.mock('@/renderer/utils/platform', () => ({
 }));
 
 vi.mock('@/renderer/utils/ui/clipboard', () => ({
-  copyText: vi.fn().mockResolvedValue(undefined),
+  copyText: copyTextMock,
 }));
 
 vi.mock('@arco-design/web-react', () => ({
