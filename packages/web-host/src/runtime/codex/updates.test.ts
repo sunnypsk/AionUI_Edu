@@ -1,7 +1,24 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CodexUpdateService } from './updates.js';
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('verified Codex version', () => {
+  it('is reported in the status payload', async () => {
+    const service = new CodexUpdateService(async () => '0.163.0', vi.fn());
+    expect(await service.status()).toMatchObject({ verifiedVersion: '0.151.0' });
+  });
+
+  it('is re-checked whenever the upstream Core pin changes', () => {
+    const upstream = JSON.parse(
+      readFileSync(new URL('../../../openui/core/upstream.json', import.meta.url), 'utf8')
+    ) as { commit: string };
+    expect(upstream.commit, 'upstream Core pin changed: re-check VERIFIED_CODEX_VERSION in updates.ts').toBe(
+      '47e66d0d151123e973b3fd1e77afcb5671b3f8c5'
+    );
+  });
+});
 
 describe('Codex CLI update checks', () => {
   it('reports the installed version without making an outbound request', async () => {
@@ -9,6 +26,7 @@ describe('Codex CLI update checks', () => {
     const service = new CodexUpdateService(async () => '0.163.0', fetchLatest);
     expect(await service.status()).toEqual({
       installedVersion: '0.163.0',
+      verifiedVersion: '0.151.0',
       latestVersion: null,
       checkedAt: null,
       updateAvailable: null,

@@ -9,6 +9,12 @@ const execFileAsync = promisify(execFile);
 const REGISTRY_URL = 'https://registry.npmjs.org/@openai%2fcodex/latest';
 const CHECK_INTERVAL_MS = 60_000;
 
+/**
+ * Mirrors VERIFIED_CODEX_VERSION in `crates/aionui-session/src/backend/cli_version.rs` of the AionCore commit
+ * pinned by packages/web-host/openui/core/upstream.json. Update it whenever that pin changes.
+ */
+export const VERIFIED_CODEX_VERSION = '0.151.0';
+
 async function readInstalledVersion(): Promise<string> {
   const { stdout } = await execFileAsync('codex', ['--version'], { timeout: 5000, maxBuffer: 4096 });
   const version = stdout.trim().match(/^codex-cli (\S+)$/)?.[1];
@@ -52,6 +58,7 @@ export class CodexUpdateService {
     if (!valid(installedVersion)) throw new Error('CODEX_VERSION_UNAVAILABLE');
     return {
       installedVersion,
+      verifiedVersion: VERIFIED_CODEX_VERSION,
       latestVersion: this.latestVersion,
       checkedAt: this.checkedAt,
       updateAvailable: this.latestVersion === null ? null : gt(this.latestVersion, installedVersion),
