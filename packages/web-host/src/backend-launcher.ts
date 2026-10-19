@@ -4,13 +4,14 @@
  * Migrated from packages/desktop/src/process/backend/lifecycleManager.ts in M4.
  * Electron dependency removed: `app.*` replaced with constructor-injected
  * `AppMetadata`, and binary path resolved by injected `BackendBinaryResolver`.
- * Runtime behavior (spawn args, /health timeout, SIGTERM/SIGKILL, crash
- * restart window) is byte-for-byte preserved from the original.
+ * Bundled skill additions are installed before startup is reported ready.
  */
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdirSync, statSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { connect, createServer, type Socket } from 'node:net';
+import path from 'node:path';
 import { cleanupRegisteredAgentProcesses } from './agent-process-registry.js';
 import type { AppMetadata, BackendBinaryResolver } from './types.js';
 
@@ -22,7 +23,35 @@ type BackendStartupStage =
   | 'spawn_error'
   | 'early_exit'
   | 'listen_timeout'
-  | 'health_timeout';
+  | 'health_timeout'
+  | 'builtin_skills';
+
+/** Install the bundled Humanizer skill without changing other built-in or user skills. */
+export async function installBundledBuiltinSkills(bundledDir: string, builtinDir: string): Promise<boolean> {
+  const relativeDir = path.join('auto-inject', 'humanizer-zh');
+  const files = ['LICENSE', 'README.md', 'SKILL.md'];
+  // Read the entire bundle before writing so an incomplete package fails without partial installation.
+  const contents = await Promise.all(files.map((file) => readFile(path.join(bundledDir, relativeDir, file))));
+  const targetDir = path.join(builtinDir, relativeDir);
+  const current = await Promise.all(
+    files.map(async (file) => {
+      try {
+        return await readFile(path.join(targetDir, file));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+        throw error;
+      }
+    })
+  );
+  if (contents.every((content, index) => current[index]?.equals(content))) return false;
+
+  await mkdir(targetDir, { recursive: true });
+  // Write the manifest last; AionCore rebuilds its database catalog on the following startup.
+  for (const [index, file] of files.entries()) {
+    await writeFile(path.join(targetDir, file), contents[index]);
+  }
+  return true;
+}
 
 type HealthCheckDiagnostics = {
   healthCheckAttempts: number;
@@ -588,7 +617,8 @@ export class BackendLifecycleManager {
     dirs?: BackendDirConfig,
     options?: BackendStartOptions,
     preferredPort?: number,
-    launchFlags: BackendLaunchFlags = {}
+    launchFlags: BackendLaunchFlags = {},
+    bundledSkillsRestarted = false
   ): Promise<number> {
     const appVersion = this.appMeta.version;
     let binaryPath: string;
@@ -663,6 +693,44 @@ export class BackendLifecycleManager {
         },
         cause
       );
+    };
+
+    const prepareBuiltinSkills = async (): Promise<number | undefined> => {
+      if (!this.appMeta.builtinSkillsDir) return undefined;
+      const preparingChild = this.childProcess;
+      try {
+        const env = buildSpawnEnv(dirs, options?.runtimeEnv);
+        const builtinDir = env.AIONUI_BUILTIN_SKILLS_PATH
+          ? path.resolve(dirs?.workDir ?? dbPath, env.AIONUI_BUILTIN_SKILLS_PATH)
+          : path.join(dbPath, 'builtin-skills');
+        const changed = await installBundledBuiltinSkills(this.appMeta.builtinSkillsDir, builtinDir);
+        if (this._status === 'stopped' || this.childProcess !== preparingChild) {
+          throw new BackendStartupCancelledError();
+        }
+        if (!changed) return undefined;
+        if (bundledSkillsRestarted) throw new Error('AionCore did not retain the bundled built-in skills');
+
+        // The first boot materializes the official corpus. Add our skill, then restart once
+        // so AionCore catalogs it before any UI or agent can create a conversation.
+        await this.stop();
+        console.info('[aioncore] bundled humanizer-zh installed; rebuilding the skill catalog');
+        const restartedPort = await this.attemptStart(
+          dbPath,
+          logDir,
+          dirs,
+          { ...options, allowPendingOnHealthTimeout: false },
+          this._port,
+          {},
+          true
+        );
+        this._lastOptions = options;
+        return restartedPort;
+      } catch (error) {
+        if (error instanceof BackendStartupCancelledError) throw error;
+        await this.stop();
+        this._status = 'error';
+        throw makeStartupError('builtin_skills', 'aioncore bundled skill installation failed', error);
+      }
     };
 
     const args = buildSpawnArgs({
@@ -879,7 +947,14 @@ export class BackendLifecycleManager {
         void Promise.resolve(options?.onHealthTimeout?.(healthTimeoutError)).catch((error) => {
           console.error('[aioncore] health timeout handler failed:', error);
         });
-        this.continueWaitingForHealth(this._port, this.childProcess, startupStartedAt, readySignal, options?.onReady);
+        this.continueWaitingForHealth(
+          this._port,
+          this.childProcess,
+          startupStartedAt,
+          readySignal,
+          options?.onReady,
+          prepareBuiltinSkills
+        );
         return this._port;
       }
       startupSettled = true;
@@ -890,6 +965,8 @@ export class BackendLifecycleManager {
     }
 
     startupSettled = true;
+    const restartedPort = await prepareBuiltinSkills();
+    if (restartedPort !== undefined) return restartedPort;
     this._status = 'running';
     this.restartCount = 0;
     if (healthOrReady.kind === 'ready') {
@@ -991,7 +1068,8 @@ export class BackendLifecycleManager {
     childProcess: ChildProcess,
     startupStartedAt: number,
     readySignal: Promise<void>,
-    onReady?: (port: number) => Promise<void> | void
+    onReady?: (port: number) => Promise<void> | void,
+    prepareBuiltinSkills?: () => Promise<number | undefined>
   ): void {
     void (async () => {
       // Race the (unbounded) background /health poll against a late-arriving
@@ -1007,6 +1085,11 @@ export class BackendLifecycleManager {
       ]);
       if (this.childProcess !== childProcess || this._status !== 'starting') return;
       if (outcome.kind === 'health' && !outcome.health.ok) return;
+      const restartedPort = await prepareBuiltinSkills?.();
+      if (restartedPort !== undefined) {
+        await onReady?.(restartedPort);
+        return;
+      }
       this._status = 'running';
       this.restartCount = 0;
       const elapsedMs =
@@ -1017,8 +1100,11 @@ export class BackendLifecycleManager {
         `[aioncore] late ${outcome.kind === 'ready' ? 'ready signal' : 'health ready'} on port ${port}, elapsed_ms=${elapsedMs}, data-dir: ${this._lastDbPath}`
       );
       await onReady?.(port);
-    })().catch((error) => {
+    })().catch(async (error) => {
       console.error('[aioncore] background health wait failed:', error);
+      if (error instanceof BackendStartupError && error.details.stage === 'builtin_skills') {
+        await this._lastOptions?.onPendingExit?.(error);
+      }
     });
   }
 

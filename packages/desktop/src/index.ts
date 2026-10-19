@@ -216,6 +216,9 @@ const backendManager = new BackendLifecycleManager(
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     userDataPath: app.getPath('userData'),
+    builtinSkillsDir: app.isPackaged
+      ? path.join(process.resourcesPath, 'builtin-skills')
+      : path.join(app.getAppPath(), 'public', 'builtin-skills'),
   },
   resolveBinaryPath
 );

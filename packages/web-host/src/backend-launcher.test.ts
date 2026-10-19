@@ -19,6 +19,12 @@ vi.mock('node:fs', () => ({
   statSync: vi.fn(),
 }));
 
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn(),
+  writeFile: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('node:net', () => ({
   createServer: vi.fn(),
   connect: vi.fn(),
@@ -30,6 +36,7 @@ vi.mock('./agent-process-registry.js', () => ({
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, statSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { cleanupRegisteredAgentProcesses } from './agent-process-registry.js';
 import {
@@ -468,6 +475,151 @@ describe('BackendLifecycleManager.start (success path)', () => {
       fetchSpy.mockRestore();
       infoSpy.mockRestore();
     }
+  });
+});
+
+describe('BackendLifecycleManager bundled skills', () => {
+  let children: ChildProcess[];
+  let manager: BackendLifecycleManager;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let killSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    children = [];
+    vi.mocked(readFile).mockReset().mockResolvedValue(Buffer.from('bundled skill'));
+    vi.mocked(spawn).mockImplementation(() => {
+      const child = makeFakeChild();
+      child.pid = 90000 + children.length;
+      children.push(child);
+      setImmediate(() => emitListening(child, 55333));
+      return child;
+    });
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
+      const child = children.find((candidate) => candidate.pid === -Number(pid));
+      if (child) {
+        setImmediate(() => {
+          child.emit('exit', 0, 'SIGTERM');
+          child.emit('close', 0, 'SIGTERM');
+        });
+      }
+      return true;
+    });
+    manager = new BackendLifecycleManager({ ...APP_META, builtinSkillsDir: '/bundled' }, () => '/aioncore');
+  });
+
+  afterEach(async () => {
+    await manager.stop();
+    fetchSpy.mockRestore();
+    killSpy.mockRestore();
+  });
+
+  function missingInstalledSkillOnce(): void {
+    for (let index = 0; index < 3; index += 1) {
+      vi.mocked(readFile).mockResolvedValueOnce(Buffer.from('bundled skill'));
+    }
+    for (let index = 0; index < 3; index += 1) {
+      vi.mocked(readFile).mockRejectedValueOnce(Object.assign(new Error('Missing'), { code: 'ENOENT' }));
+    }
+  }
+
+  it('catalogs a newly installed skill before reporting ready and reuses the chosen port', async () => {
+    missingInstalledSkillOnce();
+
+    expect(await manager.start('/data')).toBe(55333);
+    expect(children).toHaveLength(2);
+    expect(vi.mocked(spawn).mock.calls[1][1]).toEqual(expect.arrayContaining(['--port', '55333']));
+  });
+
+  it('does not restart for an unchanged installed skill', async () => {
+    await manager.start('/data');
+
+    expect(children).toHaveLength(1);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(manager.status).toBe('running');
+  });
+
+  it('fails startup and stops the backend when the skill bundle is missing', async () => {
+    vi.mocked(readFile).mockRejectedValue(Object.assign(new Error('Missing bundle'), { code: 'ENOENT' }));
+
+    await expect(manager.start('/data')).rejects.toMatchObject({ details: { stage: 'builtin_skills' } });
+    expect(manager.status).toBe('error');
+    expect(children).toHaveLength(1);
+  });
+
+  it('bounds the installation restart if a backend keeps replacing the skill', async () => {
+    missingInstalledSkillOnce();
+    missingInstalledSkillOnce();
+
+    await expect(manager.start('/data')).rejects.toMatchObject({ details: { stage: 'builtin_skills' } });
+    expect(children).toHaveLength(2);
+    expect(manager.status).toBe('error');
+  });
+
+  it('honors the backend builtin corpus override', async () => {
+    missingInstalledSkillOnce();
+    await manager.start('/data', undefined, undefined, {
+      runtimeEnv: { AIONUI_BUILTIN_SKILLS_PATH: '/override' },
+    });
+
+    expect(writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('/override/auto-inject/humanizer-zh/SKILL.md'),
+      expect.any(Buffer)
+    );
+  });
+
+  it('does not repeat database recovery during the skill catalog restart', async () => {
+    missingInstalledSkillOnce();
+    await manager.start('/data', undefined, undefined, undefined, undefined, { recoverCorruptedDatabase: true });
+
+    expect(vi.mocked(spawn).mock.calls[0][1]).toContain('--recover-corrupted-database');
+    expect(vi.mocked(spawn).mock.calls[1][1]).not.toContain('--recover-corrupted-database');
+  });
+
+  it('finishes skill installation before the late-ready callback', async () => {
+    missingInstalledSkillOnce();
+    type HealthResult = { ok: boolean; diagnostics: { healthCheckAttempts: number } };
+    let finishHealth: (result: HealthResult) => void = () => {};
+    const health = new Promise<HealthResult>((resolve) => {
+      finishHealth = resolve;
+    });
+    vi.spyOn(manager as unknown as { waitForHealth: () => Promise<HealthResult> }, 'waitForHealth')
+      .mockResolvedValueOnce({ ok: false, diagnostics: { healthCheckAttempts: 1 } })
+      .mockReturnValueOnce(health)
+      .mockResolvedValue({ ok: true, diagnostics: { healthCheckAttempts: 1 } });
+    const onReady = vi.fn();
+
+    await manager.start('/data', undefined, undefined, { allowPendingOnHealthTimeout: true, onReady });
+    expect(onReady).not.toHaveBeenCalled();
+    finishHealth({ ok: true, diagnostics: { healthCheckAttempts: 1 } });
+
+    await vi.waitFor(() => expect(onReady).toHaveBeenCalledExactlyOnceWith(55333));
+    expect(children).toHaveLength(2);
+  });
+
+  it('surfaces a missing bundle after a pending startup instead of leaving the host waiting', async () => {
+    vi.mocked(readFile).mockRejectedValue(Object.assign(new Error('Missing bundle'), { code: 'ENOENT' }));
+    type HealthResult = { ok: boolean; diagnostics: { healthCheckAttempts: number } };
+    let finishHealth: (result: HealthResult) => void = () => {};
+    const health = new Promise<HealthResult>((resolve) => {
+      finishHealth = resolve;
+    });
+    vi.spyOn(manager as unknown as { waitForHealth: () => Promise<HealthResult> }, 'waitForHealth')
+      .mockResolvedValueOnce({ ok: false, diagnostics: { healthCheckAttempts: 1 } })
+      .mockReturnValueOnce(health);
+    const onPendingExit = vi.fn();
+
+    await manager.start('/data', undefined, undefined, { allowPendingOnHealthTimeout: true, onPendingExit });
+    finishHealth({ ok: true, diagnostics: { healthCheckAttempts: 1 } });
+
+    await vi.waitFor(() =>
+      expect(onPendingExit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          details: expect.objectContaining({ stage: 'builtin_skills' }),
+        })
+      )
+    );
+    expect(manager.status).toBe('error');
   });
 });
 

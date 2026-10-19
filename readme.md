@@ -6,6 +6,8 @@ New chats use Codex CLI exclusively; the composer has no CLI or model picker. Th
 
 Start the browser UI with `bun run webui`. This launcher puts the project's CLI binaries first on the backend's `PATH`. AionCore remains required for the WebUI's files, sessions, and API; Codex CLI is the conversation's agent runtime. The browser user does not need to install either component.
 
+Humanizer-zh is bundled and enabled by default for new conversations. It automatically guides Chinese writing and polishing while preserving the requested language, facts, quotations, and code. Deselect `humanizer-zh` in the conversation's Skills menu or in the assistant's default Skills to opt out. Existing conversation skill snapshots stay unchanged. Its [source, local adaptations, and MIT license](public/builtin-skills/auto-inject/humanizer-zh/README.md) are included in the bundle.
+
 For Unraid, the container includes SOCKS5 routing for the app, CLI, and their tools, configured in Settings and applied after a container restart. See the [Unraid setup, browser login, and proxy guide](packages/web-host/docker/README.md) for persistence, required container capabilities, and target-host verification.
 
 ---

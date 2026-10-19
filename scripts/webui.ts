@@ -239,6 +239,7 @@ async function main(): Promise<void> {
       isPackaged: false,
       resourcesPath: repoRoot,
       userDataPath: workDir,
+      builtinSkillsDir: path.join(staticDir, 'builtin-skills'),
     },
     staticDir,
     port,

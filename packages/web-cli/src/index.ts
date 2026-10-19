@@ -202,6 +202,7 @@ async function runStart(flags: Map<string, string | true>): Promise<void> {
         isPackaged: true,
         resourcesPath: cliRoot,
         userDataPath: dataDir,
+        builtinSkillsDir: path.join(staticDir, 'builtin-skills'),
       },
       staticDir,
       port,

@@ -8,6 +8,8 @@ export type AppMetadata = {
   isPackaged: boolean;
   resourcesPath: string;
   userDataPath: string;
+  /** Bundled additions to AionCore's built-in skill corpus. */
+  builtinSkillsDir?: string;
 };
 
 /**
