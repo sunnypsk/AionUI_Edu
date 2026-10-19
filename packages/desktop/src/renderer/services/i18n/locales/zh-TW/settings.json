@@ -1362,6 +1362,7 @@
   },
   "providerIdConflict": "Provider ID 已存在，請重試。",
   "autoInjectedSkillsHint": "每次對話都會自動載入，無需手動啟用；由智能體自行決定何時呼叫。",
+  "autoInjectedSkillsOptOutHint": "這些技能會自動套用。如某個對話不需要，可在輸入框的「+」選單中取消勾選。",
   "browserData": {
     "title": "應用內瀏覽器",
     "agentControlLabel": "允許 Agent 操作 APP 內的瀏覽器",

@@ -1893,6 +1893,7 @@ export type I18nKey =
   | 'settings.autoInjectedSkills'
   | 'settings.autoInjectedSkillsBadge'
   | 'settings.autoInjectedSkillsHint'
+  | 'settings.autoInjectedSkillsOptOutHint'
   | 'settings.baseUrl'
   | 'settings.baseUrlAutoFix'
   | 'settings.baseUrlHint'

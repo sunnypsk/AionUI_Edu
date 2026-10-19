@@ -1360,6 +1360,7 @@
   },
   "providerIdConflict": "Provider ID zaten var. Lütfen tekrar deneyin.",
   "autoInjectedSkillsHint": "Her sohbete otomatik olarak yüklenir — etkinleştirmeye gerek yoktur; aracı bunları ne zaman kullanacağına karar verir.",
+  "autoInjectedSkillsOptOutHint": "Bu beceriler otomatik uygulanır. Bir sohbette gerekmiyorsa mesaj kutusunun \"+\" menüsünden işaretini kaldırın.",
   "browserData": {
     "title": "Uygulama içi tarayıcı",
     "agentControlLabel": "Aracının uygulama içi tarayıcıyı kullanmasına izin ver",

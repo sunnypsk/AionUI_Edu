@@ -1363,6 +1363,7 @@
   },
   "providerIdConflict": "O Provider ID já existe. Tente novamente.",
   "autoInjectedSkillsHint": "Carregadas automaticamente em cada conversa — não é preciso ativá-las; o agente decide quando usá-las.",
+  "autoInjectedSkillsOptOutHint": "Essas habilidades são aplicadas automaticamente. Se uma conversa não precisar delas, desmarque-as no menu \"+\" da caixa de mensagem.",
   "browserData": {
     "title": "Navegador interno",
     "agentControlLabel": "Permitir que o agente use o navegador integrado",

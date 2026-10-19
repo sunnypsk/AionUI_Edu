@@ -710,7 +710,8 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
     countClass: string,
     skills: SkillInfo[],
     variant: 'extension' | 'auto',
-    hint?: React.ReactNode
+    hint?: React.ReactNode,
+    note?: React.ReactNode
   ) => (
     <div data-testid={testId}>
       <div className='flex items-center gap-10px mb-12px'>
@@ -723,6 +724,7 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
         ) : null}
         <span className={`text-12px px-10px py-2px rd-[100px] font-medium ${countClass}`}>{count}</span>
       </div>
+      {note ? <div className='text-12px text-t-secondary mb-12px'>{note}</div> : null}
       <div className='flex flex-col gap-8px rounded-12px border border-border-2 bg-2 p-8px md:rounded-16px md:p-10px'>
         {skills.length > 0 ? (
           skills.map((skill) => renderReadonlySkillCard(skill, variant))
@@ -974,6 +976,10 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
           t('settings.autoInjectedSkillsHint', {
             defaultValue:
               'Loaded automatically into every conversation — no need to enable them; the agent decides when to use them.',
+          }),
+          t('settings.autoInjectedSkillsOptOutHint', {
+            defaultValue:
+              'These skills are applied automatically. If a conversation does not need one, untick it in the "+" menu of the message box.',
           })
         )}
     </div>

@@ -1360,6 +1360,7 @@
   },
   "providerIdConflict": "L'ID du fournisseur existe déjà. Veuillez réessayer.",
   "autoInjectedSkillsHint": "Chargé automatiquement dans chaque conversation – pas besoin de les activer ; l'agent décide quand les utiliser.",
+  "autoInjectedSkillsOptOutHint": "Ces compétences s'appliquent automatiquement. Si une conversation n'en a pas besoin, décochez-les dans le menu « + » de la zone de saisie.",
   "browserData": {
     "title": "Navigateur intégré",
     "agentControlLabel": "Autoriser l'agent à utiliser le navigateur intégré",

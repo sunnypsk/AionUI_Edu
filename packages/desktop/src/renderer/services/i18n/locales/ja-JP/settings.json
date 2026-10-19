@@ -1362,6 +1362,7 @@
   },
   "providerIdConflict": "Provider ID は既に存在します。もう一度お試しください。",
   "autoInjectedSkillsHint": "すべての会話に自動的に読み込まれます。有効化は不要で、エージェントが使用するタイミングを判断します。",
+  "autoInjectedSkillsOptOutHint": "これらのスキルは自動的に適用されます。不要な会話では、入力欄の「+」メニューでチェックを外してください。",
   "browserData": {
     "title": "アプリ内ブラウザー",
     "agentControlLabel": "アプリ内ブラウザのエージェント操作を許可",

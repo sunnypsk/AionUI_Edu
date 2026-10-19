@@ -1360,6 +1360,7 @@
   },
   "providerIdConflict": "Provider-ID existiert bereits. Bitte erneut versuchen.",
   "autoInjectedSkillsHint": "Werden automatisch in jede Unterhaltung geladen – kein Aktivieren nötig; der Agent entscheidet, wann er sie nutzt.",
+  "autoInjectedSkillsOptOutHint": "Diese Skills werden automatisch angewendet. Wenn eine Unterhaltung sie nicht braucht, deaktivieren Sie sie im „+“-Menü des Eingabefelds.",
   "browserData": {
     "title": "Integrierter Browser",
     "agentControlLabel": "Agent darf den integrierten Browser bedienen",

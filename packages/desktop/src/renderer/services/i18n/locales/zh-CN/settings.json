@@ -1361,6 +1361,7 @@
   },
   "providerIdConflict": "Provider ID 已存在，请重试。",
   "autoInjectedSkillsHint": "每次对话都会自动加载，无需手动启用；由智能体自行决定何时调用。",
+  "autoInjectedSkillsOptOutHint": "这些技能会自动应用。如果某个对话不需要，可在输入框的“+”菜单中取消勾选。",
   "browserData": {
     "title": "应用内浏览器",
     "agentControlLabel": "允许 Agent 操作 APP 内的浏览器",

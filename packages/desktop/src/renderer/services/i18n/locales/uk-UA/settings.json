@@ -1375,6 +1375,7 @@
   "channels.wecomTitle": "WeCom",
   "channels.wecomDesc": "Chat with AionUi assistant via WeCom (Enterprise WeChat AI Bot)",
   "autoInjectedSkillsHint": "Автоматично завантажуються в кожну розмову — вмикати не потрібно; агент сам вирішує, коли їх використовувати.",
+  "autoInjectedSkillsOptOutHint": "Ці навички застосовуються автоматично. Якщо розмові вони не потрібні, зніміть позначку в меню «+» поля введення.",
   "browserData": {
     "title": "Вбудований браузер",
     "agentControlLabel": "Дозволити агенту працювати з вбудованим браузером",

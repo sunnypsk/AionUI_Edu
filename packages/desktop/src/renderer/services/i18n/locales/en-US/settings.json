@@ -1360,6 +1360,7 @@
   },
   "providerIdConflict": "Provider ID already exists. Please try again.",
   "autoInjectedSkillsHint": "Loaded automatically into every conversation — no need to enable them; the agent decides when to use them.",
+  "autoInjectedSkillsOptOutHint": "These skills are applied automatically. If a conversation does not need one, untick it in the \"+\" menu of the message box.",
   "browserData": {
     "title": "In-app browser",
     "agentControlLabel": "Let the agent use the in-app browser",
