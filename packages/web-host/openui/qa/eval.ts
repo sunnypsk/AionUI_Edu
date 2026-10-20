@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-type Message = { id: string; type: string; position: string; status: string; content: { content?: string } };
+type Message = {
+  id: string;
+  type: string;
+  position: string;
+  status: string;
+  content: { content?: string; images?: { path: string }[] };
+};
 type Request = <T>(method: 'GET' | 'POST', route: string, body?: unknown) => Promise<T>;
 
 export type EvaluationResult = {
@@ -49,7 +55,8 @@ export async function runTeacherEvaluation(
 ): Promise<EvaluationResult[]> {
   const conversations = new Map<string, { id: string; workspace: string }>();
   const results: EvaluationResult[] = [];
-  for (const item of EVAL_PROMPTS) {
+  const only = process.env.AIONUI_QA_EVAL_ONLY?.split(',');
+  for (const item of EVAL_PROMPTS.filter((prompt) => !only || only.includes(prompt.id))) {
     let conversation = item.followUpOf ? conversations.get(item.followUpOf) : undefined;
     if (!conversation) {
       const workspace = path.join(data, 'teacher-eval', item.id);
@@ -72,9 +79,14 @@ export async function runTeacherEvaluation(
       ui_capabilities: ['openui/1'],
     });
     assert.ok(sent.turn_id);
-    const reply = await finalReply(request, conversation.id, previous);
+    const { reply, images } = await finalReply(
+      request,
+      conversation.id,
+      previous,
+      path.join(output, item.id + '.poll.jsonl')
+    );
     const blocks = openUiBlocks(reply);
-    const files = listFiles(conversation.workspace).filter((file) => !before.has(file));
+    const files = [...listFiles(conversation.workspace).filter((file) => !before.has(file)), ...images];
     const result = { id: item.id, prompt: item.prompt, reply, blocks, files };
     results.push(result);
     writeFileSync(
@@ -94,13 +106,23 @@ export const openUiBlocks = (reply: string): { profile: string; program: string 
     program: match[3].trimEnd(),
   }));
 
+/** Codex resumes on its own after short idle gaps between backend turns; a request is done after this much quiet. */
+const QUIET_MS = 2 * 60 * 1000;
+
 /**
- * The runtime briefly reports idle between agent steps, so a turn counts as finished only when
- * it is idle, none of its messages is still streaming, and nothing changed since the previous poll.
+ * A request counts as finished when the runtime is idle, none of its messages is still streaming,
+ * and no message has been added or changed for QUIET_MS. The runtime alone is not enough: newer
+ * Codex versions split one request into several backend turns with idle gaps between them.
  */
-async function finalReply(request: Request, conversation: string, previous: Set<string>): Promise<string> {
+async function finalReply(
+  request: Request,
+  conversation: string,
+  previous: Set<string>,
+  log: string
+): Promise<{ reply: string; images: string[] }> {
   const deadline = Date.now() + TURN_TIMEOUT_MS;
   let lastSnapshot = '';
+  let changedAt = Date.now();
   for (;;) {
     const [current, history] = await Promise.all([
       request<{ runtime?: { is_processing: boolean; turn_id?: string } }>('GET', `/api/conversations/${conversation}`),
@@ -111,9 +133,18 @@ async function finalReply(request: Request, conversation: string, previous: Set<
     const idle = current.runtime?.is_processing === false && !current.runtime.turn_id;
     const streaming = turn.some((message) => message.status === 'work' || message.status === 'pending');
     const snapshot = JSON.stringify(turn.map((message) => [message.id, message.status]));
-    if (replies.length && idle && !streaming && snapshot === lastSnapshot)
-      return replies.map((message) => message.content.content).join('\n\n');
+    appendFileSync(
+      log,
+      JSON.stringify({ at: Date.now(), conversation: { ...current, extra: undefined }, turn: JSON.parse(snapshot) }) +
+        '\n'
+    );
+    if (snapshot !== lastSnapshot) changedAt = Date.now();
     lastSnapshot = snapshot;
+    if (replies.length && idle && !streaming && Date.now() - changedAt >= QUIET_MS)
+      return {
+        reply: replies.map((message) => message.content.content).join('\n\n'),
+        images: turn.flatMap((message) => message.content.images?.map((image) => image.path) ?? []),
+      };
     if (Date.now() >= deadline) throw new Error(`Teacher evaluation turn did not finish within 15 minutes`);
     await new Promise((resolve) => setTimeout(resolve, 5000));
   }
