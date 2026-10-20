@@ -565,59 +565,29 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "card",
-                  "sunk",
-                  "clear"
-                ]
+                "enum": ["card", "sunk", "clear"]
               },
               "direction": {
                 "type": "string",
-                "enum": [
-                  "row",
-                  "column"
-                ]
+                "enum": ["row", "column"]
               },
               "gap": {
                 "type": "string",
-                "enum": [
-                  "none",
-                  "xs",
-                  "s",
-                  "m",
-                  "l",
-                  "xl",
-                  "2xl"
-                ]
+                "enum": ["none", "xs", "s", "m", "l", "xl", "2xl"]
               },
               "align": {
                 "type": "string",
-                "enum": [
-                  "start",
-                  "center",
-                  "end",
-                  "stretch",
-                  "baseline"
-                ]
+                "enum": ["start", "center", "end", "stretch", "baseline"]
               },
               "justify": {
                 "type": "string",
-                "enum": [
-                  "start",
-                  "center",
-                  "end",
-                  "between",
-                  "around",
-                  "evenly"
-                ]
+                "enum": ["start", "center", "end", "between", "around", "evenly"]
               },
               "wrap": {
                 "type": "boolean"
               }
             },
-            "required": [
-              "children"
-            ],
+            "required": ["children"],
             "additionalProperties": false,
             "description": "Styled container. variant: \"card\" (default, elevated) | \"sunk\" (recessed) | \"clear\" (transparent). Always full width. Accepts all Stack flex params (default: direction \"column\"). Cards flex to share space in row/wrap layouts."
           },
@@ -629,18 +599,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "small",
-                  "default",
-                  "large",
-                  "small-heavy",
-                  "large-heavy"
-                ]
+                "enum": ["small", "default", "large", "small-heavy", "large-heavy"]
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Text block. Supports markdown. Optional size: \"small\" | \"default\" | \"large\" | \"small-heavy\" | \"large-heavy\"."
           },
@@ -652,16 +614,10 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "clear",
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["clear", "card", "sunk"]
               }
             },
-            "required": [
-              "textMarkdown"
-            ],
+            "required": ["textMarkdown"],
             "additionalProperties": false,
             "description": "Renders markdown text with optional container variant"
           },
@@ -683,13 +639,7 @@
             "properties": {
               "variant": {
                 "type": "string",
-                "enum": [
-                  "info",
-                  "warning",
-                  "error",
-                  "success",
-                  "neutral"
-                ]
+                "enum": ["info", "warning", "error", "success", "neutral"]
               },
               "title": {
                 "type": "string"
@@ -701,11 +651,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "variant",
-              "title",
-              "description"
-            ],
+            "required": ["variant", "title", "description"],
             "additionalProperties": false,
             "description": "Callout banner. Optional visible is a reactive $boolean — auto-dismisses after 3s by setting $visible to false."
           },
@@ -714,13 +660,7 @@
             "properties": {
               "variant": {
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "warning",
-                  "success",
-                  "danger"
-                ]
+                "enum": ["neutral", "info", "warning", "success", "danger"]
               },
               "title": {
                 "type": "string"
@@ -742,10 +682,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "language",
-              "codeString"
-            ],
+            "required": ["language", "codeString"],
             "additionalProperties": false,
             "description": "Syntax-highlighted code block"
           },
@@ -759,9 +696,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "alt"
-            ],
+            "required": ["alt"],
             "additionalProperties": false,
             "description": "Image with alt text and optional URL"
           },
@@ -775,9 +710,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "src"
-            ],
+            "required": ["src"],
             "additionalProperties": false,
             "description": "Image block with loading state"
           },
@@ -799,16 +732,12 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "src"
-                  ],
+                  "required": ["src"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "images"
-            ],
+            "required": ["images"],
             "additionalProperties": false,
             "description": "Gallery grid of images with modal preview"
           },
@@ -817,10 +746,7 @@
             "properties": {
               "orientation": {
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               },
               "decorative": {
                 "type": "boolean"
@@ -846,10 +772,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "grouped",
-                  "stacked"
-                ]
+                "enum": ["grouped", "stacked"]
               },
               "xLabel": {
                 "type": "string"
@@ -858,10 +781,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Horizontal bars; prefer when category labels are long or for ranked lists"
           },
@@ -878,10 +798,7 @@
                 }
               }
             },
-            "required": [
-              "category",
-              "values"
-            ],
+            "required": ["category", "values"],
             "additionalProperties": false,
             "description": "One data series"
           },
@@ -901,10 +818,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Spider/web chart; use for comparing multiple variables across one or more entities"
           },
@@ -925,23 +839,14 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "pie",
-                  "donut"
-                ]
+                "enum": ["pie", "donut"]
               },
               "appearance": {
                 "type": "string",
-                "enum": [
-                  "circular",
-                  "semiCircular"
-                ]
+                "enum": ["circular", "semiCircular"]
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Circular slices; use plucked arrays: PieChart(data.categories, data.values)"
           },
@@ -961,10 +866,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Radial bars; use plucked arrays: RadialChart(data.categories, data.values)"
           },
@@ -984,10 +886,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Single horizontal stacked bar; use plucked arrays: SingleStackedBarChart(data.categories, data.values)"
           },
@@ -1007,9 +906,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "datasets"
-            ],
+            "required": ["datasets"],
             "additionalProperties": false,
             "description": "X/Y scatter plot; use for correlations, distributions, and clustering"
           },
@@ -1026,10 +923,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "points"
-            ],
+            "required": ["name", "points"],
             "additionalProperties": false,
             "description": "Named dataset"
           },
@@ -1046,10 +940,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "x",
-              "y"
-            ],
+            "required": ["x", "y"],
             "additionalProperties": false,
             "description": "Data point with numeric coordinates"
           },
@@ -1070,11 +961,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "linear",
-                  "natural",
-                  "step"
-                ]
+                "enum": ["linear", "natural", "step"]
               },
               "xLabel": {
                 "type": "string"
@@ -1086,10 +973,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Filled area under lines; use for cumulative totals or volume trends over time"
           },
@@ -1110,10 +994,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "grouped",
-                  "stacked"
-                ]
+                "enum": ["grouped", "stacked"]
               },
               "xLabel": {
                 "type": "string"
@@ -1125,10 +1006,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Vertical bars; use for comparing values across categories with one or more series"
           },
@@ -1149,11 +1027,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "linear",
-                  "natural",
-                  "step"
-                ]
+                "enum": ["linear", "natural", "step"]
               },
               "xLabel": {
                 "type": "string"
@@ -1165,10 +1039,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Lines over categories; use for trends and continuous data over time"
           },
@@ -1182,9 +1053,7 @@
                 }
               }
             },
-            "required": [
-              "columns"
-            ],
+            "required": ["columns"],
             "additionalProperties": false,
             "description": "Data table — column-oriented. Each Col holds its own data array."
           },
@@ -1197,17 +1066,10 @@
               "data": {},
               "type": {
                 "type": "string",
-                "enum": [
-                  "string",
-                  "number",
-                  "action"
-                ]
+                "enum": ["string", "number", "action"]
               }
             },
-            "required": [
-              "label",
-              "data"
-            ],
+            "required": ["label", "data"],
             "additionalProperties": false,
             "description": "Column definition — holds label + data array"
           },
@@ -1222,16 +1084,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["sm", "md", "lg"]
               }
             },
-            "required": [
-              "tags"
-            ],
+            "required": ["tags"],
             "additionalProperties": false,
             "description": "tags is an array of strings; optional size sm | md | lg"
           },
@@ -1252,11 +1108,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "buttons",
-              "fields"
-            ],
+            "required": ["name", "buttons", "fields"],
             "additionalProperties": false,
             "description": "Form container with fields and explicit action buttons"
           },
@@ -1271,15 +1123,10 @@
               },
               "direction": {
                 "type": "string",
-                "enum": [
-                  "row",
-                  "column"
-                ]
+                "enum": ["row", "column"]
               }
             },
-            "required": [
-              "buttons"
-            ],
+            "required": ["buttons"],
             "additionalProperties": false,
             "description": "Group of Button components. direction: \"row\" (default) | \"column\"."
           },
@@ -1294,32 +1141,18 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "primary",
-                  "secondary",
-                  "tertiary"
-                ]
+                "enum": ["primary", "secondary", "tertiary"]
               },
               "type": {
                 "type": "string",
-                "enum": [
-                  "normal",
-                  "destructive"
-                ]
+                "enum": ["normal", "destructive"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "extra-small",
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["extra-small", "small", "medium", "large"]
               }
             },
-            "required": [
-              "label"
-            ],
+            "required": ["label"],
             "additionalProperties": false,
             "description": "Clickable button"
           },
@@ -1336,10 +1169,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "type",
-                  "url"
-                ],
+                "required": ["type", "url"],
                 "additionalProperties": false
               },
               {
@@ -1353,9 +1183,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "type"
-                ],
+                "required": ["type"],
                 "additionalProperties": false
               },
               {
@@ -1372,9 +1200,7 @@
                     "additionalProperties": {}
                   }
                 },
-                "required": [
-                  "type"
-                ],
+                "required": ["type"],
                 "additionalProperties": false
               }
             ]
@@ -1420,10 +1246,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "label",
-              "input"
-            ],
+            "required": ["label", "input"],
             "additionalProperties": false,
             "description": "Field with label, input component, and optional hint text"
           },
@@ -1438,13 +1261,7 @@
               },
               "type": {
                 "type": "string",
-                "enum": [
-                  "text",
-                  "email",
-                  "password",
-                  "number",
-                  "url"
-                ]
+                "enum": ["text", "email", "password", "number", "url"]
               },
               "rules": {
                 "type": "object",
@@ -1483,9 +1300,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "TextArea": {
@@ -1537,9 +1352,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "Select": {
@@ -1595,17 +1408,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["small", "medium", "large"]
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "SelectItem": {
@@ -1618,10 +1424,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "value",
-              "label"
-            ],
+            "required": ["value", "label"],
             "additionalProperties": false,
             "description": "Option for Select"
           },
@@ -1633,10 +1436,7 @@
               },
               "mode": {
                 "type": "string",
-                "enum": [
-                  "single",
-                  "range"
-                ]
+                "enum": ["single", "range"]
               },
               "rules": {
                 "type": "object",
@@ -1673,9 +1473,7 @@
               },
               "value": {}
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "Slider": {
@@ -1686,10 +1484,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "continuous",
-                  "discrete"
-                ]
+                "enum": ["continuous", "discrete"]
               },
               "min": {
                 "type": "number"
@@ -1749,12 +1544,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "variant",
-              "min",
-              "max"
-            ],
+            "required": ["name", "variant", "min", "max"],
             "additionalProperties": false,
             "description": "Numeric slider input; supports continuous and discrete (stepped) variants"
           },
@@ -1813,10 +1603,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "CheckBoxItem": {
@@ -1835,11 +1622,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "label",
-              "description",
-              "name"
-            ],
+            "required": ["label", "description", "name"],
             "additionalProperties": false
           },
           "RadioGroup": {
@@ -1894,10 +1677,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "RadioItem": {
@@ -1913,11 +1693,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "label",
-              "description",
-              "value"
-            ],
+            "required": ["label", "description", "value"],
             "additionalProperties": false
           },
           "Chips": {
@@ -1929,10 +1705,7 @@
               "type": {
                 "default": "multiple",
                 "type": "string",
-                "enum": [
-                  "single",
-                  "multiple"
-                ]
+                "enum": ["single", "multiple"]
               },
               "items": {
                 "default": [],
@@ -1988,11 +1761,7 @@
                 ]
               }
             },
-            "required": [
-              "name",
-              "type",
-              "items"
-            ],
+            "required": ["name", "type", "items"],
             "additionalProperties": false,
             "description": "A form field of compact selectable chips for choosing one or many short options; the selection is stored under `name`."
           },
@@ -2012,10 +1781,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "value",
-              "label"
-            ],
+            "required": ["value", "label"],
             "additionalProperties": false,
             "description": "A single selectable chip inside a Chips group, with a value, label and optional icon."
           },
@@ -2029,9 +1795,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false,
             "description": "A lucide icon by kebab-case name (e.g. 'circle-check'). Optional category picks a topical fallback when the name doesn't resolve."
           },
@@ -2044,10 +1808,7 @@
               "type": {
                 "default": "single",
                 "type": "string",
-                "enum": [
-                  "single",
-                  "multiple"
-                ]
+                "enum": ["single", "multiple"]
               },
               "items": {
                 "default": [],
@@ -2103,11 +1864,7 @@
                 ]
               }
             },
-            "required": [
-              "name",
-              "type",
-              "items"
-            ],
+            "required": ["name", "type", "items"],
             "additionalProperties": false,
             "description": "A form field of selectable cards (title, optional subtitle, optional icon or image) laid out in a responsive grid for choosing one or many options; the selection is stored under `name`."
           },
@@ -2137,10 +1894,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "value",
-              "title"
-            ],
+            "required": ["value", "title"],
             "additionalProperties": false,
             "description": "A single selectable card inside an OptionCards group, with a value, title, optional subtitle and an optional Icon or Image on top."
           },
@@ -2158,33 +1912,18 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "primary",
-                  "secondary",
-                  "tertiary"
-                ]
+                "enum": ["primary", "secondary", "tertiary"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "extra-small",
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["extra-small", "small", "medium", "large"]
               },
               "shape": {
                 "type": "string",
-                "enum": [
-                  "square",
-                  "circle"
-                ]
+                "enum": ["square", "circle"]
               }
             },
-            "required": [
-              "name",
-              "icon"
-            ],
+            "required": ["name", "icon"],
             "additionalProperties": false,
             "description": "Icon-only button. name is the accessible label and the action label; icon is an Icon; action fires on click."
           },
@@ -2198,9 +1937,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Step-by-step guide"
           },
@@ -2214,10 +1951,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "title",
-              "details"
-            ],
+            "required": ["title", "details"],
             "additionalProperties": false,
             "description": "title and details text for one step"
           },
@@ -2231,9 +1965,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "heading"
-            ],
+            "required": ["heading"],
             "additionalProperties": false,
             "description": "Compact section heading with an optional one-line description, for use inside cards."
           },
@@ -2255,27 +1987,17 @@
                     "rightVariant": {
                       "default": "text",
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "number"
-                      ]
+                      "enum": ["text", "number"]
                     }
                   },
-                  "required": [
-                    "left",
-                    "right",
-                    "rightVariant"
-                  ],
+                  "required": ["left", "right", "rightVariant"],
                   "additionalProperties": false
                 }
               },
               "size": {
                 "default": "default",
                 "type": "string",
-                "enum": [
-                  "small",
-                  "default"
-                ]
+                "enum": ["small", "default"]
               },
               "header": {
                 "type": "object",
@@ -2289,17 +2011,10 @@
                   "rightVariant": {
                     "default": "text",
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "number"
-                    ]
+                    "enum": ["text", "number"]
                   }
                 },
-                "required": [
-                  "left",
-                  "right",
-                  "rightVariant"
-                ],
+                "required": ["left", "right", "rightVariant"],
                 "additionalProperties": false
               },
               "footer": {
@@ -2314,24 +2029,14 @@
                   "rightVariant": {
                     "default": "text",
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "number"
-                    ]
+                    "enum": ["text", "number"]
                   }
                 },
-                "required": [
-                  "left",
-                  "right",
-                  "rightVariant"
-                ],
+                "required": ["left", "right", "rightVariant"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "rows",
-              "size"
-            ],
+            "required": ["rows", "size"],
             "additionalProperties": false,
             "description": "Two-column key/value rows (left label, right value). size 'default' supports optional header and footer rows; rightVariant 'number' uses tabular numbers."
           },
@@ -2350,13 +2055,7 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "number",
-                        "date-single",
-                        "select",
-                        "url"
-                      ]
+                      "enum": ["text", "number", "date-single", "select", "url"]
                     },
                     "key": {
                       "default": "default",
@@ -2381,19 +2080,12 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "value",
-                          "label"
-                        ],
+                        "required": ["value", "label"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "type",
-                    "key",
-                    "header"
-                  ],
+                  "required": ["type", "key", "header"],
                   "additionalProperties": false
                 }
               },
@@ -2409,26 +2101,16 @@
                     "values": {
                       "type": "array",
                       "items": {
-                        "type": [
-                          "string",
-                          "number"
-                        ]
+                        "type": ["string", "number"]
                       }
                     }
                   },
-                  "required": [
-                    "id",
-                    "values"
-                  ],
+                  "required": ["id", "values"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "name",
-              "columns",
-              "data"
-            ],
+            "required": ["name", "columns", "data"],
             "additionalProperties": false,
             "description": "Spreadsheet-like table whose cells the user can edit inline (text, number, url, date, select columns); edits are saved back as a form field"
           },
@@ -2445,9 +2127,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid"
-                ]
+                "enum": ["grid"]
               },
               "responsive": {
                 "default": true,
@@ -2457,17 +2137,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A responsive grid of compact label/value cards (2 per row) for showing several short facts side by side; optionally clickable with a shared action."
           },
@@ -2498,9 +2171,7 @@
                 ]
               }
             },
-            "required": [
-              "lhs"
-            ],
+            "required": ["lhs"],
             "additionalProperties": false,
             "description": "One row-style snippet card: a label on the left (IconText or ImageText) and an optional value on the right (Text or BoldText)."
           },
@@ -2513,30 +2184,12 @@
               "iconVariant": {
                 "default": "neutral",
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "success",
-                  "warning",
-                  "danger",
-                  "inverted",
-                  "filled",
-                  "soft"
-                ]
+                "enum": ["neutral", "info", "success", "warning", "danger", "inverted", "filled", "soft"]
               },
               "iconSize": {
                 "default": "m",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "s",
-                  "m",
-                  "l",
-                  "xl",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "s", "m", "l", "xl", "sm", "md", "lg"]
               },
               "title": {
                 "type": "string"
@@ -2551,20 +2204,10 @@
               "layout": {
                 "default": "horizontal",
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               }
             },
-            "required": [
-              "icon",
-              "iconVariant",
-              "iconSize",
-              "title",
-              "bold",
-              "layout"
-            ],
+            "required": ["icon", "iconVariant", "iconSize", "title", "bold", "layout"],
             "additionalProperties": false,
             "description": "An icon badge with a title and optional subtitle, laid out horizontally or vertically. iconVariant sets the badge color."
           },
@@ -2590,21 +2233,13 @@
               "layout": {
                 "default": "horizontal",
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               },
               "imageSize": {
                 "type": "number"
               }
             },
-            "required": [
-              "src",
-              "title",
-              "bold",
-              "layout"
-            ],
+            "required": ["src", "title", "bold", "layout"],
             "additionalProperties": false,
             "description": "A small square image (thumbnail/avatar) with a title and optional subtitle. src must be a real image URL."
           },
@@ -2614,10 +2249,7 @@
               "variant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number"
-                ]
+                "enum": ["text", "number"]
               },
               "value": {
                 "type": "string"
@@ -2628,29 +2260,15 @@
               "subtextVariant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number",
-                  "metric"
-                ]
+                "enum": ["text", "number", "metric"]
               },
               "size": {
                 "default": "sm",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "sm", "md", "lg"]
               }
             },
-            "required": [
-              "variant",
-              "value",
-              "subtextVariant",
-              "size"
-            ],
+            "required": ["variant", "value", "subtextVariant", "size"],
             "additionalProperties": false,
             "description": "Plain text line with optional subtext. variant 'number' uses tabular number styling; subtextVariant 'metric' colors a leading +/- subtext green/red."
           },
@@ -2660,10 +2278,7 @@
               "variant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number"
-                ]
+                "enum": ["text", "number"]
               },
               "value": {
                 "type": "string"
@@ -2674,29 +2289,15 @@
               "subtextVariant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number",
-                  "metric"
-                ]
+                "enum": ["text", "number", "metric"]
               },
               "size": {
                 "default": "sm",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "sm", "md", "lg"]
               }
             },
-            "required": [
-              "variant",
-              "value",
-              "subtextVariant",
-              "size"
-            ],
+            "required": ["variant", "value", "subtextVariant", "size"],
             "additionalProperties": false,
             "description": "Emphasized (bold) text line with optional subtext. variant 'number' uses tabular number styling; subtextVariant 'metric' colors a leading +/- subtext green/red."
           },
@@ -2713,10 +2314,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -2726,17 +2324,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or horizontal carousel of compact overview cards, each with a heading (icon/image/text) on top and an inline metric below; optionally clickable with a shared action."
           },
@@ -2763,9 +2354,7 @@
                 "$ref": "#/$defs/MetricIndicatorInline"
               }
             },
-            "required": [
-              "top"
-            ],
+            "required": ["top"],
             "additionalProperties": false,
             "description": "One overview card: a heading slot at the top (IconText, ImageText or Text) and an optional MetricIndicatorInline at the bottom."
           },
@@ -2783,25 +2372,17 @@
                 "properties": {
                   "direction": {
                     "type": "string",
-                    "enum": [
-                      "up",
-                      "down"
-                    ]
+                    "enum": ["up", "down"]
                   },
                   "value": {
                     "type": "number"
                   }
                 },
-                "required": [
-                  "direction",
-                  "value"
-                ],
+                "required": ["direction", "value"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "value"
-            ],
+            "required": ["value"],
             "additionalProperties": false,
             "description": "Headline metric value with an optional +/- percentage trend and subtext, all on one line."
           },
@@ -2818,10 +2399,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -2831,17 +2409,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or carousel of compact tinted context cards (title or tag plus a short bold body); an optional action makes every card clickable."
           },
@@ -2866,9 +2437,7 @@
               },
               "bgColor": {
                 "type": "string",
-                "enum": [
-                  "gray"
-                ]
+                "enum": ["gray"]
               },
               "bgImageSrc": {
                 "type": "string"
@@ -2877,9 +2446,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "title"
-            ],
+            "required": ["title"],
             "additionalProperties": false,
             "description": "A single card inside a ContextCardBlock: a title (plain string or Tag), an optional markdown body, and an optional gray tint or background image."
           },
@@ -2894,26 +2461,14 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["sm", "md", "lg"]
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "success",
-                  "warning",
-                  "danger"
-                ]
+                "enum": ["neutral", "info", "success", "warning", "danger"]
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Styled tag/badge with optional Icon and variant"
           },
@@ -2930,10 +2485,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -2943,17 +2495,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A two-per-row grid or carousel of rich cards, each with an optional header, stacked body content (text, metrics, charts, lists, tags) and a price/button footer; an optional action makes every card clickable."
           },
@@ -3043,9 +2588,7 @@
                 "additionalProperties": false
               }
             },
-            "required": [
-              "body"
-            ],
+            "required": ["body"],
             "additionalProperties": false,
             "description": "A single card inside a CompositeCardBlock: an optional header (icon/image/text), a stack of body elements (text, metrics, charts, lists, tags), and an optional price/button footer."
           },
@@ -3069,11 +2612,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "src",
-              "title",
-              "bold"
-            ],
+            "required": ["src", "title", "bold"],
             "additionalProperties": false,
             "description": "A full-width banner image above a bold title and optional subtitle. src must be a real image URL."
           },
@@ -3088,22 +2627,14 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "number",
-                  "image"
-                ]
+                "enum": ["number", "image"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "default",
-                  "small"
-                ]
+                "enum": ["default", "small"]
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "A list of items with number or image indicators. Each item can optionally have an action. size small renders a compact list."
           },
@@ -3126,10 +2657,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "src",
-                  "alt"
-                ],
+                "required": ["src", "alt"],
                 "additionalProperties": false
               },
               "actionLabel": {
@@ -3139,9 +2667,7 @@
                 "$ref": "#/$defs/ActionExpression"
               }
             },
-            "required": [
-              "title"
-            ],
+            "required": ["title"],
             "additionalProperties": false,
             "description": "Item in a ListBlock — displays a title with an optional subtitle and image. When action is provided, the item becomes clickable."
           },
@@ -3162,25 +2688,17 @@
                 "properties": {
                   "direction": {
                     "type": "string",
-                    "enum": [
-                      "up",
-                      "down"
-                    ]
+                    "enum": ["up", "down"]
                   },
                   "value": {
                     "type": "number"
                   }
                 },
-                "required": [
-                  "direction",
-                  "value"
-                ],
+                "required": ["direction", "value"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "value"
-            ],
+            "required": ["value"],
             "additionalProperties": false,
             "description": "Headline metric value with an optional struck-through previousValue, a +/- percentage trend, and subtext below."
           },
@@ -3197,10 +2715,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -3210,17 +2725,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or carousel of photo-first cards: a full-bleed background image with a tag on top and a bold text panel at the bottom; an optional action makes every card clickable."
           },
@@ -3243,9 +2751,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "body"
-            ],
+            "required": ["body"],
             "additionalProperties": false,
             "description": "A single photo-first card inside a VisualCardBlock: a BoldText body panel, an optional Tag, and a background image (bgImageSrc must be a real URL; bgImageAlt is its alt text)."
           },
@@ -3259,9 +2765,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Tabbed container"
           },
@@ -3387,11 +2891,7 @@
                 }
               }
             },
-            "required": [
-              "value",
-              "trigger",
-              "content"
-            ],
+            "required": ["value", "trigger", "content"],
             "additionalProperties": false,
             "description": "value is unique id, trigger is tab label, content is array of components"
           },
@@ -3424,9 +2924,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "title"
-                  ],
+                  "required": ["title"],
                   "additionalProperties": false
                 }
               },
@@ -3452,17 +2950,12 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "title"
-                  ],
+                  "required": ["title"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "name",
-              "slides"
-            ],
+            "required": ["name", "slides"],
             "additionalProperties": false,
             "description": "Editable slide outline the teacher reviews before a .pptx is produced; each slide has a title, points, an optional suggested visual and speaker notes. Pair with a confirm Button using @ToAssistant."
           },
@@ -3479,9 +2972,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "path"
-            ],
+            "required": ["path"],
             "additionalProperties": false,
             "description": "A file produced in this conversation, with preview and download. path is relative to the conversation workspace (no absolute paths, no \"..\")."
           },
@@ -3599,15 +3090,10 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["card", "sunk"]
               }
             },
-            "required": [
-              "children"
-            ],
+            "required": ["children"],
             "additionalProperties": false,
             "description": "Horizontal scrollable carousel"
           },
@@ -3620,51 +3106,25 @@
               },
               "direction": {
                 "type": "string",
-                "enum": [
-                  "row",
-                  "column"
-                ]
+                "enum": ["row", "column"]
               },
               "gap": {
                 "type": "string",
-                "enum": [
-                  "none",
-                  "xs",
-                  "s",
-                  "m",
-                  "l",
-                  "xl",
-                  "2xl"
-                ]
+                "enum": ["none", "xs", "s", "m", "l", "xl", "2xl"]
               },
               "align": {
                 "type": "string",
-                "enum": [
-                  "start",
-                  "center",
-                  "end",
-                  "stretch",
-                  "baseline"
-                ]
+                "enum": ["start", "center", "end", "stretch", "baseline"]
               },
               "justify": {
                 "type": "string",
-                "enum": [
-                  "start",
-                  "center",
-                  "end",
-                  "between",
-                  "around",
-                  "evenly"
-                ]
+                "enum": ["start", "center", "end", "between", "around", "evenly"]
               },
               "wrap": {
                 "type": "boolean"
               }
             },
-            "required": [
-              "children"
-            ],
+            "required": ["children"],
             "additionalProperties": false,
             "description": "Flex container. direction: \"row\"|\"column\" (default \"column\"). gap: \"none\"|\"xs\"|\"s\"|\"m\"|\"l\"|\"xl\"|\"2xl\" (default \"m\"). align: \"start\"|\"center\"|\"end\"|\"stretch\"|\"baseline\". justify: \"start\"|\"center\"|\"end\"|\"between\"|\"around\"|\"evenly\"."
           },
@@ -3678,10 +3138,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "category",
-              "value"
-            ],
+            "required": ["category", "value"],
             "additionalProperties": false,
             "description": "One slice with label and numeric value"
           },
@@ -3692,9 +3149,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Text label"
           },
@@ -3712,11 +3167,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "clear",
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["clear", "card", "sunk"]
               },
               "value": {
                 "type": "object",
@@ -3728,10 +3179,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false,
             "description": "Group of switch toggles"
           },
@@ -3751,9 +3199,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false,
             "description": "Individual switch toggle"
           },
@@ -3767,9 +3213,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Collapsible sections"
           },
@@ -3895,11 +3339,7 @@
                 }
               }
             },
-            "required": [
-              "value",
-              "trigger",
-              "content"
-            ],
+            "required": ["value", "trigger", "content"],
             "additionalProperties": false,
             "description": "value is unique id, trigger is section title"
           },
@@ -4026,17 +3466,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["sm", "md", "lg"]
               }
             },
-            "required": [
-              "title",
-              "children"
-            ],
+            "required": ["title", "children"],
             "additionalProperties": false,
             "description": "Modal dialog. open is a reactive $boolean binding — set to true to open, X/Escape/backdrop auto-closes. Put Form with buttons inside children."
           }
@@ -4632,17 +4065,12 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "title",
-                    "sourceName"
-                  ],
+                  "required": ["title", "sourceName"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "children"
-            ],
+            "required": ["children"],
             "additionalProperties": false,
             "description": "Vertical container for all content in a chat response. Children stack top to bottom automatically. Optional sources ([{ title, sourceName, url }]) render as a Sources strip at the bottom and back inline [n] citations in TextContent."
           },
@@ -4654,18 +4082,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "small",
-                  "default",
-                  "large",
-                  "small-heavy",
-                  "large-heavy"
-                ]
+                "enum": ["small", "default", "large", "small-heavy", "large-heavy"]
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Text block. Supports markdown. Optional size: \"small\" | \"default\" | \"large\" | \"small-heavy\" | \"large-heavy\"."
           },
@@ -4677,16 +4097,10 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "clear",
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["clear", "card", "sunk"]
               }
             },
-            "required": [
-              "textMarkdown"
-            ],
+            "required": ["textMarkdown"],
             "additionalProperties": false,
             "description": "Renders markdown text with optional container variant"
           },
@@ -4708,13 +4122,7 @@
             "properties": {
               "variant": {
                 "type": "string",
-                "enum": [
-                  "info",
-                  "warning",
-                  "error",
-                  "success",
-                  "neutral"
-                ]
+                "enum": ["info", "warning", "error", "success", "neutral"]
               },
               "title": {
                 "type": "string"
@@ -4726,11 +4134,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "variant",
-              "title",
-              "description"
-            ],
+            "required": ["variant", "title", "description"],
             "additionalProperties": false,
             "description": "Callout banner. Optional visible is a reactive $boolean — auto-dismisses after 3s by setting $visible to false."
           },
@@ -4739,13 +4143,7 @@
             "properties": {
               "variant": {
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "warning",
-                  "success",
-                  "danger"
-                ]
+                "enum": ["neutral", "info", "warning", "success", "danger"]
               },
               "title": {
                 "type": "string"
@@ -4767,10 +4165,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "language",
-              "codeString"
-            ],
+            "required": ["language", "codeString"],
             "additionalProperties": false,
             "description": "Syntax-highlighted code block"
           },
@@ -4784,9 +4179,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "alt"
-            ],
+            "required": ["alt"],
             "additionalProperties": false,
             "description": "Image with alt text and optional URL"
           },
@@ -4800,9 +4193,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "src"
-            ],
+            "required": ["src"],
             "additionalProperties": false,
             "description": "Image block with loading state"
           },
@@ -4824,16 +4215,12 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "src"
-                  ],
+                  "required": ["src"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "images"
-            ],
+            "required": ["images"],
             "additionalProperties": false,
             "description": "Gallery grid of images with modal preview"
           },
@@ -4842,10 +4229,7 @@
             "properties": {
               "orientation": {
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               },
               "decorative": {
                 "type": "boolean"
@@ -4871,10 +4255,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "grouped",
-                  "stacked"
-                ]
+                "enum": ["grouped", "stacked"]
               },
               "xLabel": {
                 "type": "string"
@@ -4883,10 +4264,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Horizontal bars; prefer when category labels are long or for ranked lists"
           },
@@ -4903,10 +4281,7 @@
                 }
               }
             },
-            "required": [
-              "category",
-              "values"
-            ],
+            "required": ["category", "values"],
             "additionalProperties": false,
             "description": "One data series"
           },
@@ -4926,10 +4301,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Spider/web chart; use for comparing multiple variables across one or more entities"
           },
@@ -4950,23 +4322,14 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "pie",
-                  "donut"
-                ]
+                "enum": ["pie", "donut"]
               },
               "appearance": {
                 "type": "string",
-                "enum": [
-                  "circular",
-                  "semiCircular"
-                ]
+                "enum": ["circular", "semiCircular"]
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Circular slices; use plucked arrays: PieChart(data.categories, data.values)"
           },
@@ -4986,10 +4349,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Radial bars; use plucked arrays: RadialChart(data.categories, data.values)"
           },
@@ -5009,10 +4369,7 @@
                 }
               }
             },
-            "required": [
-              "labels",
-              "values"
-            ],
+            "required": ["labels", "values"],
             "additionalProperties": false,
             "description": "Single horizontal stacked bar; use plucked arrays: SingleStackedBarChart(data.categories, data.values)"
           },
@@ -5032,9 +4389,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "datasets"
-            ],
+            "required": ["datasets"],
             "additionalProperties": false,
             "description": "X/Y scatter plot; use for correlations, distributions, and clustering"
           },
@@ -5051,10 +4406,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "points"
-            ],
+            "required": ["name", "points"],
             "additionalProperties": false,
             "description": "Named dataset"
           },
@@ -5071,10 +4423,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "x",
-              "y"
-            ],
+            "required": ["x", "y"],
             "additionalProperties": false,
             "description": "Data point with numeric coordinates"
           },
@@ -5095,11 +4444,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "linear",
-                  "natural",
-                  "step"
-                ]
+                "enum": ["linear", "natural", "step"]
               },
               "xLabel": {
                 "type": "string"
@@ -5111,10 +4456,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Filled area under lines; use for cumulative totals or volume trends over time"
           },
@@ -5135,10 +4477,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "grouped",
-                  "stacked"
-                ]
+                "enum": ["grouped", "stacked"]
               },
               "xLabel": {
                 "type": "string"
@@ -5150,10 +4489,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Vertical bars; use for comparing values across categories with one or more series"
           },
@@ -5174,11 +4510,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "linear",
-                  "natural",
-                  "step"
-                ]
+                "enum": ["linear", "natural", "step"]
               },
               "xLabel": {
                 "type": "string"
@@ -5190,10 +4522,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "labels",
-              "series"
-            ],
+            "required": ["labels", "series"],
             "additionalProperties": false,
             "description": "Lines over categories; use for trends and continuous data over time"
           },
@@ -5207,9 +4536,7 @@
                 }
               }
             },
-            "required": [
-              "columns"
-            ],
+            "required": ["columns"],
             "additionalProperties": false,
             "description": "Data table — column-oriented. Each Col holds its own data array."
           },
@@ -5222,17 +4549,10 @@
               "data": {},
               "type": {
                 "type": "string",
-                "enum": [
-                  "string",
-                  "number",
-                  "action"
-                ]
+                "enum": ["string", "number", "action"]
               }
             },
-            "required": [
-              "label",
-              "data"
-            ],
+            "required": ["label", "data"],
             "additionalProperties": false,
             "description": "Column definition — holds label + data array"
           },
@@ -5247,16 +4567,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["sm", "md", "lg"]
               }
             },
-            "required": [
-              "tags"
-            ],
+            "required": ["tags"],
             "additionalProperties": false,
             "description": "tags is an array of strings; optional size sm | md | lg"
           },
@@ -5277,11 +4591,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "buttons",
-              "fields"
-            ],
+            "required": ["name", "buttons", "fields"],
             "additionalProperties": false,
             "description": "Form container with fields and explicit action buttons"
           },
@@ -5296,15 +4606,10 @@
               },
               "direction": {
                 "type": "string",
-                "enum": [
-                  "row",
-                  "column"
-                ]
+                "enum": ["row", "column"]
               }
             },
-            "required": [
-              "buttons"
-            ],
+            "required": ["buttons"],
             "additionalProperties": false,
             "description": "Group of Button components. direction: \"row\" (default) | \"column\"."
           },
@@ -5319,32 +4624,18 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "primary",
-                  "secondary",
-                  "tertiary"
-                ]
+                "enum": ["primary", "secondary", "tertiary"]
               },
               "type": {
                 "type": "string",
-                "enum": [
-                  "normal",
-                  "destructive"
-                ]
+                "enum": ["normal", "destructive"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "extra-small",
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["extra-small", "small", "medium", "large"]
               }
             },
-            "required": [
-              "label"
-            ],
+            "required": ["label"],
             "additionalProperties": false,
             "description": "Clickable button"
           },
@@ -5361,10 +4652,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "type",
-                  "url"
-                ],
+                "required": ["type", "url"],
                 "additionalProperties": false
               },
               {
@@ -5378,9 +4666,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "type"
-                ],
+                "required": ["type"],
                 "additionalProperties": false
               },
               {
@@ -5397,9 +4683,7 @@
                     "additionalProperties": {}
                   }
                 },
-                "required": [
-                  "type"
-                ],
+                "required": ["type"],
                 "additionalProperties": false
               }
             ]
@@ -5445,10 +4729,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "label",
-              "input"
-            ],
+            "required": ["label", "input"],
             "additionalProperties": false,
             "description": "Field with label, input component, and optional hint text"
           },
@@ -5463,13 +4744,7 @@
               },
               "type": {
                 "type": "string",
-                "enum": [
-                  "text",
-                  "email",
-                  "password",
-                  "number",
-                  "url"
-                ]
+                "enum": ["text", "email", "password", "number", "url"]
               },
               "rules": {
                 "type": "object",
@@ -5508,9 +4783,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "TextArea": {
@@ -5562,9 +4835,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "Select": {
@@ -5620,17 +4891,10 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["small", "medium", "large"]
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "SelectItem": {
@@ -5643,10 +4907,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "value",
-              "label"
-            ],
+            "required": ["value", "label"],
             "additionalProperties": false,
             "description": "Option for Select"
           },
@@ -5658,10 +4919,7 @@
               },
               "mode": {
                 "type": "string",
-                "enum": [
-                  "single",
-                  "range"
-                ]
+                "enum": ["single", "range"]
               },
               "rules": {
                 "type": "object",
@@ -5698,9 +4956,7 @@
               },
               "value": {}
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false
           },
           "Slider": {
@@ -5711,10 +4967,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "continuous",
-                  "discrete"
-                ]
+                "enum": ["continuous", "discrete"]
               },
               "min": {
                 "type": "number"
@@ -5774,12 +5027,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "variant",
-              "min",
-              "max"
-            ],
+            "required": ["name", "variant", "min", "max"],
             "additionalProperties": false,
             "description": "Numeric slider input; supports continuous and discrete (stepped) variants"
           },
@@ -5838,10 +5086,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "CheckBoxItem": {
@@ -5860,11 +5105,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "label",
-              "description",
-              "name"
-            ],
+            "required": ["label", "description", "name"],
             "additionalProperties": false
           },
           "RadioGroup": {
@@ -5919,10 +5160,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false
           },
           "RadioItem": {
@@ -5938,11 +5176,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "label",
-              "description",
-              "value"
-            ],
+            "required": ["label", "description", "value"],
             "additionalProperties": false
           },
           "Chips": {
@@ -5954,10 +5188,7 @@
               "type": {
                 "default": "multiple",
                 "type": "string",
-                "enum": [
-                  "single",
-                  "multiple"
-                ]
+                "enum": ["single", "multiple"]
               },
               "items": {
                 "default": [],
@@ -6013,11 +5244,7 @@
                 ]
               }
             },
-            "required": [
-              "name",
-              "type",
-              "items"
-            ],
+            "required": ["name", "type", "items"],
             "additionalProperties": false,
             "description": "A form field of compact selectable chips for choosing one or many short options; the selection is stored under `name`."
           },
@@ -6037,10 +5264,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "value",
-              "label"
-            ],
+            "required": ["value", "label"],
             "additionalProperties": false,
             "description": "A single selectable chip inside a Chips group, with a value, label and optional icon."
           },
@@ -6054,9 +5278,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false,
             "description": "A lucide icon by kebab-case name (e.g. 'circle-check'). Optional category picks a topical fallback when the name doesn't resolve."
           },
@@ -6069,10 +5291,7 @@
               "type": {
                 "default": "single",
                 "type": "string",
-                "enum": [
-                  "single",
-                  "multiple"
-                ]
+                "enum": ["single", "multiple"]
               },
               "items": {
                 "default": [],
@@ -6128,11 +5347,7 @@
                 ]
               }
             },
-            "required": [
-              "name",
-              "type",
-              "items"
-            ],
+            "required": ["name", "type", "items"],
             "additionalProperties": false,
             "description": "A form field of selectable cards (title, optional subtitle, optional icon or image) laid out in a responsive grid for choosing one or many options; the selection is stored under `name`."
           },
@@ -6162,10 +5377,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "value",
-              "title"
-            ],
+            "required": ["value", "title"],
             "additionalProperties": false,
             "description": "A single selectable card inside an OptionCards group, with a value, title, optional subtitle and an optional Icon or Image on top."
           },
@@ -6183,33 +5395,18 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "primary",
-                  "secondary",
-                  "tertiary"
-                ]
+                "enum": ["primary", "secondary", "tertiary"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "extra-small",
-                  "small",
-                  "medium",
-                  "large"
-                ]
+                "enum": ["extra-small", "small", "medium", "large"]
               },
               "shape": {
                 "type": "string",
-                "enum": [
-                  "square",
-                  "circle"
-                ]
+                "enum": ["square", "circle"]
               }
             },
-            "required": [
-              "name",
-              "icon"
-            ],
+            "required": ["name", "icon"],
             "additionalProperties": false,
             "description": "Icon-only button. name is the accessible label and the action label; icon is an Icon; action fires on click."
           },
@@ -6223,9 +5420,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Step-by-step guide"
           },
@@ -6239,10 +5434,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "title",
-              "details"
-            ],
+            "required": ["title", "details"],
             "additionalProperties": false,
             "description": "title and details text for one step"
           },
@@ -6256,9 +5448,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "heading"
-            ],
+            "required": ["heading"],
             "additionalProperties": false,
             "description": "Compact section heading with an optional one-line description, for use inside cards."
           },
@@ -6280,27 +5470,17 @@
                     "rightVariant": {
                       "default": "text",
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "number"
-                      ]
+                      "enum": ["text", "number"]
                     }
                   },
-                  "required": [
-                    "left",
-                    "right",
-                    "rightVariant"
-                  ],
+                  "required": ["left", "right", "rightVariant"],
                   "additionalProperties": false
                 }
               },
               "size": {
                 "default": "default",
                 "type": "string",
-                "enum": [
-                  "small",
-                  "default"
-                ]
+                "enum": ["small", "default"]
               },
               "header": {
                 "type": "object",
@@ -6314,17 +5494,10 @@
                   "rightVariant": {
                     "default": "text",
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "number"
-                    ]
+                    "enum": ["text", "number"]
                   }
                 },
-                "required": [
-                  "left",
-                  "right",
-                  "rightVariant"
-                ],
+                "required": ["left", "right", "rightVariant"],
                 "additionalProperties": false
               },
               "footer": {
@@ -6339,24 +5512,14 @@
                   "rightVariant": {
                     "default": "text",
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "number"
-                    ]
+                    "enum": ["text", "number"]
                   }
                 },
-                "required": [
-                  "left",
-                  "right",
-                  "rightVariant"
-                ],
+                "required": ["left", "right", "rightVariant"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "rows",
-              "size"
-            ],
+            "required": ["rows", "size"],
             "additionalProperties": false,
             "description": "Two-column key/value rows (left label, right value). size 'default' supports optional header and footer rows; rightVariant 'number' uses tabular numbers."
           },
@@ -6375,13 +5538,7 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "number",
-                        "date-single",
-                        "select",
-                        "url"
-                      ]
+                      "enum": ["text", "number", "date-single", "select", "url"]
                     },
                     "key": {
                       "default": "default",
@@ -6406,19 +5563,12 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "value",
-                          "label"
-                        ],
+                        "required": ["value", "label"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "type",
-                    "key",
-                    "header"
-                  ],
+                  "required": ["type", "key", "header"],
                   "additionalProperties": false
                 }
               },
@@ -6434,26 +5584,16 @@
                     "values": {
                       "type": "array",
                       "items": {
-                        "type": [
-                          "string",
-                          "number"
-                        ]
+                        "type": ["string", "number"]
                       }
                     }
                   },
-                  "required": [
-                    "id",
-                    "values"
-                  ],
+                  "required": ["id", "values"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "name",
-              "columns",
-              "data"
-            ],
+            "required": ["name", "columns", "data"],
             "additionalProperties": false,
             "description": "Spreadsheet-like table whose cells the user can edit inline (text, number, url, date, select columns); edits are saved back as a form field"
           },
@@ -6470,9 +5610,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid"
-                ]
+                "enum": ["grid"]
               },
               "responsive": {
                 "default": true,
@@ -6482,17 +5620,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A responsive grid of compact label/value cards (2 per row) for showing several short facts side by side; optionally clickable with a shared action."
           },
@@ -6523,9 +5654,7 @@
                 ]
               }
             },
-            "required": [
-              "lhs"
-            ],
+            "required": ["lhs"],
             "additionalProperties": false,
             "description": "One row-style snippet card: a label on the left (IconText or ImageText) and an optional value on the right (Text or BoldText)."
           },
@@ -6538,30 +5667,12 @@
               "iconVariant": {
                 "default": "neutral",
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "success",
-                  "warning",
-                  "danger",
-                  "inverted",
-                  "filled",
-                  "soft"
-                ]
+                "enum": ["neutral", "info", "success", "warning", "danger", "inverted", "filled", "soft"]
               },
               "iconSize": {
                 "default": "m",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "s",
-                  "m",
-                  "l",
-                  "xl",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "s", "m", "l", "xl", "sm", "md", "lg"]
               },
               "title": {
                 "type": "string"
@@ -6576,20 +5687,10 @@
               "layout": {
                 "default": "horizontal",
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               }
             },
-            "required": [
-              "icon",
-              "iconVariant",
-              "iconSize",
-              "title",
-              "bold",
-              "layout"
-            ],
+            "required": ["icon", "iconVariant", "iconSize", "title", "bold", "layout"],
             "additionalProperties": false,
             "description": "An icon badge with a title and optional subtitle, laid out horizontally or vertically. iconVariant sets the badge color."
           },
@@ -6615,21 +5716,13 @@
               "layout": {
                 "default": "horizontal",
                 "type": "string",
-                "enum": [
-                  "horizontal",
-                  "vertical"
-                ]
+                "enum": ["horizontal", "vertical"]
               },
               "imageSize": {
                 "type": "number"
               }
             },
-            "required": [
-              "src",
-              "title",
-              "bold",
-              "layout"
-            ],
+            "required": ["src", "title", "bold", "layout"],
             "additionalProperties": false,
             "description": "A small square image (thumbnail/avatar) with a title and optional subtitle. src must be a real image URL."
           },
@@ -6639,10 +5732,7 @@
               "variant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number"
-                ]
+                "enum": ["text", "number"]
               },
               "value": {
                 "type": "string"
@@ -6653,29 +5743,15 @@
               "subtextVariant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number",
-                  "metric"
-                ]
+                "enum": ["text", "number", "metric"]
               },
               "size": {
                 "default": "sm",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "sm", "md", "lg"]
               }
             },
-            "required": [
-              "variant",
-              "value",
-              "subtextVariant",
-              "size"
-            ],
+            "required": ["variant", "value", "subtextVariant", "size"],
             "additionalProperties": false,
             "description": "Plain text line with optional subtext. variant 'number' uses tabular number styling; subtextVariant 'metric' colors a leading +/- subtext green/red."
           },
@@ -6685,10 +5761,7 @@
               "variant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number"
-                ]
+                "enum": ["text", "number"]
               },
               "value": {
                 "type": "string"
@@ -6699,29 +5772,15 @@
               "subtextVariant": {
                 "default": "text",
                 "type": "string",
-                "enum": [
-                  "text",
-                  "number",
-                  "metric"
-                ]
+                "enum": ["text", "number", "metric"]
               },
               "size": {
                 "default": "sm",
                 "type": "string",
-                "enum": [
-                  "xs",
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["xs", "sm", "md", "lg"]
               }
             },
-            "required": [
-              "variant",
-              "value",
-              "subtextVariant",
-              "size"
-            ],
+            "required": ["variant", "value", "subtextVariant", "size"],
             "additionalProperties": false,
             "description": "Emphasized (bold) text line with optional subtext. variant 'number' uses tabular number styling; subtextVariant 'metric' colors a leading +/- subtext green/red."
           },
@@ -6738,10 +5797,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -6751,17 +5807,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or horizontal carousel of compact overview cards, each with a heading (icon/image/text) on top and an inline metric below; optionally clickable with a shared action."
           },
@@ -6788,9 +5837,7 @@
                 "$ref": "#/$defs/MetricIndicatorInline"
               }
             },
-            "required": [
-              "top"
-            ],
+            "required": ["top"],
             "additionalProperties": false,
             "description": "One overview card: a heading slot at the top (IconText, ImageText or Text) and an optional MetricIndicatorInline at the bottom."
           },
@@ -6808,25 +5855,17 @@
                 "properties": {
                   "direction": {
                     "type": "string",
-                    "enum": [
-                      "up",
-                      "down"
-                    ]
+                    "enum": ["up", "down"]
                   },
                   "value": {
                     "type": "number"
                   }
                 },
-                "required": [
-                  "direction",
-                  "value"
-                ],
+                "required": ["direction", "value"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "value"
-            ],
+            "required": ["value"],
             "additionalProperties": false,
             "description": "Headline metric value with an optional +/- percentage trend and subtext, all on one line."
           },
@@ -6843,10 +5882,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -6856,17 +5892,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or carousel of compact tinted context cards (title or tag plus a short bold body); an optional action makes every card clickable."
           },
@@ -6891,9 +5920,7 @@
               },
               "bgColor": {
                 "type": "string",
-                "enum": [
-                  "gray"
-                ]
+                "enum": ["gray"]
               },
               "bgImageSrc": {
                 "type": "string"
@@ -6902,9 +5929,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "title"
-            ],
+            "required": ["title"],
             "additionalProperties": false,
             "description": "A single card inside a ContextCardBlock: a title (plain string or Tag), an optional markdown body, and an optional gray tint or background image."
           },
@@ -6919,26 +5944,14 @@
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "sm",
-                  "md",
-                  "lg"
-                ]
+                "enum": ["sm", "md", "lg"]
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "neutral",
-                  "info",
-                  "success",
-                  "warning",
-                  "danger"
-                ]
+                "enum": ["neutral", "info", "success", "warning", "danger"]
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Styled tag/badge with optional Icon and variant"
           },
@@ -6955,10 +5968,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -6968,17 +5978,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A two-per-row grid or carousel of rich cards, each with an optional header, stacked body content (text, metrics, charts, lists, tags) and a price/button footer; an optional action makes every card clickable."
           },
@@ -7068,9 +6071,7 @@
                 "additionalProperties": false
               }
             },
-            "required": [
-              "body"
-            ],
+            "required": ["body"],
             "additionalProperties": false,
             "description": "A single card inside a CompositeCardBlock: an optional header (icon/image/text), a stack of body elements (text, metrics, charts, lists, tags), and an optional price/button footer."
           },
@@ -7094,11 +6095,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "src",
-              "title",
-              "bold"
-            ],
+            "required": ["src", "title", "bold"],
             "additionalProperties": false,
             "description": "A full-width banner image above a bold title and optional subtitle. src must be a real image URL."
           },
@@ -7113,22 +6110,14 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "number",
-                  "image"
-                ]
+                "enum": ["number", "image"]
               },
               "size": {
                 "type": "string",
-                "enum": [
-                  "default",
-                  "small"
-                ]
+                "enum": ["default", "small"]
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "A list of items with number or image indicators. Each item can optionally have an action. size small renders a compact list."
           },
@@ -7151,10 +6140,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "src",
-                  "alt"
-                ],
+                "required": ["src", "alt"],
                 "additionalProperties": false
               },
               "actionLabel": {
@@ -7164,9 +6150,7 @@
                 "$ref": "#/$defs/ActionExpression"
               }
             },
-            "required": [
-              "title"
-            ],
+            "required": ["title"],
             "additionalProperties": false,
             "description": "Item in a ListBlock — displays a title with an optional subtitle and image. When action is provided, the item becomes clickable."
           },
@@ -7187,25 +6171,17 @@
                 "properties": {
                   "direction": {
                     "type": "string",
-                    "enum": [
-                      "up",
-                      "down"
-                    ]
+                    "enum": ["up", "down"]
                   },
                   "value": {
                     "type": "number"
                   }
                 },
-                "required": [
-                  "direction",
-                  "value"
-                ],
+                "required": ["direction", "value"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "value"
-            ],
+            "required": ["value"],
             "additionalProperties": false,
             "description": "Headline metric value with an optional struck-through previousValue, a +/- percentage trend, and subtext below."
           },
@@ -7222,10 +6198,7 @@
               "layout": {
                 "default": "grid",
                 "type": "string",
-                "enum": [
-                  "grid",
-                  "carousel"
-                ]
+                "enum": ["grid", "carousel"]
               },
               "responsive": {
                 "default": true,
@@ -7235,17 +6208,10 @@
                 "$ref": "#/$defs/ActionExpression"
               },
               "gap": {
-                "type": [
-                  "number",
-                  "string"
-                ]
+                "type": ["number", "string"]
               }
             },
-            "required": [
-              "items",
-              "layout",
-              "responsive"
-            ],
+            "required": ["items", "layout", "responsive"],
             "additionalProperties": false,
             "description": "A grid or carousel of photo-first cards: a full-bleed background image with a tag on top and a bold text panel at the bottom; an optional action makes every card clickable."
           },
@@ -7268,9 +6234,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "body"
-            ],
+            "required": ["body"],
             "additionalProperties": false,
             "description": "A single photo-first card inside a VisualCardBlock: a BoldText body panel, an optional Tag, and a background image (bgImageSrc must be a real URL; bgImageAlt is its alt text)."
           },
@@ -7284,9 +6248,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "List of clickable follow-up suggestions placed at the end of a response"
           },
@@ -7297,9 +6259,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Clickable follow-up suggestion — when clicked, sends text as user message"
           },
@@ -7316,9 +6276,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "sections"
-            ],
+            "required": ["sections"],
             "additionalProperties": false,
             "description": "Collapsible accordion sections. Auto-opens sections as they stream in. Use SectionItem for each section."
           },
@@ -7456,11 +6414,7 @@
                 }
               }
             },
-            "required": [
-              "value",
-              "trigger",
-              "content"
-            ],
+            "required": ["value", "trigger", "content"],
             "additionalProperties": false,
             "description": "Section with a label and collapsible content — used inside SectionBlock"
           },
@@ -7474,9 +6428,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Tabbed container"
           },
@@ -7611,11 +6563,7 @@
                 }
               }
             },
-            "required": [
-              "value",
-              "trigger",
-              "content"
-            ],
+            "required": ["value", "trigger", "content"],
             "additionalProperties": false,
             "description": "value is unique id, trigger is tab label, content is array of components"
           },
@@ -7629,9 +6577,7 @@
                 }
               }
             },
-            "required": [
-              "items"
-            ],
+            "required": ["items"],
             "additionalProperties": false,
             "description": "Collapsible sections"
           },
@@ -7763,11 +6709,7 @@
                 }
               }
             },
-            "required": [
-              "value",
-              "trigger",
-              "content"
-            ],
+            "required": ["value", "trigger", "content"],
             "additionalProperties": false,
             "description": "value is unique id, trigger is section title"
           },
@@ -7800,9 +6742,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "title"
-                  ],
+                  "required": ["title"],
                   "additionalProperties": false
                 }
               },
@@ -7828,17 +6768,12 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "title"
-                  ],
+                  "required": ["title"],
                   "additionalProperties": false
                 }
               }
             },
-            "required": [
-              "name",
-              "slides"
-            ],
+            "required": ["name", "slides"],
             "additionalProperties": false,
             "description": "Editable slide outline the teacher reviews before a .pptx is produced; each slide has a title, points, an optional suggested visual and speaker notes. Pair with a confirm Button using @ToAssistant."
           },
@@ -7855,9 +6790,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "path"
-            ],
+            "required": ["path"],
             "additionalProperties": false,
             "description": "A file produced in this conversation, with preview and download. path is relative to the conversation workspace (no absolute paths, no \"..\")."
           },
@@ -7981,15 +6914,10 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["card", "sunk"]
               }
             },
-            "required": [
-              "children"
-            ],
+            "required": ["children"],
             "additionalProperties": false,
             "description": "Horizontal scrollable carousel"
           },
@@ -8003,10 +6931,7 @@
                 "type": "number"
               }
             },
-            "required": [
-              "category",
-              "value"
-            ],
+            "required": ["category", "value"],
             "additionalProperties": false,
             "description": "One slice with label and numeric value"
           },
@@ -8017,9 +6942,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "text"
-            ],
+            "required": ["text"],
             "additionalProperties": false,
             "description": "Text label"
           },
@@ -8037,11 +6960,7 @@
               },
               "variant": {
                 "type": "string",
-                "enum": [
-                  "clear",
-                  "card",
-                  "sunk"
-                ]
+                "enum": ["clear", "card", "sunk"]
               },
               "value": {
                 "type": "object",
@@ -8053,10 +6972,7 @@
                 }
               }
             },
-            "required": [
-              "name",
-              "items"
-            ],
+            "required": ["name", "items"],
             "additionalProperties": false,
             "description": "Group of switch toggles"
           },
@@ -8076,9 +6992,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "additionalProperties": false,
             "description": "Individual switch toggle"
           }
