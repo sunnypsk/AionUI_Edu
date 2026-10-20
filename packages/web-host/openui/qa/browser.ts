@@ -195,6 +195,9 @@ try {
       },
     });
     const contents = fixtureMessages();
+    // FileCard in the teacher fixture points at this workspace-relative file.
+    mkdirSync(path.join(data, 'qa'), { recursive: true });
+    writeFileSync(path.join(data, 'qa', '背影.pptx'), 'QA placeholder deck');
     const seed = `import json,sqlite3,sys,time
 p=json.load(sys.stdin)
 db=sqlite3.connect(p['db'])
@@ -352,6 +355,11 @@ db.commit()
     });
     assert.notEqual(colors.background, colors.color, 'surface and text tokens must remain distinct');
     await savePage(desktop, 'carousel-light');
+    const teacherCard = desktop.getByText('背影簡報', { exact: true });
+    await teacherCard.scrollIntoViewIfNeeded();
+    assert.equal(await desktop.getByRole('group', { name: '第 1 張' }).isVisible(), true);
+    await savePage(desktop, 'teacher-light');
+    checks.push('teacher SlideOutline and FileCard render with the WebUI renderers');
     checks.push(...(await runControlAcceptance(desktop, (name) => savePage(desktop!, name), 'desktop')));
     await mobile.evaluate(() => window.dispatchEvent(new Event('focus')));
     await mobile.waitForFunction(
@@ -380,6 +388,9 @@ db.commit()
     });
     await mobileTopic.scrollIntoViewIfNeeded();
     await savePage(desktop, 'desktop-dark');
+    await desktop.getByText('背影簡報', { exact: true }).scrollIntoViewIfNeeded();
+    await savePage(desktop, 'teacher-dark');
+    await topic.scrollIntoViewIfNeeded();
     await savePage(mobile, 'mobile-dark');
     await mobile.getByRole('button', { name: 'Open lesson', exact: true }).click();
     await mobile.getByRole('dialog').waitFor();

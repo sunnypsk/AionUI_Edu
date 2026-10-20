@@ -1,4 +1,7 @@
 import { openuiChatLibrary, openuiLibrary } from '@openuidev/react-ui';
+import { withTeacherComponents } from '../../../desktop/src/common/openui/components';
+
+const specOnly = { SlideOutline: (): null => null, FileCard: (): null => null };
 
 const image = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"/%3E';
 const quote = JSON.stringify(image);
@@ -110,6 +113,11 @@ const groups = [
     children: `TagBlock(["Poetry", "F1"]), EntityList([{left: "Class", right: "F1"}]), CompositeCardBlock([CompositeCardItem("lesson", ImageTextLarge(${quote}, "Cover", "Poetry"), [Text("text", "Read"), BoldText("number", "80"), IconText(Icon("book-open"), "neutral", "md", "Notes"), ListBlock([ListItem("Li Bai", "Tang poet")])], {price: MetricIndicatorWithStrikethrough("80", "Marks", "60"), button: Button("Discuss", @ToAssistant("Discuss"))})]), SnippetCardBlock([SnippetCardItem("topic", ImageText(${quote}, "Poem", "Topic"), Text("text", "Poetry"))]), OverviewCardBlock([OverviewCardItem("progress", IconText(Icon("book-open"), "neutral", "md", "Progress"), MetricIndicatorInline("80", "Marks", {direction: "up", value: 5}))]), ContextCardBlock([ContextCardItem("context", Tag("Tang", Icon("book-open")), "Poetry context", "gray")]), VisualCardBlock([VisualCardItem(BoldText("text", "Moonlight"), "moon", ${quote}, Tag("Read"), "Moon")]), Form("label", Buttons([Button("Read")]), [FormControl("Poem", Input("poem", "Poem"), label.text)])`,
     declarations: 'label = Label("Read aloud")',
   },
+  {
+    names: ['SlideOutline', 'FileCard'],
+    children:
+      'SlideOutline("outline", [{title: "引入", points: ["朗讀第一段"], visual: "車站月台", notes: "提問：背影代表甚麼？"}, {title: "分析", points: ["父親攀月台"]}]), FileCard("qa/背影.pptx", "背影簡報", "兩教節")',
+  },
 ];
 
 /** Each program is valid for its official root and has non-empty, referenced sample data. */
@@ -134,5 +142,8 @@ export const catalogFixtures = (profile: 'openui' | 'openui-chat') => {
       program:
         'root = Card([SectionBlock([SectionItem("poem", "Reading", [TextContent("Moonlight")])], true), FollowUpBlock([FollowUpItem("Compare poets")])])',
     });
-  return { library: profile === 'openui' ? openuiLibrary : openuiChatLibrary, fixtures };
+  return {
+    library: withTeacherComponents(profile === 'openui' ? openuiLibrary : openuiChatLibrary, specOnly),
+    fixtures,
+  };
 };

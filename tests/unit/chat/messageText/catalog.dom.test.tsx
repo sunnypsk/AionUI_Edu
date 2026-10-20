@@ -2,9 +2,10 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createParser, Renderer } from '@openuidev/react-lang';
-import { ThemeProvider } from '@openuidev/react-ui';
+import { openuiChatLibrary, openuiLibrary, ThemeProvider } from '@openuidev/react-ui';
 import { catalogFixtures } from './fixtures';
 import { withWebUiAdapters } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/runtimeLibrary';
+import { withRendererTeacherComponents } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/library';
 
 // JSDOM has no canvas layout or media queries; keep the official components real.
 beforeEach(() => {
@@ -34,6 +35,8 @@ afterEach(() => {
 describe.each(['openui', 'openui-chat'] as const)('%s official component catalog', (profile) => {
   const { library, fixtures } = catalogFixtures(profile);
   const parser = createParser(library.toJSONSchema(), library.root);
+  // The QA catalog only needs parseable contracts; mount with the WebUI's real teacher renderers.
+  const rendered = withRendererTeacherComponents(profile === 'openui' ? openuiLibrary : openuiChatLibrary);
   it('has an explicit, referenced sample program for every registry entry', () => {
     expect(fixtures.flatMap((fixture) => fixture.names).toSorted()).toEqual(Object.keys(library.components).toSorted());
     for (const fixture of fixtures) {
@@ -48,12 +51,22 @@ describe.each(['openui', 'openui-chat'] as const)('%s official component catalog
     const errors = vi.fn();
     const result = render(
       <ThemeProvider>
-        <Renderer library={library} response={program} onError={errors} />
+        <Renderer library={rendered} response={program} onError={errors} />
       </ThemeProvider>
     );
     await waitFor(() => expect(errors).toHaveBeenCalled());
     expect(result.container.querySelector('*')).not.toBeNull();
     expect(errors.mock.calls.flatMap(([items]) => items)).toEqual([]);
+  });
+  it('mounts the teacher components with their WebUI renderers', async () => {
+    const teacher = fixtures.find((fixture) => fixture.names.includes('SlideOutline'))!;
+    render(
+      <ThemeProvider>
+        <Renderer library={rendered} response={teacher.program} />
+      </ThemeProvider>
+    );
+    expect(await screen.findByDisplayValue('引入')).toBeInTheDocument();
+    expect(screen.getByText('背影簡報')).toBeInTheDocument();
   });
   it('switches tab content through the official tab runtime', async () => {
     render(
@@ -70,7 +83,10 @@ describe.each(['openui', 'openui-chat'] as const)('%s official component catalog
     it('opens and closes a reactive modal with its official controls', async () => {
       render(
         <ThemeProvider>
-          <Renderer library={library} response={fixtures[6].program} />
+          <Renderer
+            library={library}
+            response={fixtures.find((fixture) => fixture.id === (profile === 'openui' ? 'modal' : 'chat'))!.program}
+          />
         </ThemeProvider>
       );
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -85,7 +101,11 @@ describe.each(['openui', 'openui-chat'] as const)('%s official component catalog
       const action = vi.fn();
       render(
         <ThemeProvider>
-          <Renderer library={library} response={fixtures[6].program} onAction={action} />
+          <Renderer
+            library={library}
+            response={fixtures.find((fixture) => fixture.id === (profile === 'openui' ? 'modal' : 'chat'))!.program}
+            onAction={action}
+          />
         </ThemeProvider>
       );
       fireEvent.click(screen.getByText('Compare poets'));

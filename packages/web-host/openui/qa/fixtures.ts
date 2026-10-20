@@ -63,12 +63,13 @@ export function fixtureMessages(): string[] {
     );
   const charts = full.find((fixture) => fixture.names.includes('BarChart'))!.program;
   const tabs = full.find((fixture) => fixture.names.includes('Tabs'))!.program;
+  const teacher = full.find((fixture) => fixture.names.includes('SlideOutline'))!.program;
   const chat = catalogFixtures('openui-chat').fixtures.find((fixture) => fixture.id === 'chat')!.program;
   const variants =
     'root = Stack([Form("variants", Buttons([Button("Check details")]), [FormControl("Email", Input("email", "Email", "email", {email: true})), FormControl("Password", Input("password", "Password", "password", {minLength: 8})), FormControl("Number", Input("number", "Number", "number", {numeric: true, min: 0, max: 100})), FormControl("URL", Input("url", "URL", "url", {url: true})), FormControl("Range", DatePicker("range", "range"))])])';
   return [
     `OpenUI browser acceptance — form and live MCP data.\n\n\`\`\`openui\n${form}\n\`\`\`\n\n\`\`\`openui\n${variants}\n\`\`\`\n\nA second interface follows.\n\n\`\`\`openui\n${modal}\n\`\`\``,
-    `\`\`\`openui\n${table}\n\`\`\`\n\n\`\`\`openui\n${charts}\n\`\`\`\n\n\`\`\`openui\n${tabs}\n\`\`\`\n\n\`\`\`openui-chat\n${chat}\n\`\`\``,
+    `\`\`\`openui\n${table}\n\`\`\`\n\n\`\`\`openui\n${charts}\n\`\`\`\n\n\`\`\`openui\n${tabs}\n\`\`\`\n\n\`\`\`openui\n${teacher}\n\`\`\`\n\n\`\`\`openui-chat\n${chat}\n\`\`\``,
     `\`\`\`openui\nroot = Stack([TextContent(pending.title), Form("streaming", Buttons([Button("Streaming submit", @ToAssistant("Continue"))]), [FormControl("Streaming topic", Input("streamingTopic", "Streaming topic"))])])\npending = Query(${JSON.stringify(tool('read'))}, {}, {title: "Streaming preview"})`,
     '```openui\nroot = UnknownComponent("Invalid fixture")\n```',
   ];

@@ -7,7 +7,7 @@ import { TEACHER_RULES } from '../../desktop/src/common/openui/guidance';
 
 const directory = new URL('./', import.meta.url);
 // The manifest only needs schemas and prompts; the WebUI supplies the real renderers.
-const specOnly = { SlideOutline: () => null, FileCard: () => null };
+const specOnly = { SlideOutline: (): null => null, FileCard: (): null => null };
 const full = withTeacherComponents(openuiLibrary, specOnly);
 const chat = withTeacherComponents(openuiChatLibrary, specOnly);
 const manifest = {
