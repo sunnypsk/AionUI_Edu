@@ -112,7 +112,14 @@
     "repair": "درخواست اصلاح از دستیار",
     "repairRequest": "لطفاً این رابط OpenUI را اصلاح کنید.",
     "selectDate": "انتخاب تاریخ",
-    "selectDateRange": "انتخاب بازهٔ تاریخ"
+    "selectDateRange": "انتخاب بازهٔ تاریخ",
+    "file": {
+      "preview": "پیش‌نمایش",
+      "download": "دانلود",
+      "invalidPath": "مسیر این فایل معتبر نیست.",
+      "unavailable": "این فایل را نمی‌توان اینجا باز کرد.",
+      "downloadError": "دانلود فایل انجام نشد."
+    }
   },
   "toolSummary": {
     "viewSteps": "مشاهده مراحل · {{count}}",

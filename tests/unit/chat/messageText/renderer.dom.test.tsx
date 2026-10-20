@@ -27,8 +27,23 @@ vi.mock('@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/ap
   ...(await original<object>()),
   ...api,
 }));
+const host = vi.hoisted(() => ({
+  preview: null as null | { openBrowserTab: () => void },
+  workspace: '/ws' as string | undefined,
+  launch: vi.fn(),
+  errorKind: null as string | null,
+  download: vi.fn(),
+}));
 vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
-  useOptionalPreviewContext: () => null,
+  useOptionalPreviewContext: () => host.preview,
+}));
+vi.mock('@/renderer/hooks/file/usePreviewLauncher', () => ({
+  usePreviewLauncher: () => ({ launchPreview: host.launch, loading: false, errorKind: host.errorKind }),
+}));
+vi.mock('@/renderer/utils/file/download', () => ({ downloadFileFromRef: host.download }));
+vi.mock('@/renderer/hooks/context/ConversationContext', async (original) => ({
+  ...(await original<object>()),
+  useConversationContextSafe: () => (host.workspace ? { workspace: host.workspace } : null),
 }));
 vi.mock('@/renderer/hooks/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'teacher' } }) }));
 vi.mock('@/renderer/components/Markdown', () => ({
@@ -303,5 +318,73 @@ describe('OpenUI app theme', () => {
       .join('');
     expect(css).toContain('--openui-font-body: var(--font-sans);');
     expect(css).not.toMatch(/Inter|SFMono-Regular/);
+  });
+});
+describe('FileCard', () => {
+  const card = (path: string) =>
+    display('root = Stack([FileCard(' + JSON.stringify(path) + ', "背影簡報", "兩教節")])');
+  /** Block controls stay disabled until the saved state has loaded. */
+  const ready = (name: string) =>
+    waitFor(() => {
+      const button = screen.getByRole('button', { name });
+      expect(button).not.toBeDisabled();
+      return button;
+    });
+  beforeEach(() => {
+    host.preview = { openBrowserTab: vi.fn() };
+    host.workspace = '/ws';
+    host.errorKind = null;
+    host.launch.mockReset().mockResolvedValue(undefined);
+    host.download.mockReset().mockResolvedValue(undefined);
+  });
+  it('previews and downloads a workspace file with a CJK name', async () => {
+    card('./簡報/《背影》 第一課.pptx');
+    expect(await screen.findByText('背影簡報')).toBeTruthy();
+    expect(screen.getByText('兩教節')).toBeTruthy();
+    fireEvent.click(await ready('messages.openui.file.preview'));
+    expect(host.launch).toHaveBeenCalledWith(
+      expect.objectContaining({ relativePath: '簡報/《背影》 第一課.pptx', contentType: 'ppt', editable: false })
+    );
+    fireEvent.click(await ready('messages.openui.file.download'));
+    await waitFor(() =>
+      expect(host.download).toHaveBeenCalledWith(
+        { kind: 'local', path: '/ws/簡報/《背影》 第一課.pptx' },
+        '《背影》 第一課.pptx'
+      )
+    );
+  });
+  it('normalizes backslash separators', async () => {
+    card('簡報\\a.pptx');
+    fireEvent.click(await ready('messages.openui.file.preview'));
+    expect(host.launch).toHaveBeenCalledWith(expect.objectContaining({ relativePath: '簡報/a.pptx' }));
+  });
+  it.each(['/etc/passwd', '../a.pptx', 'a/../../b.pptx', 'C:\\a.pptx', 'https://x/a.pptx', ''])(
+    'rejects the unsafe path %j without fetching',
+    async (path) => {
+      card(path);
+      expect(await screen.findByText('messages.openui.file.invalidPath')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'messages.openui.file.preview' })).toBeNull();
+      expect(host.launch).not.toHaveBeenCalled();
+      expect(host.download).not.toHaveBeenCalled();
+    }
+  );
+  it('shows the file as unavailable without a conversation workspace', async () => {
+    host.workspace = undefined;
+    card('簡報/a.pptx');
+    expect(await screen.findByText('messages.openui.file.unavailable')).toBeTruthy();
+    for (const name of ['messages.openui.file.preview', 'messages.openui.file.download'])
+      expect(screen.getByRole('button', { name })).toBeDisabled();
+  });
+  it('offers download but no preview outside a preview panel', async () => {
+    host.preview = null;
+    card('簡報/a.pptx');
+    await ready('messages.openui.file.download');
+    expect(screen.queryByRole('button', { name: 'messages.openui.file.preview' })).toBeNull();
+  });
+  it('reports a failed download', async () => {
+    host.download.mockRejectedValueOnce(new Error('404'));
+    card('簡報/a.pptx');
+    fireEvent.click(await ready('messages.openui.file.download'));
+    expect(await screen.findByText('messages.openui.file.downloadError')).toBeTruthy();
   });
 });

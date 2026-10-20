@@ -1,0 +1,36 @@
+.fileCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+  color: var(--text-primary);
+}
+.fileIcon {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+.fileBody {
+  flex: 1;
+  min-width: 0;
+}
+.fileTitle {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.fileDescription,
+.fileStatus {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.fileStatus {
+  color: var(--warning);
+}
+.fileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

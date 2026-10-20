@@ -112,7 +112,14 @@
     "repair": "Pedir ao assistente para corrigir",
     "repairRequest": "Corrija esta interface OpenUI.",
     "selectDate": "Selecione uma data",
-    "selectDateRange": "Selecione um intervalo de datas"
+    "selectDateRange": "Selecione um intervalo de datas",
+    "file": {
+      "preview": "Pré-visualizar",
+      "download": "Baixar",
+      "invalidPath": "O caminho do arquivo não é válido.",
+      "unavailable": "Não é possível abrir este arquivo aqui.",
+      "downloadError": "Não foi possível baixar o arquivo."
+    }
   },
   "toolSummary": {
     "viewSteps": "Ver etapas · {{count}}",

@@ -112,7 +112,14 @@
     "repair": "Ask assistant to fix this interface",
     "repairRequest": "Please fix this OpenUI interface.",
     "selectDate": "Select a date",
-    "selectDateRange": "Select a date range"
+    "selectDateRange": "Select a date range",
+    "file": {
+      "preview": "Preview",
+      "download": "Download",
+      "invalidPath": "This file path is not valid.",
+      "unavailable": "This file can't be opened here.",
+      "downloadError": "The file could not be downloaded."
+    }
   },
   "toolSummary": {
     "viewSteps": "View steps · {{count}}",

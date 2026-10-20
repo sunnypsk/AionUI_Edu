@@ -112,7 +112,14 @@
     "repair": "어시스턴트에게 수정 요청",
     "repairRequest": "이 OpenUI 인터페이스를 수정해 주세요.",
     "selectDate": "날짜 선택",
-    "selectDateRange": "날짜 범위 선택"
+    "selectDateRange": "날짜 범위 선택",
+    "file": {
+      "preview": "미리보기",
+      "download": "다운로드",
+      "invalidPath": "파일 경로가 올바르지 않습니다.",
+      "unavailable": "이 파일을 열 수 없습니다.",
+      "downloadError": "파일을 다운로드하지 못했습니다."
+    }
   },
   "toolSummary": {
     "viewSteps": "단계 보기 · {{count}}",

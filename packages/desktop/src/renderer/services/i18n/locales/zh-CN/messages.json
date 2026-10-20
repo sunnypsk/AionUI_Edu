@@ -112,7 +112,14 @@
     "repair": "请助手修复界面",
     "repairRequest": "请修复这个 OpenUI 界面。",
     "selectDate": "选择日期",
-    "selectDateRange": "选择日期范围"
+    "selectDateRange": "选择日期范围",
+    "file": {
+      "preview": "预览",
+      "download": "下载",
+      "invalidPath": "文件路径无效。",
+      "unavailable": "无法打开此文件。",
+      "downloadError": "无法下载文件。"
+    }
   },
   "toolSummary": {
     "viewSteps": "查看步骤 · {{count}}",

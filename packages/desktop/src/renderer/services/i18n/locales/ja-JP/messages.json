@@ -112,7 +112,14 @@
     "repair": "アシスタントに修正を依頼",
     "repairRequest": "この OpenUI インターフェースを修正してください。",
     "selectDate": "日付を選択",
-    "selectDateRange": "日付の範囲を選択"
+    "selectDateRange": "日付の範囲を選択",
+    "file": {
+      "preview": "プレビュー",
+      "download": "ダウンロード",
+      "invalidPath": "ファイルパスが無効です。",
+      "unavailable": "このファイルを開けません。",
+      "downloadError": "ファイルをダウンロードできませんでした。"
+    }
   },
   "toolSummary": {
     "viewSteps": "ステップを表示 · {{count}}",

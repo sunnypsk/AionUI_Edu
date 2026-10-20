@@ -112,7 +112,14 @@
     "repair": "Assistenten um Korrektur bitten",
     "repairRequest": "Bitte korrigiere diese OpenUI-Oberfläche.",
     "selectDate": "Datum auswählen",
-    "selectDateRange": "Datumsbereich auswählen"
+    "selectDateRange": "Datumsbereich auswählen",
+    "file": {
+      "preview": "Vorschau",
+      "download": "Herunterladen",
+      "invalidPath": "Dieser Dateipfad ist ungültig.",
+      "unavailable": "Diese Datei kann hier nicht geöffnet werden.",
+      "downloadError": "Die Datei konnte nicht heruntergeladen werden."
+    }
   },
   "toolSummary": {
     "viewSteps": "Schritte anzeigen · {{count}}",

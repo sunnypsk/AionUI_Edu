@@ -112,7 +112,14 @@
     "repair": "Demander une correction à l’assistant",
     "repairRequest": "Veuillez corriger cette interface OpenUI.",
     "selectDate": "Choisir une date",
-    "selectDateRange": "Choisir une période"
+    "selectDateRange": "Choisir une période",
+    "file": {
+      "preview": "Aperçu",
+      "download": "Télécharger",
+      "invalidPath": "Ce chemin de fichier n’est pas valide.",
+      "unavailable": "Ce fichier ne peut pas être ouvert ici.",
+      "downloadError": "Le fichier n’a pas pu être téléchargé."
+    }
   },
   "toolSummary": {
     "viewSteps": "Voir les étapes · {{count}}",

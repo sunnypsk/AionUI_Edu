@@ -112,7 +112,14 @@
     "repair": "請助理修正介面",
     "repairRequest": "請修正此互動介面。",
     "selectDate": "選擇日期",
-    "selectDateRange": "選擇日期範圍"
+    "selectDateRange": "選擇日期範圍",
+    "file": {
+      "preview": "預覽",
+      "download": "下載",
+      "invalidPath": "檔案路徑無效。",
+      "unavailable": "未能開啟此檔案。",
+      "downloadError": "未能下載檔案。"
+    }
   },
   "toolSummary": {
     "viewSteps": "查看步驟 · {{count}}",

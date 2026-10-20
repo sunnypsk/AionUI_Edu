@@ -116,7 +116,14 @@
     "repair": "Попросить помощника исправить",
     "repairRequest": "Исправьте этот интерфейс OpenUI.",
     "selectDate": "Выберите дату",
-    "selectDateRange": "Выберите диапазон дат"
+    "selectDateRange": "Выберите диапазон дат",
+    "file": {
+      "preview": "Просмотр",
+      "download": "Скачать",
+      "invalidPath": "Недопустимый путь к файлу.",
+      "unavailable": "Этот файл нельзя открыть здесь.",
+      "downloadError": "Не удалось скачать файл."
+    }
   },
   "toolSummary": {
     "viewSteps": "Показать шаги · {{count}}",

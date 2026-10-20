@@ -112,7 +112,14 @@
     "repair": "Asistandan düzeltmesini iste",
     "repairRequest": "Lütfen bu OpenUI arayüzünü düzeltin.",
     "selectDate": "Tarih seçin",
-    "selectDateRange": "Tarih aralığı seçin"
+    "selectDateRange": "Tarih aralığı seçin",
+    "file": {
+      "preview": "Önizle",
+      "download": "İndir",
+      "invalidPath": "Bu dosya yolu geçerli değil.",
+      "unavailable": "Bu dosya burada açılamıyor.",
+      "downloadError": "Dosya indirilemedi."
+    }
   },
   "toolSummary": {
     "viewSteps": "Adımları görüntüle · {{count}}",

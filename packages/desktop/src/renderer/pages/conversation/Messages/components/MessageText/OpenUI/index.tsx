@@ -26,9 +26,10 @@ import type { OpenUiBlock } from './types';
 import styles from './OpenUI.module.css';
 import { withWebUiAdapters } from './runtimeLibrary';
 import FieldScope from './FieldScope';
+import { withRendererTeacherComponents } from '../OpenUIComponents/library';
 
-const fullLibrary = withWebUiAdapters(openuiLibrary);
-const chatLibrary = withWebUiAdapters(openuiChatLibrary);
+const fullLibrary = withWebUiAdapters(withRendererTeacherComponents(openuiLibrary));
+const chatLibrary = withWebUiAdapters(withRendererTeacherComponents(openuiChatLibrary));
 
 const tint = (token: string, percent: number, base = 'transparent') =>
   `color-mix(in srgb, var(--${token}) ${percent}%, ${base})`;

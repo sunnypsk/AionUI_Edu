@@ -118,7 +118,14 @@
     "repair": "Попросити помічника виправити",
     "repairRequest": "Виправте цей інтерфейс OpenUI.",
     "selectDate": "Виберіть дату",
-    "selectDateRange": "Виберіть діапазон дат"
+    "selectDateRange": "Виберіть діапазон дат",
+    "file": {
+      "preview": "Переглянути",
+      "download": "Завантажити",
+      "invalidPath": "Неприпустимий шлях до файлу.",
+      "unavailable": "Цей файл не можна відкрити тут.",
+      "downloadError": "Не вдалося завантажити файл."
+    }
   },
   "toolSummary": {
     "viewSteps": "Переглянути кроки · {{count}}",
