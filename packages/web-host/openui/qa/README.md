@@ -1,5 +1,7 @@
 # OpenUI local acceptance
 
+Teacher components and guidance, 2026-10-21: patched Core `0.2.2-edu.openui.1` rebuilt with Rust 1.95.0 for manifest `960db3131d07b6ae416820a83bad6b5b6424fe6b0a446e7c0919121f6f6e5631` (`bun run openui:core:build -- --test`: affected crates 2,516 passed, 6 ignored). `.cache/openui-qa/yuyu-openui-browser-4MKowP/report.json` passed all 21 browser checks, including SlideOutline and FileCard rendering (`teacher-light.png`, `teacher-dark.png`) and `teaching-design` auto-injection. The full Vitest suite passed 4,932 tests. Docker startup/restart persistence was not run: the local Docker daemon was not running.
+
 Repair regression, 2026-10-20: `.cache/openui-qa/yuyu-openui-browser-75RIrR/report.json` passed all 19 browser checks, including a native image with empty final text, preview, a byte-identical 3 MiB PNG download and reload deduplication. `.cache/openui-qa/yuyu-openui-browser-ZiTVoZ/report.json` passed the configured Codex chart/form/MCP Query and follow-up turns. The full Vitest suite passed 5,409 tests with five skipped. These are local results; deployment validation is separate.
 
 Validation snapshot: 2026-10-19, macOS arm64. Browser report: `.cache/openui-qa/yuyu-openui-browser-1h61LN/report.json` (18 checks); configured-agent report: `.cache/openui-qa/yuyu-openui-browser-7cPO2f/report.json` (two completed agent turns). These results describe local checks; Linux containers, CI and deployment have not been validated.
