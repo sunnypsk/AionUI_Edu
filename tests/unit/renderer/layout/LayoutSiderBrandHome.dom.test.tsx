@@ -32,12 +32,9 @@ vi.mock('react-router-dom', () => ({
   Outlet: () => null,
 }));
 
-// Hidden devtools easter-egg target (icon) — assert it is independent of navigation.
-const openDevTools = vi.fn(() => Promise.resolve());
 vi.mock('@/common', () => ({
   ipcBridge: {
     application: {
-      openDevTools: { invoke: () => openDevTools() },
       logStream: { on: () => () => {} },
     },
     task: { stopAll: { invoke: () => Promise.resolve({ success: false }) } },
@@ -52,13 +49,11 @@ vi.mock('@/common/config/constants', () => ({
 }));
 vi.mock('@/renderer/components/layout/PwaPullToRefresh', () => ({ default: () => null }));
 vi.mock('@/renderer/components/layout/Titlebar', () => ({ default: () => null }));
-vi.mock('@/renderer/components/settings/UpdateModal', () => ({ default: () => null }));
+
 vi.mock('@renderer/hooks/system/useDeepLink', () => ({ useDeepLink: () => {} }));
 vi.mock('@renderer/hooks/system/notification/useNotificationClick', () => ({ useNotificationClick: () => {} }));
 vi.mock('@renderer/hooks/system/notification/useBrowserNotification', () => ({ useBrowserNotification: () => {} }));
-vi.mock('@renderer/hooks/file/useDirectorySelection', () => ({
-  useDirectorySelection: () => ({ contextHolder: null }),
-}));
+
 vi.mock('@renderer/utils/ui/siderTooltip', () => ({ cleanupSiderTooltips: () => {} }));
 vi.mock('@renderer/hooks/ui/useConversationShortcuts', () => ({
   useConversationShortcuts: (params: { toggleSider: () => void }) => {
@@ -92,7 +87,6 @@ describe('Layout sider brand Home button', () => {
       }),
     });
     navigate.mockClear();
-    openDevTools.mockClear();
     platformMocks.isElectronDesktopMock.mockReturnValue(false);
     shortcutMocks.params = undefined;
     featureMocks.teamModeEnabled = false;
@@ -194,37 +188,5 @@ describe('Layout sider brand Home button', () => {
     renderLayout();
 
     expect(shortcutMocks.params?.toggleSider).toEqual(expect.any(Function));
-  });
-
-  it('clicking the logo icon counts toward the devtools easter-egg and never navigates', () => {
-    currentPathname = '/settings/about';
-    sessionStorage.setItem('aion:last-non-settings-path', '/conversation/abc');
-    const { container } = renderLayout();
-
-    // The icon is the SVG-wrapping div (bg-black), separate from the wordmark.
-    const icon = container.querySelector('.bg-black') as HTMLElement;
-    expect(icon).toBeTruthy();
-    for (let i = 0; i < 4; i++) fireEvent.click(icon);
-    expect(openDevTools).toHaveBeenCalled();
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it('opens the update notification directly for tray update checks', () => {
-    platformMocks.isElectronDesktopMock.mockReturnValue(true);
-    const openListener = vi.fn();
-    window.addEventListener('aionui-open-update-modal', openListener);
-
-    try {
-      renderLayout();
-
-      window.dispatchEvent(new Event('tray:check-update'));
-
-      expect(navigate).not.toHaveBeenCalled();
-      expect(openListener).toHaveBeenCalledTimes(1);
-      const event = openListener.mock.calls[0][0] as CustomEvent;
-      expect(event.detail).toEqual({ source: 'tray' });
-    } finally {
-      window.removeEventListener('aionui-open-update-modal', openListener);
-    }
   });
 });

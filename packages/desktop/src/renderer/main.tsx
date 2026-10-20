@@ -4,34 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Sentry must be initialized first
-// Use electron-specific renderer package only inside Electron; fall back to the
-// browser SDK when running as a web server (no window.electronAPI).
-if ((window as { electronAPI?: unknown }).electronAPI) {
-  // Dynamic import avoids bundling sentry-ipc:// protocol code into the web build
-  import('@sentry/electron/renderer')
-    .then((Sentry) =>
-      Sentry.init({
-        beforeSend(event) {
-          if (!(window as { __backendStartupFailed?: boolean }).__backendStartupFailed) {
-            return event;
-          }
-          const haystacks: string[] = [];
-          if (event.message) haystacks.push(event.message);
-          const exceptions = event.exception?.values ?? [];
-          for (const ex of exceptions) {
-            if (ex.value) haystacks.push(ex.value);
-          }
-          if (haystacks.some((h) => /Failed to fetch|window\.__backendPort|__backendPort unset/.test(h))) {
-            return null;
-          }
-          return event;
-        },
-      })
-    )
-    .catch(() => {});
-}
-
 // Runtime patches must be imported early
 import './utils/ui/runtimePatches';
 
@@ -51,7 +23,6 @@ import type { TFunction } from 'i18next';
 
 // Context providers
 import { AuthProvider } from './hooks/context/AuthContext';
-import { FeedbackProvider } from './hooks/context/FeedbackContext';
 import { ThemeProvider } from './hooks/context/ThemeContext';
 import { PreviewProvider } from './pages/conversation/Preview/context/PreviewContext';
 
@@ -114,7 +85,6 @@ import {
   InstallationIntegrityModalHost,
   type InstallationIntegrityDiagnostics,
   getBackendStartupInstallationDescription,
-  getDownloadLatestModalActionProps,
   getRuntimeComponentInstallationDescription,
   showInstallationIntegrityModal,
 } from './components/layout/InstallationIntegrityDialog';
@@ -180,24 +150,6 @@ function isInstallationIntegrityFailure(kind: RuntimeFailureKind | undefined): b
   return INSTALLATION_INTEGRITY_FAILURES.has(kind ?? 'unknown');
 }
 
-function captureRuntimeInstallationIntegrityFailure(event: IRuntimeStatusEvent): void {
-  if (!isInstallationIntegrityFailure(event.failure_kind)) {
-    return;
-  }
-
-  void import('@sentry/electron/renderer')
-    .then((Sentry) => {
-      Sentry.withScope((scope) => {
-        scope.setTag('aionui.installation_integrity', event.failure_kind ?? 'unknown');
-        scope.setTag('aionui.runtime_resource', event.resource);
-        scope.setTag('aionui.runtime_resource_id', event.resource_id ?? '');
-        scope.setTag('aionui.runtime_scope', event.scope.kind);
-        Sentry.captureMessage('runtime-installation-integrity-failure', 'error');
-      });
-    })
-    .catch(() => {});
-}
-
 function buildRuntimeInstallationDiagnostics(
   event: IRuntimeStatusEvent,
   description: string
@@ -247,7 +199,6 @@ const RuntimeFailureDialogs: React.FC = () => {
         );
         return { close: () => controller.close() };
       },
-      report: (event) => captureRuntimeInstallationIntegrityFailure(event),
     });
 
     const offStatus = ipcBridge.runtime.statusChanged.on((event: IRuntimeStatusEvent) => {
@@ -274,13 +225,8 @@ const RuntimeFailureDialogs: React.FC = () => {
       });
     });
 
-    const onBeforeUnload = () => reconciler.flushPending();
-    window.addEventListener('beforeunload', onBeforeUnload);
-
     return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
       offStatus();
-      reconciler.flushPending();
       reconciler.dispose();
     };
   }, [modal, t]);
@@ -312,15 +258,11 @@ const AppProviders: React.FC<PropsWithChildren> = ({ children }) =>
           PreviewProvider,
           null,
           React.createElement(
-            FeedbackProvider,
+            React.Fragment,
             null,
-            React.createElement(
-              React.Fragment,
-              null,
-              React.createElement(RuntimeFailureDialogs, null),
-              React.createElement(GpuAutoDisableNotice, null),
-              children
-            )
+            React.createElement(RuntimeFailureDialogs, null),
+            React.createElement(GpuAutoDisableNotice, null),
+            children
           )
         )
       )
@@ -474,8 +416,8 @@ const BackendStartupFailureDialog: React.FC<{ failure: BackendStartupFailureInfo
           visible
           closable={false}
           maskClosable={false}
+          footer={null}
           title={t('common.backendStartup.packageArchitectureMismatch.title')}
-          {...getDownloadLatestModalActionProps(t)}
         >
           <InstallationIntegrityContent description={description} />
         </Modal>

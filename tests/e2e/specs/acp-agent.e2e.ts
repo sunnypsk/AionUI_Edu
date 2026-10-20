@@ -52,13 +52,4 @@ test.describe('Agent Diagnostics', () => {
     await expect(page.locator(settingsSiderItemById('capabilities')).first()).toBeVisible({ timeout: 8_000 });
     await expectBodyContainsAny(page, ['MCP', 'mcp', 'Server', 'server', '工具', '配置', '添加', 'Add']);
   });
-
-  test('can query available agents via IPC', async ({ page, electronApp }) => {
-    await goToGuid(page);
-
-    const windowCount = await electronApp.evaluate(async ({ BrowserWindow }) => {
-      return BrowserWindow.getAllWindows().length;
-    });
-    expect(windowCount).toBeGreaterThanOrEqual(1);
-  });
 });

@@ -5,16 +5,17 @@ export default defineConfig({
   testMatch: '**/*.e2e.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false, // Electron tests share one app instance
+  fullyParallel: false, // Browser tests share one isolated Core per worker
   retries: process.env.CI ? 1 : 0,
-  workers: 1, // Must be 1: tests share a singleton Electron app instance
+  workers: 1,
   reporter: process.env.CI
     ? [['github'], ['html', { open: 'never', outputFolder: 'tests/e2e/report' }]]
     : [['list'], ['html', { open: 'never', outputFolder: 'tests/e2e/report' }]],
   use: {
+    channel: process.env.AIONUI_E2E_BROWSER_CHANNEL || 'chrome',
+    viewport: { width: 1440, height: 1000 },
+    launchOptions: { timeout: 30_000 },
     trace: process.env.E2E_TRACE === '1' ? 'retain-on-failure' : 'on-first-retry',
-    // screenshot/video are handled by our custom Electron fixture (see fixtures.ts)
-    // since Playwright's built-in auto-screenshot requires its own `page` fixture.
     screenshot: 'only-on-failure',
     video: process.env.E2E_TRACE === '1' ? 'retain-on-failure' : 'on-first-retry',
   },

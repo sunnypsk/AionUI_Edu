@@ -2,11 +2,6 @@ import type { Page } from '@playwright/test';
 import { RESPONSE_MAPPERS } from './mappers';
 import { HTTP_ROUTES } from './routes';
 
-type ElectronApi = {
-  emit?: (name: string, data: unknown) => Promise<unknown>;
-  on?: (callback: (payload: { event: unknown; value: unknown }) => void) => () => void;
-};
-
 /**
  * Invoke a bridge provider from renderer test context.
  *
@@ -14,8 +9,7 @@ type ElectronApi = {
  * the renderer against `window.__backendPort`. This matches how the running
  * app talks to aioncore.
  *
- * Fallback: for any key not in the route map, fall back to the desktop IPC protocol:
- *   emit('subscribe-{key}', { id, data }) -> on('subscribe.callback-{key}{id}', result)
+ * Unmapped providers fail explicitly; browser tests use the HTTP contract.
  */
 export async function invokeBridge<T = unknown>(
   page: Page,
@@ -32,16 +26,16 @@ export async function invokeBridge<T = unknown>(
 
     const raw = await page.evaluate(
       async ({ method, path, requestBody, requestTimeoutMs }) => {
-        const port = (window as unknown as { __backendPort?: number }).__backendPort;
-        if (!port) {
-          throw new Error('window.__backendPort is not available in renderer context');
-        }
-
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
 
         try {
           const headers: Record<string, string> = {};
+          const csrf = document.cookie
+            .split('; ')
+            .find((entry) => entry.startsWith('aionui-csrf-token='))
+            ?.split('=')[1];
+          if (csrf) headers['x-csrf-token'] = decodeURIComponent(csrf);
           if (requestBody !== undefined) headers['Content-Type'] = 'application/json';
 
           const requestInit: RequestInit = {
@@ -53,7 +47,7 @@ export async function invokeBridge<T = unknown>(
             requestInit.body = JSON.stringify(requestBody);
           }
 
-          const response = await fetch(`http://127.0.0.1:${port}${path}`, requestInit);
+          const response = await fetch(new URL(path, window.location.origin).href, requestInit);
 
           if (!response.ok) {
             let errBody: unknown;
@@ -90,58 +84,5 @@ export async function invokeBridge<T = unknown>(
     return (route.mapResponse ? RESPONSE_MAPPERS[route.mapResponse](raw) : raw) as T;
   }
 
-  // Fallback: legacy IPC subscribe/callback protocol.
-  return page.evaluate(
-    async ({ requestKey, requestData, requestTimeoutMs }) => {
-      const api = (window as unknown as { electronAPI?: ElectronApi }).electronAPI;
-      if (!api?.emit || !api?.on) {
-        throw new Error('electronAPI bridge is unavailable in renderer context');
-      }
-
-      const id = `e2e_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-      const callbackEventName = `subscribe.callback-${requestKey}${id}`;
-      const requestEventName = `subscribe-${requestKey}`;
-
-      return new Promise<unknown>((resolve, reject) => {
-        let settled = false;
-        const off = api.on?.((payload) => {
-          try {
-            const rawValue = payload?.value;
-            const parsed =
-              typeof rawValue === 'string'
-                ? (JSON.parse(rawValue) as { name?: string; data?: unknown })
-                : (rawValue as { name?: string; data?: unknown });
-            if (parsed?.name !== callbackEventName) return;
-            if (settled) return;
-            settled = true;
-            off?.();
-            clearTimeout(timer);
-            resolve(parsed.data);
-          } catch (error) {
-            if (settled) return;
-            settled = true;
-            off?.();
-            clearTimeout(timer);
-            reject(error);
-          }
-        });
-
-        const timer = setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          off?.();
-          reject(new Error(`Bridge invoke timeout: ${requestKey}`));
-        }, requestTimeoutMs);
-
-        api.emit?.(requestEventName, { id, data: requestData }).catch((error) => {
-          if (settled) return;
-          settled = true;
-          off?.();
-          clearTimeout(timer);
-          reject(error);
-        });
-      });
-    },
-    { requestKey: key, requestData: data, requestTimeoutMs: timeoutMs }
-  ) as Promise<T>;
+  throw new Error(`No WebUI HTTP route is mapped for bridge provider: ${key}`);
 }

@@ -3,9 +3,7 @@ import path from 'path';
 
 const aliases = {
   '@/': path.resolve(__dirname, './packages/desktop/src') + '/',
-  '@process/': path.resolve(__dirname, './packages/desktop/src/process') + '/',
   '@renderer/': path.resolve(__dirname, './packages/desktop/src/renderer') + '/',
-  '@worker/': path.resolve(__dirname, './packages/desktop/src/process/worker') + '/',
   '@mcp/models/': path.resolve(__dirname, './packages/desktop/src/common/models') + '/',
   '@mcp/types/': path.resolve(__dirname, './packages/desktop/src/common') + '/',
   '@mcp/': path.resolve(__dirname, './packages/desktop/src/common') + '/',
@@ -30,6 +28,7 @@ export default defineConfig({
           environment: 'node',
           include: [
             'packages/web-host/src/**/*.test.ts',
+            'packages/web-host/tests/**/*.test.ts',
             'tests/unit/**/*.test.ts',
             'tests/unit/**/test_*.ts',
             'tests/integration/**/*.test.ts',

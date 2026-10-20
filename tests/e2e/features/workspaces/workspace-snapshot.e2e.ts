@@ -11,7 +11,7 @@
  * covered by direct unit tests against `WorkspaceSnapshotService` in the
  * integration suite; this file only asserts the rendered UI state.
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { cleanupTeamsByName, TEAM_SUPPORTED_BACKENDS } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -31,7 +31,7 @@ test.describe('Workspace Changes — UI panel', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  test('changes tab surfaces a newly written file and stage button moves it', async ({ page, electronApp }) => {
+  test('changes tab surfaces a newly written file and stage button moves it', async ({ page, webui }) => {
     test.setTimeout(180_000);
 
     if (TEAM_SUPPORTED_BACKENDS.size === 0) {
@@ -39,9 +39,7 @@ test.describe('Workspace Changes — UI panel', () => {
       return;
     }
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await cleanupTeamsByName(page, TEAM_NAME);
 

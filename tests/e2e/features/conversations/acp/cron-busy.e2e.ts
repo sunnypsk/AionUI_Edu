@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import type { ElectronApplication, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { test, expect } from '../../../fixtures';
 import {
   MODE_SELECTOR,
@@ -59,8 +59,8 @@ type CronDbRow = {
   last_error: string | null;
 };
 
-async function getUserDataPath(electronApp: ElectronApplication): Promise<string> {
-  return electronApp.evaluate(async ({ app }) => app.getPath('userData'));
+async function getUserDataPath(webui: { dataDir: string }): Promise<string> {
+  return Promise.resolve(webui.dataDir);
 }
 
 function escapeSql(value: string): string {
@@ -227,10 +227,7 @@ async function openScheduledDetail(page: Page, jobId: string): Promise<void> {
 test.describe('ACP cron busy handling', () => {
   test.setTimeout(240_000);
 
-  test('run-now conflicts and scheduler retries when the target conversation is busy', async ({
-    page,
-    electronApp,
-  }) => {
+  test('run-now conflicts and scheduler retries when the target conversation is busy', async ({ page, webui }) => {
     let conversationId: string | null = null;
     let cronJobId: string | null = null;
 
@@ -298,8 +295,8 @@ test.describe('ACP cron busy handling', () => {
       expect(job.metadata.agent_config?.custom_agent_id).toBeUndefined();
       expect(job.metadata.agent_config?.preset_agent_type).toBeUndefined();
 
-      const userDataPath = await getUserDataPath(electronApp);
-      const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+      const userDataPath = await getUserDataPath(webui);
+      const dbPath = path.join(userDataPath, 'aionui-backend.db');
 
       await expect
         .poll(() => queryCronRow(dbPath, job.id).conversation_id, {

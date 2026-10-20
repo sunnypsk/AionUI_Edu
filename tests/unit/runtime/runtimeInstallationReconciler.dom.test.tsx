@@ -28,38 +28,45 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe('runtimeInstallationReconciler', () => {
-  it('retracts the dialog and suppresses the report when node ready arrives in-window (cross-scope)', () => {
+  it('retracts the dialog when node ready arrives in-window (cross-scope)', () => {
     const close = vi.fn();
-    const report = vi.fn();
-    const r = createRuntimeInstallationReconciler({ showDialog: () => ({ close }), report });
+    const r = createRuntimeInstallationReconciler({ showDialog: () => ({ close }) });
 
     r.handleStatus(failed('custom_agent-1')); // failed on custom_agent scope
     r.handleStatus(ready('conversation-9')); // ready from a DIFFERENT scope
 
     vi.advanceTimersByTime(RUNTIME_RECONCILE_WINDOW_MS + 100);
     expect(close).toHaveBeenCalledTimes(1); // dialog retracted
-    expect(report).not.toHaveBeenCalled(); // deferred report suppressed
   });
 
-  it('reports at window end when no node ready arrives', () => {
+  it('keeps the dialog open when no node ready arrives within the window', () => {
     const close = vi.fn();
-    const report = vi.fn();
-    const r = createRuntimeInstallationReconciler({ showDialog: () => ({ close }), report });
+    const showDialog = vi.fn(() => ({ close }));
+    const r = createRuntimeInstallationReconciler({ showDialog });
 
     r.handleStatus(failed('custom_agent-1'));
-    expect(report).not.toHaveBeenCalled(); // deferred, not immediate
+    expect(showDialog).toHaveBeenCalledTimes(1); // shown immediately
     vi.advanceTimersByTime(RUNTIME_RECONCILE_WINDOW_MS + 100);
-    expect(report).toHaveBeenCalledTimes(1);
+    r.handleStatus(ready('conversation-9')); // late ready no longer retracts a persistent failure
     expect(close).not.toHaveBeenCalled();
   });
 
-  it('flushes a not-yet-due report on flushPending (beforeunload/unmount)', () => {
-    const report = vi.fn();
-    const r = createRuntimeInstallationReconciler({ showDialog: () => ({ close: vi.fn() }), report });
+  it('shows one dialog per resource while a reconciliation is pending', () => {
+    const showDialog = vi.fn(() => ({ close: vi.fn() }));
+    const r = createRuntimeInstallationReconciler({ showDialog });
 
     r.handleStatus(failed('custom_agent-1'));
-    vi.advanceTimersByTime(5000); // still inside the window
-    r.flushPending();
-    expect(report).toHaveBeenCalledTimes(1); // persistent failure not lost on early exit
+    r.handleStatus(failed('custom_agent-2'));
+    expect(showDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispose clears pending reconciliation without closing the dialog', () => {
+    const close = vi.fn();
+    const r = createRuntimeInstallationReconciler({ showDialog: () => ({ close }) });
+
+    r.handleStatus(failed('custom_agent-1'));
+    r.dispose();
+    r.handleStatus(ready('conversation-9'));
+    expect(close).not.toHaveBeenCalled();
   });
 });

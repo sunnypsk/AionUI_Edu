@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { cleanupTeamsByName, createTeam } from '../../helpers';
 
 const TEAM_COLLAPSED = 'E2E Collapsed Team';
@@ -38,15 +38,11 @@ test.describe('Team UI Details', () => {
     await cleanupTeamsByName(page, TEAM_COLLAPSED);
   });
 
-  test('create team with workspace folder via native dialog', async ({ electronApp, page }) => {
+  test('create team with workspace folder via native dialog', async ({ page }) => {
     await cleanupTeamsByName(page, TEAM_WORKSPACE);
 
     const tmpDir = `/tmp/e2e-workspace-${Date.now()}`;
-    await electronApp.evaluate(async ({ dialog }, dir) => {
-      const fs = await import('fs');
-      fs.mkdirSync(dir, { recursive: true });
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [dir] });
-    }, tmpDir);
+    await chooseServerPathWhenPrompted(page, tmpDir);
 
     const createBtn = page.locator('[data-testid="team-create-btn"]').first();
     await expect(createBtn).toBeVisible({ timeout: 10_000 });
@@ -103,11 +99,6 @@ test.describe('Team UI Details', () => {
 
     await cleanupTeamsByName(page, TEAM_WORKSPACE);
 
-    await electronApp.evaluate(async (_ctx, dir) => {
-      const fs = await import('fs');
-      try {
-        fs.rmSync(dir, { recursive: true, force: true });
-      } catch {}
-    }, tmpDir);
+    await import('node:fs').then(({ rmSync }) => rmSync(tmpDir, { recursive: true, force: true }));
   });
 });

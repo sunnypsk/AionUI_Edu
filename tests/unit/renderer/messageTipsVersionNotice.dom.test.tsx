@@ -16,7 +16,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@renderer/components/Markdown', () => ({ default: () => null }));
 vi.mock('@renderer/components/base/ButlerDiagnoseButton', () => ({ default: () => null }));
-vi.mock('@renderer/components/base/FeedbackButton', () => ({ default: () => null }));
+
 vi.mock('@renderer/components/chat/CollapsibleContent', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));

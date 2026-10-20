@@ -457,7 +457,7 @@ test.describe('Skills Hub - Core UI (P0)', () => {
   // TC-S-16: Add custom external path (success scenario)
   // ============================================================================
 
-  test('TC-S-16: should add custom external path via UI', async ({ page, electronApp }) => {
+  test('TC-S-16: should add custom external path via UI', async ({ page, webui }) => {
     // Setup: Create real skill directory with SKILL.md
     const tempSource = createTempExternalSource('tc-s-16');
     try {

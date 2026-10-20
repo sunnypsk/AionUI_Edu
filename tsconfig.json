@@ -16,21 +16,15 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./packages/desktop/src/*"],
-      "@process/*": ["./packages/desktop/src/process/*"],
-      "@renderer/*": ["./packages/desktop/src/renderer/*"],
-      "@worker/*": ["./packages/desktop/src/process/worker/*"]
+      "@renderer/*": ["./packages/desktop/src/renderer/*"]
     }
   },
   "include": [
     "packages/desktop/src/**/*",
     "uno.config.ts",
-    "packages/desktop/electron.vite.config.ts",
     "playwright.config.ts",
     "packages/desktop/src/renderer/types.d.ts",
-    "packages/web-host/src/runtime/codex/retention/stdioProxy.mjs"
-  ],
-  "exclude": [
-    "packages/desktop/src/process/services/database/drivers/BunSqliteDriver.ts",
-    "packages/desktop/src/process/services/database/drivers/BunSqliteDriver.bun.test.ts"
+    "packages/web-host/src/runtime/codex/retention/stdioProxy.mjs",
+    "packages/desktop/vite.webui.config.ts"
   ]
 }

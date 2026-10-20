@@ -16,7 +16,20 @@ import type { IConfirmation } from '@/common/chat/chatLib';
 import type { AcpSlashCommandApiItem } from '@/common/chat/slash/types';
 import { bridge } from '@/common/platform/bridge';
 import { buildListTasksPath } from './teamTaskPath';
-import type { OpenDialogOptions } from 'electron';
+type FileDialogOptions = {
+  properties?: (
+    | 'openFile'
+    | 'openDirectory'
+    | 'multiSelections'
+    | 'showHiddenFiles'
+    | 'createDirectory'
+    | 'promptToCreate'
+    | 'noResolveAliases'
+    | 'treatPackageAsDirectory'
+    | 'dontAddToRecent'
+  )[];
+  filters?: { name: string; extensions: string[] }[];
+};
 import type {
   ICssTheme,
   IMcpServer,
@@ -94,17 +107,7 @@ import type {
   TeamAssistant,
   TeamContextResetResponse,
 } from '../types/team/teamTypes';
-import type {
-  AutoUpdateReadyResult,
-  AutoUpdateStatus,
-  InstallerLastFailureMarker,
-  UpdateCheckRequest,
-  UpdateCheckResult,
-  UpdateDownloadCancelRequest,
-  UpdateDownloadProgressEvent,
-  UpdateDownloadRequest,
-  UpdateDownloadResult,
-} from '../update/updateTypes';
+
 import type { AgentMetadata } from '@/renderer/utils/model/agentTypes';
 import type { Theme } from '@/common/theme/types';
 import type { AttachFolderRequest, ProjectDetailDto, ProjectEntryDto } from '@/common/types/project';
@@ -694,8 +697,6 @@ export interface IRendererLogEntry {
 
 export const application = {
   restart: bridge.buildProvider<IAppRestartResult, void>('restart-app'),
-  openDevTools: bridge.buildProvider<boolean, void>('open-dev-tools'),
-  isDevToolsOpened: bridge.buildProvider<boolean, void>('is-dev-tools-opened'),
   systemInfo: withResponseMap(
     httpGet<{ cache_dir: string; work_dir: string; log_dir: string; platform: string; arch: string }, void>(
       '/api/system/info'
@@ -756,36 +757,6 @@ export const application = {
   logStream: bridge.buildEmitter<{ level: 'log' | 'warn' | 'error'; tag: string; message: string; data?: unknown }>(
     'app.log-stream'
   ),
-  devToolsStateChanged: bridge.buildEmitter<{ isOpen: boolean }>('app.devtools-state-changed'),
-};
-
-// ---------------------------------------------------------------------------
-// Update — stays IPC (Electron-native auto-updater)
-// ---------------------------------------------------------------------------
-
-export const update = {
-  open: bridge.buildEmitter<{ source?: 'menu' | 'about' | 'tray' }>('update.open'),
-  check: bridge.buildProvider<IBridgeResponse<UpdateCheckResult>, UpdateCheckRequest>('update.check'),
-  consumeInstallerLastFailure: bridge.buildProvider<IBridgeResponse<InstallerLastFailureMarker | null>, void>(
-    'update.installer-last-failure.consume'
-  ),
-  download: bridge.buildProvider<IBridgeResponse<UpdateDownloadResult>, UpdateDownloadRequest>('update.download'),
-  cancelDownload: bridge.buildProvider<IBridgeResponse, UpdateDownloadCancelRequest>('update.download.cancel'),
-  downloadProgress: bridge.buildEmitter<UpdateDownloadProgressEvent>('update.download.progress'),
-};
-
-export const autoUpdate = {
-  check: bridge.buildProvider<
-    IBridgeResponse<{ updateInfo?: { version: string; releaseDate?: string; releaseNotes?: string } }>,
-    { includePrerelease?: boolean }
-  >('auto-update.check'),
-  restoreDownloaded: bridge.buildProvider<IBridgeResponse<AutoUpdateReadyResult>, void>(
-    'auto-update.restore-downloaded'
-  ),
-  download: bridge.buildProvider<IBridgeResponse, void>('auto-update.download'),
-  cancelDownload: bridge.buildProvider<IBridgeResponse, void>('auto-update.download.cancel'),
-  quitAndInstall: bridge.buildProvider<void, void>('auto-update.quit-and-install'),
-  status: bridge.buildEmitter<AutoUpdateStatus>('auto-update.status'),
 };
 
 // ---------------------------------------------------------------------------
@@ -793,7 +764,7 @@ export const autoUpdate = {
 // ---------------------------------------------------------------------------
 
 export type ShowOpenOptions =
-  | { defaultPath?: string; properties?: OpenDialogOptions['properties']; filters?: OpenDialogOptions['filters'] }
+  | { defaultPath?: string; properties?: FileDialogOptions['properties']; filters?: FileDialogOptions['filters'] }
   | undefined;
 
 export type ShowOpenHandler = (options: ShowOpenOptions) => Promise<string[] | undefined>;
@@ -1506,15 +1477,6 @@ export const deepLink = {
 // ---------------------------------------------------------------------------
 // Window Controls — stays IPC (Electron-native)
 // ---------------------------------------------------------------------------
-
-export const windowControls = {
-  minimize: bridge.buildProvider<void, void>('window-controls:minimize'),
-  maximize: bridge.buildProvider<void, void>('window-controls:maximize'),
-  unmaximize: bridge.buildProvider<void, void>('window-controls:unmaximize'),
-  close: bridge.buildProvider<void, void>('window-controls:close'),
-  isMaximized: bridge.buildProvider<boolean, void>('window-controls:is-maximized'),
-  maximizedChanged: bridge.buildEmitter<{ is_maximized: boolean }>('window-controls:maximized-changed'),
-};
 
 // ---------------------------------------------------------------------------
 // Theme — stays IPC (main process owns the resolved-theme cache)

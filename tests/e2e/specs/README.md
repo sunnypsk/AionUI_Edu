@@ -207,51 +207,21 @@ for (const { leaderType, teamName } of LEADER_CONFIGS) {
 
 ## 九、运行方式
 
+先按 [WebUI browser tests](../README.md) 建置 Core 和 SPA。测试使用 Chromium、隔离数据目录和随机管理员密码；需要真实模型的用例必须在测试数据内配置相应 provider。
+
 ```bash
-# 所有 team E2E（先跑 create，再跑 lifecycle）
-E2E_PACKAGED=1 bun run test:e2e:team
+# Team specs
+bun run test:e2e -- tests/e2e/specs/team-*.e2e.ts
 
-# 仅创建三个 team（lifecycle 的前置条件）
-E2E_PACKAGED=1 bun run test:e2e:team:create
+# Specific workflow
+bun run test:e2e -- tests/e2e/specs/team-create.e2e.ts
+bun run test:e2e -- tests/e2e/specs/team-lifecycle.e2e.ts
 
-# 仅 lifecycle 测试
-E2E_PACKAGED=1 bun run test:e2e:team:lifecycle
-
-# 仅白名单下拉框测试
-E2E_PACKAGED=1 bun run test:e2e:team:whitelist
-
-# 仅消息发送链路测试
-E2E_PACKAGED=1 bun run test:e2e:team:comm
-
-# 只测 gemini leader（TEAM_AGENT 过滤，支持逗号分隔多个）
-TEAM_AGENT=gemini E2E_PACKAGED=1 bun run test:e2e:team:lifecycle
-
-# 只测 claude + codex
-TEAM_AGENT=claude,codex E2E_PACKAGED=1 bun run test:e2e:team
-
-# 创建时也只创建 gemini team
-TEAM_AGENT=gemini E2E_PACKAGED=1 bun run test:e2e:team:create
+# Filter configured leader types
+TEAM_AGENT=codex bun run test:e2e -- tests/e2e/specs/team-*.e2e.ts
 ```
 
-**环境变量说明：**
-
-| 变量             | 默认值              | 说明                                                                                                                                                        |
-| ---------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `E2E_PACKAGED=1` | 无（本地 dev 模式） | 使用 `out/` 下的打包产物启动 app                                                                                                                            |
-| `E2E_DEV=1`      | 无                  | 强制使用 dev 模式（electron .）                                                                                                                             |
-| `TEAM_AGENT`     | 空（三种全跑）      | leader 类型过滤，支持逗号分隔（`gemini` 或 `claude,codex`）。过滤在 `helpers/teamConfig.ts` 集中处理，所有 test 文件通过 `TEAM_SUPPORTED_BACKENDS` 自动生效 |
-
-packaged 模式下 app 使用用户本地已配置的 API key，**不需要任何额外配置**。
-
-**npm scripts 一览：**
-
-| 命令                      | 说明                       |
-| ------------------------- | -------------------------- |
-| `test:e2e:team`           | 所有 `team-*.e2e.ts`       |
-| `test:e2e:team:create`    | 仅 team 创建               |
-| `test:e2e:team:lifecycle` | 仅 lifecycle（add + fire） |
-| `test:e2e:team:whitelist` | 仅白名单下拉框             |
-| `test:e2e:team:comm`      | 仅消息发送                 |
+`TEAM_AGENT` 的过滤规则在 `helpers/teamConfig.ts`。测试不会继承桌面应用的用户数据或凭证。
 
 ---
 

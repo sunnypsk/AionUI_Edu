@@ -15,12 +15,6 @@ export interface ElectronBridgeAPI {
   on: (callback: (event: { value: string }) => void) => void;
   // 获取拖拽文件/目录的绝对路径 / Get absolute path for dragged file/directory
   getPathForFile?: (file: File) => string;
-  // Feedback log collection / 收集反馈日志
-  collectFeedbackLogs?: () => Promise<{ filename: string; data: number[] } | null>;
-  // Feedback screenshot capture / 反馈截图
-  captureFeedbackScreenshot?: () => Promise<{ filename: string; data: number[] } | null>;
-  // Forward feedback diagnostics logs to the main process console / 转发反馈诊断日志到主进程控制台
-  logFeedbackEvent?: (payload: { details?: unknown; level: 'info' | 'warn' | 'error'; message: string }) => void;
   recoverCorruptedDatabase?: () => Promise<void>;
 }
 
@@ -93,7 +87,5 @@ declare global {
       getState: () => BackendStartupFailureInfo | null;
       subscribe: (callback: (state: BackendStartupFailureInfo | null) => void) => () => void;
     };
-    __installationIntegrityReportCount?: number;
-    __lastInstallationIntegrityReportMessage?: string;
   }
 }

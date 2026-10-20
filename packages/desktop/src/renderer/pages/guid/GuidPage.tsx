@@ -14,12 +14,10 @@ import type { AssistantDetail } from '@/common/types/agent/assistantTypes';
 import { useInputFocusRing } from '@/renderer/hooks/chat/useInputFocusRing';
 import { appendPromptToDraft } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { getFuzzyMatchIndices, useSlashCommandController } from '@/renderer/hooks/chat/useSlashCommandController';
-import { isElectronDesktop, openExternalUrl } from '@/renderer/utils/platform';
+import { isElectronDesktop } from '@/renderer/utils/platform';
 import SlashCommandMenu, { type SlashCommandMenuItem } from '@/renderer/components/chat/SlashCommandMenu';
 import GuidActionRow from './components/GuidActionRow';
 import GuidInputCard from './components/GuidInputCard';
-import QuickActionButtons from './components/QuickActionButtons';
-import FeedbackReportModal from '@/renderer/components/settings/SettingsModal/contents/FeedbackReportModal';
 import { useGuidAssistantSelection } from './hooks/useGuidAssistantSelection';
 import { useGuidInput } from './hooks/useGuidInput';
 import { useGuidSend } from './hooks/useGuidSend';
@@ -59,16 +57,6 @@ const GuidPage: React.FC = () => {
 
   const localeKey = resolveLocaleKey(i18n.language);
   const isDesktop = isElectronDesktop();
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-
-  // Open external link
-  const openLink = useCallback(async (url: string) => {
-    try {
-      await openExternalUrl(url);
-    } catch (error) {
-      console.error('Failed to open external link:', error);
-    }
-  }, []);
 
   // --- Skills state ---
   // Skill metadata comes from the database-backed catalog. Built-in auto-inject
@@ -381,7 +369,7 @@ const GuidPage: React.FC = () => {
     const prefillFiles = prefillState?.prefillFiles;
     const preserveCurrentDraft = Boolean(prefillState?.preservePrefillDraft || skipNextClearRef.current);
     if (prefillPrompt && consumedPrefillKeyRef.current !== location.key) {
-      // Consume prompt + optional attachments (e.g. bug-report screenshots) once.
+      // Consume prompt + optional attachments once.
       consumedPrefillKeyRef.current = location.key;
       skipNextClearRef.current = true;
       if (prefillState.preservePrefillDraft) {
@@ -549,16 +537,6 @@ const GuidPage: React.FC = () => {
             </div>
           ) : null}
         </div>
-
-        {isDesktop && (
-          <QuickActionButtons
-            onOpenLink={openLink}
-            onOpenBugReport={() => setShowFeedbackModal(true)}
-            inactiveBorderColor={inactiveBorderColor}
-            activeShadow={activeShadow}
-          />
-        )}
-        {isDesktop && <FeedbackReportModal visible={showFeedbackModal} onCancel={() => setShowFeedbackModal(false)} />}
       </div>
     </ConfigProvider>
   );

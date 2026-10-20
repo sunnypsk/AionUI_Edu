@@ -6,7 +6,7 @@
  * Verifies the workspace panel renders the seeded files, search works, and
  * tabs switch correctly.
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { goToGuid } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -27,12 +27,10 @@ test.describe('Workspace — single chat', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  test('user selects workspace folder, sends message, sees files in panel', async ({ page, electronApp }) => {
+  test('user selects workspace folder, sends message, sees files in panel', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await goToGuid(page);
 

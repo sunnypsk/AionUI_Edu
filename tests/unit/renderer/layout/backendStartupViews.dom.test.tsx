@@ -29,18 +29,11 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Keep the installation-integrity module importable in jsdom without a real
-// feedback pipeline.
-vi.mock('@/renderer/services/feedback/submitFeedbackReport', () => ({
-  submitFeedbackReport: vi.fn().mockResolvedValue(undefined),
-}));
-
 const FORBIDDEN_PHRASES = ['missing required local resources', 'reinstall', 'antivirus', 'quarantine'];
 
 import BackendStartingView from '@/renderer/components/layout/BackendStartingView';
 import {
   getBackendStartupInstallationDescription,
-  getInstallationIntegrityDiagnosticsSentText,
   getInstallationIntegrityModalActions,
   getInstallationIntegrityTitle,
 } from '@/renderer/components/layout/InstallationIntegrityDialog';
@@ -68,62 +61,79 @@ describe('AC-4: BackendStartingView (pending-slow, process alive)', () => {
 });
 
 describe('AC-5: backend_exited honest-failure wiring', () => {
-  it('uses the exited title and keeps a report action but no download action', () => {
+  it('uses the exited title and exposes no upstream report or download action', () => {
     expect(getInstallationIntegrityTitle(echoT, 'backend_exited')).toBe('common.backendStartup.exited.title');
 
     const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'backend_exited' });
-    expect(actions.reportText).toBe('common.backendStartup.exited.sendDiagnostics');
-    // No download / reinstall button for a process that was proven to exist.
-    expect(actions.downloadText).toBeUndefined();
+    expect(actions).not.toHaveProperty('reportText');
+    expect(actions).not.toHaveProperty('downloadText');
     expect(actions.recoverText).toBeUndefined();
   });
 
-  it('regression: genuine incomplete-installation still keeps the reinstall copy and download action', () => {
+  it('regression: genuine incomplete-installation keeps its copy without a desktop download action', () => {
     const description = getBackendStartupInstallationDescription(
       echoT as unknown as Parameters<typeof getBackendStartupInstallationDescription>[0]
     );
     expect(description).toBe('common.backendStartup.incompleteInstallation.description');
 
     const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'incomplete_installation' });
-    expect(actions.downloadText).toBe('common.backendStartup.incompleteInstallation.downloadLatest');
+    expect(actions).not.toHaveProperty('downloadText');
   });
 });
 
 // Sentry 136646113 — dedicated port-report-timeout kind plus the neutralized
 // startup_failed fallback kind. Neither may expose the download/reinstall path.
 describe('port_report_timeout and startup_failed dialog wiring (Sentry 136646113)', () => {
-  it('uses the port-report-timeout copy with a report action but no download action', () => {
+  it('uses the port-report-timeout copy without upstream reporting or download actions', () => {
     expect(getInstallationIntegrityTitle(echoT, 'port_report_timeout')).toBe(
       'common.backendStartup.portReportTimeout.title'
     );
-    expect(getInstallationIntegrityDiagnosticsSentText(echoT, 'port_report_timeout')).toBe(
-      'common.backendStartup.portReportTimeout.diagnosticsSent'
-    );
 
     const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'port_report_timeout' });
-    expect(actions.reportText).toBe('common.backendStartup.portReportTimeout.sendDiagnostics');
-    expect(actions.downloadText).toBeUndefined();
+    expect(actions).not.toHaveProperty('reportText');
+    expect(actions).not.toHaveProperty('downloadText');
     expect(actions.recoverText).toBeUndefined();
   });
 
   it('uses the neutral startup-failed copy for the fallback kind, with no download action', () => {
     expect(getInstallationIntegrityTitle(echoT, 'startup_failed')).toBe('common.backendStartup.startupFailed.title');
-    expect(getInstallationIntegrityDiagnosticsSentText(echoT, 'startup_failed')).toBe(
-      'common.backendStartup.startupFailed.diagnosticsSent'
-    );
 
     const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'startup_failed' });
-    expect(actions.reportText).toBe('common.backendStartup.startupFailed.sendDiagnostics');
-    expect(actions.downloadText).toBeUndefined();
+    expect(actions).not.toHaveProperty('reportText');
+    expect(actions).not.toHaveProperty('downloadText');
     expect(actions.recoverText).toBeUndefined();
   });
 
-  it('regression: incomplete_installation keeps the reinstall copy and the download action', () => {
+  it('regression: incomplete_installation keeps its title without a desktop download action', () => {
     expect(getInstallationIntegrityTitle(echoT, 'incomplete_installation')).toBe(
       'common.backendStartup.incompleteInstallation.title'
     );
 
     const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'incomplete_installation' });
-    expect(actions.downloadText).toBe('common.backendStartup.incompleteInstallation.downloadLatest');
+    expect(actions).not.toHaveProperty('downloadText');
+  });
+});
+
+describe('recoverable_database_corruption recovery capability', () => {
+  it('offers no rebuild action when no recovery handler exists', () => {
+    const actions = getInstallationIntegrityModalActions(echoT, { diagnosticsKind: 'recoverable_database_corruption' });
+    expect(actions.recoverText).toBeUndefined();
+    expect(actions.onRecoverCorruptedDatabase).toBeUndefined();
+  });
+
+  it('offers the rebuild action only for the corruption kind when a handler exists', () => {
+    const handler = () => Promise.resolve();
+    const recoverable = getInstallationIntegrityModalActions(echoT, {
+      diagnosticsKind: 'recoverable_database_corruption',
+      onRecoverCorruptedDatabase: handler,
+    });
+    expect(recoverable.recoverText).toBe('common.backendStartup.recoverableDatabaseCorruption.confirmRebuild');
+    expect(recoverable.onRecoverCorruptedDatabase).toBe(handler);
+
+    const other = getInstallationIntegrityModalActions(echoT, {
+      diagnosticsKind: 'backend_exited',
+      onRecoverCorruptedDatabase: handler,
+    });
+    expect(other.recoverText).toBeUndefined();
   });
 });

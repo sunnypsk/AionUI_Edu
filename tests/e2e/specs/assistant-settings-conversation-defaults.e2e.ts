@@ -7,7 +7,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import type { ElectronApplication, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import {
   clickCreateAssistant,
@@ -167,8 +167,8 @@ async function ensureAionrsTestModels(page: Page): Promise<EnsuredAionrsModels> 
   };
 }
 
-async function getUserDataPath(electronApp: ElectronApplication): Promise<string> {
-  return electronApp.evaluate(async ({ app }) => app.getPath('userData'));
+async function getUserDataPath(webui: { dataDir: string }): Promise<string> {
+  return Promise.resolve(webui.dataDir);
 }
 
 function querySqliteJson<T>(dbPath: string, sql: string): T {
@@ -501,7 +501,7 @@ async function reopenConversationFromHistory(page: Page, conversationId: string)
 test.describe('Assistant Settings Conversation Defaults', () => {
   test.setTimeout(120_000);
 
-  test('fixed defaults are written into conversation assistant snapshots on create', async ({ page, electronApp }) => {
+  test('fixed defaults are written into conversation assistant snapshots on create', async ({ page, webui }) => {
     const assistantName = `Fixed Snapshot ${Date.now()}`;
 
     await goToAssistantSettings(page);
@@ -539,8 +539,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     try {
       expect(payload.assistant?.conversation_overrides?.mcp_ids).toContain(firstMcp.id);
 
-      const userDataPath = await getUserDataPath(electronApp);
-      const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+      const userDataPath = await getUserDataPath(webui);
+      const dbPath = path.join(userDataPath, 'aionui-backend.db');
       const snapshot = querySnapshotByConversationId(dbPath, conversationId);
 
       expect(snapshot.default_model_mode).toBe('fixed');
@@ -559,7 +559,7 @@ test.describe('Assistant Settings Conversation Defaults', () => {
 
   test('auto defaults persist guid selections into snapshot and assistant preferences on create', async ({
     page,
-    electronApp,
+    webui,
   }) => {
     const assistantName = `Auto Snapshot ${Date.now()}`;
 
@@ -609,8 +609,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
       expect(payload.assistant?.conversation_overrides?.skill_ids).toContain(firstSkill.name);
       expect(payload.assistant?.conversation_overrides?.mcp_ids).toContain(firstMcp.id);
 
-      const userDataPath = await getUserDataPath(electronApp);
-      const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+      const userDataPath = await getUserDataPath(webui);
+      const dbPath = path.join(userDataPath, 'aionui-backend.db');
       const snapshot = querySnapshotByConversationId(dbPath, conversationId);
       const preferences = queryPreferencesByAssistantKey(dbPath, assistantId);
 
@@ -635,7 +635,7 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     }
   });
 
-  test('fixed defaults restore conversation snapshot after reopening history entry', async ({ page, electronApp }) => {
+  test('fixed defaults restore conversation snapshot after reopening history entry', async ({ page, webui }) => {
     const assistantName = `Fixed Reopen ${Date.now()}`;
 
     await goToAssistantSettings(page);
@@ -665,8 +665,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     const { conversationId } = await sendGuidMessageCapturingCreateRequest(page, 'fixed reopen baseline');
     await waitForAiReply(page);
 
-    const userDataPath = await getUserDataPath(electronApp);
-    const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+    const userDataPath = await getUserDataPath(webui);
+    const dbPath = path.join(userDataPath, 'aionui-backend.db');
 
     try {
       const beforeSwitch = querySnapshotByConversationId(dbPath, conversationId);
@@ -695,7 +695,7 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     }
   });
 
-  test('auto defaults restore conversation snapshot after reopening history entry', async ({ page, electronApp }) => {
+  test('auto defaults restore conversation snapshot after reopening history entry', async ({ page, webui }) => {
     const assistantName = `Auto Reopen ${Date.now()}`;
 
     await goToAssistantSettings(page);
@@ -741,8 +741,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     const { conversationId } = await sendGuidMessageCapturingCreateRequest(page, 'auto reopen baseline');
     await waitForAiReply(page);
 
-    const userDataPath = await getUserDataPath(electronApp);
-    const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+    const userDataPath = await getUserDataPath(webui);
+    const dbPath = path.join(userDataPath, 'aionui-backend.db');
 
     try {
       const beforeSwitch = querySnapshotByConversationId(dbPath, conversationId);
@@ -777,7 +777,7 @@ test.describe('Assistant Settings Conversation Defaults', () => {
 
   test('switching from auto to fixed seeds preferences and new conversations use fixed defaults', async ({
     page,
-    electronApp,
+    webui,
   }) => {
     const assistantName = `Auto Fixed Switch ${Date.now()}`;
     const aionrsModels = await ensureAionrsTestModels(page);
@@ -801,8 +801,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     test.skip(!assistantId, 'Created assistant not found');
     if (!assistantId) return;
 
-    const userDataPath = await getUserDataPath(electronApp);
-    const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+    const userDataPath = await getUserDataPath(webui);
+    const dbPath = path.join(userDataPath, 'aionui-backend.db');
     try {
       await httpInvoke(page, 'PUT', `/api/assistants/${assistantId}`, {
         id: assistantId,
@@ -861,7 +861,7 @@ test.describe('Assistant Settings Conversation Defaults', () => {
 
   test('switching from fixed back to auto clears remembered preferences before new assistant conversations', async ({
     page,
-    electronApp,
+    webui,
   }) => {
     const assistantName = `Fixed Auto Switch ${Date.now()}`;
     const aionrsModels = await ensureAionrsTestModels(page);
@@ -885,8 +885,8 @@ test.describe('Assistant Settings Conversation Defaults', () => {
     test.skip(!assistantId, 'Created assistant not found');
     if (!assistantId) return;
 
-    const userDataPath = await getUserDataPath(electronApp);
-    const dbPath = path.join(userDataPath, 'aionui', 'aionui-backend.db');
+    const userDataPath = await getUserDataPath(webui);
+    const dbPath = path.join(userDataPath, 'aionui-backend.db');
 
     try {
       await httpInvoke(page, 'PUT', `/api/assistants/${assistantId}`, {

@@ -53,15 +53,15 @@ See the `i18n` skill (`.claude/skills/i18n/SKILL.md`) for complete workflow, key
 
 ## Architecture
 
-Two process types — never mix their APIs:
+This fork ships only the standalone Unraid WebUI, with local browser development on macOS.
 
-| Process  | Path                             | Restriction     |
-| -------- | -------------------------------- | --------------- |
-| Main     | `packages/desktop/src/process/`  | No DOM APIs     |
-| Renderer | `packages/desktop/src/renderer/` | No Node.js APIs |
+| Layer                    | Path                             | Restriction                       |
+| ------------------------ | -------------------------------- | --------------------------------- |
+| Host                     | `packages/web-host/`             | Node/Bun APIs; no DOM             |
+| Frontend                 | `packages/desktop/src/renderer/` | Browser APIs; no Node.js APIs     |
+| Shared browser contracts | `packages/desktop/src/common/`   | Keep runtime imports browser-safe |
 
-Cross-process communication must go through the IPC bridge (`packages/desktop/src/preload/`).
-See [docs/architecture/overview.md](docs/architecture/overview.md) for details.
+The `desktop` source folder name is retained for path compatibility; it is not an Electron workspace. Cross-layer communication uses the existing HTTP/WebSocket adapters. Do not introduce Electron, native apps, installers, feedback telemetry or desktop release jobs.
 
 ## Testing
 
@@ -78,7 +78,7 @@ See the `testing` skill (`.claude/skills/testing/SKILL.md`) for complete workflo
 
 ### Scope & Enforcement
 
-- **Hard blockers**: process boundary violations, TypeScript errors, failing tests, unsafe IPC usage, missing i18n for new or changed user-facing text, and raw interactive HTML in new UI.
+- **Hard blockers**: process boundary violations, TypeScript errors, failing tests, unsafe HTTP/WebSocket usage, missing i18n for new or changed user-facing text, and raw interactive HTML in new UI.
 - **Current-change requirements**: naming, CSS, file placement, tests, docs, directory size, and single-file-directory rules apply to files created or meaningfully modified by the current change.
 - **Ratchet rules**: existing directory size or single-file-directory violations do not require cleanup during ordinary feature work or bugfixes, but the current change must not make them worse.
 - **No scope expansion**: implementation plans and reviews must not create extra tasks, phases, or acceptance criteria for cleanup unless the user asks for that scope.

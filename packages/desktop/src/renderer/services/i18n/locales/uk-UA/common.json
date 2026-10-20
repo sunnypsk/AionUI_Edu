@@ -86,25 +86,16 @@
     },
     "incompleteInstallation": {
       "title": "Встановлення AionUi неповне",
-      "description": "У цьому встановленні бракує потрібних локальних ресурсів, тому AionCore не може запуститися. Завантажте та перевстановіть останню версію AionUi. Якщо проблема повториться після перевстановлення, перевірте, чи захисне або антивірусне ПЗ не помістило AionCore у карантин.",
-      "downloadLatest": "Завантажити останню версію",
-      "sendDiagnostics": "Надіслати діагностику",
-      "diagnosticsSent": "Діагностику надіслано",
-      "diagnosticsReportSuccess": "Діагностичний звіт надіслано",
-      "diagnosticsReportFailed": "Не вдалося надіслати діагностичний звіт",
-      "runtimeComponentDescription": "У цій інсталяції бракує потрібних вбудованих компонентів середовища виконання, тому {{resource}} не може запуститися. Перевстановіть найновіший пакет AionUi. Якщо проблема повториться після перевстановлення, перевірте, чи не помістило програмне забезпечення безпеки або антивірус компоненти AionUi у карантин."
+      "description": "Відсутні необхідні серверні файли AionCore. Попросіть адміністратора перевірити встановлення WebUI або образ контейнера.",
+      "runtimeComponentDescription": "Компонент середовища виконання WebUI {{resource}} недоступний. Попросіть адміністратора перевірити встановлення або образ контейнера."
     },
     "packageArchitectureMismatch": {
       "title": "AionUi package architecture mismatch",
-      "description": "This AionUi package is for {{packageArch}}, but this Mac is {{deviceArch}}. You may have downloaded the wrong package. Please download and install the {{expectedArch}} package."
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     },
     "dataMigration": {
       "title": "Local data migration failed",
-      "description": "AionUi opened, but AionCore stopped while initializing local data. Reinstalling AionUi may not fix this. Send a diagnostics report or contact support so the local database migration can be inspected.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     },
     "databaseNewerThanApp": {
       "title": "Потрібна новіша версія AionUi",
@@ -113,29 +104,16 @@
     },
     "localDataRepair": {
       "title": "Local data repair failed",
-      "description": "AionUi відкрився, але AionCore зупинився під час підготовки локальних даних запуску, як-от записи assistants або агентів. Повторне встановлення AionUi може не вирішити проблему. Надішліть діагностичний звіт або зверніться до підтримки, щоб можна було перевірити локальну базу даних.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     },
     "startupDirectory": {
       "title": "Startup directory is unavailable",
-      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi."
     },
     "recoverableDatabaseCorruption": {
       "title": "Локальні дані пошкоджено",
-      "description": "AionUi виявив пошкодження локальної бази даних і не може продовжити запуск. Після підтвердження стару базу даних буде збережено як резервну копію, а для продовження запуску буде створено нову локальну базу даних. Попередні розмови більше не відображатимуться, стара база даних збережеться як файл резервної копії.",
+      "description": "AionCore не може прочитати базу даних. Перед відновленням адміністратор має створити резервну копію каталогу даних і перевірити журнали сервера.",
       "confirmRebuild": "Зберегти стару БД і створити нову",
-      "sendDiagnostics": "Надіслати діагностику",
-      "diagnosticsHint": "Надсилання діагностики не змінить локальну базу даних.",
-      "diagnosticsSent": "Діагностику надіслано",
-      "diagnosticsReportSuccess": "Діагностичний звіт надіслано",
-      "diagnosticsReportFailed": "Не вдалося надіслати діагностичний звіт",
       "rebuildFailed": "Не вдалося зберегти стару БД і створити нову",
       "confirmDialog": {
         "title": "Відтворити базу даних?",
@@ -146,12 +124,7 @@
     },
     "transientConcurrentStartup": {
       "title": "AionUi запускається",
-      "description": "Коли це вікно відкрилося, інший процес запуску AionUi усе ще використовував локальні дані. Це тимчасово, і ваші дані в безпеці — перевстановлення не потрібне. Зачекайте трохи та повторіть спробу або перезапустіть AionUi.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report",
-      "diagnosticsHint": "Якщо це повторюється, ви можете надіслати звіт діагностики."
+      "description": "Коли це вікно відкрилося, інший процес запуску AionUi усе ще використовував локальні дані. Це тимчасово, і ваші дані в безпеці — перевстановлення не потрібне. Зачекайте трохи та повторіть спробу або перезапустіть AionUi."
     },
     "pendingSlow": {
       "title": "Запуск",
@@ -159,27 +132,15 @@
     },
     "exited": {
       "title": "Запуск не завершено",
-      "description": "AionCore не зміг завершити запуск і закрився. Перезапустіть застосунок; якщо це повторюється, надішліть діагностику.",
-      "sendDiagnostics": "Надіслати діагностику",
-      "diagnosticsSent": "Діагностику надіслано",
-      "diagnosticsReportSuccess": "Діагностику надіслано",
-      "diagnosticsReportFailed": "Не вдалося надіслати діагностику, повторіть спробу пізніше"
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     },
     "portReportTimeout": {
       "title": "Час запуску вичерпано",
-      "description": "AionCore не завершив запуск за очікуваний час. Перезапустіть застосунок; якщо це повторюється, надішліть діагностику.",
-      "sendDiagnostics": "Надіслати діагностику",
-      "diagnosticsSent": "Діагностику надіслано",
-      "diagnosticsReportSuccess": "Діагностику надіслано",
-      "diagnosticsReportFailed": "Не вдалося надіслати діагностику, повторіть спробу пізніше"
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     },
     "startupFailed": {
       "title": "Не вдалося запустити",
-      "description": "AionCore не вдалося запустити. Перезапустіть застосунок; якщо це повторюється, надішліть діагностику.",
-      "sendDiagnostics": "Надіслати діагностику",
-      "diagnosticsSent": "Діагностику надіслано",
-      "diagnosticsReportSuccess": "Діагностику надіслано",
-      "diagnosticsReportFailed": "Не вдалося надіслати діагностику, повторіть спробу пізніше"
+      "description": "Не вдалося запустити AionCore. Попросіть адміністратора перевірити журнали сервера. Не видаляйте наявні дані."
     }
   },
   "fileAttach.addFiles": "Додати файли",

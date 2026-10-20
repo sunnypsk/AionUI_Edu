@@ -9,8 +9,8 @@ import type { NavigateFunction, NavigateOptions } from 'react-router-dom';
 /**
  * Module-level handle to React Router's `navigate`, registered once by a
  * component mounted inside the Router (see `Layout`). This lets code that runs
- * *outside* the Router context — e.g. the globally-mounted FeedbackReportModal,
- * which lives above `<Router>` in the provider tree — trigger navigation
+ * *outside* the Router context — e.g. providers that live above `<Router>` in
+ * the provider tree — trigger navigation
  * without calling `useNavigate()` during render (which would throw
  * "useNavigate() may be used only in the context of a <Router>").
  */

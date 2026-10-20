@@ -38,10 +38,12 @@ LABEL org.opencontainers.image.source="https://github.com/sunnypsk/AionUI_Edu" \
     uk.littlething.aionui-edu.release-sequence="$RELEASE_SEQUENCE"
 COPY --from=builder /app/package.json /app/bun.lock ./
 COPY --from=builder /app/LICENSE ./LICENSE
-COPY --from=builder /app/patches ./patches
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/scripts/webui.ts ./scripts/webui.ts
+COPY --from=builder /app/packages/web-host/package.json ./packages/web-host/package.json
 RUN bun install --production --frozen-lockfile --ignore-scripts
+COPY --from=builder /app/packages/web-host/src ./packages/web-host/src
+COPY --from=builder /app/packages/web-host/openui ./packages/web-host/openui
+COPY --from=builder /app/packages/web-host/docker ./packages/web-host/docker
+COPY --from=builder /app/scripts/webui.ts /app/scripts/resetpass.ts ./scripts/
 COPY --from=builder /app/out/renderer ./out/renderer
 COPY --from=builder /app/dist-server/codex ./dist-server/codex
 

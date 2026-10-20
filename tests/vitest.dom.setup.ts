@@ -11,14 +11,6 @@ import '@testing-library/jest-dom/vitest';
 interface ElectronAPI {
   emit: () => Promise<void>;
   on: () => void;
-  windowControls: {
-    minimize: () => Promise<void>;
-    maximize: () => Promise<void>;
-    unmaximize: () => Promise<void>;
-    close: () => Promise<void>;
-    isMaximized: () => Promise<boolean>;
-    onMaximizedChange: () => () => void;
-  };
 }
 
 declare global {
@@ -29,19 +21,10 @@ declare global {
 const noop = () => Promise.resolve();
 
 // Mock Electron APIs for testing
-const windowControlsMock = {
-  minimize: noop,
-  maximize: noop,
-  unmaximize: noop,
-  close: noop,
-  isMaximized: () => Promise.resolve(false),
-  onMaximizedChange: (): (() => void) => () => void 0,
-};
 
 global.electronAPI = {
   emit: noop,
   on: () => {},
-  windowControls: windowControlsMock,
 };
 
 if (typeof window !== 'undefined') {

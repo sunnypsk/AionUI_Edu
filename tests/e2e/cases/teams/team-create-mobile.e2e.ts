@@ -22,43 +22,12 @@ const MOBILE_HEIGHT = 900;
 const DESKTOP_WIDTH = 1200;
 const DESKTOP_HEIGHT = 900;
 
-async function setWindowContentSize(
-  electronApp: import('@playwright/test').ElectronApplication,
-  width: number,
-  height: number
-): Promise<void> {
-  await electronApp.evaluate(
-    async ({ BrowserWindow }, size) => {
-      const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().startsWith('devtools://'));
-      win?.setContentSize(size.width, size.height);
-    },
-    { width, height }
-  );
-}
-
 test.describe('Team Create - mobile (narrow screen)', () => {
-  let originalSize: { width: number; height: number } | null = null;
-
-  test.beforeEach(async ({ electronApp }) => {
-    // Remember the current content size so we can restore it afterwards.
-    originalSize = await electronApp.evaluate(async ({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().startsWith('devtools://'));
-      const [width, height] = win?.getContentSize() ?? [1200, 900];
-      return { width, height };
-    });
-    // Force a known desktop width regardless of prior state (the window is shared
-    // across specs; a previous run may have left it narrow).
-    await setWindowContentSize(electronApp, DESKTOP_WIDTH, DESKTOP_HEIGHT);
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT });
   });
 
-  test.afterEach(async ({ electronApp }) => {
-    // Restore the original size — the Electron window is shared across specs.
-    if (originalSize) {
-      await setWindowContentSize(electronApp, originalSize.width, originalSize.height);
-    }
-  });
-
-  test('shows single-column layout and adds a member via the bottom sheet', async ({ electronApp, page }) => {
+  test('shows single-column layout and adds a member via the bottom sheet', async ({ page }) => {
     // Open the modal at desktop width via the sidebar create button (stable testid).
     const createBtn = page.locator('[data-testid="team-create-btn"]').first();
     await expect(createBtn).toBeVisible({ timeout: 15_000 });
@@ -69,7 +38,7 @@ test.describe('Team Create - mobile (narrow screen)', () => {
     ).toBeVisible({ timeout: 5_000 });
 
     // Shrink below the breakpoint — the open modal re-renders into its mobile layout.
-    await setWindowContentSize(electronApp, MOBILE_WIDTH, MOBILE_HEIGHT);
+    await setWindowContentSize(MOBILE_WIDTH, MOBILE_HEIGHT);
 
     // Mobile layout root is present; the desktop two-column root is not.
     const mobileLayout = page.locator('[data-testid="team-create-layout-mobile"]');

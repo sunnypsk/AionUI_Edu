@@ -7,7 +7,7 @@
  * backend contract for `/api/fs/*` is covered separately in the Vitest
  * integration suite (tests/integration).
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { cleanupTeamsByName, TEAM_SUPPORTED_BACKENDS } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -30,7 +30,7 @@ test.describe('Workspace Files — UI panel', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  test('workspace panel renders tree and search for a team workspace', async ({ page, electronApp }) => {
+  test('workspace panel renders tree and search for a team workspace', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
     if (TEAM_SUPPORTED_BACKENDS.size === 0) {
@@ -40,9 +40,7 @@ test.describe('Workspace Files — UI panel', () => {
 
     // Mock native folder dialog → point at our seeded workspace so the team is
     // created with a user-specified workspace (not a temp one).
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await cleanupTeamsByName(page, TEAM_NAME);
 

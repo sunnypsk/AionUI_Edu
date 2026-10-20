@@ -19,7 +19,6 @@
   "modules": [
     "common",
     "agentMode",
-    "update",
     "login",
     "fileSelection",
     "preview",
@@ -34,7 +33,6 @@
     "cron",
     "guid",
     "agent",
-    "team",
-    "pet"
+    "team"
   ]
 }

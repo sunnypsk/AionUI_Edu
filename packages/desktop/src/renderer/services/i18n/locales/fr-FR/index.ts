@@ -5,7 +5,6 @@
 
 import common from './common.json';
 import agentMode from './agentMode.json';
-import update from './update.json';
 import login from './login.json';
 import fileSelection from './fileSelection.json';
 import preview from './preview.json';
@@ -21,12 +20,10 @@ import cron from './cron.json';
 import guid from './guid.json';
 import agent from './agent.json';
 import team from './team.json';
-import pet from './pet.json';
 
 export default {
   common,
   agentMode,
-  update,
   login,
   fileSelection,
   preview,
@@ -42,5 +39,4 @@ export default {
   guid,
   agent,
   team,
-  pet,
 };

@@ -5,7 +5,7 @@
  * - TC-S-29: Import from Folder with mocked dialog
  */
 
-import { test, expect } from '../../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../../fixtures';
 import {
   goToSkillsHub,
   getMySkills,
@@ -26,7 +26,7 @@ test.describe('Skills Hub - Manual Import (P1)', () => {
   // TC-S-29: Import from Folder with mocked dialog
   // ============================================================================
 
-  test('TC-S-29: should import skill from folder via mocked dialog', async ({ page, electronApp }) => {
+  test('TC-S-29: should import skill from folder via mocked dialog', async ({ page, webui }) => {
     const tempSource = createTempExternalSource('tc-s-29');
     try {
       const skillName = `E2E-Test-Manual-Import-${Date.now()}`;
@@ -39,21 +39,7 @@ test.describe('Skills Hub - Manual Import (P1)', () => {
       await takeScreenshot(page, 'skills-hub/tc-s-29/01-initial-state.png');
 
       // Step 1: Mock dialog.showOpenDialog to return test skill path
-      await electronApp.evaluate(({ dialog }, targetPath) => {
-        // Store original showOpenDialog
-        const originalShowOpenDialog = dialog.showOpenDialog;
-
-        // Mock showOpenDialog to return test skill path
-        dialog.showOpenDialog = () => {
-          // Restore original after first call
-          dialog.showOpenDialog = originalShowOpenDialog;
-
-          return Promise.resolve({
-            canceled: false,
-            filePaths: [targetPath],
-          });
-        };
-      }, skillPath);
+      await chooseServerPathWhenPrompted(page, skillPath);
 
       // Screenshot 02: Before clicking import button
       await takeScreenshot(page, 'skills-hub/tc-s-29/02-before-click.png');

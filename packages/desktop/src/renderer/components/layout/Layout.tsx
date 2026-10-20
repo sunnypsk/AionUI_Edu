@@ -10,7 +10,7 @@ import PwaPullToRefresh from '@/renderer/components/layout/PwaPullToRefresh';
 import Titlebar from '@/renderer/components/layout/Titlebar';
 import { Layout as ArcoLayout, Tooltip } from '@arco-design/web-react';
 import classNames from 'classnames';
-import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { setGlobalNavigate } from '@/renderer/utils/navigation';
@@ -36,8 +36,6 @@ import { useDesktopTurnNotification } from '@renderer/hooks/system/notification/
 import { cleanupSiderTooltips } from '@renderer/utils/ui/siderTooltip';
 import { useConversationShortcuts } from '@renderer/hooks/ui/useConversationShortcuts';
 import { isElectronDesktop } from '@renderer/utils/platform';
-import { IS_DISCONTINUED_BUILD } from '@/renderer/utils/discontinuedBuild';
-import UpdateMigrationDialog from '@/renderer/components/settings/UpdateMigrationDialog';
 import '@renderer/styles/layout.css';
 
 const SidebarIcon: React.FC<{ size?: number; strokeWidth?: number }> = ({ size = 18, strokeWidth = 4 }) => (
@@ -58,38 +56,6 @@ const SidebarIcon: React.FC<{ size?: number; strokeWidth?: number }> = ({ size =
     <line x1='18' y1='10' x2='18' y2='38' />
   </svg>
 );
-
-const useDebug = () => {
-  const [count, setCount] = useState(0);
-  const timer = useRef<any>(null);
-  const onClick = () => {
-    const open = () => {
-      ipcBridge.application.openDevTools.invoke().catch((error) => {
-        console.error('Failed to open dev tools:', error);
-      });
-      setCount(0);
-    };
-    if (count >= 3) {
-      return open();
-    }
-    setCount((prev) => {
-      if (prev >= 2) {
-        open();
-        return 0;
-      }
-      return prev + 1;
-    });
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      clearTimeout(timer.current);
-      setCount(0);
-    }, 1000);
-  };
-
-  return { onClick };
-};
-
-const UpdateModal = React.lazy(() => import('@/renderer/components/settings/UpdateModal'));
 
 const DEFAULT_SIDER_WIDTH = 260;
 const DESKTOP_COLLAPSED_WIDTH = 0;
@@ -124,7 +90,6 @@ const Layout: React.FC<{
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === 'undefined' ? 390 : window.innerWidth
   );
-  const { onClick } = useDebug();
   useDeepLink();
   useNotificationClick();
   useBrowserNotification();
@@ -137,8 +102,8 @@ const Layout: React.FC<{
     setCollapsed((previous) => !previous);
   }, []);
   useConversationShortcuts({ navigate, toggleSider });
-  // Expose navigate to code running outside the Router tree (e.g. the globally
-  // mounted FeedbackReportModal's "via chat" action).
+  // Expose navigate to code running outside the Router tree (e.g. useTalkToButler
+  // callers that are mounted outside it).
   useEffect(() => {
     setGlobalNavigate(navigate);
     return () => setGlobalNavigate(null);
@@ -295,56 +260,6 @@ const Layout: React.FC<{
     return () => unsubscribe();
   }, []);
 
-  // Handle tray events from main process / 处理来自主进程的托盘事件
-  useEffect(() => {
-    if (!isElectronDesktop()) return;
-
-    // Navigate to guid page when requested from tray / 托盘请求导航到 guid 页面
-    const handleNavigateToGuid = () => {
-      void navigate('/guid');
-    };
-
-    // Navigate to conversation when requested from tray / 托盘请求导航到对话页面
-    const handleNavigateToConversation = (event: CustomEvent<{ conversation_id: string }>) => {
-      void navigate(`/conversation/${event.detail.conversation_id}`);
-    };
-
-    // Open about dialog when requested from tray / 托盘请求打开关于对话框
-    const handleOpenAbout = () => {
-      // Navigate to settings/about page / 导航到设置/关于页面
-      void navigate('/settings/about');
-    };
-
-    // Handle pause all tasks request from tray / 托盘请求暂停所有任务
-    const handlePauseAllTasks = async () => {
-      const result = await ipcBridge.task.stopAll.invoke();
-      if (result?.success) {
-        // Navigate to settings page to show task status
-        void navigate('/settings/system');
-      }
-    };
-
-    // Handle check update request from tray / 托盘请求检查更新
-    const handleCheckUpdate = () => {
-      window.dispatchEvent(new CustomEvent('aionui-open-update-modal', { detail: { source: 'tray' } }));
-    };
-
-    // Listen for tray events / 监听托盘事件
-    window.addEventListener('tray:navigate-to-guid', handleNavigateToGuid as EventListener);
-    window.addEventListener('tray:navigate-to-conversation', handleNavigateToConversation as EventListener);
-    window.addEventListener('tray:open-about', handleOpenAbout as EventListener);
-    window.addEventListener('tray:pause-all-tasks', handlePauseAllTasks as EventListener);
-    window.addEventListener('tray:check-update', handleCheckUpdate as EventListener);
-
-    return () => {
-      window.removeEventListener('tray:navigate-to-guid', handleNavigateToGuid as EventListener);
-      window.removeEventListener('tray:navigate-to-conversation', handleNavigateToConversation as EventListener);
-      window.removeEventListener('tray:open-about', handleOpenAbout as EventListener);
-      window.removeEventListener('tray:pause-all-tasks', handlePauseAllTasks as EventListener);
-      window.removeEventListener('tray:check-update', handleCheckUpdate as EventListener);
-    };
-  }, [navigate]);
-
   const siderWidth = isMobile
     ? Math.max(
         MOBILE_SIDER_MIN_WIDTH,
@@ -402,7 +317,6 @@ const Layout: React.FC<{
                   className={classNames('bg-black shrink-0 size-32px relative rd-0.5rem', {
                     '!size-24px': collapsed,
                   })}
-                  onClick={onClick}
                 >
                   <svg
                     className={classNames('w-5.5 h-5.5 absolute inset-0 m-auto', {
@@ -505,10 +419,6 @@ const Layout: React.FC<{
               >
                 <Outlet />
                 <PwaPullToRefresh />
-                <Suspense fallback={null}>
-                  <UpdateModal />
-                </Suspense>
-                {IS_DISCONTINUED_BUILD && <UpdateMigrationDialog />}
               </ArcoLayout.Content>
               {/* Hoisted preview region (project conversations only). Structurally
                   persistent: lives above the per-conversation subtree, so a

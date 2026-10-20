@@ -25,14 +25,7 @@ function getBackendStartup(lang: string): Record<string, Record<string, string>>
 }
 
 const PENDING_SLOW_KEYS = ['title', 'description'];
-const EXITED_KEYS = [
-  'title',
-  'description',
-  'sendDiagnostics',
-  'diagnosticsSent',
-  'diagnosticsReportSuccess',
-  'diagnosticsReportFailed',
-];
+const EXITED_KEYS = ['title', 'description'];
 
 describe('backend startup copy — completeness (AC-6)', () => {
   it('every supported language defines the pendingSlow and exited key groups', () => {
@@ -82,9 +75,11 @@ describe('backend startup copy — no misleading reinstall/antivirus wording (AC
     }
   });
 
-  it('regression: zh-CN incompleteInstallation still keeps the reinstall guidance', () => {
+  it('directs incomplete server installations to the administrator', () => {
     const backendStartup = getBackendStartup('zh-CN');
-    expect(backendStartup.incompleteInstallation.description).toContain('重新安装');
+    expect(backendStartup.incompleteInstallation.description).toContain('管理员');
+    expect(backendStartup.incompleteInstallation.description).toContain('容器镜像');
+    expect(backendStartup.incompleteInstallation.description).not.toContain('重新安装');
   });
 });
 

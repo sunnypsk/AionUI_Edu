@@ -83,25 +83,16 @@
     },
     "incompleteInstallation": {
       "title": "La instalación de AionUi está incompleta",
-      "description": "Esta instalación no tiene los recursos locales necesarios, por lo que AionCore no puede iniciar. Descarga e instala la última versión de AionUi. Si el problema persiste después de reinstalar, verifica si el software de seguridad o antivirus puso en cuarentena AionCore.",
-      "downloadLatest": "Descargar la última versión",
-      "sendDiagnostics": "Enviar diagnóstico",
-      "diagnosticsSent": "Diagnóstico enviado",
-      "diagnosticsReportSuccess": "Reporte de diagnóstico enviado",
-      "diagnosticsReportFailed": "Error al enviar el reporte de diagnóstico",
-      "runtimeComponentDescription": "Esta instalación no tiene los componentes de runtime necesarios, por lo que {{resource}} no puede iniciar. Reinstala el último paquete de AionUi. Si sigue fallando, verifica si el software de seguridad o antivirus puso en cuarentena componentes de AionUi."
+      "description": "Faltan archivos de servidor necesarios para AionCore. Pide al administrador que revise la instalación de WebUI o la imagen del contenedor.",
+      "runtimeComponentDescription": "El componente de ejecución de WebUI {{resource}} no está disponible. Pide al administrador que revise la instalación o la imagen del contenedor."
     },
     "packageArchitectureMismatch": {
       "title": "Incompatibilidad de arquitectura del paquete AionUi",
-      "description": "Este paquete de AionUi es para {{packageArch}}, pero esta Mac es {{deviceArch}}. Es posible que hayas descargado el paquete incorrecto. Descarga e instala el paquete {{expectedArch}}."
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     },
     "dataMigration": {
       "title": "Local data migration failed",
-      "description": "AionUi opened, but AionCore stopped while initializing local data. Reinstalling AionUi may not fix this. Send a diagnostics report or contact support so the local database migration can be inspected.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     },
     "databaseNewerThanApp": {
       "title": "Se requiere una versión más reciente de AionUi",
@@ -110,29 +101,16 @@
     },
     "localDataRepair": {
       "title": "Local data repair failed",
-      "description": "AionUi se abrió, pero AionCore se detuvo al preparar datos locales de inicio, como registros de asistentes o agentes. Reinstalar AionUi puede no solucionar este problema. Envía un informe de diagnóstico o contacta con soporte para que se pueda inspeccionar la base de datos local.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     },
     "startupDirectory": {
       "title": "Startup directory is unavailable",
-      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi."
     },
     "recoverableDatabaseCorruption": {
       "title": "Local data is corrupted",
-      "description": "AionUi detectó que la base de datos local está dañada y no puede continuar el inicio. Tras la confirmación, AionUi hará una copia de seguridad de la base de datos antigua y creará una nueva base de datos local para continuar el inicio. Las conversaciones anteriores ya no se mostrarán y la base de datos antigua se conservará como archivo de copia de seguridad.",
+      "description": "AionCore no puede leer la base de datos. Antes de intentar recuperarla, el administrador debe respaldar el directorio de datos y revisar los registros del servidor.",
       "confirmRebuild": "Back up old DB and rebuild new DB",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsHint": "Sending diagnostics will not modify the local database.",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report",
       "rebuildFailed": "Failed to back up old DB and rebuild new DB",
       "confirmDialog": {
         "title": "¿Reconstruir la base de datos?",
@@ -143,12 +121,7 @@
     },
     "transientConcurrentStartup": {
       "title": "AionUi se está iniciando",
-      "description": "Cuando se abrió esta ventana, otro proceso de inicio de AionUi todavía estaba usando los datos locales. Esto es temporal y tus datos están seguros: no es necesario reinstalar. Espera un momento e inténtalo de nuevo, o reinicia AionUi.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report",
-      "diagnosticsHint": "Si esto sigue ocurriendo, puedes enviar un informe de diagnóstico."
+      "description": "Cuando se abrió esta ventana, otro proceso de inicio de AionUi todavía estaba usando los datos locales. Esto es temporal y tus datos están seguros: no es necesario reinstalar. Espera un momento e inténtalo de nuevo, o reinicia AionUi."
     },
     "pendingSlow": {
       "title": "Iniciando",
@@ -156,27 +129,15 @@
     },
     "exited": {
       "title": "El inicio no se completó",
-      "description": "AionCore no pudo completar el inicio y se cerró. Reinicia la aplicación; si esto sigue ocurriendo, envía un diagnóstico.",
-      "sendDiagnostics": "Enviar diagnóstico",
-      "diagnosticsSent": "Diagnóstico enviado",
-      "diagnosticsReportSuccess": "Diagnóstico enviado",
-      "diagnosticsReportFailed": "No se pudo enviar el diagnóstico, inténtalo de nuevo"
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     },
     "portReportTimeout": {
       "title": "Tiempo de inicio agotado",
-      "description": "AionCore no terminó de iniciarse en el tiempo previsto. Reinicia la aplicación; si esto sigue ocurriendo, envía un diagnóstico.",
-      "sendDiagnostics": "Enviar diagnóstico",
-      "diagnosticsSent": "Diagnóstico enviado",
-      "diagnosticsReportSuccess": "Diagnóstico enviado",
-      "diagnosticsReportFailed": "No se pudo enviar el diagnóstico, inténtalo de nuevo"
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     },
     "startupFailed": {
       "title": "Error al iniciar",
-      "description": "AionCore no pudo iniciarse. Reinicia la aplicación; si esto sigue ocurriendo, envía un diagnóstico.",
-      "sendDiagnostics": "Enviar diagnóstico",
-      "diagnosticsSent": "Diagnóstico enviado",
-      "diagnosticsReportSuccess": "Diagnóstico enviado",
-      "diagnosticsReportFailed": "No se pudo enviar el diagnóstico, inténtalo de nuevo"
+      "description": "No se pudo iniciar AionCore. Pide al administrador que revise los registros del servidor. No elimines los datos existentes."
     }
   },
   "fileAttach.addFiles": "Agregar archivos",

@@ -122,10 +122,6 @@ vi.mock('@/renderer/pages/conversation/Messages/acp/MessageAcpToolCall', () => (
   ),
 }));
 
-vi.mock('@/renderer/pages/conversation/Messages/components/MessagePlan', () => ({
-  default: () => <div>plan</div>,
-}));
-
 vi.mock('@/renderer/pages/conversation/Messages/components/MessageThinking', () => ({
   default: () => <div>thinking</div>,
 }));

@@ -14,8 +14,7 @@ export type HttpRoute = {
 
 /**
  * Mapping from legacy dotted IPC keys to aioncore HTTP routes.
- * Only keys actually used by E2E tests are listed — unknown keys fall through
- * to the legacy IPC bridge.
+ * Only keys actually used by E2E tests are listed. Unknown keys fail explicitly.
  */
 export const HTTP_ROUTES: Record<string, HttpRoute> = {
   'cron.list-jobs': {

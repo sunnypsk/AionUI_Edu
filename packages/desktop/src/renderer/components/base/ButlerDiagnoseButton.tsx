@@ -18,10 +18,9 @@ type ButlerDiagnoseButtonProps = {
 };
 
 /**
- * Inline "ask the Butler" chip shown next to FeedbackButton on error surfaces.
- * Instead of filing a report, it routes the user to the home chat with the
- * AionUi Butler selected and a diagnosis prompt (including the error text)
- * pre-filled — the same flow as the report modal's "Solve via chat" action.
+ * Inline "ask the Butler" chip shown on error surfaces. It routes the user to
+ * the home chat with the AionUi Butler selected and a diagnosis prompt
+ * (including the error text) pre-filled.
  */
 const ButlerDiagnoseButton: React.FC<ButlerDiagnoseButtonProps> = ({ errorText, className }) => {
   const { t } = useTranslation();
@@ -56,8 +55,7 @@ const ButlerDiagnoseButton: React.FC<ButlerDiagnoseButtonProps> = ({ errorText, 
       )}
     >
       {/* No pt offset: @icon-park's Robot glyph is vertically centered in its
-          viewBox (unlike Comment in FeedbackButton), so items-center alone
-          lines it up with the text baseline. */}
+          viewBox, so items-center alone lines it up with the text baseline. */}
       <Robot theme='outline' size='14' fill='currentColor' className='flex-shrink-0' />
       <span>{t('settings.talkToButler.solveWithButler')}</span>
     </button>

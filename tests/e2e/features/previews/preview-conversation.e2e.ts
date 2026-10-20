@@ -8,7 +8,7 @@
  *
  * This is deterministic — no dependency on agent output.
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { goToGuid } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -35,12 +35,10 @@ test.describe('Preview — file click triggers preview', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  test('clicking HTML file in workspace tree opens preview panel', async ({ page, electronApp }) => {
+  test('clicking HTML file in workspace tree opens preview panel', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await goToGuid(page);
 
@@ -103,12 +101,10 @@ test.describe('Preview — file click triggers preview', () => {
     ).toBeTruthy();
   });
 
-  test('clicking markdown file opens preview with rendered content', async ({ page, electronApp }) => {
+  test('clicking markdown file opens preview with rendered content', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await goToGuid(page);
 

@@ -8,12 +8,12 @@
  * Uses test.describe.serial to share a single conversation across all assertions
  * and avoid redundant 30-second conversation creation per test.
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { goToGuid } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import type { Page, ElectronApplication, Locator } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
 
 test.describe.serial('Workspace — file operations', () => {
   let workspace: string;
@@ -33,12 +33,10 @@ test.describe.serial('Workspace — file operations', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  test('setup: create conversation with workspace panel', async ({ page, electronApp }) => {
+  test('setup: create conversation with workspace panel', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await goToGuid(page);
 

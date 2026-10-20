@@ -4,14 +4,13 @@
  * Copyright 2025 AionUi (aionui.com)
  * SPDX-License-Identifier: Apache-2.0
  *
- * Pure Bun CLI — launches the WebUI (backend + static server + auth) without
- * starting Electron. Replaces the former `electron-vite dev -- --webui` flow.
+ * Bun launcher for the WebUI backend, static server and authentication.
  *
  * Env vars:
- *   AIONUI_PORT           : static server port (default 33000)
+ *   AIONUI_PORT           : static server port (default 25809 dev / 25808 production)
  *   AIONUI_HOST           : listen host; set to 0.0.0.0 to imply --remote
  *   AIONUI_ALLOW_REMOTE   : "1"/"true" to expose to LAN
- *   AIONUI_DATA_DIR       : override userData path (default Electron-compatible)
+ *   AIONUI_DATA_DIR       : override the WebUI data directory
  *   AIONUI_LOG_DIR        : override log dir (default <dataDir>/logs)
  *   AIONUI_STATIC_DIR     : override static dir (default out/renderer)
  *   AIONUI_BACKEND_BIN    : explicit Core override (default: verified OpenUI Core build)
@@ -26,7 +25,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startWebHost, readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
-import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-cli/src/browser.js';
+import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-host/src/browser.js';
 import { buildCodexRuntime, CODEX_RUNTIME_BUNDLE } from '../packages/web-host/src/runtime/codex/build.js';
 
 // Aligned with packages/desktop/src/common/config/constants.ts WEBUI_DEFAULT_PORT.
@@ -50,35 +49,9 @@ const getFlag = (name: string): string | undefined => {
 };
 
 /**
- * Resolve the directory where aioncore persists its SQLite DB.
- *
- * `bun run webui` runs **independently of the Electron desktop app** — it must
- * work on hosts that never installed AionUi.app, and its default work dir must
- * NOT collide with Electron's.
- *
- *   --data-dir <path>       CLI override (highest priority)
- *   $AIONUI_DATA_DIR        env override (same effect)
- *   otherwise               ~/.aionui-web         (production)
- *                           ~/.aionui-web-dev     (dev, default)
- *                           ~/.aionui-web-dev-2   (dev + AIONUI_MULTI_INSTANCE=1)
- *
- * Why a dedicated `-web` name, not the same `~/.aionui[-dev]` that Electron
- * uses: on macOS, Electron's getDataPath() (packages/desktop/src/process/utils/
- * utils.ts) creates `~/.aionui-dev` as a **symlink** to
- * `~/Library/Application Support/AionUi-Dev/aionui` so CLI tools (claude,
- * gemini, qwen…) don't choke on the literal space in "Application Support".
- * If standalone webui runs first on a clean machine, it would create the
- * symlink location as a **real directory** instead. When Electron is later
- * installed, its `ensureCliSafeSymlink` refuses to overwrite a real dir and
- * falls back to returning the space-containing path — and then every ACP
- * agent inside the desktop app starts failing on CLI commands. Using
- * `.aionui-web` keeps standalone webui's data dir off of the path Electron's
- * symlink needs.
- *
- * If the user wants the two to share data they opt-in explicitly via
- *   --data-dir ~/.aionui-dev                     (or equivalent on other OSes)
- * which is safe because by that point Electron has created the symlink and
- * `bun run webui` just follows it.
+ * Resolve the existing WebUI data directory without migrating or renaming it.
+ * CLI --data-dir takes precedence over AIONUI_DATA_DIR, then ~/.aionui-web
+ * (production), ~/.aionui-web-dev or ~/.aionui-web-dev-2 (development).
  */
 function resolveBackendDataDir(): string {
   const override = getFlag('--data-dir') ?? process.env.AIONUI_DATA_DIR;
@@ -122,7 +95,7 @@ function resolveStaticDir(): string {
 }
 
 /**
- * Rebuild renderer/main bundles before launching, so that `bun run webui` always
+ * Rebuild the SPA and Codex runtime before launching, so that `bun run webui` always
  * serves the latest source. Skipped when:
  *   --no-build flag           : explicit opt-out (e.g., iterating on this script)
  *   $AIONUI_NO_BUILD=1        : env-level opt-out
@@ -143,11 +116,8 @@ function resolveBackendBinary(): string {
 }
 
 /**
- * Prepend all nvm-managed Node bin dirs to PATH. Electron's main process does
- * this (see packages/desktop/src/index.ts), otherwise CLI tools installed under
- * a specific Node version (e.g. gemini under v25) won't be found by the backend
- * spawned by ACP — the `Superset: X not found in PATH` wrapper bails, so the
- * ACP handshake times out after 30s and the UI sees `502 Bad Gateway`.
+ * Discover CLI tools installed under nvm-managed Node versions before starting
+ * the backend. Missing command paths otherwise cause agent handshake failures.
  */
 function augmentPathWithNvm(): void {
   if (process.platform === 'win32') return;
@@ -183,7 +153,6 @@ async function main(): Promise<void> {
   });
   // One working dir for the whole standalone webui: backend SQLite and chat
   // history live here. Admin credentials live in the backend's users table.
-  // This keeps `bun run webui` fully self-contained on hosts without AionUi.app.
   const workDir = resolveBackendDataDir();
   if (process.platform !== 'win32') {
     if (!fs.existsSync(CODEX_RUNTIME_BUNDLE)) buildCodexRuntime();
@@ -237,11 +206,10 @@ async function main(): Promise<void> {
   if (handle.networkUrl) console.log(`  Network: ${handle.networkUrl}`);
 
   // If SQLite has no admin yet (fresh install), seed one via backend and print
-  // the plaintext credentials. Mirrors webuiBridge.ts:maybeSeedInitialPassword
-  // for the Electron path — SQLite is now the single source of truth.
+  // the plaintext credentials. SQLite is the single source of truth.
   //
   // Username is surfaced explicitly: legacy dev databases may have the seeded
-  // user as `system` instead of `admin`, and Electron users can rename it via
+  // user as `system` instead of `admin`, and users can rename it via
   // Settings. Always read it from the backend rather than assuming a value.
   try {
     const statusRes = await fetch(`http://127.0.0.1:${handle.backendPort}/api/auth/status`);

@@ -110,6 +110,18 @@ def check(image, revision):
         else:
             raise RuntimeError("WebUI did not become healthy")
         docker("top", app, "-eo", "pid,args")
+        runtime_packages = app_exec(
+            app, "bun", "-e",
+            "const {createRequire}=await import('node:module');"
+            "const root=createRequire('/app/package.json');"
+            "const host=createRequire('/app/packages/web-host/package.json');"
+            "for(const name of ['electron','@sentry/electron','react','@arco-design/web-react','vite','typescript']) {"
+            "for(const require of [root,host]) {let found=false;try {require.resolve(name);found=true;}catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error;}"
+            "if(found)throw Error('Build-only package in runtime: '+name);}}"
+            "for(const name of ['playwright-core','semver','serve-handler','zod','@modelcontextprotocol/sdk/server/mcp.js'])host.resolve(name);"
+            "console.log('Production server dependencies only');"
+        )
+        print(runtime_packages.stdout.strip())
         result = app_exec(app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")

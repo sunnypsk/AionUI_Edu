@@ -10,7 +10,6 @@ data
 .env
 .env.*
 coverage
-dist-web-cli
 .agents
 .claude
 .aws

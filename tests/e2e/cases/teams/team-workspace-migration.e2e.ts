@@ -13,7 +13,7 @@
  *   6. Send another task to leader → verify member gets re-assigned
  *   7. Cleanup: delete team + temp directory
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { invokeBridge, TEAM_SUPPORTED_BACKENDS } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -34,7 +34,7 @@ test.describe('Team Workspace Migration', () => {
     fs.rmSync(targetWorkspace, { recursive: true, force: true });
   });
 
-  test('migrate workspace and verify team still functional', async ({ page, electronApp }) => {
+  test('migrate workspace and verify team still functional', async ({ page, webui }) => {
     test.setTimeout(300_000);
 
     // ── Cleanup leftover E2E Migration teams from previous runs ─────────
@@ -155,9 +155,7 @@ test.describe('Team Workspace Migration', () => {
 
     // ── Step 4: Mock native dialog → change workspace ───────────────────
 
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, targetWorkspace);
+    await chooseServerPathWhenPrompted(page, targetWorkspace);
 
     const changeBtn = page.locator('.workspace-toolbar-actions svg').first();
     await expect(changeBtn).toBeVisible({ timeout: 5_000 });

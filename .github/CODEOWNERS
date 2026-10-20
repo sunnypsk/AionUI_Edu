@@ -42,6 +42,5 @@
 /packages/desktop/src/renderer/pages/settings/components/ @jiahe0510
 
 # ---- WebUI & remote access (kaizhou-lab) ----
-/packages/web-cli/ @kaizhou-lab
 /packages/web-host/ @kaizhou-lab
 /packages/desktop/src/renderer/components/settings/SettingsModal/contents/WebuiModalContent.tsx @kaizhou-lab

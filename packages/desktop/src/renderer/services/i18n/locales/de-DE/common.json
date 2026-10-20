@@ -83,25 +83,16 @@
     },
     "incompleteInstallation": {
       "title": "AionUi-Installation ist unvollständig",
-      "description": "Diese Installation fehlen erforderliche lokale Ressourcen, daher kann AionCore nicht starten. Bitte lade die neueste Version von AionUi herunter und installiere sie neu. Wenn das Problem nach der Neuinstallation erneut auftritt, überprüfe, ob Sicherheits- oder Antivirus-Software AionCore unter Quarantäne gestellt hat.",
-      "downloadLatest": "Neueste Version herunterladen",
-      "sendDiagnostics": "Diagnose senden",
-      "diagnosticsSent": "Diagnose gesendet",
-      "diagnosticsReportSuccess": "Diagnosebericht gesendet",
-      "diagnosticsReportFailed": "Fehler beim Senden des Diagnoseberichts",
-      "runtimeComponentDescription": "Diese Installation fehlen erforderliche gebündelte Runtime-Komponenten, daher kann {{resource}} nicht starten. Installiere das neueste AionUi-Paket neu. Wenn es nach der Neuinstallation immer noch auftritt, überprüfe, ob Sicherheits- oder Antivirus-Software AionUi-Komponenten unter Quarantäne gestellt hat."
+      "description": "Erforderliche Serverdateien für AionCore fehlen. Bitten Sie die Administration, die WebUI-Installation oder das Container-Image zu prüfen.",
+      "runtimeComponentDescription": "Die WebUI-Laufzeitkomponente {{resource}} ist nicht verfügbar. Bitte den Administrator, die Installation oder das Container-Image zu prüfen."
     },
     "packageArchitectureMismatch": {
       "title": "AionUi-Paket-Architektur-Fehlanpassung",
-      "description": "Dieses AionUi-Paket ist für {{packageArch}}, aber dieser Mac ist {{deviceArch}}. Möglicherweise hast du das falsche Paket heruntergeladen. Bitte lade das {{expectedArch}}-Paket herunter und installiere es."
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     },
     "dataMigration": {
       "title": "Local data migration failed",
-      "description": "AionUi opened, but AionCore stopped while initializing local data. Reinstalling AionUi may not fix this. Send a diagnostics report or contact support so the local database migration can be inspected.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     },
     "databaseNewerThanApp": {
       "title": "Neuere AionUi-Version erforderlich",
@@ -110,29 +101,16 @@
     },
     "localDataRepair": {
       "title": "Local data repair failed",
-      "description": "AionUi wurde geöffnet, aber AionCore wurde beim Vorbereiten lokaler Startdaten wie Assistant- oder Agent-Datensätzen beendet. Eine Neuinstallation von AionUi behebt dies möglicherweise nicht. Senden Sie einen Diagnosebericht oder wenden Sie sich an den Support, damit die lokale Datenbank geprüft werden kann.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     },
     "startupDirectory": {
       "title": "Startup directory is unavailable",
-      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report"
+      "description": "AionUi opened, but AionCore could not start because the configured work or log directory is missing, unavailable, or blocked by permissions. Check that the configured directories exist and are writable, then restart AionUi."
     },
     "recoverableDatabaseCorruption": {
       "title": "Lokale Daten sind beschädigt",
-      "description": "AionUi hat erkannt, dass die lokale Datenbank beschädigt ist und den Start nicht fortsetzen kann. Nach der Bestätigung wird die alte Datenbank gesichert und eine neue lokale Datenbank erstellt, um den Start fortzusetzen. Frühere Unterhaltungen werden nicht mehr angezeigt, und die alte Datenbank bleibt als Sicherungsdatei erhalten.",
+      "description": "AionCore kann die Datenbank nicht lesen. Vor einer Wiederherstellung muss die Administration das Datenverzeichnis sichern und die Serverprotokolle prüfen.",
       "confirmRebuild": "Alte DB sichern und neue DB erstellen",
-      "sendDiagnostics": "Diagnose senden",
-      "diagnosticsHint": "Das Senden der Diagnose ändert die lokale Datenbank nicht.",
-      "diagnosticsSent": "Diagnose gesendet",
-      "diagnosticsReportSuccess": "Diagnosebericht gesendet",
-      "diagnosticsReportFailed": "Diagnosebericht konnte nicht gesendet werden",
       "rebuildFailed": "Alte DB konnte nicht gesichert und neue DB nicht erstellt werden",
       "confirmDialog": {
         "title": "Datenbank neu aufbauen?",
@@ -143,12 +121,7 @@
     },
     "transientConcurrentStartup": {
       "title": "AionUi wird gestartet",
-      "description": "Beim Öffnen dieses Fensters verwendete ein anderer AionUi-Startvorgang noch die lokalen Daten. Das ist vorübergehend und Ihre Daten sind sicher – eine Neuinstallation ist nicht erforderlich. Bitte warten Sie einen Moment und versuchen Sie es erneut oder starten Sie AionUi neu.",
-      "sendDiagnostics": "Send diagnostics",
-      "diagnosticsSent": "Diagnostics sent",
-      "diagnosticsReportSuccess": "Diagnostics report sent",
-      "diagnosticsReportFailed": "Failed to send diagnostics report",
-      "diagnosticsHint": "Wenn dies wiederholt auftritt, können Sie einen Diagnosebericht senden."
+      "description": "Beim Öffnen dieses Fensters verwendete ein anderer AionUi-Startvorgang noch die lokalen Daten. Das ist vorübergehend und Ihre Daten sind sicher – eine Neuinstallation ist nicht erforderlich. Bitte warten Sie einen Moment und versuchen Sie es erneut oder starten Sie AionUi neu."
     },
     "pendingSlow": {
       "title": "Wird gestartet",
@@ -156,27 +129,15 @@
     },
     "exited": {
       "title": "Start nicht abgeschlossen",
-      "description": "AionCore konnte den Start nicht abschließen und wurde beendet. Bitte starten Sie die App neu; wenn dies wiederholt auftritt, senden Sie bitte eine Diagnose.",
-      "sendDiagnostics": "Diagnose senden",
-      "diagnosticsSent": "Diagnose gesendet",
-      "diagnosticsReportSuccess": "Diagnose gemeldet",
-      "diagnosticsReportFailed": "Diagnose konnte nicht gesendet werden, bitte erneut versuchen"
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     },
     "portReportTimeout": {
       "title": "Zeitüberschreitung beim Start",
-      "description": "AionCore konnte den Start nicht innerhalb der erwarteten Zeit abschließen. Bitte starten Sie die App neu; wenn dies wiederholt auftritt, senden Sie bitte eine Diagnose.",
-      "sendDiagnostics": "Diagnose senden",
-      "diagnosticsSent": "Diagnose gesendet",
-      "diagnosticsReportSuccess": "Diagnose gemeldet",
-      "diagnosticsReportFailed": "Diagnose konnte nicht gesendet werden, bitte erneut versuchen"
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     },
     "startupFailed": {
       "title": "Start fehlgeschlagen",
-      "description": "AionCore konnte nicht gestartet werden. Bitte starten Sie die App neu; wenn dies wiederholt auftritt, senden Sie bitte eine Diagnose.",
-      "sendDiagnostics": "Diagnose senden",
-      "diagnosticsSent": "Diagnose gesendet",
-      "diagnosticsReportSuccess": "Diagnose gemeldet",
-      "diagnosticsReportFailed": "Diagnose konnte nicht gesendet werden, bitte erneut versuchen"
+      "description": "AionCore konnte nicht gestartet werden. Bitten Sie die Administration, die Serverprotokolle zu prüfen. Löschen Sie keine vorhandenen Daten."
     }
   },
   "fileAttach.addFiles": "Dateien hinzufügen",

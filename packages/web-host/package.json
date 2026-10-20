@@ -2,7 +2,7 @@
   "name": "@aionui/web-host",
   "version": "0.0.0",
   "private": true,
-  "description": "WebUI host package - spawns backend and reverse-proxies to it; serves static files (no Electron dependency)",
+  "description": "Unraid WebUI host, Codex runtime controls and shared browser gateway",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -15,6 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
     "playwright-core": "1.59.1",
+    "semver": "^7.7.2",
     "serve-handler": "^6.1.5",
     "zod": "^3.25.76"
   },

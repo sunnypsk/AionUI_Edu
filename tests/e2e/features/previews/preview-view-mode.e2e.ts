@@ -7,7 +7,7 @@
  * The version-history dropdown this file also used to cover is gone: that
  * feature (and its backend routes) were removed, so the test went with it.
  */
-import { test, expect } from '../../fixtures';
+import { test, expect, chooseServerPathWhenPrompted } from '../../fixtures';
 import { goToGuid } from '../../helpers';
 import fs from 'fs';
 import path from 'path';
@@ -27,14 +27,8 @@ test.describe('Preview — view mode toggle', () => {
   });
 
   /** Create conversation with workspace, click a file, return preview panel or null. */
-  async function openPreviewViaFileClick(
-    page: import('@playwright/test').Page,
-    electronApp: import('@playwright/test').ElectronApplication,
-    fileName: string
-  ) {
-    await electronApp.evaluate(async ({ dialog }, target) => {
-      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [target] });
-    }, workspace);
+  async function openPreviewViaFileClick(page: import('@playwright/test').Page, fileName: string) {
+    await chooseServerPathWhenPrompted(page, workspace);
 
     await goToGuid(page);
 
@@ -69,10 +63,10 @@ test.describe('Preview — view mode toggle', () => {
     return previewPanel;
   }
 
-  test('Editor/Preview toggle switches view mode', async ({ page, electronApp }) => {
+  test('Editor/Preview toggle switches view mode', async ({ page, webui }) => {
     test.setTimeout(120_000);
 
-    const panel = await openPreviewViaFileClick(page, electronApp, 'app.html');
+    const panel = await openPreviewViaFileClick(page, 'app.html');
     if (!panel) {
       test.skip(true, 'Preview panel not available');
       return;

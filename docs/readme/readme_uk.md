@@ -1,3 +1,5 @@
+> Historical upstream documentation. This fork ships only the Unraid Docker WebUI; see the [current readme](../../readme.md) for supported setup and commands.
+
 <p align="center">
   <img src="../../resources/aionui-banner-1.png" alt="AionUi - Спільна робота з AI-агентами" width="100%">
 </p>
