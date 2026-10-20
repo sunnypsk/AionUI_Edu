@@ -1,5 +1,10 @@
 import { openuiChatLibrary, openuiLibrary } from '@openuidev/react-ui';
-import { withTeacherComponents } from '../../../desktop/src/common/openui/components';
+import * as contractsModule from '../../../desktop/src/common/openui/components';
+
+// Under tsx the root package loads as CommonJS, so Node exposes its exports on `default`;
+// Vitest and Bun provide the named exports directly.
+const contracts = (contractsModule as { default?: typeof contractsModule }).default ?? contractsModule;
+const { withTeacherComponents } = contracts;
 
 const specOnly = { SlideOutline: (): null => null, FileCard: (): null => null };
 
