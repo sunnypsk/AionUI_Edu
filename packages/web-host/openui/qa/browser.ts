@@ -359,7 +359,7 @@ db.commit()
     await savePage(desktop, 'carousel-light');
     const teacherCard = desktop.getByText('背影簡報', { exact: true });
     await teacherCard.scrollIntoViewIfNeeded();
-    assert.equal(await desktop.getByRole('group', { name: '第 1 張' }).isVisible(), true);
+    assert.equal(await desktop.getByRole('group', { name: /^(Slide 1|第 1 張)$/ }).isVisible(), true);
     await savePage(desktop, 'teacher-light');
     checks.push('teacher SlideOutline and FileCard render with the WebUI renderers');
     checks.push(...(await runControlAcceptance(desktop, (name) => savePage(desktop!, name), 'desktop')));
