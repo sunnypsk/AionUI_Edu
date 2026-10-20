@@ -11,7 +11,7 @@ RUN bun run package
 FROM rust:1.95.0-bookworm AS core-builder
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends cmake clang libssl-dev pkg-config patch \
+    && apt-get install -y --no-install-recommends cmake clang libssl-dev pkg-config patch python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /source
 COPY packages/web-host/openui ./packages/web-host/openui
@@ -21,7 +21,7 @@ ENV CARGO_TARGET_DIR=/build-target \
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,id=openui-core-${TARGETARCH},target=/build-target \
-    bun packages/web-host/openui/core/build.ts
+    bun packages/web-host/openui/core/build.ts --test-idle
 
 FROM node:24-bookworm-slim AS runtime
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
@@ -51,6 +51,7 @@ COPY --from=core-builder /output/aioncore.json /usr/local/share/aioncore/build.j
 ENV NODE_ENV=production \
     TZ=Asia/Hong_Kong \
     AIONUI_CONTAINER=1 \
+    AIONUI_CODEX_IDLE_TTL_MS=1800000 \
     AIONUI_DATA_DIR=/data \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \

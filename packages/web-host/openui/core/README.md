@@ -6,6 +6,8 @@ The WebUI launcher, CLI packaging and Dockerfile use this extension. The receipt
 
 The patch includes the additive database migration, owned message/program validation, revisioned state APIs, transactional fork copies, deletion cleanup, MCP runtime and OAuth lifecycle, permission cards, cancellation, durable mutation receipts, and prompt delivery for ordinary and team sends. The official MCP client SDK handles stdio and Streamable HTTP; a compatibility transport supports legacy SSE. Query accepts only tools explicitly annotated read-only. Native CLI permission modes with private rules retain the host confirmation card unless Core has an authoritative approval decision.
 
+The Codex connection also accepts `AIONUI_CODEX_IDLE_TTL_MS` to opt into its existing native suspend/resume lifecycle. The container sets a 30-minute threshold; other hosts keep suspension disabled unless configured. Running turns and tracked child agents prevent suspension, and the next dispatch resumes the same Codex thread. The NAS updater retains its process guard rather than ignoring resident CLI processes.
+
 Prepare the source without starting a service:
 
 ```sh
@@ -18,7 +20,7 @@ Build after installing Rust 1.95.0:
 bun run openui:core:build
 ```
 
-Use `--debug` for a development binary, or `--test` to run the affected database, conversation, MCP and team crates before building. Application route tests live in the patched `aionui-app` crate and should also be run for API changes. `--resolve-only` prints the verified binary path without building.
+Use `--debug` for a development binary, or `--test` to run the affected database, conversation, MCP and team crates before building. `--test-idle` runs the focused Codex idle suspend/resume tests, including a native process and JSON-RPC fixture without inference; container builds require this gate. The fixture needs Python 3 on Unix. Set `AIONUI_IDLE_TEST_CODEX_LAUNCHER` to the absolute path of `packages/web-host/src/runtime/codex/codex` to also exercise the Bun/Node launcher chain locally. Application route tests live in the patched `aionui-app` crate and should also be run for API changes. `--resolve-only` prints the verified binary path without building.
 
 Set `AIONUI_OPENUI_CORE_CACHE` to move prepared sources and binaries. `CARGO_TARGET_DIR` controls Cargo artifacts independently; `AIONUI_OPENUI_CORE_OUTPUT` can choose the installation path. On macOS the script uses the standalone Command Line Tools package's selected `MacOSX.sdk` when available, without changing the system developer directory. macOS cross-architecture packaging requires the corresponding Rust target. Other platforms build on native runners.
 

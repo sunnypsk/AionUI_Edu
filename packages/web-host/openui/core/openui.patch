@@ -5436,6 +5436,331 @@
 +        .unwrap();
 +    assert!(result.is_err());
 +}
+--- a/crates/aionui-session/src/backend/codex_conn.rs
++++ b/crates/aionui-session/src/backend/codex_conn.rs
+@@ -22,7 +22,7 @@
+ //! `emit`) are now production-reachable via `open_session`'s live spawn (R4) and
+ //! independently contract-tested via the `build_with_io` seam.
+ 
+-use std::collections::HashMap;
++use std::collections::{HashMap, HashSet};
+ use std::sync::Arc;
+ use std::sync::atomic::{AtomicU64, Ordering};
+ 
+@@ -102,13 +102,23 @@
+     }
+ }
+ 
++/// Container deployments opt into the backend's existing suspend/resume lifecycle.
++/// Explicit session configuration wins; missing, disabled or invalid values stay conservative.
++fn configured_idle_ttl_ms(explicit: Option<i64>, environment: Option<&str>) -> Option<i64> {
++    explicit.or_else(|| environment?.parse::<i64>().ok().filter(|ttl| *ttl > 0))
++}
++
+ #[async_trait::async_trait]
+ impl BackendConnection for CodexConnection {
+     async fn open_session(
+         &self,
+         spec: SessionSpec,
+-        config: SessionConfig,
++        mut config: SessionConfig,
+     ) -> Result<Arc<dyn SessionBackend>, BackendError> {
++        config.idle_ttl_ms = configured_idle_ttl_ms(
++            config.idle_ttl_ms,
++            std::env::var("AIONUI_CODEX_IDLE_TTL_MS").ok().as_deref(),
++        );
+         // Live spawn: `codex app-server --stdio` via the INJECTED Spawner (S14,
+         // never raw-spawn). The PARSE/reverse-RPC/dispatch contract (the real 007
+         // risk) is fully hermetic-tested via build_with_io; this path adds the
+@@ -1014,6 +1024,8 @@
+     /// terminal (TurnResult / Detached). The idle timer reads it so a streaming turn
+     /// is never suspended mid-flight.
+     turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
++    /// Child agents may keep working after the parent turn has completed.
++    active_subagents: Arc<std::sync::Mutex<HashSet<String>>>,
+     /// First-turn session-title latch. Fired by the reader on a successful turn
+     /// terminal; runs on its OWN process (see `codex_title`), so nothing here
+     /// touches `thread_binding` / `turn_in_flight` / the R8 `terminated` flag.
+@@ -1049,6 +1061,7 @@
+             state.discovered,
+             state.stdin,
+             state.turn_in_flight,
++            state.active_subagents,
+             state.title_gen,
+         )
+         .await;
+@@ -1259,6 +1272,7 @@
+         let pending_fork = Arc::new(Mutex::new(None));
+         let discovered = Arc::new(std::sync::Mutex::new(Discovered::default()));
+         let turn_in_flight = Arc::new(std::sync::atomic::AtomicBool::new(false));
++        let active_subagents = Arc::new(std::sync::Mutex::new(HashSet::new()));
+         let (event_tx, _) = broadcast::channel(1024);
+ 
+         let (stdin, stdout) = match io.take_stdio().await {
+@@ -1285,6 +1299,7 @@
+             discovered: discovered.clone(),
+             stdin: stdin.clone(),
+             turn_in_flight: turn_in_flight.clone(),
++            active_subagents: active_subagents.clone(),
+             title_gen: title_gen.clone(),
+         };
+         let reader = start_codex_reader(&reader_state, stdout, io.clone());
+@@ -1296,6 +1311,7 @@
+         ));
+         let idle_timer = {
+             let tif = turn_in_flight.clone();
++            let children = active_subagents.clone();
+             // 009 R6 cleanup path 3: emit BackendSuspended on idle-reap → orchestrator
+             // clears the workflow_roster (a running workflow's task_notification will
+             // never arrive once the process is reaped).
+@@ -1306,7 +1322,10 @@
+                 &suspend,
+                 idle_check_interval_ms(idle_ttl_ms),
+                 aionui_common::now_ms,
+-                move || tif.load(std::sync::atomic::Ordering::SeqCst),
++                move || {
++                    tif.load(std::sync::atomic::Ordering::SeqCst)
++                        || !children.lock().unwrap_or_else(|e| e.into_inner()).is_empty()
++                },
+                 move || {
+                     let _ = etx.send(SessionEnvelope {
+                         session_id: sid.clone(),
+@@ -1599,6 +1618,7 @@
+     discovered: Arc<std::sync::Mutex<Discovered>>,
+     stdin: Arc<Mutex<Option<aionui_process::BoxedStdin>>>,
+     turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
++    active_subagents: Arc<std::sync::Mutex<HashSet<String>>>,
+     title_gen: Arc<TitleGen>,
+ ) {
+     use tokio::io::{AsyncBufReadExt, BufReader};
+@@ -1877,6 +1897,14 @@
+                             continue;
+                         }
+                         for ev in map_notification(m, params) {
++                            if let SessionEvent::SubagentUpdate { r#ref, status, .. } = &ev {
++                                let mut children = active_subagents.lock().unwrap_or_else(|e| e.into_inner());
++                                if status.is_terminal() {
++                                    children.remove(r#ref);
++                                } else {
++                                    children.insert(r#ref.clone());
++                                }
++                            }
+                             emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
+                         }
+                     }
+@@ -9375,6 +9403,212 @@
+         assert!(backend.suspend.is_active().await, "stays Active (production parity)");
+     }
+ 
++    #[test]
++    fn container_idle_threshold_is_opt_in_and_explicit_configuration_wins() {
++        assert_eq!(configured_idle_ttl_ms(None, Some("1800000")), Some(1_800_000));
++        assert_eq!(configured_idle_ttl_ms(Some(60_000), Some("1800000")), Some(60_000));
++        for environment in [
++            None,
++            Some("0"),
++            Some("-1"),
++            Some("invalid"),
++            Some("9223372036854775808"),
++        ] {
++            assert_eq!(configured_idle_ttl_ms(None, environment), None);
++        }
++    }
++
++    /// Exercise the real process group and JSON-RPC resume path without an account or inference.
++    /// The optional launcher also covers the container's Bun -> Node -> CLI wrapper chain.
++    #[cfg(unix)]
++    #[tokio::test]
++    async fn container_idle_releases_processes_resumes_history_and_preserves_active_work() {
++        use aionui_process::{ManagedProcess, ProcessError};
++        use futures_util::StreamExt;
++        use std::os::unix::fs::PermissionsExt;
++        use std::time::Duration;
++
++        struct FixtureSpawner(Arc<std::sync::Mutex<Vec<u32>>>);
++        #[async_trait::async_trait]
++        impl Spawner for FixtureSpawner {
++            async fn spawn(
++                &self,
++                command: aionui_common::CommandSpec,
++                env: &[(String, String)],
++                _owner: &str,
++            ) -> Result<Arc<ManagedProcess>, ProcessError> {
++                let app_server = command.args.iter().any(|arg| arg == "app-server");
++                let process = ManagedProcess::spawn(command, env).await?;
++                if app_server {
++                    self.0.lock().unwrap().push(process.pid());
++                }
++                Ok(Arc::new(process))
++            }
++        }
++
++        async fn wait_until(check: impl Fn() -> bool) {
++            tokio::time::timeout(Duration::from_secs(5), async {
++                while !check() {
++                    tokio::time::sleep(Duration::from_millis(20)).await;
++                }
++            })
++            .await
++            .expect("fixture lifecycle did not complete");
++        }
++
++        let directory = tempfile::tempdir().unwrap();
++        let cli = directory.path().join("fixture-codex");
++        let trace = directory.path().join("frames.jsonl");
++        let foreground_done = directory.path().join("foreground-done");
++        let child_done = directory.path().join("child-done");
++        std::fs::write(
++            &cli,
++            r##"#!/usr/bin/env python3
++import json, os, pathlib, sys, time
++if '--version' in sys.argv:
++    print('codex-cli 0.162.0')
++    sys.exit(0)
++def emit(value):
++    print(json.dumps(value), flush=True)
++def child(status):
++    emit({'method':'item/completed','params':{'threadId':'fixture-thread','turnId':'fixture-turn','item':{
++        'type':'collabAgentToolCall','id':'fixture-spawn','tool':'spawnAgent','status':'completed',
++        'senderThreadId':'fixture-thread','receiverThreadIds':['fixture-child'],
++        'agentsStates':{'fixture-child':{'status':status,'message':None}}}}})
++for line in sys.stdin:
++    frame=json.loads(line)
++    with open(os.environ['IDLE_FIXTURE_TRACE'],'a') as stream:
++        stream.write(json.dumps(frame)+'\n')
++    method=frame.get('method')
++    if method=='thread/resume':
++        emit({'id':frame['id'],'result':{'thread':{'id':'fixture-thread','turns':[]}}})
++        emit({'method':'thread/started','params':{'thread':{'id':'fixture-thread'}}})
++    elif method=='turn/start':
++        emit({'id':frame['id'],'result':{'turn':{'id':'fixture-turn','status':'inProgress'}}})
++        emit({'method':'turn/started','params':{'threadId':'fixture-thread','turn':{'id':'fixture-turn','status':'inProgress'}}})
++        while not pathlib.Path(os.environ['IDLE_FIXTURE_FOREGROUND_DONE']).exists():
++            time.sleep(.01)
++        child('running')
++        emit({'method':'turn/completed','params':{'threadId':'fixture-thread','turn':{'id':'fixture-turn','status':'completed'}}})
++        while not pathlib.Path(os.environ['IDLE_FIXTURE_CHILD_DONE']).exists():
++            time.sleep(.01)
++        child('completed')
++    elif 'id' in frame:
++        emit({'id':frame['id'],'result':{'data':[]}})
++"##,
++        )
++        .unwrap();
++        std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o700)).unwrap();
++        let mut env = vec![
++            ("IDLE_FIXTURE_TRACE", trace.clone()),
++            ("IDLE_FIXTURE_FOREGROUND_DONE", foreground_done.clone()),
++            ("IDLE_FIXTURE_CHILD_DONE", child_done.clone()),
++            ("AIONUI_BUNDLED_CODEX", cli.clone()),
++            ("AIONUI_CODEX_RUNTIME_ROOT", directory.path().join("runtime")),
++        ]
++        .into_iter()
++        .map(|(name, value)| aionui_common::EnvVar {
++            name: name.into(),
++            value: value.to_string_lossy().into_owned(),
++        })
++        .collect::<Vec<_>>();
++        env.extend(
++            [
++                ("AIONUI_BROWSER_SIGNING_KEY", "fixture-key"),
++                ("AIONUI_BROWSER_GATEWAY", "http://127.0.0.1:1/command"),
++                ("AIONUI_USER_ID", "fixture-user"),
++                ("AIONUI_CONVERSATION_ID", "fixture-conversation"),
++                ("AIONUI_RUNTIME_TOKEN", "fixture-token"),
++            ]
++            .into_iter()
++            .map(|(name, value)| aionui_common::EnvVar {
++                name: name.into(),
++                value: value.into(),
++            }),
++        );
++        let pids = Arc::new(std::sync::Mutex::new(Vec::new()));
++        let connection = CodexConnection::new(Arc::new(FixtureSpawner(pids.clone())));
++        let backend = connection
++            .open_session(
++                SessionSpec::Resume {
++                    session_id: "logical-conversation".into(),
++                    backend_session_id: Some("fixture-thread".into()),
++                },
++                SessionConfig {
++                    cli_program: Some(
++                        std::env::var_os("AIONUI_IDLE_TEST_CODEX_LAUNCHER")
++                            .map(std::path::PathBuf::from)
++                            .unwrap_or_else(|| cli.clone()),
++                    ),
++                    idle_ttl_ms: Some(100),
++                    spawn_env: env,
++                    ..Default::default()
++                },
++            )
++            .await
++            .unwrap();
++        let first = pids.lock().unwrap()[0];
++        wait_until(|| !aionui_process::process_group_alive(Some(first))).await;
++
++        let mut events = backend.events();
++        backend
++            .dispatch(Command::Send {
++                content: vec![ContentBlock::Text("continue the original conversation".into())],
++                metadata: Default::default(),
++            })
++            .await
++            .unwrap();
++        let second = pids.lock().unwrap()[1];
++        wait_until(|| {
++            std::fs::read_to_string(&trace)
++                .unwrap_or_default()
++                .contains("turn/start")
++        })
++        .await;
++        tokio::time::sleep(Duration::from_millis(1_200)).await;
++        assert!(
++            aionui_process::process_group_alive(Some(second)),
++            "a long-running turn must survive the idle threshold"
++        );
++
++        std::fs::write(&foreground_done, "").unwrap();
++        // The parent completes, but a detached child agent is still running.
++        tokio::time::timeout(Duration::from_secs(3), async {
++            while let Some(envelope) = events.next().await {
++                if matches!(envelope.event, SessionEvent::TurnResult { .. }) {
++                    return;
++                }
++            }
++            panic!("fixture event stream ended before the parent turn completed");
++        })
++        .await
++        .expect("fixture parent turn did not complete");
++        tokio::time::sleep(Duration::from_millis(1_200)).await;
++        assert!(
++            aionui_process::process_group_alive(Some(second)),
++            "a child agent must block idle suspension after its parent completes"
++        );
++        std::fs::write(&child_done, "").unwrap();
++        wait_until(|| !aionui_process::process_group_alive(Some(second))).await;
++        let resumes = std::fs::read_to_string(&trace)
++            .unwrap()
++            .lines()
++            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
++            .filter(|frame| frame["method"] == "thread/resume")
++            .collect::<Vec<_>>();
++        assert_eq!(
++            resumes.len(),
++            2,
++            "idle wake must resume rather than create a fresh conversation"
++        );
++        assert!(
++            resumes
++                .iter()
++                .all(|frame| frame["params"]["threadId"] == "fixture-thread")
++        );
++        drop(backend);
++    }
++
+     /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
+     /// next dispatch(Send) wakes by re-spawning `codex app-server` through the
+     /// injected spawner (then replaying the thread/resume handshake against the
 --- a/crates/aionui-team/src/provisioning.rs
 +++ b/crates/aionui-team/src/provisioning.rs
 @@ -93,6 +93,20 @@

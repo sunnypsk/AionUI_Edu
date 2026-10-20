@@ -21,7 +21,7 @@ const root = path.resolve(coreDirectory, '../../../..');
 const cache = path.resolve(process.env.AIONUI_OPENUI_CORE_CACHE || path.join(root, '.cache', 'openui-core'));
 const flags = new Set(process.argv.slice(2));
 for (const flag of flags) {
-  if (!['--prepare-only', '--test', '--debug', '--resolve-only'].includes(flag))
+  if (!['--prepare-only', '--test', '--test-idle', '--debug', '--resolve-only'].includes(flag))
     throw new Error(`Unknown argument: ${flag}`);
 }
 if (flags.has('--resolve-only')) {
@@ -118,6 +118,21 @@ if (!flags.has('--prepare-only')) {
       env
     );
   const profile = flags.has('--debug') ? 'debug' : 'release';
+  if (flags.has('--test-idle'))
+    run(
+      'cargo',
+      [
+        'test',
+        '--locked',
+        '-p',
+        'aionui-session',
+        '--lib',
+        ...(profile === 'release' ? ['--release'] : []),
+        'container_idle',
+      ],
+      source,
+      env
+    );
   run(
     'cargo',
     [
