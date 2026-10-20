@@ -2,7 +2,11 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
-import OpenUIMessage from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI';
+import { defaultLightTheme } from '@openuidev/react-ui';
+import OpenUIMessage, {
+  OPENUI_DARK_THEME,
+  OPENUI_LIGHT_THEME,
+} from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI';
 import { emitter } from '@/renderer/utils/emitter';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
@@ -263,5 +267,49 @@ describe('official OpenUI renderer integration', () => {
     expect(screen.queryByText('messages.openui.source')).toBeNull();
     fireEvent.click(hide);
     expect(screen.getByRole('button', { name: 'messages.openui.source' }).getAttribute('aria-expanded')).toBe('false');
+  });
+});
+describe('OpenUI app theme', () => {
+  const tokenOnly =
+    /^(?:var\(--[a-z0-9-]+\)|color-mix\(in srgb, var\(--[a-z0-9-]+\) \d+%, (?:transparent|var\(--[a-z0-9-]+\))\))$/;
+  const appFont = /var\(--font-(?:sans|mono)\)$/;
+  it.each([
+    ['light', OPENUI_LIGHT_THEME],
+    ['dark', OPENUI_DARK_THEME],
+  ])('builds every %s value from app tokens', (_mode, theme) => {
+    for (const [key, value] of Object.entries(theme)) {
+      expect([key, value]).toEqual([
+        key,
+        expect.stringMatching(
+          /^(?:font|text(?:Body|Heading|Label|Numbers|Code))/.test(key) &&
+            !/Primary|Secondary|Tertiary|Inverted/.test(key)
+            ? appFont
+            : tokenOnly
+        ),
+      ]);
+    }
+    expect(Object.keys(theme).filter((key) => !(key in defaultLightTheme))).toEqual([]);
+  });
+  it('separates cards from the page in both modes and follows the app fonts', () => {
+    expect(OPENUI_LIGHT_THEME).toMatchObject({ background: 'var(--bg-1)', foreground: 'var(--bg-base)' });
+    expect(OPENUI_DARK_THEME).toMatchObject({ background: 'var(--bg-base)', foreground: 'var(--bg-1)' });
+    for (const theme of [OPENUI_LIGHT_THEME, OPENUI_DARK_THEME]) {
+      expect(theme).toMatchObject({
+        fontBody: 'var(--font-sans)',
+        fontHeading: 'var(--font-sans)',
+        fontCode: 'var(--font-mono)',
+        textBodySm: expect.stringMatching(/ 14px\/1\.5 var\(--font-sans\)$/),
+        borderInteractiveSelected: 'var(--primary)',
+      });
+    }
+  });
+  it('injects the app fonts instead of the library defaults into rendered blocks', async () => {
+    display(program);
+    await screen.findByPlaceholderText('Enter topic');
+    const css = Array.from(document.querySelectorAll('style[data-openui-theme]'))
+      .map((style) => style.textContent)
+      .join('');
+    expect(css).toContain('--openui-font-body: var(--font-sans);');
+    expect(css).not.toMatch(/Inter|SFMono-Regular/);
   });
 });

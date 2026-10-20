@@ -3,7 +3,14 @@ import { Alert, Button, Spin } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { createParser, Renderer, type ActionEvent, type OpenUIError } from '@openuidev/react-lang';
-import { openuiLibrary, openuiChatLibrary, ThemeProvider } from '@openuidev/react-ui';
+import {
+  defaultDarkTheme,
+  defaultLightTheme,
+  openuiLibrary,
+  openuiChatLibrary,
+  ThemeProvider,
+  type Theme,
+} from '@openuidev/react-ui';
 import '@openuidev/react-ui/styles/index.css';
 import { uuid } from '@/common/utils';
 import MarkdownView from '@/renderer/components/Markdown';
@@ -23,14 +30,76 @@ import FieldScope from './FieldScope';
 const fullLibrary = withWebUiAdapters(openuiLibrary);
 const chatLibrary = withWebUiAdapters(openuiChatLibrary);
 
-const theme = {
-  background: 'var(--bg-1)',
-  foreground: 'var(--bg-1)',
-  popoverBackground: 'var(--bg-1)',
+const tint = (token: string, percent: number, base = 'transparent') =>
+  `color-mix(in srgb, var(--${token}) ${percent}%, ${base})`;
+
+/** Status colors darkened (light) or lightened (dark) toward the text color so they stay readable as text. */
+const statusTokens = (token: string, name: 'Success' | 'Alert' | 'Danger' | 'Info') => ({
+  [`text${name}Primary`]: tint(token, 70, 'var(--text-primary)'),
+  [`${name.toLowerCase()}Background`]: tint(token, 12),
+  [`border${name}`]: tint(token, 20),
+  [`border${name}Emphasis`]: `var(--${token})`,
+});
+
+/** Mode-independent mapping of OpenUI tokens onto the app's semantic tokens. */
+const sharedTheme: Theme = {
   textNeutralPrimary: 'var(--text-primary)',
   textNeutralSecondary: 'var(--text-secondary)',
-  borderDefault: 'var(--bg-3)',
+  textNeutralTertiary: 'var(--bg-6)',
+  textNeutralLink: 'var(--primary)',
+  textBrand: 'var(--primary)',
+  textAccentPrimary: 'var(--text-white)',
+  ...statusTokens('success', 'Success'),
+  ...statusTokens('warning', 'Alert'),
+  ...statusTokens('danger', 'Danger'),
+  ...statusTokens('info', 'Info'),
   interactiveAccentDefault: 'var(--primary)',
+  interactiveAccentHover: tint('primary', 80),
+  interactiveAccentPressed: 'var(--primary)',
+  interactiveAccentDisabled: tint('primary', 40),
+  interactiveDestructiveAccentDefault: 'var(--danger)',
+  interactiveDestructiveAccentHover: tint('danger', 80),
+  interactiveDestructiveAccentPressed: 'var(--danger)',
+  interactiveDestructiveAccentDisabled: tint('danger', 40),
+  borderDefault: 'var(--border-base)',
+  borderInteractiveSelected: 'var(--primary)',
+  borderAccent: tint('primary', 20),
+  borderAccentEmphasis: 'var(--primary)',
+};
+
+const LIBRARY_FONTS = [
+  ['"Inter", sans-serif', 'var(--font-sans)'],
+  ['"SFMono-Regular", Menlo, monospace', 'var(--font-mono)'],
+] as const;
+
+/**
+ * OpenUI bakes its font stacks into the family tokens and every composite `font` shorthand
+ * (e.g. `textBodySm`), so swap the family inside each default while keeping its size and weight.
+ */
+const appFonts = (defaults: Theme): Theme =>
+  Object.fromEntries(
+    Object.entries(defaults).flatMap(([key, value]) => {
+      if (typeof value !== 'string') return [];
+      const next = LIBRARY_FONTS.reduce((font, [from, to]) => font.replaceAll(from, to), value);
+      return next === value ? [] : [[key, next]];
+    })
+  );
+
+// The app's bg scale runs lightest-first in light mode and darkest-first in dark mode,
+// so cards (foreground) need a different step per mode to stand out from the page.
+export const OPENUI_LIGHT_THEME: Theme = {
+  ...appFonts(defaultLightTheme),
+  ...sharedTheme,
+  background: 'var(--bg-1)',
+  foreground: 'var(--bg-base)',
+  popoverBackground: 'var(--bg-base)',
+};
+export const OPENUI_DARK_THEME: Theme = {
+  ...appFonts(defaultDarkTheme),
+  ...sharedTheme,
+  background: 'var(--bg-base)',
+  foreground: 'var(--bg-1)',
+  popoverBackground: 'var(--bg-2)',
 };
 
 type BlockProps = {
@@ -253,7 +322,12 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
       {status && <Alert type='warning' content={t(('messages.openui.' + status) as 'messages.openui.unavailable')} />}
       {!capability && !capabilityError && <Spin />}
       {compatible && (
-        <ThemeProvider mode={mode} lightTheme={theme} darkTheme={theme} cssSelector='[data-openui-block]'>
+        <ThemeProvider
+          mode={mode}
+          lightTheme={OPENUI_LIGHT_THEME}
+          darkTheme={OPENUI_DARK_THEME}
+          cssSelector='[data-openui-block]'
+        >
           <FieldScope disabled={!ready}>
             <Renderer
               key={restoration.key}

@@ -43,6 +43,24 @@
    集中的字体 token。--font-mono 会被继承（自定义属性可穿透 Shadow DOM 边界），
    因此 Shadow DOM 内渲染的 Markdown 也能引用它。 */
 :root {
+  /* Global ("app") region font. applyFontFamilies sets --app-font-family on the
+     root only when a global font is chosen (empty otherwise), so --font-sans
+     resolves to the chosen font or falls back to the built-in system stack.
+     Libraries that take a font token (e.g. OpenUI) reference it directly. */
+  --font-sans: var(
+    --app-font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    sans-serif
+  );
   /* Code-region font. applyFontFamilies sets --code-font-family only when the
      user picks a code font (empty otherwise), so --font-mono resolves to the
      chosen font or falls back to the built-in stack. Every existing
@@ -85,24 +103,9 @@ body[arco-theme='dark'] {
    text on systems that have Inter installed. Override to use system fonts. */
 html,
 body {
-  /* Global ("app") region font. --app-font-family is set by applyFontFamilies
-     when a global font is chosen (empty otherwise), so this falls back to the
-     built-in system stack — keeping default rendering unchanged. Regions that
-     pick no font of their own inherit this global font. */
-  font-family: var(
-    --app-font-family,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    'Noto Sans',
-    'PingFang SC',
-    'Hiragino Sans GB',
-    'Microsoft YaHei',
-    sans-serif
-  );
+  /* Global ("app") region font (see --font-sans). Regions that pick no font of
+     their own inherit this global font. */
+  font-family: var(--font-sans);
   /* Global ("app") region font size. --app-font-size defaults to 14px (Arco's
      base), so the whole app scales with the global size, while regions with
      their own size var (chat/markdown/code) still override within their scope. */
