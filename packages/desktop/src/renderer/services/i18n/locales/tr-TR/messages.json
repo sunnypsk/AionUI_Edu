@@ -108,8 +108,6 @@
     "submitFailed": "İşlem gönderilemedi.",
     "followUp": "Bu seçimlerle devam et.",
     "invalid": "Bu arayüzün bir bölümü görüntülenemedi.",
-    "source": "Kaynağı görüntüle",
-    "hideSource": "Kaynağı gizle",
     "reapply": "Taslağı yeniden uygula",
     "repair": "Asistandan düzeltmesini iste",
     "repairRequest": "Lütfen bu OpenUI arayüzünü düzeltin.",

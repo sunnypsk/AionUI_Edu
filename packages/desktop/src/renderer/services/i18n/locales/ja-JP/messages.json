@@ -108,8 +108,6 @@
     "submitFailed": "操作を送信できませんでした。",
     "followUp": "この選択で続行してください。",
     "invalid": "画面の一部を表示できませんでした。",
-    "source": "ソースを表示",
-    "hideSource": "ソースを非表示",
     "reapply": "下書きを再適用",
     "repair": "アシスタントに修正を依頼",
     "repairRequest": "この OpenUI インターフェースを修正してください。",

@@ -108,8 +108,6 @@
     "submitFailed": "Die Aktion konnte nicht gesendet werden.",
     "followUp": "Mit dieser Auswahl fortfahren.",
     "invalid": "Ein Teil dieser Oberfläche konnte nicht angezeigt werden.",
-    "source": "Quelltext anzeigen",
-    "hideSource": "Quelltext ausblenden",
     "reapply": "Entwurf erneut anwenden",
     "repair": "Assistenten um Korrektur bitten",
     "repairRequest": "Bitte korrigiere diese OpenUI-Oberfläche.",

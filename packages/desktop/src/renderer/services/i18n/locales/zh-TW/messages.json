@@ -108,8 +108,6 @@
     "submitFailed": "未能提交此次操作。",
     "followUp": "按這些選項繼續。",
     "invalid": "部分介面未能顯示。",
-    "source": "查看原始內容",
-    "hideSource": "隱藏原始內容",
     "reapply": "重新套用草稿",
     "repair": "請助理修正介面",
     "repairRequest": "請修正此互動介面。",

@@ -108,8 +108,6 @@
     "submitFailed": "The interaction could not be submitted.",
     "followUp": "Continue with these selections.",
     "invalid": "Part of this interface could not be rendered.",
-    "source": "View source",
-    "hideSource": "Hide source",
     "reapply": "Reapply draft",
     "repair": "Ask assistant to fix this interface",
     "repairRequest": "Please fix this OpenUI interface.",

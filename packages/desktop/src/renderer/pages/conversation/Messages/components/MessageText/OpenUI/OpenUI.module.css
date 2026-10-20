@@ -29,11 +29,3 @@
   gap: 8px;
   margin-top: 8px;
 }
-.source {
-  max-height: 320px;
-  overflow: auto;
-  white-space: pre-wrap;
-  background: var(--bg-2);
-  color: var(--text-primary);
-  padding: 12px;
-}

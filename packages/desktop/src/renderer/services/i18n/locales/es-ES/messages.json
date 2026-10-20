@@ -108,8 +108,6 @@
     "submitFailed": "No se pudo enviar la acción.",
     "followUp": "Continuar con estas selecciones.",
     "invalid": "No se pudo mostrar parte de esta interfaz.",
-    "source": "Ver código fuente",
-    "hideSource": "Ocultar código fuente",
     "reapply": "Volver a aplicar el borrador",
     "repair": "Pedir al asistente que lo corrija",
     "repairRequest": "Corrige esta interfaz de OpenUI.",

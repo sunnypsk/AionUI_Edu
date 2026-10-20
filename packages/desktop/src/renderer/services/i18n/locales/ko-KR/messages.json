@@ -108,8 +108,6 @@
     "submitFailed": "작업을 전송하지 못했습니다.",
     "followUp": "이 선택으로 계속해 주세요.",
     "invalid": "화면 일부를 표시하지 못했습니다.",
-    "source": "소스 보기",
-    "hideSource": "소스 숨기기",
     "reapply": "초안 다시 적용",
     "repair": "어시스턴트에게 수정 요청",
     "repairRequest": "이 OpenUI 인터페이스를 수정해 주세요.",

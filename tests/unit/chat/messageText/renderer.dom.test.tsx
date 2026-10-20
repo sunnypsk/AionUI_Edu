@@ -246,27 +246,19 @@ describe('official OpenUI renderer integration', () => {
       emitter.off('openui.followUp', receive);
     }
   });
-  it('shows source access and an unavailable status for an incompatible backend', async () => {
+  it('shows only the unavailable status for an incompatible backend, without raw source', async () => {
     api.openUiCapabilities.mockResolvedValueOnce({ hash: 'old' });
     display(program);
     await screen.findByText('messages.openui.unavailable');
     expect(screen.queryByPlaceholderText('Enter topic')).toBeNull();
-    fireEvent.click(screen.getByText('messages.openui.source'));
-    expect(document.querySelector('pre')?.textContent).toBe(program);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(document.querySelector('pre')).toBeNull();
   });
-
-  it('toggles the source button label and aria-expanded', async () => {
-    api.openUiCapabilities.mockResolvedValueOnce({ hash: 'old' });
-    display(program);
-    await screen.findByText('messages.openui.unavailable');
-    const button = screen.getByRole('button', { name: 'messages.openui.source' });
-    expect(button.getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(button);
-    const hide = screen.getByRole('button', { name: 'messages.openui.hideSource' });
-    expect(hide.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.queryByText('messages.openui.source')).toBeNull();
-    fireEvent.click(hide);
-    expect(screen.getByRole('button', { name: 'messages.openui.source' }).getAttribute('aria-expanded')).toBe('false');
+  it('renders a working block without source or empty control rows', async () => {
+    const { container } = display(program);
+    await screen.findByPlaceholderText('Enter topic');
+    expect(screen.queryByRole('button', { name: /source/i })).toBeNull();
+    expect(container.querySelector('[data-openui-controls]')).toBeNull();
   });
 });
 describe('OpenUI app theme', () => {

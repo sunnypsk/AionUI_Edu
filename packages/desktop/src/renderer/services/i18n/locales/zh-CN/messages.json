@@ -108,8 +108,6 @@
     "submitFailed": "无法提交此次操作。",
     "followUp": "按这些选项继续。",
     "invalid": "部分界面无法显示。",
-    "source": "查看原始内容",
-    "hideSource": "隐藏原始内容",
     "reapply": "重新应用草稿",
     "repair": "请助手修复界面",
     "repairRequest": "请修复这个 OpenUI 界面。",

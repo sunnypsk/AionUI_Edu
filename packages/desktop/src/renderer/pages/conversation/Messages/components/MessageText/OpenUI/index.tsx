@@ -114,7 +114,6 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
   const { t } = useTranslation();
   const { user } = useAuth();
   const preview = useOptionalPreviewContext();
-  const [showSource, setShowSource] = useState(false);
   const [errors, setErrors] = useState<OpenUIError[]>([]);
   const [actionFailed, setActionFailed] = useState(false);
   const [mode, setMode] = useState<'light' | 'dark'>(() =>
@@ -294,6 +293,7 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
       });
   };
   const invalid = !streaming && (!block.closed || !validProgram || errors.length > 0);
+  const canRepair = Boolean(invalid && compatible && persistedMessage);
   const showUnavailable = Boolean(capabilityError || (capability && !compatible));
   const status = messageError
     ? 'load'
@@ -347,42 +347,40 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
         </ThemeProvider>
       )}
       {invalid && <Alert type='warning' content={t('messages.openui.invalid')} />}
-      <div className={styles.controls}>
-        <Button size='mini' aria-expanded={showSource} onClick={() => setShowSource((value) => !value)}>
-          {showSource ? t('messages.openui.hideSource') : t('messages.openui.source')}
-        </Button>
-        {invalid && compatible && persistedMessage && (
-          <Button size='mini' onClick={requestRepair}>
-            {t('messages.openui.repair')}
-          </Button>
-        )}
-        {toolsError && (
-          <Button
-            size='mini'
-            onClick={() => {
-              void retryTools();
-            }}
-          >
-            {t('common.retry')}
-          </Button>
-        )}
-        {messageError && (
-          <Button
-            size='mini'
-            onClick={() => {
-              void retryMessage();
-            }}
-          >
-            {t('common.retry')}
-          </Button>
-        )}
-        {state.error && (
-          <Button size='mini' onClick={state.reload}>
-            {t(state.error === 'conflict' ? 'messages.openui.reapply' : 'common.retry')}
-          </Button>
-        )}
-      </div>
-      {showSource && <pre className={styles.source}>{block.content}</pre>}
+      {(canRepair || toolsError || messageError || state.error) && (
+        <div className={styles.controls} data-openui-controls>
+          {canRepair && (
+            <Button size='mini' onClick={requestRepair}>
+              {t('messages.openui.repair')}
+            </Button>
+          )}
+          {toolsError && (
+            <Button
+              size='mini'
+              onClick={() => {
+                void retryTools();
+              }}
+            >
+              {t('common.retry')}
+            </Button>
+          )}
+          {messageError && (
+            <Button
+              size='mini'
+              onClick={() => {
+                void retryMessage();
+              }}
+            >
+              {t('common.retry')}
+            </Button>
+          )}
+          {state.error && (
+            <Button size='mini' onClick={state.reload}>
+              {t(state.error === 'conflict' ? 'messages.openui.reapply' : 'common.retry')}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
