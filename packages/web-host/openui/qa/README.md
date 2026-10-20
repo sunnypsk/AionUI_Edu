@@ -38,3 +38,9 @@ The renderer uses both official registries and ThemeProvider from `@openuidev/re
 Native CLI permission rules that Core cannot evaluate retain a host confirmation card for mutations; authoritative Core approval decisions and read-only/plan restrictions are enforced. The build emits chunk-size notices and the pinned upstream optional `Library.extend`/Zod `mergeDefs` export warning. The integration uses the fixed official registries rather than that extension API.
 
 The MIT notices for all three OpenUI packages ship as `openui-license.txt` in the renderer distribution. No Electron OpenUI renderer, native mobile app, public deployment or CI result is implied by this local acceptance snapshot.
+
+## Teacher request evaluation
+
+`AIONUI_QA_EVAL=1 bun run openui:qa` sends ten fixed Chinese-subject teacher requests (`qa/eval.ts`) to the configured native Codex account, one conversation each (request 8 continues request 2). It records every reply, its OpenUI programs and the files the request produced, including generated images, as `evaluation.json` and one Markdown file per request. `AIONUI_QA_EVAL_ONLY=03-illustration,07-plain` runs a subset. A request counts as finished after two quiet minutes with an idle runtime, because newer Codex versions split one request into several backend turns. Scoring against the design's success criteria is manual.
+
+Baseline before the teacher components and guidance, 2026-10-21: `.cache/openui-qa/yuyu-openui-browser-EUkrju/` (`score.md`). Codex used OpenUI in 6 of 10 replies, all in Traditional Chinese. It planned before producing a file in 1 of 5 applicable requests, never showed file cards, and repeated prose inside a block in 2 replies. The run used the local Codex CLI 0.163.0 with the user's own Codex configuration and memory.
