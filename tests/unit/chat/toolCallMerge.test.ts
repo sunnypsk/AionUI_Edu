@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeMessage, type IMessageToolCall, type TMessage } from '@/common/chat/chatLib';
+import { composeMessage, transformMessage, type IMessageToolCall, type TMessage } from '@/common/chat/chatLib';
 
 const frame = (content: Partial<IMessageToolCall['content']>): IMessageToolCall =>
   ({
@@ -21,5 +21,24 @@ describe('tool_call merging', () => {
     expect(content.name).toBe('webSearch');
     expect(content.input).toEqual(input);
     expect(content.status).toBe('completed');
+  });
+});
+
+it('upserts a replayed native image result without final text and keeps its started label', () => {
+  const started = frame({ name: 'imageGeneration', status: 'running' });
+  const result = transformMessage({
+    type: 'tool_call',
+    msg_id: 'm',
+    conversation_id: 'c',
+    turn_id: 'turn-image',
+    data: { call_id: 'w1', status: 'completed', images: [{ path: '/owned/image.png', mime_type: 'image/png' }] },
+  });
+  const first = composeMessage(result, [started], () => {});
+  const replay = composeMessage(result, first, () => {});
+  expect(replay).toHaveLength(1);
+  expect((replay[0] as IMessageToolCall).content).toMatchObject({
+    name: 'imageGeneration',
+    status: 'completed',
+    images: [{ path: '/owned/image.png', mime_type: 'image/png' }],
   });
 });

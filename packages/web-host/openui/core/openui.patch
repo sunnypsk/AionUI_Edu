@@ -873,6 +873,557 @@
  edition = "2024"
  license = "MIT"
  
+--- a/crates/aionui-ai-agent/Cargo.toml
++++ b/crates/aionui-ai-agent/Cargo.toml
+@@ -48,6 +48,7 @@
+ rusqlite.workspace = true
+ libc.workspace = true
+ fs2.workspace = true
++tempfile = "3"
+ 
+ [features]
+ # Enables the `AgentInstance::Mock` variant used by downstream test harnesses
+@@ -58,7 +59,6 @@
+ test-support = []
+ 
+ [dev-dependencies]
+-tempfile = "3"
+ tokio = { workspace = true, features = ["full"] }
+ tracing-subscriber.workspace = true
+ aionui-common.workspace = true
+--- a/crates/aionui-ai-agent/src/capability/backend_output_sink.rs
++++ b/crates/aionui-ai-agent/src/capability/backend_output_sink.rs
+@@ -76,6 +76,7 @@
+             input: Some(parsed_input),
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }));
+     }
+@@ -116,6 +117,7 @@
+                 Some(content.to_owned())
+             },
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }));
+     }
+--- a/crates/aionui-ai-agent/src/capability/backend_protocol_sink.rs
++++ b/crates/aionui-ai-agent/src/capability/backend_protocol_sink.rs
+@@ -97,6 +97,7 @@
+                     input: None,
+                     output: None,
+                     description: None,
++                    images: Vec::new(),
+                     parent_call_id: None,
+                 }));
+             }
+--- a/crates/aionui-ai-agent/src/manager/acp/agent_session_flow.rs
++++ b/crates/aionui-ai-agent/src/manager/acp/agent_session_flow.rs
+@@ -1252,6 +1252,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }))
+         .unwrap();
+--- a/crates/aionui-ai-agent/src/media.rs
++++ b/crates/aionui-ai-agent/src/media.rs
+@@ -14,6 +14,119 @@
+ use tracing::warn;
+ 
+ use crate::types::PromptMediaCaps;
++
++/// Persist inline tool images in the owning conversation before publishing its result.
++/// Existing file references are retained byte-for-byte. Replay never creates a second artifact.
++pub(crate) async fn materialize_tool_images(event: &mut aionui_session::SessionEvent, workspace: &str) {
++    use aionui_session::{SessionEvent, ToolResultContent};
++    let SessionEvent::ToolResult {
++        tool_use_id,
++        is_error,
++        content,
++        ..
++    } = event
++    else {
++        return;
++    };
++    let mut normalized = Vec::with_capacity(content.len());
++    for (index, part) in std::mem::take(content).into_iter().enumerate() {
++        let ToolResultContent::Image { media_type, data } = part else {
++            normalized.push(part);
++            continue;
++        };
++        if *is_error {
++            continue;
++        }
++        let workspace = workspace.to_owned();
++        let call_id = tool_use_id.clone();
++        match tokio::task::spawn_blocking(move || persist_tool_image(&workspace, &call_id, index, &media_type, &data))
++            .await
++        {
++            Ok(Ok(path)) => normalized.push(ToolResultContent::FilePath {
++                path,
++                mime: None,
++                old_text: None,
++                new_text: None,
++            }),
++            _ => {
++                *is_error = true;
++                normalized.push(ToolResultContent::Text("IMAGE_OUTPUT_SAVE_FAILED".into()));
++                warn!(
++                    code = "IMAGE_OUTPUT_SAVE_FAILED",
++                    "Generated image could not be persisted"
++                );
++            }
++        }
++    }
++    *content = normalized;
++}
++
++fn persist_tool_image(
++    workspace: &str,
++    call_id: &str,
++    index: usize,
++    mime: &str,
++    bytes: &[u8],
++) -> std::io::Result<String> {
++    use sha2::{Digest, Sha256};
++    use std::io::{Error, ErrorKind, Read, Write};
++    let extension = match mime {
++        "image/png" if bytes.starts_with(b"\x89PNG\r\n\x1a\n") => "png",
++        "image/jpeg" if bytes.starts_with(b"\xff\xd8\xff") => "jpg",
++        "image/webp" if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") => "webp",
++        "image/gif" if bytes.starts_with(b"GIF8") => "gif",
++        _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported raster image")),
++    };
++    if bytes.len() > 32 * 1024 * 1024 {
++        return Err(Error::new(ErrorKind::InvalidData, "Image exceeds output limit"));
++    }
++    let root = std::fs::canonicalize(workspace)?;
++    let directory = root.join(".aionui-generated-images");
++    match std::fs::create_dir(&directory) {
++        Ok(()) => {}
++        Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
++        Err(error) => return Err(error),
++    }
++    if std::fs::symlink_metadata(&directory)?.file_type().is_symlink()
++        || std::fs::canonicalize(&directory)? != directory
++    {
++        return Err(Error::new(
++            ErrorKind::PermissionDenied,
++            "Image output directory is not owned by this workspace",
++        ));
++    }
++    let key = format!("{:x}", Sha256::digest(format!("{call_id}:{index}")));
++    let destination = directory.join(format!("{key}.{extension}"));
++    let mut temporary = tempfile::NamedTempFile::new_in(&directory)?;
++    temporary.write_all(bytes)?;
++    temporary.as_file().sync_all()?;
++    match temporary.persist_noclobber(&destination) {
++        Ok(_) => {}
++        Err(error) if error.error.kind() == ErrorKind::AlreadyExists => {
++            let mut options = std::fs::OpenOptions::new();
++            options.read(true);
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::OpenOptionsExt;
++                options.custom_flags(libc::O_NOFOLLOW);
++            }
++            if std::fs::symlink_metadata(&destination)?.file_type().is_symlink() {
++                return Err(Error::new(ErrorKind::PermissionDenied, "Image output is a symlink"));
++            }
++            let mut existing = options.open(&destination)?;
++            if existing.metadata()?.len() != bytes.len() as u64 {
++                return Err(Error::new(ErrorKind::AlreadyExists, "Image replay differs"));
++            }
++            let mut saved = Vec::with_capacity(bytes.len());
++            existing.read_to_end(&mut saved)?;
++            if saved != bytes {
++                return Err(Error::new(ErrorKind::AlreadyExists, "Image replay differs"));
++            }
++        }
++        Err(error) => return Err(error.error),
++    }
++    Ok(destination.to_string_lossy().into_owned())
++}
+ 
+ /// Max bytes for a single attachment sent as an inline base64 content block.
+ /// Above this the attachment degrades to a path (Claude's hard per-image API
+@@ -301,3 +414,117 @@
+         assert_eq!(part.media[0].mime, "image/webp");
+     }
+ }
++
++#[cfg(test)]
++mod generated_image_tests {
++    use super::*;
++    use aionui_session::{SessionEvent, ToolResultContent};
++    use base64::Engine as _;
++
++    fn png() -> Vec<u8> {
++        base64::engine::general_purpose::STANDARD
++            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ioAAAAASUVORK5CYII=")
++            .unwrap()
++    }
++    fn result(bytes: Vec<u8>) -> SessionEvent {
++        SessionEvent::ToolResult {
++            tool_use_id: "call-generated".into(),
++            is_error: false,
++            content: vec![ToolResultContent::Image {
++                media_type: "image/png".into(),
++                data: bytes,
++            }],
++            parent_tool_use_id: None,
++        }
++    }
++    fn image_path(event: &SessionEvent) -> &str {
++        match event {
++            SessionEvent::ToolResult { content, .. } => match &content[0] {
++                ToolResultContent::FilePath { path, .. } => path,
++                _ => panic!("expected file reference"),
++            },
++            _ => panic!("expected result"),
++        }
++    }
++
++    #[tokio::test]
++    async fn generated_image_replay_reuses_the_original_bytes_and_one_artifact() {
++        let root = tempfile::tempdir().unwrap();
++        let bytes = png();
++        let mut first = result(bytes.clone());
++        materialize_tool_images(&mut first, root.path().to_str().unwrap()).await;
++        let mut replay = result(bytes.clone());
++        materialize_tool_images(&mut replay, root.path().to_str().unwrap()).await;
++        assert_eq!(image_path(&first), image_path(&replay));
++        assert_eq!(std::fs::read(image_path(&first)).unwrap(), bytes);
++        assert_eq!(
++            std::fs::read_dir(root.path().join(".aionui-generated-images"))
++                .unwrap()
++                .count(),
++            1
++        );
++    }
++
++    #[tokio::test]
++    async fn generated_image_large_png_is_kept_out_of_the_serialized_result() {
++        // A valid PNG with a 3 MiB ancillary text chunk, generated in memory.
++        let small = png();
++        let mut bytes = small[..small.len() - 12].to_vec();
++        let mut chunk = b"tEXtfixture\0".to_vec();
++        chunk.resize(3 * 1024 * 1024, b'x');
++        let mut crc = u32::MAX;
++        for byte in &chunk {
++            crc ^= u32::from(*byte);
++            for _ in 0..8 {
++                crc = (crc >> 1) ^ (0xedb88320 & (0u32.wrapping_sub(crc & 1)));
++            }
++        }
++        bytes.extend_from_slice(&((chunk.len() - 4) as u32).to_be_bytes());
++        bytes.extend_from_slice(&chunk);
++        bytes.extend_from_slice(&(!crc).to_be_bytes());
++        bytes.extend_from_slice(&small[small.len() - 12..]);
++        let root = tempfile::tempdir().unwrap();
++        let mut event = result(bytes.clone());
++        materialize_tool_images(&mut event, root.path().to_str().unwrap()).await;
++        assert_eq!(std::fs::read(image_path(&event)).unwrap(), bytes);
++        assert!(serde_json::to_string(&event).unwrap().len() < 1000);
++    }
++
++    #[tokio::test]
++    async fn generated_image_conflict_does_not_overwrite_an_earlier_result() {
++        let root = tempfile::tempdir().unwrap();
++        let bytes = png();
++        let mut first = result(bytes.clone());
++        materialize_tool_images(&mut first, root.path().to_str().unwrap()).await;
++        let mut changed = bytes.clone();
++        changed.push(1);
++        let mut replay = result(changed);
++        materialize_tool_images(&mut replay, root.path().to_str().unwrap()).await;
++        assert!(matches!(replay, SessionEvent::ToolResult { is_error: true, .. }));
++        assert_eq!(std::fs::read(image_path(&first)).unwrap(), bytes);
++    }
++
++    #[tokio::test]
++    async fn generated_image_failed_tool_does_not_write_or_publish_bytes() {
++        let root = tempfile::tempdir().unwrap();
++        let mut event = result(png());
++        if let SessionEvent::ToolResult { is_error, .. } = &mut event {
++            *is_error = true;
++        }
++        materialize_tool_images(&mut event, root.path().to_str().unwrap()).await;
++        assert!(matches!(event, SessionEvent::ToolResult { is_error:true, content, .. } if content.is_empty()));
++        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
++    }
++
++    #[cfg(unix)]
++    #[tokio::test]
++    async fn generated_image_refuses_a_symlinked_output_directory() {
++        let root = tempfile::tempdir().unwrap();
++        let outside = tempfile::tempdir().unwrap();
++        std::os::unix::fs::symlink(outside.path(), root.path().join(".aionui-generated-images")).unwrap();
++        let mut event = result(png());
++        materialize_tool_images(&mut event, root.path().to_str().unwrap()).await;
++        assert!(matches!(event, SessionEvent::ToolResult { is_error: true, .. }));
++        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
++    }
++}
+--- a/crates/aionui-ai-agent/src/protocol/events/mod.rs
++++ b/crates/aionui-ai-agent/src/protocol/events/mod.rs
+@@ -315,6 +315,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         });
+         let json = serde_json::to_value(&event).unwrap();
+@@ -333,6 +334,7 @@
+             input: Some(json!({ "pattern": "**/*.rs" })),
+             output: Some("src/main.rs\nsrc/lib.rs".into()),
+             description: Some("Search for Rust files".into()),
++            images: Vec::new(),
+             parent_call_id: Some("toolu_task".into()),
+         });
+         let json = serde_json::to_value(&event).unwrap();
+@@ -353,6 +355,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         });
+         let json = serde_json::to_value(&event).unwrap();
+--- a/crates/aionui-ai-agent/src/protocol/events/tool_call.rs
++++ b/crates/aionui-ai-agent/src/protocol/events/tool_call.rs
+@@ -1,6 +1,13 @@
+ use agent_client_protocol::schema::v1::Meta as SdkMeta;
+ use serde::{Deserialize, Serialize};
+ use serde_json::Value;
++
++/// A raster artifact produced by this tool call; bytes stay on disk, never in chat frames.
++#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
++pub struct ToolImageOutput {
++    pub path: String,
++    pub mime_type: String,
++}
+ 
+ /// Data for the `ToolCall` event.
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+@@ -20,6 +27,8 @@
+     pub input: Option<serde_json::Value>,
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub output: Option<String>,
++    #[serde(default, skip_serializing_if = "Vec::is_empty")]
++    pub images: Vec<ToolImageOutput>,
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub description: Option<String>,
+     /// The `call_id` of the Task/Agent call this call runs INSIDE (claude's
+--- a/crates/aionui-ai-agent/src/session_agent.rs
++++ b/crates/aionui-ai-agent/src/session_agent.rs
+@@ -25,7 +25,7 @@
+ use crate::error::AgentError;
+ use crate::protocol::events::session_updates::AvailableCommandsEventData;
+ use crate::protocol::events::session_updates::ThinkingEventData;
+-use crate::protocol::events::tool_call::{ToolCallEventData, ToolCallStatus};
++use crate::protocol::events::tool_call::{ToolCallEventData, ToolCallStatus, ToolImageOutput};
+ use crate::protocol::events::{
+     AgentStreamEvent, FinishEventData, StartEventData, TextEventData, TipType, TipsEventData,
+ };
+@@ -77,6 +77,7 @@
+ /// Shared, cheaply-cloneable runtime state for a session task: the broadcast sender
+ /// the translator writes and `subscribe()` reads, plus liveness bookkeeping.
+ struct SessionRuntime {
++    workspace: String,
+     tx: broadcast::Sender<AgentStreamEvent>,
+     last_activity_ms: AtomicI64,
+     /// Live (declared, not yet terminal) background containers — the pump's
+@@ -484,6 +485,7 @@
+     ) -> Arc<Self> {
+         let (tx, _rx) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
+         let runtime = Arc::new(SessionRuntime {
++            workspace: workspace.clone(),
+             tx,
+             last_activity_ms: AtomicI64::new(now_ms()),
+             live_background_tasks: std::sync::atomic::AtomicUsize::new(0),
+@@ -2813,7 +2815,7 @@
+         let mut progress_tick = tokio::time::interval(std::time::Duration::from_secs(1));
+         progress_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+         loop {
+-            let env = tokio::select! {
++            let mut env = tokio::select! {
+                 maybe_env = events.next() => match maybe_env {
+                     Some(env) => env,
+                     None => break,
+@@ -2931,6 +2933,7 @@
+                     input: None,
+                     output: Some(acc.clone()),
+                     description: None,
++                    images: Vec::new(),
+                     parent_call_id: None,
+                 }));
+                 continue;
+@@ -3140,6 +3143,7 @@
+                                     input: None,
+                                     output: None,
+                                     description: None,
++                                    images: Vec::new(),
+                                     parent_call_id: None,
+                                 }));
+                             }
+@@ -3273,6 +3277,7 @@
+                             input: None,
+                             output: None,
+                             description: None,
++                            images: Vec::new(),
+                             parent_call_id: None,
+                         }));
+                     }
+@@ -3334,6 +3339,7 @@
+             if let (Some(bus), Some(_)) = (broadcaster.as_ref(), informative_usage(&env.event)) {
+                 broadcast_usage_frame(bus.as_ref(), &conversation_id, &user_id, &env.event);
+             }
++            crate::media::materialize_tool_images(&mut env.event, &runtime.workspace).await;
+             for mut ev in translate_event(env.event, &conversation_id, terminal_result_seen) {
+                 // Keep the tool name alive across a call's multi-frame lifecycle (see
+                 // `stamp_tool_name`): the terminal ToolResult frame leaves the name
+@@ -3967,6 +3973,7 @@
+                                 input: None,
+                                 output: None,
+                                 description: None,
++                                images: Vec::new(),
+                                 parent_call_id: None,
+                             },
+                             agents: Vec::new(),
+@@ -4250,6 +4257,7 @@
+                 description: None,
+                 // Subagent attribution (009 H5): persisted onto the row so the
+                 // frontend can group a subagent's steps under its Task call.
++                images: Vec::new(),
+                 parent_call_id: parent_tool_use_id,
+             })]
+         }
+@@ -4261,6 +4269,11 @@
+             ..
+         } => {
+             let output = tool_result_text(&content);
++            let images = if is_error {
++                Vec::new()
++            } else {
++                tool_result_images(&content)
++            };
+             vec![AgentStreamEvent::ToolCall(ToolCallEventData {
+                 call_id: tool_use_id,
+                 name: String::new(),
+@@ -4273,6 +4286,7 @@
+                 input: None,
+                 output,
+                 description: None,
++                images,
+                 parent_call_id: parent_tool_use_id,
+             })]
+         }
+@@ -4589,6 +4603,27 @@
+     if buf.is_empty() { None } else { Some(buf) }
+ }
+ 
++fn tool_result_images(content: &[ToolResultContent]) -> Vec<ToolImageOutput> {
++    let mut images = Vec::new();
++    for part in content {
++        if let ToolResultContent::FilePath { path, mime, .. } = part {
++            let mime = mime
++                .clone()
++                .or_else(|| mime_guess::from_path(path).first_raw().map(str::to_owned));
++            if let Some(mime_type) =
++                mime.filter(|m| matches!(m.as_str(), "image/png" | "image/jpeg" | "image/webp" | "image/gif"))
++                && !images.iter().any(|image: &ToolImageOutput| image.path == *path)
++            {
++                images.push(ToolImageOutput {
++                    path: path.clone(),
++                    mime_type,
++                });
++            }
++        }
++    }
++    images
++}
++
+ #[cfg(test)]
+ mod build_mapping_tests {
+     //! Ported from clean-slate `session_runtime::tests` (the `spec_and_config` +
+@@ -5522,6 +5557,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         })
+     }
+@@ -10587,3 +10623,53 @@
+         assert!(!super::is_detached_exec_call(None));
+     }
+ }
++
++#[cfg(test)]
++mod generated_image_tests {
++    use super::*;
++    #[test]
++    fn generated_image_file_reaches_the_chat_result_even_without_final_text() {
++        let event = SessionEvent::ToolResult {
++            tool_use_id: "call-image".into(),
++            is_error: false,
++            content: vec![ToolResultContent::FilePath {
++                path: "/owned/generated.png".into(),
++                mime: Some("image/png".into()),
++                old_text: None,
++                new_text: None,
++            }],
++            parent_tool_use_id: None,
++        };
++        let frames = translate_event(event, "conversation-owned", false);
++        let AgentStreamEvent::ToolCall(tool) = &frames[0] else {
++            panic!("expected tool result")
++        };
++        assert_eq!(
++            tool.images,
++            vec![ToolImageOutput {
++                path: "/owned/generated.png".into(),
++                mime_type: "image/png".into()
++            }]
++        );
++        assert_eq!(tool.status, ToolCallStatus::Completed);
++        assert!(serde_json::to_string(tool).unwrap().len() < 500);
++    }
++    #[test]
++    fn generated_image_error_does_not_publish_partial_files() {
++        let event = SessionEvent::ToolResult {
++            tool_use_id: "call-image".into(),
++            is_error: true,
++            content: vec![ToolResultContent::FilePath {
++                path: "/owned/partial.png".into(),
++                mime: None,
++                old_text: None,
++                new_text: None,
++            }],
++            parent_tool_use_id: None,
++        };
++        let frames = translate_event(event, "conversation-owned", false);
++        assert!(
++            matches!(&frames[0], AgentStreamEvent::ToolCall(tool) if tool.images.is_empty() && tool.status == ToolCallStatus::Error)
++        );
++    }
++}
+--- a/crates/aionui-ai-agent/src/workflow_progress.rs
++++ b/crates/aionui-ai-agent/src/workflow_progress.rs
+@@ -358,6 +358,7 @@
+             description: Some(rendered.description.clone()),
+             // Cards ride a MAIN-STREAM launching call; absent (not null) so the
+             // merge-patch never touches attribution persisted by the call itself.
++            images: Vec::new(),
+             parent_call_id: None,
+         };
+         let entries = rendered.entries.clone();
 --- a/crates/aionui-api-types/src/conversation.rs
 +++ b/crates/aionui-api-types/src/conversation.rs
 @@ -195,6 +195,9 @@
@@ -1551,6 +2102,42 @@
  
  use aionui_db::{
      IAssistantDefinitionRepository, IAssistantOverlayRepository, IAssistantPreferenceRepository,
+--- a/crates/aionui-channel/src/message_service.rs
++++ b/crates/aionui-channel/src/message_service.rs
+@@ -566,6 +566,7 @@
+             args: serde_json::Value::Null,
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+--- a/crates/aionui-channel/tests/stream_relay_test.rs
++++ b/crates/aionui-channel/tests/stream_relay_test.rs
+@@ -138,6 +138,7 @@
+             args: serde_json::Value::Null,
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+@@ -192,6 +193,7 @@
+             args: serde_json::Value::Null,
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+@@ -231,6 +233,7 @@
+             args: serde_json::Value::Null,
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
 --- a/crates/aionui-conversation/Cargo.toml
 +++ b/crates/aionui-conversation/Cargo.toml
 @@ -24,6 +24,8 @@
@@ -1562,6 +2149,40 @@
  
  [dev-dependencies]
  tokio = { workspace = true, features = ["test-util"] }
+--- a/crates/aionui-conversation/src/background_stream.rs
++++ b/crates/aionui-conversation/src/background_stream.rs
+@@ -623,6 +623,7 @@
+                 input: None,
+                 output: None,
+                 description: Some("sleep 30 · bg task b1 · 00:01".into()),
++                images: Vec::new(),
+                 parent_call_id: None,
+             },
+             agents: vec![],
+@@ -640,6 +641,7 @@
+                 input: None,
+                 output: None,
+                 description: Some("sleep 30 · bg task b1 · 00:30".into()),
++                images: Vec::new(),
+                 parent_call_id: None,
+             },
+             agents: vec![ToolGroupEntry {
+@@ -759,6 +761,7 @@
+                     input: None,
+                     output: None,
+                     description: None,
++                    images: Vec::new(),
+                     parent_call_id: None,
+                 },
+                 agents: vec![],
+@@ -776,6 +779,7 @@
+                     input: None,
+                     output: None,
+                     description: None,
++                    images: Vec::new(),
+                     parent_call_id: None,
+                 },
+                 agents: vec![],
 --- a/crates/aionui-conversation/src/lib.rs
 +++ b/crates/aionui-conversation/src/lib.rs
 @@ -1,6 +1,8 @@
@@ -3416,6 +4037,80 @@
  }
  
  /// B5 test double: a mid-turn-capable agent that records `deliver_midturn`
+@@ -6804,6 +6825,7 @@
+                 input: None,
+                 output: None,
+                 description: None,
++                images: Vec::new(),
+                 parent_call_id: None,
+             }),
+             AgentStreamEvent::Error(ErrorEventData {
+--- a/crates/aionui-conversation/src/stream_relay.rs
++++ b/crates/aionui-conversation/src/stream_relay.rs
+@@ -1539,6 +1539,7 @@
+                     input: None,
+                     output: Some("Phase 1  Run   [0/1]".into()),
+                     description: Some("Run [0/1] · run:A · 1 agents".into()),
++                    images: Vec::new(),
+                     parent_call_id: None,
+                 },
+                 agents: vec![ToolGroupEntry {
+@@ -1592,6 +1593,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }))
+         .await;
+@@ -1673,6 +1675,7 @@
+             args: json!({"path": "a.ts"}),
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+@@ -2032,6 +2035,7 @@
+             input: None,
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }))
+         .unwrap();
+@@ -2291,6 +2295,7 @@
+             args: json!({"path": "a.ts"}),
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+@@ -2358,6 +2363,7 @@
+             args: json!({"path": "a.ts"}),
+             status: ToolCallStatus::Running,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+             input: None,
+             output: None,
+@@ -2626,6 +2632,7 @@
+             input: Some(json!({"prompt": "a cat", "size": "1024x1024"})),
+             output: None,
+             description: Some("Generate image".into()),
++            images: Vec::new(),
+             parent_call_id: None,
+         }))
+         .unwrap();
+@@ -2638,6 +2645,7 @@
+             input: None,
+             output: Some("image.png".into()),
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }))
+         .unwrap();
 --- /dev/null
 +++ b/crates/aionui-conversation/tests/openui_state.rs
 @@ -0,0 +1,147 @@
@@ -3669,6 +4364,131 @@
 +        ("天氣".to_string(), Some("user".to_string()))
 +    );
 +}
+--- a/crates/aionui-conversation/tests/stream_relay_tool_call.rs
++++ b/crates/aionui-conversation/tests/stream_relay_tool_call.rs
+@@ -86,6 +86,7 @@
+         input: Some(json!({"pattern": "*.rs"})),
+         output: None,
+         description: None,
++        images: Vec::new(),
+         parent_call_id: None,
+     }))
+     .unwrap();
+@@ -135,6 +136,7 @@
+         input: None,
+         output: Some("src/main.rs".into()),
+         description: None,
++        images: Vec::new(),
+         parent_call_id: None,
+     }))
+     .unwrap();
+@@ -146,6 +148,7 @@
+         input: Some(json!({"pattern": "*.rs"})),
+         output: None,
+         description: Some("search files".into()),
++        images: Vec::new(),
+         parent_call_id: None,
+     }))
+     .unwrap();
+@@ -202,6 +205,7 @@
+         input: Some(json!({"command": "sleep 60"})),
+         output: None,
+         description: None,
++        images: Vec::new(),
+         parent_call_id: None,
+     }))
+     .unwrap();
+@@ -215,6 +219,7 @@
+         input: None,
+         output: None,
+         description: None,
++        images: Vec::new(),
+         parent_call_id: None,
+     }))
+     .unwrap();
+@@ -296,6 +301,7 @@
+             input: Some(json!({"pattern": "*.rs"})),
+             output: None,
+             description: None,
++            images: Vec::new(),
+             parent_call_id: None,
+         }));
+         let _ = self.event_tx.send(AgentStreamEvent::Finish(FinishEventData::default()));
+@@ -415,3 +421,64 @@
+         "empty call_id tool_call must not be persisted through run_agent_turn"
+     );
+ }
++
++#[tokio::test]
++async fn generated_image_survives_empty_final_replay_and_scoped_history() {
++    use aionui_ai_agent::protocol::events::tool_call::ToolImageOutput;
++    let (repo, _db) = setup_repo().await;
++    let bus = Arc::new(BroadcastEventBus::new(64));
++    let (tx, _) = broadcast::channel(64);
++    let relay = StreamRelay::new(
++        "conv-1".into(),
++        "asst-image".into(),
++        "turn-image".into(),
++        "system_default_user".into(),
++        repo.clone(),
++        bus,
++    );
++    let rx = tx.subscribe();
++    let tool = ToolCallEventData {
++        call_id: "image-call".into(),
++        name: "imageGen".into(),
++        args: json!({}),
++        status: ToolCallStatus::Completed,
++        input: None,
++        output: None,
++        description: None,
++        images: vec![ToolImageOutput {
++            path: "/owned/original.png".into(),
++            mime_type: "image/png".into(),
++        }],
++        parent_call_id: None,
++    };
++    tx.send(AgentStreamEvent::ToolCall(tool.clone())).unwrap();
++    tx.send(AgentStreamEvent::ToolCall(tool)).unwrap();
++    tx.send(AgentStreamEvent::Finish(FinishEventData::default())).unwrap();
++    relay.consume(rx).await;
++    let page = repo
++        .list_messages_page(
++            "system_default_user",
++            "conv-1",
++            &MessagePageParams {
++                limit: 100,
++                direction: MessagePageDirection::InitialLatest,
++            },
++        )
++        .await
++        .unwrap();
++    let images: Vec<_> = page.items.iter().filter(|row| row.r#type == "tool_call").collect();
++    assert_eq!(images.len(), 1);
++    let row = images[0];
++    assert_eq!(row.id, "image-call");
++    assert_eq!(row.conversation_id, "conv-1");
++    let content: serde_json::Value = serde_json::from_str(&row.content).unwrap();
++    assert_eq!(content["images"][0]["path"], "/owned/original.png");
++    assert_eq!(content["status"], "completed");
++    assert!(row.content.len() < 500, "chat persistence contains metadata only");
++    assert!(
++        repo.get_message("another-user", "conv-1", "image-call")
++            .await
++            .unwrap()
++            .is_none()
++    );
++}
+--- a/crates/aionui-conversation/tests/thinking_persistence.rs
++++ b/crates/aionui-conversation/tests/thinking_persistence.rs
+@@ -89,6 +89,7 @@
+         args: json!({"path": "a.ts"}),
+         status: ToolCallStatus::Running,
+         description: None,
++        images: Vec::new(),
+         parent_call_id: None,
+         input: None,
+         output: None,
 --- /dev/null
 +++ b/crates/aionui-db/migrations/044_openui_state.sql
 @@ -0,0 +1,22 @@
@@ -5667,7 +6487,37 @@
      title_gen: Arc<TitleGen>,
  ) {
      use tokio::io::{AsyncBufReadExt, BufReader};
-@@ -1877,6 +1897,14 @@
+@@ -1680,10 +1700,6 @@
+                 if line.is_empty() {
+                     continue;
+                 }
+-                // Opt-in raw wire tap for turn-boundary forensics (never on by
+-                // default — carries tool input/output; enable with
+-                // `--log-level "info,codex_wire=debug"`).
+-                tracing::debug!(target: "codex_wire", session_id = %session_id, frame = %line, "codex <- frame");
+                 let Ok(frame): Result<Value, _> = serde_json::from_str(line) else {
+                     // unparseable line → opaque, never panic
+                     emit(
+@@ -1692,11 +1708,17 @@
+                         turn_gen.load(Ordering::SeqCst),
+                         SessionEvent::AdapterSpecific {
+                             tag: "codex_unparseable".into(),
+-                            payload: json!({ "raw": line }),
++                            payload: json!({ "code": "INVALID_CODEX_FRAME", "frame_bytes": line.len() }),
+                         },
+                     );
+                     continue;
+                 };
++
++                // Boundary diagnostics never copy image bytes or tool payloads,
++                // including when the explicit development wire target is enabled.
++                tracing::debug!(target: "codex_wire", session_id = %session_id,
++                    method = frame.get("method").and_then(|value| value.as_str()),
++                    has_id = frame.get("id").is_some(), frame_bytes = line.len(), "codex <- frame");
+ 
+                 // A server-initiated REQUEST has BOTH `method` and `id`
+                 // (reverse-RPC). A notification has `method` but no `id`. A
+@@ -1877,6 +1899,14 @@
                              continue;
                          }
                          for ev in map_notification(m, params) {
@@ -5682,7 +6532,162 @@
                              emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
                          }
                      }
-@@ -9375,6 +9403,212 @@
+@@ -3204,7 +3234,9 @@
+             if completed {
+                 // 009 R7/H3: a codex tool is failed when status==failed OR a command
+                 // exited non-zero — carry it so a failed tool is not shown as success.
+-                let is_error = item.get("status").and_then(Value::as_str) == Some("failed")
++                let mut is_error = item.get("status").and_then(Value::as_str) == Some("failed")
++                    || (item_type == "imageGeneration"
++                        && item.get("failure").is_some_and(|failure| !failure.is_null()))
+                     || item.get("exitCode").and_then(Value::as_i64).is_some_and(|c| c != 0);
+                 // 009 R8: carry the tool OUTPUT. `aggregatedOutput` (command stdout)
+                 // is fixture-confirmed (commandExecution completed). codex writes any
+@@ -3242,15 +3274,35 @@
+                 // aggregatedOutput (a commandExecution-only field imageGeneration lacks),
+                 // so the image card was empty. Carry the path as FilePath (NOT the
+                 // base64 `result` as Text — that would dump megabytes of bytes).
+-                if item_type == "imageGeneration"
+-                    && let Some(path) = item.get("savedPath").and_then(Value::as_str)
+-                {
+-                    content.push(crate::event::ToolResultContent::FilePath {
+-                        path: path.to_string(),
+-                        mime: None,
+-                        old_text: None,
+-                        new_text: None,
+-                    });
++                if item_type == "imageGeneration" && !is_error {
++                    // Verified: Codex 0.163.0 generated v2/ThreadItemsListResponse.json;
++                    // production also carried snake_case fields. Retain native files first.
++                    if let Some(path) = item
++                        .get("savedPath")
++                        .and_then(Value::as_str)
++                        .filter(|path| !path.is_empty())
++                        .or_else(|| {
++                            item.get("saved_path")
++                                .and_then(Value::as_str)
++                                .filter(|path| !path.is_empty())
++                        })
++                    {
++                        content.push(crate::event::ToolResultContent::FilePath {
++                            path: path.to_string(),
++                            mime: Some(mime_guess_from_image_path(path).into()),
++                            old_text: None,
++                            new_text: None,
++                        });
++                    } else {
++                        content.extend(parse_codex_image_result(item.get("result")));
++                        if !content
++                            .iter()
++                            .any(|part| matches!(part, crate::event::ToolResultContent::Image { .. }))
++                        {
++                            is_error = true;
++                            content.push(crate::event::ToolResultContent::Text("IMAGE_OUTPUT_UNAVAILABLE".into()));
++                        }
++                    }
+                 }
+                 if let Some(text) = item.get("aggregatedOutput").and_then(Value::as_str)
+                     && !text.is_empty()
+@@ -3300,7 +3352,15 @@
+                     // tool calls) are present while the output fields are still null,
+                     // so the whole item Value is the faithful argument carrier.
+                     // TIO-13: never logged at info.
+-                    input: item.clone(),
++                    input: if item_type == "imageGeneration" {
++                        let mut input = item.clone();
++                        if let Some(object) = input.as_object_mut() {
++                            object.remove("result");
++                        }
++                        input
++                    } else {
++                        item.clone()
++                    },
+                     // 009 H5: codex inline tool — main agent.
+                     parent_tool_use_id: None,
+                 });
+@@ -3767,8 +3827,8 @@
+ 
+ /// Parse a completed `dynamicToolCall` item's `contentItems[]`
+ /// (`{type:"inputText",text}` / `{type:"inputImage",imageUrl}`). Previously DROPPED.
+-/// An `inputImage` is a URL (often a data: or remote URL) — carried as a text
+-/// reference (we can't assume it is decodable raw bytes). None/absent → empty.
++/// Inline image bytes are decoded for the owning conversation's artifact store;
++/// remote URLs remain text references. None/absent → empty.
+ fn parse_codex_dynamic_content_items(items: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
+     use crate::event::ToolResultContent;
+     let Some(arr) = items.and_then(Value::as_array) else {
+@@ -3776,17 +3836,64 @@
+     };
+     arr.iter()
+         .filter_map(|el| match el.get("type").and_then(Value::as_str) {
+-            Some("inputText") => el
++            Some("inputText" | "input_text") => el
+                 .get("text")
+                 .and_then(Value::as_str)
+-                .map(|t| ToolResultContent::Text(t.to_string())),
+-            Some("inputImage") => el
+-                .get("imageUrl")
+-                .and_then(Value::as_str)
+-                .map(|u| ToolResultContent::Text(format!("[image: {u}]"))),
++                .map(|text| ToolResultContent::Text(text.into())),
++            Some("inputImage" | "input_image") => {
++                let url = el
++                    .get("imageUrl")
++                    .or_else(|| el.get("image_url"))
++                    .and_then(Value::as_str)?;
++                parse_codex_inline_image(url).or_else(|| {
++                    (!url.starts_with("data:") && url.len() <= 4096)
++                        .then(|| ToolResultContent::Text(format!("[image: {url}]")))
++                })
++            }
+             _ => None,
+         })
+         .collect()
++}
++
++fn mime_guess_from_image_path(path: &str) -> &'static str {
++    let lower = path.to_ascii_lowercase();
++    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
++        "image/jpeg"
++    } else if lower.ends_with(".webp") {
++        "image/webp"
++    } else if lower.ends_with(".gif") {
++        "image/gif"
++    } else {
++        "image/png"
++    }
++}
++
++fn parse_codex_inline_image(value: &str) -> Option<crate::event::ToolResultContent> {
++    use base64::Engine as _;
++    let (mime, encoded) = if let Some(data) = value.strip_prefix("data:") {
++        data.split_once(";base64,")?
++    } else {
++        ("image/png", value)
++    };
++    if !matches!(mime, "image/png" | "image/jpeg" | "image/webp" | "image/gif") || encoded.len() > 45 * 1024 * 1024 {
++        return None;
++    }
++    let data = base64::engine::general_purpose::STANDARD.decode(encoded).ok()?;
++    if data.is_empty() || data.len() > 32 * 1024 * 1024 {
++        return None;
++    }
++    Some(crate::event::ToolResultContent::Image {
++        media_type: mime.into(),
++        data,
++    })
++}
++
++fn parse_codex_image_result(result: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
++    match result {
++        Some(Value::String(encoded)) => parse_codex_inline_image(encoded).into_iter().collect(),
++        Some(value @ Value::Array(_)) => parse_codex_dynamic_content_items(Some(value)),
++        _ => Vec::new(),
++    }
+ }
+ 
+ /// Completed→EndTurn (or Truncated if a stop reason says so), Interrupted→
+@@ -9375,6 +9482,212 @@
          assert!(backend.suspend.is_active().await, "stays Active (production parity)");
      }
  
@@ -5895,6 +6900,88 @@
      /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
      /// next dispatch(Send) wakes by re-spawning `codex app-server` through the
      /// injected spawner (then replaying the thread/resume handshake against the
+@@ -9800,3 +10113,81 @@
+         );
+     }
+ }
++
++#[cfg(test)]
++mod generated_image_tests {
++    use super::*;
++    use crate::event::ToolResultContent;
++    use base64::Engine as _;
++
++    fn image_item(extra: Value) -> Value {
++        let mut item = json!({"type":"imageGeneration","id":"call_fixture","status":"completed"});
++        item.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
++        json!({"threadId":"fixture-thread","turnId":"fixture-turn","item":item})
++    }
++
++    #[test]
++    fn generated_image_saved_path_aliases_prefer_file_references() {
++        for extra in [
++            json!({"savedPath":"/owned/generated.png","result":"large-base64-is-not-text"}),
++            json!({"savedPath":null,"saved_path":"/owned/generated.png"}),
++        ] {
++            let events = map_item(&image_item(extra), true);
++            assert!(events.iter().any(|event| matches!(event, SessionEvent::ToolResult { is_error:false, content, .. }
++                if matches!(content.as_slice(), [ToolResultContent::FilePath { path, .. }] if path == "/owned/generated.png"))));
++        }
++    }
++
++    #[test]
++    fn generated_image_native_content_array_keeps_bytes_out_of_text() {
++        // Captured native imagegen output used input_image/image_url + input_text blocks.
++        // The app-server schema's imageGeneration variant is verified with Codex 0.163.0
++        // generated v2/ThreadItemsListResponse.json; both result carriers are accepted.
++        let bytes = vec![0x89; 128 * 1024];
++        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
++        let params = image_item(
++            json!({"result":[{"type":"input_image","image_url":format!("data:image/png;base64,{encoded}")},
++                                                   {"type":"input_text","text":"Generated image saved"}]}),
++        );
++        let events = map_item(&params, true);
++        assert!(events.iter().any(
++            |event| matches!(event, SessionEvent::ToolResult { is_error:false, content, .. }
++            if content.iter().any(|part| matches!(part, ToolResultContent::Image { data, .. } if data == &bytes)))
++        ));
++        assert!(
++            !events
++                .iter()
++                .any(|event| matches!(event, SessionEvent::ToolResult { content, .. }
++            if content.iter().any(|part| matches!(part, ToolResultContent::Text(text) if text.contains(&encoded)))))
++        );
++    }
++
++    #[test]
++    fn generated_image_failure_never_exposes_a_success_artifact() {
++        let events = map_item(
++            &image_item(json!({"savedPath":"/owned/partial.png","failure":{"message":"failed"}})),
++            true,
++        );
++        assert!(events.iter().any(
++            |event| matches!(event, SessionEvent::ToolResult { is_error:true, content, .. } if content.is_empty())
++        ));
++    }
++
++    #[test]
++    fn generated_image_started_input_never_contains_inline_result_bytes() {
++        let params = image_item(json!({"result":"iVBORw0KGgo".repeat(10000)}));
++        let events = map_item(&params, false);
++        assert!(
++            events
++                .iter()
++                .any(|event| matches!(event, SessionEvent::ToolCall { input, .. } if input.get("result").is_none()))
++        );
++    }
++
++    #[test]
++    fn malformed_image_result_is_an_explicit_failure() {
++        let events = map_item(&image_item(json!({"result":"not valid base64!"})), true);
++        assert!(events.iter().any(|event| matches!(event, SessionEvent::ToolResult { is_error:true, content, .. }
++            if content.iter().any(|part| matches!(part, ToolResultContent::Text(code) if code == "IMAGE_OUTPUT_UNAVAILABLE")))));
++    }
++}
 --- a/crates/aionui-team/src/provisioning.rs
 +++ b/crates/aionui-team/src/provisioning.rs
 @@ -93,6 +93,20 @@

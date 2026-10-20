@@ -11,6 +11,7 @@ import { normalizeToolMessages, hasRunningToolMessages } from '@/common/chat/nor
 import LocalImageView from '@/renderer/components/media/LocalImageView';
 import { downloadFileFromPath } from '@/renderer/utils/file/download';
 import './MessageToolGroupSummary.css';
+import { ToolImageGallery } from './MessageToolCall';
 
 const statusToBadge = (status: NormalizedToolStatus): BadgeProps['status'] => {
   switch (status) {
@@ -159,6 +160,7 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
   }, [hasRunning]);
 
   const tools = useMemo(() => normalizeToolMessages(messages), [messages]);
+  const images = tools.flatMap((item) => item.images ?? []);
 
   return (
     <div className='tool-group-summary'>
@@ -195,6 +197,7 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
           ))}
         </div>
       )}
+      {images.length > 0 && <ToolImageGallery images={images} />}
     </div>
   );
 };

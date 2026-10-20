@@ -38,6 +38,10 @@ vi.mock('@/renderer/pages/conversation/platforms/acp/AcpChat', () => ({
   default: (props: unknown) => acpChatMock(props),
 }));
 
+// This fixture checks history/backend selection, not runtime sockets or lease renewal.
+vi.mock('@/renderer/pages/conversation/hooks/useActiveLease', () => ({ useActiveLease: vi.fn() }));
+vi.mock('@/renderer/components/agent/AcpRuntimeRestartButton', () => ({ default: () => null }));
+
 vi.mock('@/renderer/components/agent/AcpModelSelector', () => ({
   __esModule: true,
   default: (props: unknown) => acpModelSelectorMock(props),

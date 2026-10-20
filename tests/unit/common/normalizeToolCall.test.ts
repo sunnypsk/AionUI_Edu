@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { IMessageAcpToolCall } from '@/common/chat/chatLib';
-import { normalizeAcpToolCall } from '@/common/chat/normalizeToolCall';
+import type { IMessageAcpToolCall, IMessageToolCall } from '@/common/chat/chatLib';
+import { normalizeAcpToolCall, normalizeToolCall } from '@/common/chat/normalizeToolCall';
 
 describe('normalizeToolCall', () => {
   it('normalizes compact snake_case acp tool calls from history responses', () => {
@@ -56,5 +56,29 @@ describe('normalizeToolCall', () => {
     } as unknown as IMessageAcpToolCall);
 
     expect(result?.output).toBe('[diff] /workspace/file.ts');
+  });
+});
+
+describe('generated image metadata', () => {
+  it('retains file metadata from persisted history without expanding tool output', () => {
+    const message: IMessageToolCall = {
+      id: 'call-1',
+      conversation_id: 'conv-1',
+      type: 'tool_call',
+      content: {
+        call_id: 'call-1',
+        name: 'imageGen',
+        args: {},
+        status: 'completed',
+        images: [
+          { path: '/owned/result.png', mime_type: 'image/png' },
+          { path: '/owned/unsafe.svg', mime_type: 'image/svg+xml' },
+        ],
+      },
+    };
+    expect(normalizeToolCall(message).images).toEqual([{ path: '/owned/result.png', mime_type: 'image/png' }]);
+    expect(
+      normalizeToolCall({ ...message, content: { ...message.content, status: 'canceled' } }).images
+    ).toBeUndefined();
   });
 });

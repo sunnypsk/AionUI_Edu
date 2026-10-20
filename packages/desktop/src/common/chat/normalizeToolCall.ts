@@ -14,6 +14,7 @@ export interface NormalizedToolCall {
   messageId?: string;
   conversationId?: string;
   imagePath?: string;
+  images?: Array<{ path: string; mime_type: string }>;
 }
 
 const formatValue = (value: unknown): string => {
@@ -231,6 +232,16 @@ export function normalizeToolCall(message: IMessageToolCall): NormalizedToolCall
     description: description || extractQueryText(input) || undefined,
     input: displayInput,
     output,
+    images:
+      status === 'completed' && Array.isArray(message.content.images)
+        ? message.content.images.filter(
+            (image) =>
+              image &&
+              typeof image.path === 'string' &&
+              image.path &&
+              ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(image.mime_type)
+          )
+        : undefined,
   };
 }
 

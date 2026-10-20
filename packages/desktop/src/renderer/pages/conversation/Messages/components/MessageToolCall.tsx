@@ -10,12 +10,59 @@ import type { NormalizedToolStatus } from '@/common/chat/normalizeToolCall';
 import FileChangesPanel from '@/renderer/components/base/FileChangesPanel';
 import { useDiffPreviewHandlers } from '@/renderer/hooks/file/useDiffPreviewHandlers';
 import { parseDiff } from '@/renderer/utils/file/diffUtils';
-import { Badge } from '@arco-design/web-react';
+import { Badge, Button, Image, Message, Tooltip } from '@arco-design/web-react';
+import { Download } from '@icon-park/react';
+import { useTranslation } from 'react-i18next';
+import { localFileRef } from '@/common/types/chatFile';
+import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
+import { downloadFileFromRef } from '@/renderer/utils/file/download';
+import { getAcpImageFileName } from '@/common/chat/acpToolCallOutput';
 import { IconDown, IconRight } from '@arco-design/web-react/icon';
 import { createTwoFilesPatch } from 'diff';
 import React, { useMemo, useState } from 'react';
 import type { BadgeProps } from '@arco-design/web-react';
 import './MessageToolGroupSummary.css';
+
+/** Render generated raster artifacts independently of the tool-details disclosure. */
+export const ToolImageGallery: React.FC<{ images?: Array<{ path: string; mime_type: string }> }> = ({ images }) => {
+  const { t } = useTranslation();
+  const [messageApi, context] = Message.useMessage();
+  const unique = [...new Map((images ?? []).map((image) => [image.path, image])).values()];
+  if (!unique.length) return null;
+  const download = async (path: string): Promise<void> => {
+    try {
+      await downloadFileFromRef(localFileRef(path), getAcpImageFileName(path));
+    } catch {
+      messageApi.error(t('acp.image.download_error'));
+    }
+  };
+  return (
+    <div className='flex flex-col gap-8px mt-3' data-testid='tool-image-gallery'>
+      {context}
+      {unique.map((image) => (
+        <div key={image.path} className='group relative w-fit max-w-520px overflow-hidden rounded border bg-1 p-2'>
+          <Image
+            src={buildFileStreamUrl(localFileRef(image.path))}
+            alt={getAcpImageFileName(image.path)}
+            className='max-w-full'
+            style={{ maxWidth: '100%' }}
+          />
+          <Tooltip content={t('acp.image.download')}>
+            <Button
+              aria-label={t('acp.image.download_aria')}
+              type='secondary'
+              size='mini'
+              shape='circle'
+              className='!absolute end-10px top-10px'
+              icon={<Download size='14' />}
+              onClick={() => void download(image.path)}
+            />
+          </Tooltip>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const statusToBadge = (status: NormalizedToolStatus): BadgeProps['status'] => {
   switch (status) {
@@ -112,6 +159,7 @@ const MessageToolCall: React.FC<{ message: IMessageToolCall }> = ({ message }) =
           )}
         </div>
       )}
+      {normalized.images?.length > 0 && <ToolImageGallery images={normalized.images} />}
     </div>
   );
 };

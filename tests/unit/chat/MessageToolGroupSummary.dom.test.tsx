@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMessageAcpToolCall, IMessageToolCall } from '@/common/chat/chatLib';
 import MessageToolGroupSummary from '@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary';
 
+const mockDownloadFileFromRef = vi.fn().mockResolvedValue(undefined);
 const mockDownloadFileFromPath = vi.fn().mockResolvedValue(undefined);
 const mockMessageSuccess = vi.fn();
 const mockMessageError = vi.fn();
@@ -22,6 +23,7 @@ vi.mock('@/renderer/components/media/LocalImageView', () => ({
 }));
 
 vi.mock('@/renderer/utils/file/download', () => ({
+  downloadFileFromRef: (...args: unknown[]) => mockDownloadFileFromRef(...args),
   downloadFileFromPath: (...args: unknown[]) => mockDownloadFileFromPath(...args),
 }));
 
@@ -44,6 +46,8 @@ vi.mock('@arco-design/web-react', async () => {
 
 describe('MessageToolGroupSummary ACP image output', () => {
   beforeEach(() => {
+    mockDownloadFileFromRef.mockReset();
+    mockDownloadFileFromRef.mockResolvedValue(undefined);
     mockDownloadFileFromPath.mockReset();
     mockDownloadFileFromPath.mockResolvedValue(undefined);
     mockMessageSuccess.mockClear();
@@ -202,5 +206,44 @@ describe('MessageToolGroupSummary ACP image output', () => {
 
     expect(screen.queryByTestId('local-image')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('acp.image.download_aria')).not.toBeInTheDocument();
+  });
+});
+
+describe('native Codex image output', () => {
+  const imageMessage = (status: IMessageToolCall['content']['status'] = 'completed'): IMessageToolCall => ({
+    id: 'native-image',
+    conversation_id: 'conv-1',
+    type: 'tool_call',
+    content: {
+      call_id: 'native-image',
+      name: 'imageGen',
+      args: {},
+      status,
+      images: [{ path: '/owned/original.png', mime_type: 'image/png' }],
+    },
+  });
+
+  it('shows the image immediately with collapsed steps and no assistant final', () => {
+    const message = imageMessage();
+    const { rerender } = render(<MessageToolGroupSummary messages={[message]} />);
+    expect(screen.getByRole('img', { name: 'original.png' })).toHaveAttribute(
+      'src',
+      expect.stringContaining('/api/fs/stream?kind=local&path=')
+    );
+    expect(screen.getByText('messages.toolSummary.viewSteps')).toBeInTheDocument();
+    expect(screen.getAllByTestId('tool-image-gallery')).toHaveLength(1);
+    // Replayed metadata and a history reload must still render one preview.
+    rerender(<MessageToolGroupSummary messages={[message, structuredClone(message)]} />);
+    expect(screen.getAllByRole('img', { name: 'original.png' })).toHaveLength(1);
+    fireEvent.click(screen.getByLabelText('acp.image.download_aria'));
+    expect(mockDownloadFileFromRef).toHaveBeenCalledWith(
+      { kind: 'local', path: '/owned/original.png' },
+      'original.png'
+    );
+  });
+
+  it.each(['running', 'error', 'canceled'] as const)('hides partial images when %s', (status) => {
+    render(<MessageToolGroupSummary messages={[imageMessage(status)]} />);
+    expect(screen.queryByTestId('tool-image-gallery')).not.toBeInTheDocument();
   });
 });

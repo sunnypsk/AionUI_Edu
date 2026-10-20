@@ -1,5 +1,7 @@
 # OpenUI local acceptance
 
+Repair regression, 2026-10-20: `.cache/openui-qa/yuyu-openui-browser-75RIrR/report.json` passed all 19 browser checks, including a native image with empty final text, preview, a byte-identical 3 MiB PNG download and reload deduplication. `.cache/openui-qa/yuyu-openui-browser-ZiTVoZ/report.json` passed the configured Codex chart/form/MCP Query and follow-up turns. The full Vitest suite passed 5,409 tests with five skipped. These are local results; deployment validation is separate.
+
 Validation snapshot: 2026-10-19, macOS arm64. Browser report: `.cache/openui-qa/yuyu-openui-browser-1h61LN/report.json` (18 checks); configured-agent report: `.cache/openui-qa/yuyu-openui-browser-7cPO2f/report.json` (two completed agent turns). These results describe local checks; Linux containers, CI and deployment have not been validated.
 
 | Check                                          | Result                                                                                                    |

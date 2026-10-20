@@ -10,6 +10,8 @@ The Codex connection also accepts `AIONUI_CODEX_IDLE_TTL_MS` to opt into its exi
 
 Accepted conversation sends add an optional `user_message` containing the canonical persisted row. The renderer upserts this row independently of the WebSocket echo; older backends remain supported through the existing message lookup. Reconnect and turn completion reconcile cursor gaps and the current turn window, including tool rows updated before the newest cursor. Display recovery never resends a prompt or resets OpenUI drafts.
 
+Native Codex image results retain `savedPath`/`saved_path` references to the original file. Inline PNG/JPEG/WebP/GIF results are stored under the owning conversation workspace's `.aionui-generated-images` directory, with a 32 MiB limit and stable tool-call identity for replay. Only file metadata reaches chat persistence and realtime events. Completed images remain visible outside collapsed tool steps even when the final assistant text is empty; preview and download use the authenticated raw-byte file stream. Failed or canceled tools do not display partial artifacts. Codex wire diagnostics record frame boundaries and sizes without copying image bytes or tool payloads.
+
 Prepare the source without starting a service:
 
 ```sh
@@ -22,7 +24,7 @@ Build after installing Rust 1.95.0:
 bun run openui:core:build
 ```
 
-Use `--debug` for a development binary, or `--test` to run the affected database, conversation, MCP and team crates before building. `--test-idle` runs the focused Codex idle suspend/resume tests, including a native process and JSON-RPC fixture without inference; container builds require this gate. The fixture needs Python 3 on Unix. Set `AIONUI_IDLE_TEST_CODEX_LAUNCHER` to the absolute path of `packages/web-host/src/runtime/codex/codex` to also exercise the Bun/Node launcher chain locally. Application route tests live in the patched `aionui-app` crate and should also be run for API changes. `--resolve-only` prints the verified binary path without building.
+Use `--debug` for a development binary, or `--test` to run the affected database, conversation, MCP and team crates before building. `--test-idle` runs the focused Codex idle suspend/resume tests, including a native process and JSON-RPC fixture without inference; container builds require this gate. The fixture needs Python 3 on Unix. Set `AIONUI_IDLE_TEST_CODEX_LAUNCHER` to the absolute path of `packages/web-host/src/runtime/codex/codex` to also exercise the compiled Node launcher chain locally. Application route tests live in the patched `aionui-app` crate and should also be run for API changes. `--resolve-only` prints the verified binary path without building.
 
 Set `AIONUI_OPENUI_CORE_CACHE` to move prepared sources and binaries. `CARGO_TARGET_DIR` controls Cargo artifacts independently; `AIONUI_OPENUI_CORE_OUTPUT` can choose the installation path. On macOS the script uses the standalone Command Line Tools package's selected `MacOSX.sdk` when available, without changing the system developer directory. macOS cross-architecture packaging requires the corresponding Rust target. Other platforms build on native runners.
 

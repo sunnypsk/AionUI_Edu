@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +59,39 @@ async function api<T>(
 async function savePage(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name + '.png'), animations: 'disabled' });
   writeFileSync(path.join(output, name + '.txt'), await page.locator('body').innerText());
+}
+
+/** A valid large raster fixture exercises raw-byte streaming without chat base64. */
+function imageFixture(): Buffer {
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    let crc = 0xffffffff;
+    for (const byte of body) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+    const size = Buffer.alloc(4);
+    size.writeUInt32BE(data.length);
+    const checksum = Buffer.alloc(4);
+    checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+    return Buffer.concat([size, body, checksum]);
+  };
+  const header = Buffer.from([0, 0, 0, 64, 0, 0, 0, 64, 8, 2, 0, 0, 0]);
+  const pixels = Buffer.alloc(64 * (64 * 3 + 1));
+  for (let y = 0; y < 64; y++)
+    for (let x = 0; x < 64; x++) {
+      const at = y * 193 + 1 + x * 3;
+      pixels.set([x * 4, y * 4, 180], at);
+    }
+  const text = Buffer.alloc(3 * 1024 * 1024, 120);
+  text.set(Buffer.from('Fixture\0'));
+  return Buffer.concat([
+    Buffer.from('89504e470d0a1a0a', 'hex'),
+    chunk('IHDR', header),
+    chunk('tEXt', text),
+    chunk('IDAT', deflateSync(pixels)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 function observePage(page: Page) {
@@ -384,6 +419,66 @@ db.commit()
     await api(first, base, 'DELETE', `/api/conversations/${forked.id}`);
     assert.equal((await first.request.get(base + forkState)).status(), 404);
     checks.push('real conversation fork copies independent state and delete removes access');
+    const imageConversation = await api<{ id: string }>(first, base, 'POST', '/api/conversations', {
+      type: 'acp',
+      name: 'Native image acceptance',
+      extra: { backend: 'codex', workspace: data },
+    });
+    const imagePath = path.join(data, 'native-generated.png');
+    const imageBytes = imageFixture();
+    writeFileSync(imagePath, imageBytes);
+    execFileSync(
+      'python3',
+      [
+        '-c',
+        `import json,sqlite3,sys,time
+p=json.load(sys.stdin)
+db=sqlite3.connect(p['db'])
+db.execute("INSERT INTO messages (id,conversation_id,msg_id,type,content,position,status,hidden,created_at) VALUES (?,?,?,'tool_call',?,'left','finish',0,?)",('native-image',p['conversation'],'native-image',json.dumps({'call_id':'native-image','name':'imageGen','args':{},'status':'completed','images':[{'path':p['path'],'mime_type':'image/png'}]}),int(time.time()*1000)))
+db.commit()
+`,
+      ],
+      {
+        input: JSON.stringify({
+          db: path.join(data, 'aionui-backend.db'),
+          conversation: imageConversation.id,
+          path: imagePath,
+        }),
+        stdio: 'pipe',
+      }
+    );
+    await desktop.goto(base + '/#/conversation/' + imageConversation.id);
+    const gallery = desktop.getByTestId('tool-image-gallery');
+    await gallery.waitFor();
+    const image = gallery.getByRole('img', { name: 'native-generated.png' });
+    await image.waitFor();
+    await image.evaluate(async (element: HTMLImageElement) => {
+      await element.decode();
+    });
+    assert.equal(await image.evaluate((element: HTMLImageElement) => element.naturalWidth), 64);
+    await savePage(desktop, 'native-generated-image');
+    await image.click();
+    await desktop.locator('.arco-image-preview').waitFor();
+    await savePage(desktop, 'native-generated-preview');
+    await desktop.keyboard.press('Escape');
+    const downloaded = desktop.waitForEvent('download');
+    await gallery.getByRole('button', { name: 'Download image', exact: true }).click();
+    const download = await downloaded;
+    const downloadedPath = await download.path();
+    assert.ok(downloadedPath);
+    assert.equal(
+      createHash('sha256').update(readFileSync(downloadedPath)).digest('hex'),
+      createHash('sha256').update(imageBytes).digest('hex')
+    );
+    await desktop.reload();
+    await gallery.waitFor();
+    assert.equal(await gallery.count(), 1);
+    await gallery.getByRole('img', { name: 'native-generated.png' }).evaluate(async (element: HTMLImageElement) => {
+      await element.decode();
+    });
+    checks.push(
+      'native image is visible with collapsed tools and no final text, preview/download preserve a large original PNG, reload shows one artifact'
+    );
     if (process.env.AIONUI_QA_AGENT === '1') {
       checks.push(
         ...(await runAgentAcceptance(
