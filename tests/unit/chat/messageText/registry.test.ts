@@ -5,17 +5,28 @@ import { createParser } from '@openuidev/react-lang';
 import { openuiLibrary, openuiChatLibrary } from '@openuidev/react-ui';
 import { SLIDE_LIMITS, withTeacherComponents } from '@/common/openui/components';
 import { TEACHER_RULES } from '@/common/openui/guidance';
+const none = () => null;
+const teacher = (library: typeof openuiLibrary) =>
+  withTeacherComponents(library, { SlideOutline: none, FileCard: none });
 const manifest = JSON.parse(readFileSync('packages/web-host/openui/manifest.json', 'utf8'));
 describe('pinned official OpenUI runtime contracts', () => {
   it.each([
     ['openui', openuiLibrary],
     ['openui-chat', openuiChatLibrary],
-  ] as const)('ships every %s registry entry without a local allowlist', (id, library) => {
-    expect(Object.keys(library.components).toSorted()).toEqual(manifest.libraries[id].components);
-    expect(library.toJSONSchema()).toEqual(manifest.libraries[id].schema);
+  ] as const)('ships every official %s entry plus the teacher components', (id, library) => {
+    expect(manifest.libraries[id].components).toEqual(
+      [...Object.keys(library.components), 'FileCard', 'SlideOutline'].toSorted()
+    );
+    expect(teacher(library).toJSONSchema()).toEqual(manifest.libraries[id].schema);
     expect(manifest.libraries[id].prompt).toContain('## Query');
     expect(manifest.libraries[id].prompt).toContain('## Mutation');
     expect(manifest.libraries[id].prompt).toContain('@Run');
+  });
+  it.each(['openui', 'openui-chat'] as const)('carries the teacher contracts and every rule in the %s prompt', (id) => {
+    const prompt: string = manifest.libraries[id].prompt;
+    expect(prompt).toContain('SlideOutline(');
+    expect(prompt).toContain('FileCard(');
+    for (const rule of TEACHER_RULES) expect(prompt).toContain(rule);
   });
   it('binds the schema and generated prompts to the compatibility hash', () => {
     const { hash, ...data } = manifest;
@@ -35,9 +46,6 @@ describe('pinned official OpenUI runtime contracts', () => {
   });
 });
 
-const none = () => null;
-const teacher = (library: typeof openuiLibrary) =>
-  withTeacherComponents(library, { SlideOutline: none, FileCard: none });
 const parse = (library: typeof openuiLibrary, program: string) =>
   createParser(library.toJSONSchema(), library.root).parse(program);
 describe('teacher component contracts', () => {

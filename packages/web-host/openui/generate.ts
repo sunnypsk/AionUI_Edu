@@ -2,18 +2,25 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { openuiLibrary, openuiChatLibrary, openuiPromptOptions, openuiChatPromptOptions } from '@openuidev/react-ui';
+import { withTeacherComponents } from '../../desktop/src/common/openui/components';
+import { TEACHER_RULES } from '../../desktop/src/common/openui/guidance';
 
 const directory = new URL('./', import.meta.url);
+// The manifest only needs schemas and prompts; the WebUI supplies the real renderers.
+const specOnly = { SlideOutline: () => null, FileCard: () => null };
+const full = withTeacherComponents(openuiLibrary, specOnly);
+const chat = withTeacherComponents(openuiChatLibrary, specOnly);
 const manifest = {
   protocol: 'openui/1',
   versions: { ui: '0.18.1', lang: '1.0.1', headless: '0.18.1' },
   libraries: {
     openui: {
-      root: openuiLibrary.root,
-      components: Object.keys(openuiLibrary.components).toSorted(),
-      schema: openuiLibrary.toJSONSchema(),
-      prompt: openuiLibrary.prompt({
+      root: full.root,
+      components: Object.keys(full.components).toSorted(),
+      schema: full.toJSONSchema(),
+      prompt: full.prompt({
         ...openuiPromptOptions,
+        additionalRules: [...(openuiPromptOptions.additionalRules ?? []), ...TEACHER_RULES],
         toolCalls: true,
         bindings: true,
         builtinFunctions: true,
@@ -21,11 +28,12 @@ const manifest = {
       }),
     },
     'openui-chat': {
-      root: openuiChatLibrary.root,
-      components: Object.keys(openuiChatLibrary.components).toSorted(),
-      schema: openuiChatLibrary.toJSONSchema(),
-      prompt: openuiChatLibrary.prompt({
+      root: chat.root,
+      components: Object.keys(chat.components).toSorted(),
+      schema: chat.toJSONSchema(),
+      prompt: chat.prompt({
         ...openuiChatPromptOptions,
+        additionalRules: [...(openuiChatPromptOptions.additionalRules ?? []), ...TEACHER_RULES],
         toolCalls: true,
         bindings: true,
         builtinFunctions: true,
