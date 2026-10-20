@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { splitOpenUiContent } from '../../../desktop/src/renderer/pages/conversation/Messages/components/MessageText/OpenUI/content';
 
 type Message = { id: string; type: string; position: string; status: string; content: { content?: string } };
 type Request = <T>(method: 'GET' | 'POST', route: string, body?: unknown) => Promise<T>;
@@ -74,9 +73,7 @@ export async function runTeacherEvaluation(
     });
     assert.ok(sent.turn_id);
     const reply = await finalReply(request, conversation.id, previous);
-    const blocks = splitOpenUiContent(reply)
-      .filter((segment) => segment.kind === 'openui')
-      .map((segment) => ({ profile: segment.profile, program: segment.content }));
+    const blocks = openUiBlocks(reply);
     const files = listFiles(conversation.workspace).filter((file) => !before.has(file));
     const result = { id: item.id, prompt: item.prompt, reply, blocks, files };
     results.push(result);
@@ -89,6 +86,13 @@ export async function runTeacherEvaluation(
   }
   return results;
 }
+
+/** Fenced OpenUI programs in a reply; scoring only needs the profile and the program text. */
+export const openUiBlocks = (reply: string): { profile: string; program: string }[] =>
+  [...reply.matchAll(/^ {0,3}(`{3,}|~{3,})(openui(?:-chat)?)[^\n]*\n([\s\S]*?)^ {0,3}\1[ \t]*$/gm)].map((match) => ({
+    profile: match[2],
+    program: match[3].trimEnd(),
+  }));
 
 async function finalReply(request: Request, conversation: string, previous: Set<string>): Promise<string> {
   const deadline = Date.now() + TURN_TIMEOUT_MS;
