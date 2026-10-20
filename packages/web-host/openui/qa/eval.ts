@@ -94,24 +94,27 @@ export const openUiBlocks = (reply: string): { profile: string; program: string 
     program: match[3].trimEnd(),
   }));
 
+/**
+ * The runtime briefly reports idle between agent steps, so a turn counts as finished only when
+ * it is idle, none of its messages is still streaming, and nothing changed since the previous poll.
+ */
 async function finalReply(request: Request, conversation: string, previous: Set<string>): Promise<string> {
   const deadline = Date.now() + TURN_TIMEOUT_MS;
+  let lastSnapshot = '';
   for (;;) {
     const [current, history] = await Promise.all([
       request<{ runtime?: { is_processing: boolean; turn_id?: string } }>('GET', `/api/conversations/${conversation}`),
       request<{ items: Message[] }>('GET', `/api/conversations/${conversation}/messages?limit=200`),
     ]);
-    const replies = history.items.filter(
-      (message) =>
-        message.type === 'text' &&
-        message.position === 'left' &&
-        message.status === 'finish' &&
-        !previous.has(message.id) &&
-        Boolean(message.content.content)
-    );
-    if (replies.length && current.runtime?.is_processing === false && !current.runtime.turn_id)
+    const turn = history.items.filter((message) => message.position === 'left' && !previous.has(message.id));
+    const replies = turn.filter((message) => message.type === 'text' && Boolean(message.content.content));
+    const idle = current.runtime?.is_processing === false && !current.runtime.turn_id;
+    const streaming = turn.some((message) => message.status === 'work' || message.status === 'pending');
+    const snapshot = JSON.stringify(turn.map((message) => [message.id, message.status]));
+    if (replies.length && idle && !streaming && snapshot === lastSnapshot)
       return replies.map((message) => message.content.content).join('\n\n');
+    lastSnapshot = snapshot;
     if (Date.now() >= deadline) throw new Error(`Teacher evaluation turn did not finish within 15 minutes`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
 }
