@@ -114,12 +114,13 @@ def check(image, revision):
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
         browser_check = app_exec(app, "bun", "-e",
-                               "const {createRequire}=await import('node:module'); const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core'); const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage']}); try {const page=await browser.newPage(); await page.goto('http://" + target_ip + ":18080',{timeout:15000}); const result=JSON.parse(await page.locator('body').innerText()); if(result.peer!=='" + proxy_remote_ip + "') throw Error('browser route bypass'); console.log('Sandboxed Chromium uses SOCKS5');} finally {await browser.close();}")
+                               "const {createRequire}=await import('node:module'); const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core'); const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage','--disable-quic']}); try {const page=await browser.newPage(); await page.goto('http://" + target_ip + ":18080',{timeout:15000}); const result=JSON.parse(await page.locator('body').innerText()); if(result.peer!=='" + proxy_remote_ip + "') throw Error('browser route bypass'); console.log('Sandboxed Chromium uses SOCKS5'); await page.goto('https://example.com',{timeout:15000,waitUntil:'domcontentloaded'}); if(await page.title()!=='Example Domain') throw Error('browser HTTPS hostname failed'); console.log('Chromium HTTPS hostname uses tunneled DNS');} finally {await browser.close();}")
         print(browser_check.stdout.strip())
         shared_browser = app_exec(app, "bun", "/app/packages/web-host/src/runtime/browser/smoke.ts",
                                   env={"AIONUI_BUNDLED_CODEX": "/app/node_modules/.bin/codex"})
         print(shared_browser.stdout.strip())
         app_exec(app, "bun", "-e", "await import('node:dns/promises').then(d => d.resolve4('example.com'));", check=True)
+        app_exec(app, "bun", "-e", "const {resolve6}=await import('node:dns/promises'); try {const addresses=await resolve6('example.com'); if(addresses.length) throw Error('Tunnel DNS exposed IPv6 answers');} catch(error) {if(!['ENODATA','ENOTFOUND'].includes(error.code)) throw error;}", check=True)
         if '"host": "1.1.1.1"' not in docker("logs", proxy).stdout:
             raise RuntimeError("DNS did not use HTTPS through SOCKS5")
         bypass = app_exec(app, "curl", "--interface", "eth0", "--fail", "--silent", "--max-time", "5", f"http://{target_ip}:18080", check=False)

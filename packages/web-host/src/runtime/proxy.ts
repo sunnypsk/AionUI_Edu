@@ -75,6 +75,9 @@ export function buildTunConfig(proxy: SocksProxy): Record<string, unknown> {
   return {
     log: { level: 'error', timestamp: true },
     dns: {
+      // A SOCKS endpoint may accept IPv6 CONNECT then reset TLS. Browsers do not
+      // retry IPv4 after that reset, so resolve tunneled hostnames to IPv4.
+      strategy: 'ipv4_only',
       servers: [
         {
           type: 'https',

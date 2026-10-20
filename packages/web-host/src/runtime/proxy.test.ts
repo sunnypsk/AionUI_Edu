@@ -51,7 +51,7 @@ describe('SOCKS5 full routing', () => {
   it('sends both DNS and arbitrary destinations through SOCKS with no direct outbound', () => {
     const config = buildTunConfig(parseSocksProxy('socks5://192.0.2.1:1080'));
     expect(config).toMatchObject({
-      dns: { servers: [{ type: 'https', detour: 'socks' }] },
+      dns: { strategy: 'ipv4_only', servers: [{ type: 'https', detour: 'socks' }] },
       route: { final: 'socks', rules: [{ port: 53, action: 'hijack-dns' }] },
     });
     expect(config.outbounds).toEqual([expect.objectContaining({ type: 'socks' })]);
