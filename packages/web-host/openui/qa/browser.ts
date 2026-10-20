@@ -160,6 +160,8 @@ try {
   const skills = await api<Array<{ name: string; is_auto_inject: boolean }>>(first, base, 'GET', '/api/skills');
   assert.equal(skills.find((skill) => skill.name === 'humanizer-zh')?.is_auto_inject, true);
   checks.push('Humanizer-zh remains enabled for automatic skill injection');
+  assert.equal(skills.find((skill) => skill.name === 'teaching-design')?.is_auto_inject, true);
+  checks.push('teaching-design is enabled for automatic skill injection');
   if (process.env.AIONUI_QA_EVAL === '1') {
     const results = await runTeacherEvaluation(
       data,

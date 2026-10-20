@@ -45,6 +45,7 @@ import {
   findAvailablePort,
   BackendLifecycleManager,
   BackendStartupError,
+  BUNDLED_AUTO_INJECT_SKILLS,
 } from '../src/backend-launcher.js';
 import type { AppMetadata } from '../src/types.js';
 
@@ -512,11 +513,13 @@ describe('BackendLifecycleManager bundled skills', () => {
     killSpy.mockRestore();
   });
 
+  /** Every bundle file reads first; then the first skill's installed copy is missing and the rest match. */
   function missingInstalledSkillOnce(): void {
-    for (let index = 0; index < 3; index += 1) {
+    const bundled = BUNDLED_AUTO_INJECT_SKILLS.reduce((count, skill) => count + skill.files.length, 0);
+    for (let index = 0; index < bundled; index += 1) {
       vi.mocked(readFile).mockResolvedValueOnce(Buffer.from('bundled skill'));
     }
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < BUNDLED_AUTO_INJECT_SKILLS[0].files.length; index += 1) {
       vi.mocked(readFile).mockRejectedValueOnce(Object.assign(new Error('Missing'), { code: 'ENOENT' }));
     }
   }

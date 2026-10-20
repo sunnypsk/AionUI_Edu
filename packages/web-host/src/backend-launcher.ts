@@ -26,31 +26,50 @@ type BackendStartupStage =
   | 'health_timeout'
   | 'builtin_skills';
 
-/** Install the bundled Humanizer skill without changing other built-in or user skills. */
-export async function installBundledBuiltinSkills(bundledDir: string, builtinDir: string): Promise<boolean> {
-  const relativeDir = path.join('auto-inject', 'humanizer-zh');
-  const files = ['LICENSE', 'README.md', 'SKILL.md'];
-  // Read the entire bundle before writing so an incomplete package fails without partial installation.
-  const contents = await Promise.all(files.map((file) => readFile(path.join(bundledDir, relativeDir, file))));
-  const targetDir = path.join(builtinDir, relativeDir);
-  const current = await Promise.all(
-    files.map(async (file) => {
-      try {
-        return await readFile(path.join(targetDir, file));
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-        throw error;
-      }
-    })
-  );
-  if (contents.every((content, index) => current[index]?.equals(content))) return false;
+/** Skills this host ships into AionCore's auto-inject corpus; SKILL.md must come last (see below). */
+export const BUNDLED_AUTO_INJECT_SKILLS: readonly { name: string; files: readonly string[] }[] = [
+  { name: 'humanizer-zh', files: ['LICENSE', 'README.md', 'SKILL.md'] },
+  { name: 'teaching-design', files: ['README.md', 'SKILL.md'] },
+];
 
-  await mkdir(targetDir, { recursive: true });
-  // Write the manifest last; AionCore rebuilds its database catalog on the following startup.
-  for (const [index, file] of files.entries()) {
-    await writeFile(path.join(targetDir, file), contents[index]);
+/** Install the bundled auto-inject skills without changing other built-in or user skills. */
+export async function installBundledBuiltinSkills(bundledDir: string, builtinDir: string): Promise<boolean> {
+  const bundles = BUNDLED_AUTO_INJECT_SKILLS.map(({ name, files }) => ({
+    relativeDir: path.join('auto-inject', name),
+    files,
+  }));
+  // Read every bundle before writing so an incomplete package fails without partial installation.
+  const contents = await Promise.all(
+    bundles.map(({ relativeDir, files }) =>
+      Promise.all(files.map((file) => readFile(path.join(bundledDir, relativeDir, file))))
+    )
+  );
+  const installed = await Promise.all(
+    bundles.map(({ relativeDir, files }) =>
+      Promise.all(
+        files.map(async (file) => {
+          try {
+            return await readFile(path.join(builtinDir, relativeDir, file));
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+          }
+        })
+      )
+    )
+  );
+  let changed = false;
+  for (const [index, { relativeDir, files }] of bundles.entries()) {
+    if (contents[index].every((content, position) => installed[index][position]?.equals(content))) continue;
+    const targetDir = path.join(builtinDir, relativeDir);
+    // Sequential on purpose: write the manifest last; AionCore rebuilds its catalog on the following startup.
+    await mkdir(targetDir, { recursive: true });
+    for (const [position, file] of files.entries()) {
+      await writeFile(path.join(targetDir, file), contents[index][position]);
+    }
+    changed = true;
   }
-  return true;
+  return changed;
 }
 
 type HealthCheckDiagnostics = {

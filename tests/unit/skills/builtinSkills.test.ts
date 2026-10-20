@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createParser } from '@openuidev/react-lang';
+import { openuiLibrary } from '@openuidev/react-ui';
 import { installBundledBuiltinSkills } from '../../../packages/web-host/src/backend-launcher';
+import { withTeacherComponents } from '@/common/openui/components';
 
 const bundledDir = path.resolve('public/builtin-skills');
 const relativeDir = path.join('auto-inject', 'humanizer-zh');
@@ -75,5 +78,65 @@ describe('bundled Humanizer-zh installation', () => {
     await writeFile(path.join(builtinDir, 'auto-inject'), 'a file blocks the directory');
 
     await expect(installBundledBuiltinSkills(bundledDir, builtinDir)).rejects.toMatchObject({ code: 'ENOTDIR' });
+  });
+});
+
+describe('bundled teaching-design installation', () => {
+  const teachingDir = path.join('auto-inject', 'teaching-design');
+  const exists = (target: string) =>
+    stat(target).then(
+      () => true,
+      () => false
+    );
+  it('installs teaching-design as an auto-inject skill with its playbooks', async () => {
+    const builtinDir = await makeBuiltinDir();
+    await installBundledBuiltinSkills(bundledDir, builtinDir);
+    const manifest = await readFile(path.join(builtinDir, teachingDir, 'SKILL.md'), 'utf8');
+    expect(manifest).toMatch(/^---\nname: teaching-design\n/);
+    for (const term of [
+      'SlideOutline',
+      'FileCard',
+      '確認並製作',
+      'officecli-pptx',
+      'officecli-docx',
+      '指定文言經典精選',
+      '評分準則',
+      'openui/1',
+    ])
+      expect(manifest).toContain(term);
+    expect(await readFile(path.join(builtinDir, teachingDir, 'README.md'), 'utf8')).toContain('teaching-design');
+  });
+  it('fails without installing any skill when one bundled file is missing', async () => {
+    const builtinDir = await makeBuiltinDir();
+    const bundle = await makeBuiltinDir();
+    await cp(bundledDir, bundle, { recursive: true });
+    await rm(path.join(bundle, teachingDir, 'README.md'));
+    await expect(installBundledBuiltinSkills(bundle, builtinDir)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await exists(path.join(builtinDir, relativeDir))).toBe(false);
+    expect(await exists(path.join(builtinDir, teachingDir))).toBe(false);
+  });
+  it('reports a change when only teaching-design changed', async () => {
+    const builtinDir = await makeBuiltinDir();
+    await installBundledBuiltinSkills(bundledDir, builtinDir);
+    await writeFile(path.join(builtinDir, teachingDir, 'SKILL.md'), 'stale skill');
+    expect(await installBundledBuiltinSkills(bundledDir, builtinDir)).toBe(true);
+    expect(await readFile(path.join(builtinDir, teachingDir, 'SKILL.md'), 'utf8')).toMatch(
+      /^---\nname: teaching-design/
+    );
+  });
+  it('ships only OpenUI examples that parse against the teacher component library', async () => {
+    const manifest = await readFile(path.join(bundledDir, teachingDir, 'SKILL.md'), 'utf8');
+    const programs = [...manifest.matchAll(/```openui\n([\s\S]*?)\n```/g)].map((match) => match[1]);
+    expect(programs.length).toBeGreaterThanOrEqual(4);
+    const library = withTeacherComponents(openuiLibrary, { SlideOutline: () => null, FileCard: () => null });
+    const parser = createParser(library.toJSONSchema(), library.root);
+    for (const program of programs) {
+      const result = parser.parse(program);
+      expect([program.slice(0, 60), result.meta.errors, result.meta.unresolved]).toEqual([
+        program.slice(0, 60),
+        [],
+        [],
+      ]);
+    }
   });
 });
