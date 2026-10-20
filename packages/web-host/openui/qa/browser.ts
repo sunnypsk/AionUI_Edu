@@ -11,6 +11,7 @@ import { startWebHost, resetWebUiPassword } from '../../src/index';
 import { resolveOpenUiCore } from '../core/resolve';
 import { fixtureMessages, fixtureServer } from './fixtures';
 import { runAgentAcceptance } from './agent';
+import { runTeacherEvaluation } from './eval';
 import { runControlAcceptance, runModalAcceptance } from './controls';
 import { prepareUpgradeFixture, upgradeFixtureMessagePath } from './upgrade';
 import { runTableAcceptance } from './table';
@@ -159,7 +160,15 @@ try {
   const skills = await api<Array<{ name: string; is_auto_inject: boolean }>>(first, base, 'GET', '/api/skills');
   assert.equal(skills.find((skill) => skill.name === 'humanizer-zh')?.is_auto_inject, true);
   checks.push('Humanizer-zh remains enabled for automatic skill injection');
-  if (process.env.AIONUI_QA_AGENT_ONLY === '1') {
+  if (process.env.AIONUI_QA_EVAL === '1') {
+    const results = await runTeacherEvaluation(
+      data,
+      output,
+      <T>(method: 'GET' | 'POST', route: string, body?: unknown) => api<T>(first, base, method, route, body)
+    );
+    checks.push(`teacher evaluation recorded ${results.length} configured-agent replies`);
+    evidence.ok = true;
+  } else if (process.env.AIONUI_QA_AGENT_ONLY === '1') {
     desktop = await first.newPage();
     observePage(desktop);
     checks.push(
