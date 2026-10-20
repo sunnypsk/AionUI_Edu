@@ -790,12 +790,28 @@ export function normalizeDbMessage(msg: TMessage): TMessage {
 }
 
 const getMessageMergeKey = (message: TMessage): string => {
+  if (message.type === 'tool_call' && message.content.call_id) return `tool_call:${message.content.call_id}`;
+  if (message.type === 'acp_tool_call' && message.content.update.tool_call_id)
+    return `acp_tool_call:${message.content.update.tool_call_id}`;
+  if (message.type === 'permission' && message.content.call_id) return `permission:${message.content.call_id}`;
+  if (message.type === 'acp_terminal_output' && message.content.terminal_id)
+    return `acp_terminal_output:${message.content.terminal_id}`;
   if (message.type === 'text' && message.msg_id) return `text:${message.position ?? 'left'}:${message.msg_id}`;
   if (message.msg_id) return `${message.type}:${message.msg_id}`;
   return `id:${message.id}`;
 };
 
 const preferPersistedOrLiveMessage = (persisted: TMessage, live: TMessage): TMessage => {
+  if (persisted.type === 'tool_call' && live.type === 'tool_call') {
+    const liveIsTerminal = ['completed', 'error', 'canceled'].includes(live.content.status ?? '');
+    const useLiveContent = liveIsTerminal && (!persisted.content.status || persisted.content.status === 'running');
+    return {
+      ...live,
+      ...persisted,
+      status: useLiveContent ? live.status : persisted.status,
+      content: useLiveContent ? { ...persisted.content, ...live.content } : { ...live.content, ...persisted.content },
+    };
+  }
   if (persisted.type === 'text' && live.type === 'text') {
     const status =
       persisted.status === 'pending' && live.status && live.status !== 'pending' ? live.status : persisted.status;

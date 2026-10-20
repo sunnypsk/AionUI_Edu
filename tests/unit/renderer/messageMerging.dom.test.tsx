@@ -8,7 +8,7 @@ import React, { type PropsWithChildren } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ipcBridge } from '@/common';
-import type { IMessageAcpToolCall, IMessageText, IMessageThinking } from '@/common/chat/chatLib';
+import type { IMessageAcpToolCall, IMessageText, IMessageThinking, IMessageToolCall } from '@/common/chat/chatLib';
 import {
   MessageListLoadingProvider,
   MessageListProvider,
@@ -184,6 +184,62 @@ describe('message merging', () => {
       'old',
       'latest',
     ]);
+  });
+
+  it('matches native tool history by call id even when live frames share one turn message id', () => {
+    const live: IMessageToolCall[] = ['inspect-1', 'inspect-2'].map((callId, index) => ({
+      id: `live-${callId}`,
+      msg_id: 'assistant-turn-message',
+      turn_id: 'turn-1',
+      type: 'tool_call',
+      conversation_id: CONVERSATION_ID,
+      created_at: index,
+      content: {
+        call_id: callId,
+        name: 'mcpToolCall',
+        args: {},
+        status: 'completed',
+        images: [{ path: `/owned/${callId}.png`, mime_type: 'image/png' }],
+      },
+    }));
+    const persisted = live.map((row) => ({ ...row, id: row.content.call_id, msg_id: row.content.call_id }));
+    const merged = mergeLoadedPageWithCurrent(CONVERSATION_ID, persisted, live);
+    const replay = mergeLoadedPageWithCurrent(CONVERSATION_ID, persisted, merged);
+    expect(replay.map((row) => row.id)).toEqual(['inspect-1', 'inspect-2']);
+    expect(replay).toEqual(persisted);
+  });
+
+  it('does not replace a completed image result with an older running HTTP snapshot', () => {
+    const live: IMessageToolCall = {
+      id: 'live-image',
+      msg_id: 'assistant-turn-message',
+      type: 'tool_call',
+      status: 'finish',
+      conversation_id: CONVERSATION_ID,
+      content: {
+        call_id: 'image-call',
+        name: 'imageGeneration',
+        args: {},
+        status: 'completed',
+        images: [{ path: '/owned/result.png', mime_type: 'image/png' }],
+      },
+    };
+    const persisted: IMessageToolCall = {
+      ...live,
+      id: 'image-call',
+      msg_id: 'image-call',
+      status: 'work',
+      content: { ...live.content, status: 'running', images: undefined },
+    };
+    const merged = mergeLoadedPageWithCurrent(CONVERSATION_ID, [persisted], [live]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ id: 'image-call', status: 'finish', content: live.content });
+  });
+
+  it('matches ACP tool history by tool call id rather than the shared streaming message id', () => {
+    const persisted = createToolCallMessage('acp-call');
+    const live = { ...persisted, id: 'live-acp', msg_id: 'assistant-turn-message' };
+    expect(mergeLoadedPageWithCurrent(CONVERSATION_ID, [persisted], [live])).toEqual([persisted]);
   });
 
   it('shows the accepted row without a WebSocket echo and deduplicates a later acknowledgement', async () => {
