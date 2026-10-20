@@ -119,6 +119,20 @@
       "invalidPath": "Bu dosya yolu geçerli değil.",
       "unavailable": "Bu dosya burada açılamıyor.",
       "downloadError": "Dosya indirilemedi."
+    },
+    "slides": {
+      "slide": "Slayt {{number}}",
+      "title": "Başlık",
+      "points": "Ana nokta",
+      "visual": "Önerilen görsel",
+      "notes": "Konuşmacı notları",
+      "addPoint": "Nokta ekle",
+      "removePoint": "Noktayı kaldır",
+      "moveUp": "Yukarı taşı",
+      "moveDown": "Aşağı taşı",
+      "remove": "Slaytı kaldır",
+      "add": "Sonrasına slayt ekle",
+      "limit": "Sınıra ulaşıldı"
     }
   },
   "toolSummary": {

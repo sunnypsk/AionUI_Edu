@@ -119,6 +119,20 @@
       "invalidPath": "文件路径无效。",
       "unavailable": "无法打开此文件。",
       "downloadError": "无法下载文件。"
+    },
+    "slides": {
+      "slide": "第 {{number}} 张",
+      "title": "标题",
+      "points": "要点",
+      "visual": "建议图像",
+      "notes": "演讲者备注",
+      "addPoint": "新增要点",
+      "removePoint": "删除要点",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "remove": "删除此张",
+      "add": "在后面新增一张",
+      "limit": "已达上限"
     }
   },
   "toolSummary": {

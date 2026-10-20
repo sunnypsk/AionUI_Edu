@@ -388,3 +388,99 @@ describe('FileCard', () => {
     expect(await screen.findByText('messages.openui.file.downloadError')).toBeTruthy();
   });
 });
+describe('SlideOutline', () => {
+  const outline =
+    'root = Stack([SlideOutline("outline", [{title: "引入", points: ["朗讀第一段"]}, {title: "分析", points: ["父親背影"], visual: "車站插圖"}]), Buttons([Button("確認並製作", @ToAssistant("確認"))])])';
+  const slides = () => screen.getAllByRole('group', { name: 'messages.openui.slides.slide' });
+  const titles = () =>
+    screen
+      .getAllByRole('textbox', { name: 'messages.openui.slides.title' })
+      .map((input) => (input as HTMLInputElement).value);
+  const editable = () =>
+    waitFor(() =>
+      expect(screen.getAllByRole('textbox', { name: 'messages.openui.slides.title' })[0]).not.toBeDisabled()
+    );
+  const press = (index: number, name: string) =>
+    fireEvent.click(within(slides()[index]).getByRole('button', { name: 'messages.openui.slides.' + name }));
+  it('renders numbered slides with their fields', async () => {
+    display(outline);
+    await editable();
+    expect(slides()).toHaveLength(2);
+    expect(titles()).toEqual(['引入', '分析']);
+    expect(screen.getByDisplayValue('朗讀第一段')).toBeTruthy();
+    expect(screen.getByDisplayValue('車站插圖')).toBeTruthy();
+  });
+  it('sends edited slides to the assistant on confirm', async () => {
+    const receive = vi.fn((request) => request.resolve());
+    emitter.on('openui.followUp', receive);
+    try {
+      display(outline);
+      await editable();
+      fireEvent.change(screen.getByDisplayValue('引入'), { target: { value: '導入' } });
+      fireEvent.change(screen.getByDisplayValue('父親背影'), { target: { value: '父親攀月台' } });
+      fireEvent.click(screen.getByText('確認並製作'));
+      await waitFor(() => expect(receive).toHaveBeenCalled());
+      const context = JSON.stringify(receive.mock.calls[0][0].ui_action);
+      expect(context).toContain('導入');
+      expect(context).toContain('父親攀月台');
+    } finally {
+      emitter.off('openui.followUp', receive);
+    }
+  });
+  it('moves, removes and adds slides and keeps the order through later edits', async () => {
+    display(outline);
+    await editable();
+    press(1, 'moveUp');
+    expect(titles()).toEqual(['分析', '引入']);
+    press(0, 'remove');
+    expect(titles()).toEqual(['引入']);
+    press(0, 'add');
+    expect(titles()).toEqual(['引入', '']);
+    fireEvent.change(screen.getAllByRole('textbox', { name: 'messages.openui.slides.title' })[1], {
+      target: { value: '總結' },
+    });
+    fireEvent.change(screen.getByDisplayValue('引入'), { target: { value: '導入' } });
+    expect(titles()).toEqual(['導入', '總結']);
+  });
+  it('adds and removes points', async () => {
+    display(outline);
+    await editable();
+    press(0, 'addPoint');
+    expect(within(slides()[0]).getAllByRole('textbox', { name: 'messages.openui.slides.points' })).toHaveLength(2);
+    fireEvent.click(within(slides()[0]).getAllByRole('button', { name: 'messages.openui.slides.removePoint' })[0]);
+    expect(within(slides()[0]).queryByDisplayValue('朗讀第一段')).toBeNull();
+  });
+  it('disables moving past either end', async () => {
+    display(outline);
+    await editable();
+    expect(within(slides()[0]).getByRole('button', { name: 'messages.openui.slides.moveUp' })).toBeDisabled();
+    expect(within(slides()[1]).getByRole('button', { name: 'messages.openui.slides.moveDown' })).toBeDisabled();
+  });
+  it('keeps edits across a remount from saved state', async () => {
+    const first = display(outline);
+    await editable();
+    fireEvent.change(screen.getByDisplayValue('引入'), { target: { value: '導入' } });
+    await waitFor(() => expect(api.saveState).toHaveBeenCalled());
+    const saved = api.saveState.mock.calls.at(-1)![2];
+    first.unmount();
+    api.loadState.mockResolvedValueOnce({ ...initial, state: saved });
+    display(outline);
+    await editable();
+    expect(titles()).toEqual(['導入', '分析']);
+  });
+  it('enforces the slide and point limits', async () => {
+    const many = Array.from({ length: 30 }, (_, index) => `{title: "${index}"}`).join(', ');
+    const points = Array.from({ length: 8 }, (_, index) => `"${index}"`).join(', ');
+    display(`root = Stack([SlideOutline("outline", [{title: "first", points: [${points}]}, ${many}])])`);
+    await editable();
+    expect(slides()).toHaveLength(30);
+    expect(within(slides()[0]).getByRole('button', { name: 'messages.openui.slides.add' })).toBeDisabled();
+    expect(within(slides()[0]).getByRole('button', { name: 'messages.openui.slides.addPoint' })).toBeDisabled();
+    expect(screen.getAllByText('messages.openui.slides.limit').length).toBeGreaterThan(0);
+  });
+  it('renders a partially streamed slide read-only', async () => {
+    display('root = Stack([SlideOutline("outline", [{title: "引入"}])])', true);
+    expect(await screen.findByDisplayValue('引入')).toBeDisabled();
+    for (const button of within(slides()[0]).getAllByRole('button')) expect(button).toBeDisabled();
+  });
+});

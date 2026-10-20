@@ -34,3 +34,47 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.outline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.slide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.slideHeader,
+.slideFooter,
+.point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slideHeader {
+  justify-content: space-between;
+}
+.slideNumber {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.slideActions {
+  display: flex;
+  gap: 4px;
+}
+.points {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-light);
+}
+.limit {
+  color: var(--text-secondary);
+  font-size: 12px;
+}

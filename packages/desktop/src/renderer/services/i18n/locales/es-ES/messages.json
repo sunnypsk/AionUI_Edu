@@ -119,6 +119,20 @@
       "invalidPath": "La ruta del archivo no es válida.",
       "unavailable": "No se puede abrir este archivo aquí.",
       "downloadError": "No se pudo descargar el archivo."
+    },
+    "slides": {
+      "slide": "Diapositiva {{number}}",
+      "title": "Título",
+      "points": "Punto clave",
+      "visual": "Imagen sugerida",
+      "notes": "Notas del orador",
+      "addPoint": "Añadir punto",
+      "removePoint": "Quitar punto",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "remove": "Quitar diapositiva",
+      "add": "Añadir diapositiva después",
+      "limit": "Límite alcanzado"
     }
   },
   "toolSummary": {

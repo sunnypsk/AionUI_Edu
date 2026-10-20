@@ -119,6 +119,20 @@
       "invalidPath": "Ce chemin de fichier n’est pas valide.",
       "unavailable": "Ce fichier ne peut pas être ouvert ici.",
       "downloadError": "Le fichier n’a pas pu être téléchargé."
+    },
+    "slides": {
+      "slide": "Diapositive {{number}}",
+      "title": "Titre",
+      "points": "Point clé",
+      "visual": "Visuel suggéré",
+      "notes": "Notes de l’intervenant",
+      "addPoint": "Ajouter un point",
+      "removePoint": "Supprimer le point",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "remove": "Supprimer la diapositive",
+      "add": "Ajouter une diapositive après",
+      "limit": "Limite atteinte"
     }
   },
   "toolSummary": {

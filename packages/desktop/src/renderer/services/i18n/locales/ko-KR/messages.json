@@ -119,6 +119,20 @@
       "invalidPath": "파일 경로가 올바르지 않습니다.",
       "unavailable": "이 파일을 열 수 없습니다.",
       "downloadError": "파일을 다운로드하지 못했습니다."
+    },
+    "slides": {
+      "slide": "슬라이드 {{number}}",
+      "title": "제목",
+      "points": "핵심 내용",
+      "visual": "추천 시각 자료",
+      "notes": "발표자 노트",
+      "addPoint": "핵심 내용 추가",
+      "removePoint": "핵심 내용 삭제",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "remove": "슬라이드 삭제",
+      "add": "뒤에 슬라이드 추가",
+      "limit": "한도에 도달했습니다"
     }
   },
   "toolSummary": {

@@ -119,6 +119,20 @@
       "invalidPath": "O caminho do arquivo não é válido.",
       "unavailable": "Não é possível abrir este arquivo aqui.",
       "downloadError": "Não foi possível baixar o arquivo."
+    },
+    "slides": {
+      "slide": "Slide {{number}}",
+      "title": "Título",
+      "points": "Ponto-chave",
+      "visual": "Imagem sugerida",
+      "notes": "Notas do apresentador",
+      "addPoint": "Adicionar ponto",
+      "removePoint": "Remover ponto",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "remove": "Remover slide",
+      "add": "Adicionar slide depois",
+      "limit": "Limite atingido"
     }
   },
   "toolSummary": {

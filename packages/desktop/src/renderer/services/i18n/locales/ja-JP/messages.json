@@ -119,6 +119,20 @@
       "invalidPath": "ファイルパスが無効です。",
       "unavailable": "このファイルを開けません。",
       "downloadError": "ファイルをダウンロードできませんでした。"
+    },
+    "slides": {
+      "slide": "スライド {{number}}",
+      "title": "タイトル",
+      "points": "要点",
+      "visual": "推奨ビジュアル",
+      "notes": "スピーカーノート",
+      "addPoint": "要点を追加",
+      "removePoint": "要点を削除",
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "remove": "スライドを削除",
+      "add": "後ろにスライドを追加",
+      "limit": "上限に達しました"
     }
   },
   "toolSummary": {

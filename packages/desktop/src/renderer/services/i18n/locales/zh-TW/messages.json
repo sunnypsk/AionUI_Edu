@@ -119,6 +119,20 @@
       "invalidPath": "檔案路徑無效。",
       "unavailable": "未能開啟此檔案。",
       "downloadError": "未能下載檔案。"
+    },
+    "slides": {
+      "slide": "第 {{number}} 張",
+      "title": "標題",
+      "points": "重點",
+      "visual": "建議圖像",
+      "notes": "講者備註",
+      "addPoint": "新增重點",
+      "removePoint": "刪除重點",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "remove": "刪除此張",
+      "add": "在後面新增一張",
+      "limit": "已達上限"
     }
   },
   "toolSummary": {

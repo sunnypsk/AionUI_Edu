@@ -119,6 +119,20 @@
       "invalidPath": "This file path is not valid.",
       "unavailable": "This file can't be opened here.",
       "downloadError": "The file could not be downloaded."
+    },
+    "slides": {
+      "slide": "Slide {{number}}",
+      "title": "Title",
+      "points": "Key point",
+      "visual": "Suggested visual",
+      "notes": "Speaker notes",
+      "addPoint": "Add point",
+      "removePoint": "Remove point",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "remove": "Remove slide",
+      "add": "Add slide after",
+      "limit": "Limit reached"
     }
   },
   "toolSummary": {

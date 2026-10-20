@@ -119,6 +119,20 @@
       "invalidPath": "Dieser Dateipfad ist ungültig.",
       "unavailable": "Diese Datei kann hier nicht geöffnet werden.",
       "downloadError": "Die Datei konnte nicht heruntergeladen werden."
+    },
+    "slides": {
+      "slide": "Folie {{number}}",
+      "title": "Titel",
+      "points": "Kernpunkt",
+      "visual": "Vorgeschlagenes Bild",
+      "notes": "Sprechernotizen",
+      "addPoint": "Punkt hinzufügen",
+      "removePoint": "Punkt entfernen",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "remove": "Folie entfernen",
+      "add": "Folie danach einfügen",
+      "limit": "Limit erreicht"
     }
   },
   "toolSummary": {
