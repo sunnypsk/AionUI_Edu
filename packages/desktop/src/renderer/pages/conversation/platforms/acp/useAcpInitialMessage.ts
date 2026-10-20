@@ -16,6 +16,7 @@ import { getConversationRuntimeWorkspaceErrorMessage } from '../../utils/convers
 import type { ConversationRuntimeSendFailure } from '../../runtime/conversationRuntimeViewStore';
 import { classifyConversationBusyError } from '../conversationBusyError';
 import { buildSendFailureError } from './buildSendFailureError';
+import { useAcceptUserMessage } from '../../Messages/hooks';
 
 type UseAcpInitialMessageParams = {
   conversation_id: string;
@@ -45,6 +46,7 @@ export const useAcpInitialMessage = ({
   addOrUpdateMessage,
 }: UseAcpInitialMessageParams): void => {
   const { t } = useTranslation();
+  const acceptUserMessage = useAcceptUserMessage(conversation_id);
 
   useEffect(() => {
     const storageKey = `acp_initial_message_${conversation_id}`;
@@ -80,6 +82,7 @@ export const useAcpInitialMessage = ({
           files,
         });
         markSendAccepted?.(result.turn_id, result.runtime, result.msg_id);
+        await acceptUserMessage(result);
 
         // Initial message sent successfully
         emitter.emit('chat.history.refresh');
@@ -135,6 +138,7 @@ export const useAcpInitialMessage = ({
       console.error('Failed to send initial message:', error);
     });
   }, [
+    acceptUserMessage,
     addOrUpdateMessage,
     backend,
     checkAndUpdateTitle,

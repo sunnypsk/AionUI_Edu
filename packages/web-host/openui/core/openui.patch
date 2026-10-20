@@ -873,6 +873,18 @@
  edition = "2024"
  license = "MIT"
  
+--- a/crates/aionui-api-types/src/conversation.rs
++++ b/crates/aionui-api-types/src/conversation.rs
+@@ -195,6 +195,9 @@
+ pub struct SendMessageResponse {
+     pub msg_id: String,
+     pub turn_id: String,
++    /// Canonical persisted user row, so a successful send does not depend on a best-effort WebSocket echo.
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub user_message: Option<Box<MessageResponse>>,
+     /// B5 mid-turn interjection: `true` when the message was delivered INTO the
+     /// already-running turn (`turn_id` is then the ACTIVE turn's id, no new
+     /// turn was opened, and the HTTP status is 200 instead of the normal 202).
 --- a/crates/aionui-api-types/src/lib.rs
 +++ b/crates/aionui-api-types/src/lib.rs
 @@ -23,6 +23,7 @@
@@ -3135,7 +3147,40 @@
      }
  
      pub fn with_runtime_helper_context(mut self, helper_bin: String, base_url: String) -> Self {
-@@ -2615,6 +2737,9 @@
+@@ -914,13 +1036,32 @@
+ 
+     async fn send_message_response(
+         &self,
++        user_id: &str,
+         conversation_id: &str,
+         msg_id: String,
+         turn_id: String,
+     ) -> SendMessageResponse {
++        let user_message = match self
++            .conversation_repo
++            .get_message(user_id, conversation_id, &msg_id)
++            .await
++        {
++            Ok(Some(row)) if row.position.as_deref() == Some("right") => {
++                row_to_message_response(row).ok().map(Box::new)
++            }
++            Ok(_) => None,
++            Err(_) => {
++                warn!(
++                    conversation_id,
++                    msg_id, "Accepted user message lookup failed; clients can reconcile history"
++                );
++                None
++            }
++        };
+         SendMessageResponse {
+             msg_id,
+             turn_id,
++            user_message,
+             delivered_midturn: false,
+             runtime: self.runtime_summary_for(conversation_id).await,
+         }
+@@ -2615,6 +2756,9 @@
          }
  
          let had_active_turn = self.runtime_state.mark_deleting(id);
@@ -3145,7 +3190,7 @@
  
          // Snapshot the hook list under the read lock, then drop the guard
          // before awaiting — `RwLockReadGuard` is not `Send`, so holding it
-@@ -3428,12 +3553,14 @@
+@@ -3428,12 +3572,14 @@
                  id: conversation_id.to_owned(),
              })?;
  
@@ -3166,7 +3211,7 @@
      }
  
      /// Confirm a pending tool call.
-@@ -3454,6 +3581,12 @@
+@@ -3454,6 +3600,12 @@
              .ok_or_else(|| ConversationError::NotFound {
                  id: conversation_id.to_owned(),
              })?;
@@ -3179,7 +3224,7 @@
  
          let agent = task_manager
              .get_task(conversation_id)
-@@ -3680,6 +3813,7 @@
+@@ -3680,6 +3832,7 @@
          agent: AgentInstance,
          active_turn_id: String,
          inject_skills: Vec<String>,
@@ -3187,7 +3232,7 @@
      ) -> Result<MidturnOutcome, ConversationError> {
          let user_msg_id = Self::mint_msg_id();
          let persisted = self
-@@ -3721,7 +3855,7 @@
+@@ -3721,7 +3874,7 @@
              ));
          }
          let data = aionui_ai_agent::types::SendMessageData {
@@ -3196,10 +3241,30 @@
              msg_id: user_msg_id.clone(),
              turn_id: Some(active_turn_id.clone()),
              files: resolved.files.clone(),
-@@ -3815,6 +3949,19 @@
+@@ -3737,7 +3890,7 @@
+                     "mid-turn message delivered into the active turn"
+                 );
+                 let mut response = self
+-                    .send_message_response(conversation_id, user_msg_id, active_turn_id)
++                    .send_message_response(user_id, conversation_id, user_msg_id, active_turn_id)
+                     .await;
+                 response.delivered_midturn = true;
+                 Ok(MidturnOutcome::Delivered(response))
+@@ -3794,7 +3947,7 @@
+                 self.persist_and_broadcast_send_failure_tip(user_id, conversation_id, &active_turn_id, &e, None)
+                     .await;
+                 Ok(MidturnOutcome::Delivered(
+-                    self.send_message_response(conversation_id, user_msg_id, active_turn_id)
++                    self.send_message_response(user_id, conversation_id, user_msg_id, active_turn_id)
+                         .await,
+                 ))
+             }
+@@ -3813,6 +3966,19 @@
+         user_id: &str,
+         conversation_id: &str,
          req: SendMessageRequest,
-         task_manager: &Arc<dyn IWorkerTaskManager>,
-     ) -> Result<SendMessageResponse, ConversationError> {
++        task_manager: &Arc<dyn IWorkerTaskManager>,
++    ) -> Result<SendMessageResponse, ConversationError> {
 +        self.send_message_with_ui(user_id, conversation_id, req, Default::default(), task_manager)
 +            .await
 +    }
@@ -3211,12 +3276,10 @@
 +        conversation_id: &str,
 +        req: SendMessageRequest,
 +        context: aionui_api_types::OpenUiSendContext,
-+        task_manager: &Arc<dyn IWorkerTaskManager>,
-+    ) -> Result<SendMessageResponse, ConversationError> {
+         task_manager: &Arc<dyn IWorkerTaskManager>,
+     ) -> Result<SendMessageResponse, ConversationError> {
          if req.content.trim().is_empty() {
-             return Err(ConversationError::BadRequest {
-                 reason: "Message content must not be empty".into(),
-@@ -3877,6 +4024,9 @@
+@@ -3877,6 +4043,9 @@
          // `[[AION_FILES]]` content used for persistence, broadcast, and the turn.
          let resolved = self
              .resolve_message_attachments(user_id, &content_with_sessions, &req.files)
@@ -3226,7 +3289,7 @@
              .await?;
  
          // ── Mid-turn delivery (B5, spec §4.3) ────────────────────────────
-@@ -3923,6 +4073,7 @@
+@@ -3923,6 +4092,7 @@
                          agent,
                          active_turn_id,
                          req.inject_skills.clone(),
@@ -3234,7 +3297,29 @@
                      )
                      .await?
                  {
-@@ -4033,7 +4184,7 @@
+@@ -3971,7 +4141,9 @@
+             let was_deleting = turn_claim.release();
+             self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
+                 .await;
+-            return Ok(self.send_message_response(conversation_id, user_msg_id, turn_id).await);
++            return Ok(self
++                .send_message_response(user_id, conversation_id, user_msg_id, turn_id)
++                .await);
+         }
+         // The TurnEnded fallback already persisted + broadcast this message
+         // (with the statusChanged flip) — doing it again would duplicate the
+@@ -4022,7 +4194,9 @@
+                 let was_deleting = turn_claim.release();
+                 self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
+                     .await;
+-                return Ok(self.send_message_response(conversation_id, user_msg_id, turn_id).await);
++                return Ok(self
++                    .send_message_response(user_id, conversation_id, user_msg_id, turn_id)
++                    .await);
+             }
+         };
+         self.apply_conversation_runtime_context(&mut build_opts, user_id, conversation_id);
+@@ -4033,7 +4207,7 @@
          ConversationTurnOrchestrator::new(self.clone(), Arc::clone(task_manager)).spawn_user_turn(TurnStartInput {
              user_id: user_id.to_owned(),
              conversation: row,
@@ -3243,7 +3328,16 @@
              files: resolved.files,
              inject_skills: req.inject_skills,
              required_runtime_mode: None,
-@@ -5954,13 +6105,15 @@
+@@ -4051,7 +4225,7 @@
+             "Message accepted, agent work scheduled"
+         );
+         Ok(self
+-            .send_message_response(conversation_id, user_msg_id_ret, turn_id)
++            .send_message_response(user_id, conversation_id, user_msg_id_ret, turn_id)
+             .await)
+     }
+ 
+@@ -5954,13 +6128,15 @@
  /// Apply an agent-proposed session title under the `name_source` guard.
  ///
  /// Origin rules (migration 035): NULL (default/placeholder name) and "agent"
@@ -3262,7 +3356,7 @@
  ///
  /// A free function (not a `ConversationService` method) so the per-turn
  /// `StreamRelay` can call it with just the repo + broadcaster it already owns.
-@@ -5980,9 +6133,16 @@
+@@ -5980,9 +6156,19 @@
          debug!(conversation_id, consumer, "agent title dropped: conversation not found");
          return Ok(false);
      };
@@ -3275,13 +3369,53 @@
 +            return Ok(false);
 +        }
 +        Some(OPENUI_NAME_SOURCE) => {
-+            debug!(conversation_id, consumer, "agent title dropped: agent input carried OpenUI guidance");
++            debug!(
++                conversation_id,
++                consumer, "agent title dropped: agent input carried OpenUI guidance"
++            );
 +            return Ok(false);
 +        }
 +        _ => {}
      }
      if existing.name == title {
          return Ok(false);
+--- a/crates/aionui-conversation/src/service_test.rs
++++ b/crates/aionui-conversation/src/service_test.rs
+@@ -524,6 +524,21 @@
+         Ok(())
+     }
+ 
++    async fn get_message(
++        &self,
++        _user_id: &str,
++        conversation_id: &str,
++        id: &str,
++    ) -> Result<Option<MessageRow>, aionui_db::DbError> {
++        Ok(self
++            .messages
++            .lock()
++            .unwrap()
++            .iter()
++            .find(|message| message.conversation_id == conversation_id && message.id == id)
++            .cloned())
++    }
++
+     async fn update_message(
+         &self,
+         _user_id: &str,
+@@ -4023,6 +4038,12 @@
+     assert_eq!(response.msg_id.len(), 8, "msg_id should be an 8-char short hex ID");
+     assert!(response.turn_id.starts_with("turn_"), "turn_id must use turn_ prefix");
+     assert_ne!(response.msg_id, response.turn_id, "turn_id must not reuse msg_id");
++    let message = response
++        .user_message
++        .expect("accepted send includes the persisted user row");
++    assert_eq!(message.id, response.msg_id);
++    assert_eq!(serde_json::to_value(message.position).unwrap(), "right");
++    assert_eq!(message.content["content"], make_send_req().content);
+ }
+ 
+ /// B5 test double: a mid-turn-capable agent that records `deliver_midturn`
 --- /dev/null
 +++ b/crates/aionui-conversation/tests/openui_state.rs
 @@ -0,0 +1,147 @@

@@ -26,7 +26,7 @@ import { useConversationContextSafe } from '@/renderer/hooks/context/Conversatio
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
 import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
-import { useAddOrUpdateMessage } from '@/renderer/pages/conversation/Messages/hooks';
+import { useAcceptUserMessage, useAddOrUpdateMessage } from '@/renderer/pages/conversation/Messages/hooks';
 import {
   useConversationCommandQueue,
   type ConversationCommandQueueItem,
@@ -212,6 +212,7 @@ const AcpSendBox: React.FC<{
   const atPathRef = useLatestRef(atPath);
 
   const addOrUpdateMessage = useAddOrUpdateMessage(); // Move this here so it's available in useEffect
+  const acceptUserMessage = useAcceptUserMessage(conversation_id);
   const addOrUpdateMessageRef = useLatestRef(addOrUpdateMessage);
   const runtimeView = useConversationRuntimeView(conversation_id);
   const { markSendStarted, markSendAccepted, markSendFailed, supportsMidturnDelivery } = runtimeView;
@@ -297,6 +298,7 @@ const AcpSendBox: React.FC<{
           ui_action,
         });
         markSendAccepted(result.turn_id, result.runtime, result.msg_id);
+        await acceptUserMessage(result);
         emitter.emit('chat.history.refresh');
       } catch (error: unknown) {
         const errorMsg =
@@ -380,6 +382,7 @@ Please check your local CLI tool authentication status`,
     },
     [
       backend,
+      acceptUserMessage,
       checkAndUpdateTitle,
       conversation_id,
       markSendAccepted,

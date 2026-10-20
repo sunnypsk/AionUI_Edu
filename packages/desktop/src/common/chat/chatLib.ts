@@ -95,6 +95,8 @@ interface IMessage<T extends TMessageType, Content extends Record<string, any>> 
    * 消息创建时间
    */
   created_at?: number;
+  /** App turn identity carried by live frames, distinct from the backend's native turn anchor. */
+  turn_id?: string;
   /**
    * 消息位置
    */
@@ -1126,6 +1128,7 @@ export const handleImageGenerationWithWorkspace = (message: TMessage, workspace:
 
 export const transformMessage = (message: IResponseMessage): TMessage | undefined => {
   const transformed = transformMessageInner(message);
+  if (transformed && message.turn_id) transformed.turn_id = message.turn_id;
   // Stamp the backend turn anchor so live-streamed messages gate the fork
   // entry exactly like history-loaded rows (see isForkEnabled).
   if (transformed && message.backend_turn_id) {

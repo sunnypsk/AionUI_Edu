@@ -9,10 +9,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackendHttpError } from '@/common/adapter/httpBridge';
 import { useAcpInitialMessage } from '@/renderer/pages/conversation/platforms/acp/useAcpInitialMessage';
 
-const { sendMessageInvokeMock, emitterEmitMock } = vi.hoisted(() => ({
+const { sendMessageInvokeMock, emitterEmitMock, acceptUserMessageMock } = vi.hoisted(() => ({
   sendMessageInvokeMock: vi.fn(),
   emitterEmitMock: vi.fn(),
+  acceptUserMessageMock: vi.fn(),
 }));
+
+vi.mock('@/renderer/pages/conversation/Messages/hooks', () => ({ useAcceptUserMessage: () => acceptUserMessageMock }));
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -44,6 +47,36 @@ describe('useAcpInitialMessage', () => {
   beforeEach(() => {
     sessionStorage.clear();
     vi.clearAllMocks();
+  });
+
+  it('upserts the canonical user row after a successful initial send without waiting for realtime', async () => {
+    sessionStorage.setItem('acp_initial_message_conv-1', JSON.stringify({ input: 'hello', files: [] }));
+    const response = {
+      msg_id: 'server-user',
+      turn_id: 'turn-1',
+      runtime: {},
+      user_message: {
+        id: 'server-user',
+        type: 'text',
+        position: 'right',
+        conversation_id: 'conv-1',
+        content: { content: 'hello' },
+      },
+    };
+    sendMessageInvokeMock.mockResolvedValueOnce(response);
+    renderHook(() =>
+      useAcpInitialMessage({
+        conversation_id: 'conv-1',
+        backend: 'codex',
+        setAiProcessing: vi.fn(),
+        resetState: vi.fn(),
+        markSendAccepted: vi.fn(),
+        checkAndUpdateTitle: vi.fn(),
+        addOrUpdateMessage: vi.fn(),
+      })
+    );
+    await waitFor(() => expect(acceptUserMessageMock).toHaveBeenCalledWith(response));
+    expect(sendMessageInvokeMock).toHaveBeenCalledTimes(1);
   });
 
   it('suppresses tips and reset when initial ACP send hits active-turn busy', async () => {

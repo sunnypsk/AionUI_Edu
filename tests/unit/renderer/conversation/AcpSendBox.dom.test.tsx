@@ -15,6 +15,7 @@ import type { TeamSendBoxRuntime } from '@/renderer/pages/team/components/teamSe
 const {
   sendMessageInvokeMock,
   addOrUpdateMessageMock,
+  acceptUserMessageMock,
   resetStateMock,
   emitterEmitMock,
   setSendBoxHandlerMock,
@@ -37,6 +38,7 @@ const {
 } = vi.hoisted(() => ({
   sendMessageInvokeMock: vi.fn(),
   addOrUpdateMessageMock: vi.fn(),
+  acceptUserMessageMock: vi.fn(),
   resetStateMock: vi.fn(),
   emitterEmitMock: vi.fn(),
   setSendBoxHandlerMock: vi.fn(),
@@ -249,6 +251,7 @@ vi.mock('@/renderer/hooks/ui/useLatestRef', () => ({
 }));
 vi.mock('@/renderer/pages/conversation/Messages/hooks', () => ({
   useAddOrUpdateMessage: () => addOrUpdateMessageMock,
+  useAcceptUserMessage: () => acceptUserMessageMock,
 }));
 vi.mock('@/renderer/pages/conversation/platforms/useConversationCommandQueue', () => ({
   useConversationCommandQueue: (args: unknown) => {

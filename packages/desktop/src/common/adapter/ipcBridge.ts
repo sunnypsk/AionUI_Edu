@@ -1830,6 +1830,7 @@ interface ISendMessageParams {
 export interface ISendMessageResult {
   msg_id: string;
   turn_id: string;
+  user_message?: import('@/common/chat/chatLib').TMessage;
   runtime: TConversationRuntimeSummary;
 }
 

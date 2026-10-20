@@ -67,6 +67,7 @@ function getMessageIndexKey(message: TMessage): string | undefined {
   // update resolves to whatever frame was appended last and rewrites it.
   if (message.type === 'thinking') return `thinking:${message.msg_id}`;
   if (message.type === 'plan') return `plan:${message.msg_id}`;
+  if (message.type === 'text') return `text:${message.position ?? 'left'}:${message.msg_id}`;
   return message.msg_id;
 }
 
@@ -293,7 +294,8 @@ export function composeMessageWithIndex(
   // text message: merge only with the latest contiguous streaming chunk.
   // text 消息: 只与最后一条连续的流式片段合并，保留被工具/思考打断后的消息边界。
   if (message.type === 'text' && message.msg_id) {
-    const existingIdx = index.msgIdIndex.get(message.msg_id);
+    const textKey = getMessageIndexKey(message)!;
+    const existingIdx = index.msgIdIndex.get(textKey);
     if (existingIdx !== undefined && existingIdx < list.length) {
       const existingMsg = list[existingIdx];
       if (existingMsg.type === 'text') {
@@ -308,7 +310,12 @@ export function composeMessageWithIndex(
       }
     }
 
-    if (last.type === 'text' && last.msg_id === message.msg_id) {
+    if (
+      last.type === 'text' &&
+      last.msg_id === message.msg_id &&
+      last.position === message.position &&
+      (!last.turn_id || !message.turn_id || last.turn_id === message.turn_id)
+    ) {
       const newList = list.slice();
       newList[newList.length - 1] = {
         ...last,
@@ -318,7 +325,7 @@ export function composeMessageWithIndex(
     }
 
     const newIdx = list.length;
-    index.msgIdIndex.set(message.msg_id, newIdx);
+    index.msgIdIndex.set(textKey, newIdx);
     return list.concat(message);
   }
 
@@ -783,18 +790,25 @@ export function normalizeDbMessage(msg: TMessage): TMessage {
 }
 
 const getMessageMergeKey = (message: TMessage): string => {
+  if (message.type === 'text' && message.msg_id) return `text:${message.position ?? 'left'}:${message.msg_id}`;
   if (message.msg_id) return `${message.type}:${message.msg_id}`;
   return `id:${message.id}`;
 };
 
 const preferPersistedOrLiveMessage = (persisted: TMessage, live: TMessage): TMessage => {
   if (persisted.type === 'text' && live.type === 'text') {
-    return preferTextMessageVersion(persisted, live);
+    const status =
+      persisted.status === 'pending' && live.status && live.status !== 'pending' ? live.status : persisted.status;
+    return { ...live, ...persisted, status, content: preferTextMessageVersion(persisted, live).content };
   }
-  return persisted;
+  return { ...live, ...persisted } as TMessage;
 };
 
-function mergeLoadedPageWithCurrent(conversationId: string, messages: TMessage[], currentList: TMessage[]): TMessage[] {
+export function mergeLoadedPageWithCurrent(
+  conversationId: string,
+  messages: TMessage[],
+  currentList: TMessage[]
+): TMessage[] {
   if (!currentList.length) return foldSupersededTips(messages);
 
   const sameConversation = currentList.filter((message) => message.conversation_id === conversationId);
@@ -817,8 +831,67 @@ function mergeLoadedPageWithCurrent(conversationId: string, messages: TMessage[]
   // the same retry run reach this point as separate entries (a persisted tip has
   // no msg_id, so neither merge key matches), and only a key-based fold sees
   // that they are one card.
-  return foldSupersededTips(liveOnly.length ? [...mergedMessages, ...liveOnly] : mergedMessages);
+  const combined = liveOnly.length ? [...mergedMessages, ...liveOnly] : mergedMessages;
+  const turnAnchors = new Map(
+    combined
+      .filter((m) => m.type === 'text' && m.position === 'right' && m.turn_id && m.created_at !== undefined)
+      .map((m) => [m.turn_id!, m.created_at!])
+  );
+  combined.sort((a, b) => {
+    const aTime = (a.turn_id ? turnAnchors.get(a.turn_id) : undefined) ?? a.created_at;
+    const bTime = (b.turn_id ? turnAnchors.get(b.turn_id) : undefined) ?? b.created_at;
+    if (aTime === undefined || bTime === undefined) return 0;
+    if (aTime !== bTime) return aTime - bTime;
+    if (a.turn_id && a.turn_id === b.turn_id && a.position !== b.position) {
+      if (a.type === 'text' && a.position === 'right') return -1;
+      if (b.type === 'text' && b.position === 'right') return 1;
+    }
+    return (a.created_at ?? 0) - (b.created_at ?? 0);
+  });
+  return foldSupersededTips(combined);
 }
+
+/** Upsert the server's accepted user row even when its realtime echo was lost or arrived first. */
+export const useAcceptUserMessage = (conversationId: string) => {
+  const update = useUpdateMessageList();
+  const activeId = useRef<string | undefined>(conversationId);
+  useEffect(() => {
+    activeId.current = conversationId;
+    return () => {
+      activeId.current = undefined;
+    };
+  }, [conversationId]);
+  return useCallback(
+    async (result: { msg_id: string; turn_id: string; user_message?: TMessage }): Promise<void> => {
+      try {
+        const row =
+          result.user_message ??
+          (await ipcBridge.database.getConversationMessage.invoke({
+            conversation_id: conversationId,
+            message_id: result.msg_id,
+          }));
+        if (
+          activeId.current !== conversationId ||
+          !row ||
+          row.conversation_id !== conversationId ||
+          row.type !== 'text' ||
+          row.position !== 'right' ||
+          (row.msg_id ?? row.id) !== result.msg_id
+        )
+          return;
+        const message = { ...normalizeDbMessage(row), turn_id: result.turn_id };
+        update((list) => mergeLoadedPageWithCurrent(conversationId, [message], list));
+      } catch {
+        // A send was accepted: a failed display lookup must never retry or fail the original command.
+        console.warn('[messages] Accepted user row lookup deferred to history reconciliation', {
+          conversationId,
+          msg_id: result.msg_id,
+        });
+      }
+    },
+    [conversationId, update]
+  );
+};
 
 export function prependHistoryMessages(currentList: TMessage[], messages: TMessage[]): TMessage[] {
   if (!messages.length) return currentList;
@@ -933,140 +1006,180 @@ export const useLoadAnchorMessageWindow = (conversationId?: string) => {
 export const useMessageLstCache = (key: string) => {
   const update = useUpdateMessageList();
   const list = useMessageList();
+  const listRef = useRef(list);
+  listRef.current = list;
   const setLoading = useUpdateMessageListLoading();
   const setPagination = useUpdateMessagePaginationState();
-  // Mirrors the current list into a ref so the turnCompleted handler below
-  // can inspect it synchronously without re-subscribing to the WS event on
-  // every list change (useState's functional updater runs asynchronously,
-  // so update((list) => ...) can't be used for a synchronous read here).
-  const listRef = useRef(list);
+  const activeKey = useRef<string | undefined>(key);
+  const cursor = useRef<{ key: string; newest?: string; initiallyEmpty: boolean } | undefined>(undefined);
+  const inFlight = useRef<{ key: string; job: Promise<TMessage[]> } | undefined>(undefined);
+  const resyncRequested = useRef(false);
+  const requestSync = useRef<(() => Promise<TMessage[]>) | undefined>(undefined);
   useEffect(() => {
-    listRef.current = list;
-  }, [list]);
+    activeKey.current = key;
+    return () => {
+      activeKey.current = undefined;
+    };
+  }, [key]);
+
   const loadMessages = useCallback(async (): Promise<TMessage[]> => {
-    const result = await loadLatestConversationMessages(key, {
+    const latest = await loadLatestConversationMessages(key, {
       limit: DEFAULT_MESSAGE_PAGE_LIMIT,
       contentMode: 'compact',
     });
-    const messages = result?.items?.map(normalizeDbMessage);
-    if (messages && Array.isArray(messages)) {
-      update((currentList) => mergeLoadedPageWithCurrent(key, messages, currentList));
-      setPagination({
-        oldestCursor: result.oldest_cursor ?? undefined,
-        newestCursor: result.newest_cursor ?? undefined,
-        hasMoreBefore: result.has_more_before,
-        hasMoreAfter: result.has_more_after,
-        isLoadingBefore: false,
-        isLoadingAnchor: false,
-      });
-      return messages;
+    if (activeKey.current !== key) return [];
+    const rows = new Map(latest.items.map((row) => [row.id, row]));
+    const previous = cursor.current?.key === key ? cursor.current : undefined;
+    let newest = latest.newest_cursor ?? undefined;
+    let oldest = latest.oldest_cursor ?? undefined;
+    let hasMoreBefore = latest.has_more_before;
+    let after = previous?.newest;
+    const lastUser = listRef.current.findLast(
+      (row) => row.conversation_id === key && row.type === 'text' && row.position === 'right'
+    );
+    const turnUser = lastUser?.turn_id
+      ? listRef.current.find(
+          (row) => row.type === 'text' && row.position === 'right' && row.turn_id === lastUser.turn_id
+        )
+      : lastUser;
+    if (previous && turnUser) {
+      try {
+        // Upserted tools keep their original creation time. Refresh the turn window too,
+        // including results older than both the reconnect cursor and the latest page.
+        const window = await loadConversationAnchorWindow(key, turnUser.msg_id ?? turnUser.id, {
+          limit: 200,
+          contentMode: 'compact',
+        });
+        if (activeKey.current !== key) return [];
+        for (const row of window.items) rows.set(row.id, row);
+        after =
+          window.has_more_after && !window.items.some((row) => row.id === latest.items.at(-1)?.id)
+            ? (window.newest_cursor ?? after)
+            : undefined;
+      } catch {
+        console.warn('[messages] Turn window reconciliation deferred', { key });
+      }
     }
-    return [];
+    // Refill every page in a realtime gap, rather than just replacing the last 50 rows.
+    if (after && after !== latest.newest_cursor) {
+      const horizonId = latest.items.at(-1)?.id;
+      for (;;) {
+        const page = await loadConversationMessagePage(key, { after, limit: 200, contentMode: 'compact' });
+        if (activeKey.current !== key) return [];
+        for (const row of page.items) rows.set(row.id, row);
+        newest = page.newest_cursor ?? newest;
+        if (!page.has_more_after || page.items.some((row) => row.id === horizonId)) break;
+        if (!page.newest_cursor || page.newest_cursor === after) throw new Error('Message cursor did not advance');
+        after = page.newest_cursor;
+      }
+    } else if (previous?.initiallyEmpty) {
+      // A connection that began with an empty history has no cursor to resume from.
+      while (hasMoreBefore && oldest) {
+        const page = await loadConversationMessagePage(key, { before: oldest, limit: 200, contentMode: 'compact' });
+        if (activeKey.current !== key) return [];
+        for (const row of page.items) rows.set(row.id, row);
+        if (page.has_more_before && (!page.oldest_cursor || page.oldest_cursor === oldest))
+          throw new Error('Message cursor did not advance');
+        oldest = page.oldest_cursor ?? oldest;
+        hasMoreBefore = page.has_more_before;
+      }
+    }
+    const messages = [...rows.values()]
+      .map(normalizeDbMessage)
+      .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
+    cursor.current = { key, newest, initiallyEmpty: messages.length === 0 };
+    update((current) => mergeLoadedPageWithCurrent(key, messages, current));
+    setPagination((current) => ({
+      ...current,
+      oldestCursor: current.oldestCursor ?? oldest,
+      newestCursor: newest ?? current.newestCursor,
+      hasMoreBefore: current.oldestCursor ? current.hasMoreBefore : hasMoreBefore,
+      hasMoreAfter: current.hasMoreAfter || latest.has_more_after,
+    }));
+    return messages;
   }, [key, setPagination, update]);
+
+  const reconcile = useCallback((): Promise<TMessage[]> => {
+    if (inFlight.current?.key === key) {
+      resyncRequested.current = true;
+      return inFlight.current.job;
+    }
+    const job = loadMessages().finally(() => {
+      if (inFlight.current?.job !== job) return;
+      inFlight.current = undefined;
+      if (resyncRequested.current && activeKey.current === key) {
+        resyncRequested.current = false;
+        void requestSync.current?.().catch(() => console.warn('[messages] Follow-up reconciliation failed', { key }));
+      }
+    });
+    inFlight.current = { key, job };
+    return job;
+  }, [key, loadMessages]);
+  requestSync.current = reconcile;
 
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
+    resyncRequested.current = false;
     setLoading(true);
     setPagination({ ...EMPTY_MESSAGE_PAGINATION_STATE });
-    void loadMessages()
-      .catch((error) => {
-        console.error('[useMessageLstCache] Failed to load messages from database:', error);
-      })
+    void reconcile()
+      .catch(() => console.warn('[messages] History loading failed', { key }))
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [key, loadMessages, setLoading, setPagination]);
+  }, [key, reconcile, setLoading, setPagination]);
 
   useEffect(() => {
-    if (!key) {
-      return;
-    }
-
+    if (!key) return;
     return ipcBridge.conversation.userCreated.on((payload) => {
-      if (payload.conversation_id !== key) {
-        return;
-      }
-
-      update((list) => {
-        const index = getOrBuildIndex(list);
-        return composeMessageWithIndex(
-          {
-            id: payload.msg_id,
-            msg_id: payload.msg_id,
-            conversation_id: payload.conversation_id,
-            type: 'text',
-            position: payload.position,
-            status: payload.status,
-            hidden: payload.hidden,
-            created_at: payload.created_at,
-            content: {
-              content: payload.content,
-            },
-          },
-          list,
-          index
-        );
-      });
+      if (payload.conversation_id !== key) return;
+      const message: IMessageText = {
+        id: payload.msg_id,
+        msg_id: payload.msg_id,
+        conversation_id: key,
+        type: 'text',
+        position: payload.position,
+        status: payload.status,
+        hidden: payload.hidden,
+        created_at: payload.created_at,
+        content: { content: payload.content },
+      };
+      update((list) => mergeLoadedPageWithCurrent(key, [message], list));
     });
   }, [key, update]);
 
   useEffect(() => {
-    if (!key) {
-      return;
-    }
-
-    // Flips a mid-turn-delivered user message's badge from "unread" to
-    // consumed once the agent actually picks it up (claude command_lifecycle
-    // Started; codex synthetic receipt). Correlates by msg_id — the same
-    // server-assigned id message.userCreated used to add the row — never by
-    // text/time.
+    if (!key) return;
     return ipcBridge.conversation.statusChanged.on((payload) => {
-      if (payload.conversation_id !== key) {
-        return;
-      }
-
+      if (payload.conversation_id !== key) return;
       update((list) =>
-        list.map((message) => (message.msg_id === payload.msg_id ? { ...message, status: payload.status } : message))
+        list.map((message) =>
+          message.type === 'text' && message.position === 'right' && message.msg_id === payload.msg_id
+            ? { ...message, status: payload.status }
+            : message
+        )
       );
     });
   }, [key, update]);
 
   useEffect(() => {
-    if (!key) {
-      return;
-    }
-
-    // Reconciliation backstop at every turn boundary. The live statusChanged
-    // flip above is best-effort — a live window can miss the event (codex
-    // ack-timeout, a WS gap, or a row left orphaned by a server restart) and
-    // then never self-heal because the conversation stays mounted and never
-    // reloads. The DB row is the authoritative source of truth, so once a
-    // turn for this conversation finishes we re-pull the latest page if (and
-    // only if) a right-position text message is still showing 'pending' —
-    // loadMessages's merge (preferPersistedOrLiveMessage) lets DB truth win
-    // without disturbing anything else in the list.
-    return ipcBridge.conversation.turnCompleted.on((payload) => {
-      if (payload.session_id !== key) {
-        return;
-      }
-
-      const hasPendingDelivery = listRef.current.some(
-        (message) => message.type === 'text' && message.position === 'right' && message.status === 'pending'
-      );
-
-      if (hasPendingDelivery) {
-        void loadMessages().catch((error) => {
-          console.error('[useMessageLstCache] Failed to reconcile pending messages after turn completion:', error);
-        });
-      }
+    if (!key) return;
+    const sync = (): void => {
+      void reconcile().catch(() => console.warn('[messages] Realtime reconciliation failed', { key }));
+    };
+    const unsubscribeTurn = ipcBridge.conversation.turnCompleted.on((payload) => {
+      if (payload.session_id === key) sync();
     });
-  }, [key, loadMessages]);
+    const unsubscribeReconnect = ipcBridge.realtime?.reconnected.on(sync);
+    return () => {
+      unsubscribeTurn();
+      unsubscribeReconnect?.();
+    };
+  }, [key, reconcile]);
 };
 
 export const beforeUpdateMessageList = (fn: (list: TMessage[]) => TMessage[]) => {

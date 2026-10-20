@@ -8,6 +8,8 @@ The patch includes the additive database migration, owned message/program valida
 
 The Codex connection also accepts `AIONUI_CODEX_IDLE_TTL_MS` to opt into its existing native suspend/resume lifecycle. The container sets a 30-minute threshold; other hosts keep suspension disabled unless configured. Running turns and tracked child agents prevent suspension, and the next dispatch resumes the same Codex thread. The NAS updater retains its process guard rather than ignoring resident CLI processes.
 
+Accepted conversation sends add an optional `user_message` containing the canonical persisted row. The renderer upserts this row independently of the WebSocket echo; older backends remain supported through the existing message lookup. Reconnect and turn completion reconcile cursor gaps and the current turn window, including tool rows updated before the newest cursor. Display recovery never resends a prompt or resets OpenUI drafts.
+
 Prepare the source without starting a service:
 
 ```sh
