@@ -202,6 +202,10 @@
     "keyboard": "Im gemeinsamen Browser tippen",
     "downloadFailed": "Download fehlgeschlagen",
     "downloading": "Wird gespeichert…",
-    "webDescription": "Docker zeigt einen gemeinsamen Browser neben der Unterhaltung an. Sie und die KI bedienen dieselben Seiten. Übernehmen Sie die Steuerung, um KI-Browseraktionen zu pausieren, und geben Sie sie anschließend zurück."
+    "webDescription": "Docker zeigt einen gemeinsamen Browser neben der Unterhaltung an. Sie und die KI bedienen dieselben Seiten. Übernehmen Sie die Steuerung, um KI-Browseraktionen zu pausieren, und geben Sie sie anschließend zurück.",
+    "profileLocked": "Das Browserprofil ist gesperrt. Versuchen Sie es erneut, nachdem der vorherige Browser beendet wurde.",
+    "startFailed": "Der Server konnte den Browser nicht starten. Versuchen Sie es erneut oder kontaktieren Sie die Administration.",
+    "resourcesUnavailable": "Dem Server fehlen vorübergehend Ressourcen. Versuchen Sie es in Kürze erneut.",
+    "timeout": "Zeitüberschreitung beim Browser-Vorgang. Versuchen Sie es erneut."
   }
 }

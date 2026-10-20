@@ -14,12 +14,14 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
   let ids: string[];
   let child: ChildProcess | undefined;
   let exited: Promise<number | null> | undefined;
+  let output: string;
 
   beforeEach(async () => {
     data = await mkdtemp(path.join(os.tmpdir(), 'codex-lease-'));
     root = path.join(data, 'runtime', 'codex-cli');
     vi.stubEnv('AIONUI_CODEX_RUNTIME_ROOT', root);
     ids = [];
+    output = '';
     for (const version of ['0.160.0', '0.161.0', '0.162.0']) {
       const id = `${version}-${randomUUID()}`;
       const directory = path.join(root, 'versions', id);
@@ -28,7 +30,7 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
       const cli = path.join(directory, 'node_modules', '.bin', 'codex');
       await writeFile(
         cli,
-        '#!/usr/bin/env node\nprocess.stdout.write("ready\\n"); process.stdin.resume(); process.on("SIGTERM", () => process.exit(0));\n'
+        '#!/usr/bin/env node\nprocess.stdout.write("pool=" + process.env.TOKIO_WORKER_THREADS + "\\n"); process.stdin.resume(); process.on("SIGTERM", () => process.exit(0));\n'
       );
       await chmod(cli, 0o755);
       ids.push(id);
@@ -64,7 +66,10 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
     exited = new Promise((resolve) => child!.once('exit', resolve));
     await new Promise<void>((resolve, reject) => {
       child!.once('error', reject);
-      child!.stdout!.once('data', () => resolve());
+      child!.stdout!.once('data', (data: Buffer) => {
+        output = data.toString();
+        resolve();
+      });
       child!.once('exit', (code) => {
         if (code !== null) reject(new Error(`CLI exited early: ${code}`));
       });
@@ -73,6 +78,28 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
     await symlink(`versions/${ids[2]}`, next);
     await rename(next, path.join(root, 'current'));
   }
+
+  it('defaults CLI worker threads to four without changing an explicit override', async () => {
+    vi.stubEnv('TOKIO_WORKER_THREADS', '');
+    await start();
+    expect(output).toBe('pool=4\n');
+    child!.kill('SIGTERM');
+    await exited;
+    vi.stubEnv('TOKIO_WORKER_THREADS', '2');
+    await start();
+    expect(output).toBe('pool=2\n');
+  });
+
+  it('releases its lease when the selected CLI cannot be started', async () => {
+    await rm(path.join(root, 'versions', ids[0], 'node_modules', '.bin', 'codex'));
+    child = spawn(path.resolve('packages/web-host/src/runtime/codex/codex'), [], {
+      env: { ...process.env, AIONUI_BUNDLED_CODEX: '/unavailable-bundled-codex' },
+      stdio: 'ignore',
+    });
+    exited = new Promise((resolve) => child!.once('exit', resolve));
+    expect(await exited).toBe(1);
+    expect(await readdir(path.join(root, 'leases'))).toEqual([]);
+  });
 
   it('keeps an older real process alive while newer unused files are removed', async () => {
     await start();

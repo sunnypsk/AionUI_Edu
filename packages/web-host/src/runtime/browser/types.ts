@@ -1,4 +1,40 @@
 import { z } from 'zod';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+const ownerId = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/);
+const capabilityOwner = z.object({ userId: ownerId, conversationId: ownerId });
+
+/** A bounded diagnostic; raw Chromium errors can contain URLs and private profile data. */
+export class BrowserRuntimeError extends Error {
+  readonly stage: 'profile' | 'launch';
+
+  constructor(code: string, stage: 'profile' | 'launch') {
+    super(code);
+    this.stage = stage;
+  }
+}
+
+/** Sign one backend-issued owner without exposing the signing key to the MCP child. */
+export function signBrowserCapability(key: string, userId: string, conversationId: string): string {
+  const payload = Buffer.from(JSON.stringify({ userId, conversationId })).toString('base64url');
+  return `${payload}.${createHmac('sha256', key).update(payload).digest('base64url')}`;
+}
+
+/** Validate task-bound claims before looking up their authoritative backend owner. */
+export function verifyBrowserCapability(key: string, capability: string): { userId: string; conversationId: string } {
+  try {
+    const [payload, signature, extra] = capability.split('.');
+    if (!payload || !signature || extra) throw new Error('UNAUTHORIZED');
+    const actual = Buffer.from(signature, 'base64url');
+    const expected = createHmac('sha256', key).update(payload).digest();
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error('UNAUTHORIZED');
+    const claims = capabilityOwner.parse(JSON.parse(Buffer.from(payload, 'base64url').toString()));
+    if (typeof claims.userId !== 'string' || typeof claims.conversationId !== 'string') throw new Error('UNAUTHORIZED');
+    return { userId: claims.userId, conversationId: claims.conversationId };
+  } catch {
+    throw new Error('UNAUTHORIZED');
+  }
+}
 
 const tabId = z.string().uuid();
 const point = z.number().finite().min(0).max(4096);

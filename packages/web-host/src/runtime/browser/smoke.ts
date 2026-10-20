@@ -56,6 +56,7 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
   let sequence = 0;
   let buffer = '';
   let browserStatus = '';
+  let browserFailure = '';
   const notifications = new Set<string>();
   const pending = new Map<
     number,
@@ -72,11 +73,14 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
           result?: Record<string, unknown>;
           error?: unknown;
           method?: string;
-          params?: { name?: string; status?: string };
+          params?: { name?: string; status?: string; error?: string };
         };
         if (frame.method) notifications.add(frame.method);
-        if (frame.method === 'mcpServer/startupStatus/updated' && frame.params?.name === 'aionui_browser')
+        if (frame.method === 'mcpServer/startupStatus/updated' && frame.params?.name === 'aionui_browser') {
           browserStatus = frame.params.status ?? '';
+          // This runner uses only synthetic credentials and a disposable CODEX_HOME.
+          browserFailure = frame.params.error?.slice(0, 1200) ?? '';
+        }
         if (frame.id && pending.has(frame.id)) {
           const response = pending.get(frame.id)!;
           pending.delete(frame.id);
@@ -122,7 +126,7 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
       capabilities: { experimentalApi: true },
     });
     input.write(JSON.stringify({ method: 'initialized' }) + '\n');
-    await rpc('thread/start', {
+    const started = await rpc('thread/start', {
       cwd: directory,
       approvalPolicy: 'never',
       sandbox: 'workspace-write',
@@ -141,7 +145,16 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
     assert.equal(
       browserStatus,
       'ready',
-      'Codex MCP startup did not finish: ' + [...notifications].join(', ') + ' ' + diagnostic
+      'Codex MCP startup did not finish: ' + [...notifications].join(', ') + ' ' + diagnostic + ' ' + browserFailure
+    );
+    // Verified: Codex 0.163.0 app-server generated v2/ListMcpServerStatus{Params,Response}.json.
+    const thread = started.thread as { id: string };
+    const inventory = await rpc('mcpServerStatus/list', { threadId: thread.id, serverName: 'aionui_browser' });
+    const servers = inventory.data as { name: string; tools: Record<string, { name: string }> }[];
+    const shared = servers.find((server) => server.name === 'aionui_browser');
+    assert(
+      shared && Object.values(shared.tools).some((tool) => tool.name === 'browser'),
+      'Browser tool missing from native inventory'
     );
     console.log('Codex app-server discovered aionui_browser (no inference).');
   } finally {

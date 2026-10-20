@@ -202,6 +202,10 @@
     "keyboard": "Saisir dans le navigateur partagé",
     "downloadFailed": "Échec du téléchargement",
     "downloading": "Enregistrement…",
-    "webDescription": "Docker affiche un navigateur partagé à côté de la conversation. Vous et l’IA utilisez les mêmes pages. Prenez le contrôle pour suspendre les actions du navigateur IA, puis rendez-le quand vous avez terminé."
+    "webDescription": "Docker affiche un navigateur partagé à côté de la conversation. Vous et l’IA utilisez les mêmes pages. Prenez le contrôle pour suspendre les actions du navigateur IA, puis rendez-le quand vous avez terminé.",
+    "profileLocked": "Le profil du navigateur est verrouillé. Réessayez après l’arrêt du navigateur précédent.",
+    "startFailed": "Le serveur n’a pas pu démarrer le navigateur. Réessayez ou contactez l’administrateur.",
+    "resourcesUnavailable": "Les ressources du serveur sont temporairement insuffisantes. Réessayez dans un instant.",
+    "timeout": "L’opération du navigateur a expiré. Réessayez."
   }
 }

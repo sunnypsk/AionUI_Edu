@@ -27,6 +27,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { startWebHost, readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
 import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-cli/src/browser.js';
+import { buildCodexRuntime, CODEX_RUNTIME_BUNDLE } from '../packages/web-host/src/runtime/codex/build.js';
 
 // Aligned with packages/desktop/src/common/config/constants.ts WEBUI_DEFAULT_PORT.
 const DEFAULT_PORT = (() => {
@@ -185,6 +186,7 @@ async function main(): Promise<void> {
   // This keeps `bun run webui` fully self-contained on hosts without AionUi.app.
   const workDir = resolveBackendDataDir();
   if (process.platform !== 'win32') {
+    if (!fs.existsSync(CODEX_RUNTIME_BUNDLE)) buildCodexRuntime();
     process.env.AIONUI_CODEX_RUNTIME_ROOT = path.join(workDir, 'runtime', 'codex-cli');
     process.env.AIONUI_BUNDLED_CODEX = path.join(repoRoot, 'node_modules', '.bin', 'codex');
     process.env.PATH = [

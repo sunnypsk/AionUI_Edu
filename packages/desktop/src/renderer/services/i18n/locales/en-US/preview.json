@@ -202,6 +202,10 @@
     "keyboard": "Type in the shared browser",
     "downloadFailed": "Download failed",
     "downloading": "Saving…",
-    "webDescription": "Docker hosts a shared browser in the conversation side panel. You and AI use the same pages. Take control to pause AI browser actions; return control when you are ready."
+    "webDescription": "Docker hosts a shared browser in the conversation side panel. You and AI use the same pages. Take control to pause AI browser actions; return control when you are ready.",
+    "profileLocked": "This browser profile is still locked. Retry after the previous browser has stopped.",
+    "startFailed": "The server could not start the browser. Retry or contact the administrator.",
+    "resourcesUnavailable": "The server is temporarily short of resources. Try again shortly.",
+    "timeout": "The browser operation timed out. Try again."
   }
 }

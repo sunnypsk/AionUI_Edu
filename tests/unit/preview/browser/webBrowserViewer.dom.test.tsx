@@ -30,6 +30,17 @@ const show = (value: BrowserState): void => {
 };
 
 describe('shared browser manual controls', () => {
+  it.each([
+    ['BROWSER_PROFILE_LOCKED', 'profileLocked'],
+    ['BROWSER_RESOURCES_UNAVAILABLE', 'resourcesUnavailable'],
+    ['BROWSER_START_FAILED', 'startFailed'],
+    ['BROWSER_TIMEOUT', 'timeout'],
+  ])('explains %s without displaying a raw runtime error', async (code, key) => {
+    show(state());
+    api.action.mockRejectedValue(new Error(code));
+    fireEvent.click(await screen.findByRole('button', { name: 'preview.sharedBrowser.takeOver' }));
+    await screen.findByText(`preview.sharedBrowser.${key}`);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal(

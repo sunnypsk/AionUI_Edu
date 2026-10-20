@@ -43,6 +43,7 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/scripts/webui.ts ./scripts/webui.ts
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY --from=builder /app/out/renderer ./out/renderer
+COPY --from=builder /app/dist-server/codex ./dist-server/codex
 
 # Built natively for each requested Linux architecture from the pinned source and patch set.
 COPY --from=core-builder /output/aioncore /usr/local/bin/aioncore
@@ -52,6 +53,7 @@ ENV NODE_ENV=production \
     TZ=Asia/Hong_Kong \
     AIONUI_CONTAINER=1 \
     AIONUI_CODEX_IDLE_TTL_MS=1800000 \
+    TOKIO_WORKER_THREADS=4 \
     AIONUI_DATA_DIR=/data \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \

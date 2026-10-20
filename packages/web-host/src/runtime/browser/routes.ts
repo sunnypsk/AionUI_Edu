@@ -1,11 +1,13 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { SharedBrowserManager } from './manager.js';
-import { browserActionSchema, type BrowserOwner } from './types.js';
+import { browserActionSchema, BrowserRuntimeError, verifyBrowserCapability, type BrowserOwner } from './types.js';
+
+export { signBrowserCapability, verifyBrowserCapability } from './types.js';
 
 const ID = /^[a-zA-Z0-9_-]{1,160}$/;
 const SAFE_ERRORS = new Set([
@@ -22,6 +24,10 @@ const SAFE_ERRORS = new Set([
   'BROWSER_NO_DIALOG',
   'BROWSER_FILE_TOO_LARGE',
   'BROWSER_FILE_NOT_FOUND',
+  'BROWSER_PROFILE_LOCKED',
+  'BROWSER_RESOURCES_UNAVAILABLE',
+  'BROWSER_START_FAILED',
+  'BROWSER_TIMEOUT',
   'UNAUTHORIZED',
 ]);
 
@@ -55,29 +61,6 @@ function unwrap(value: unknown): Record<string, unknown> {
   return object.data && typeof object.data === 'object' && !Array.isArray(object.data)
     ? (object.data as Record<string, unknown>)
     : object;
-}
-
-/** A capability is bound to one backend-issued task/user context, never a caller-supplied workspace. */
-export function signBrowserCapability(key: string, userId: string, conversationId: string): string {
-  const payload = Buffer.from(JSON.stringify({ userId, conversationId })).toString('base64url');
-  return `${payload}.${createHmac('sha256', key).update(payload).digest('base64url')}`;
-}
-
-export function verifyBrowserCapability(key: string, capability: string): { userId: string; conversationId: string } {
-  const [payload, signature, extra] = capability.split('.');
-  if (!payload || !signature || extra) throw new Error('UNAUTHORIZED');
-  const actual = Buffer.from(signature, 'base64url');
-  const expected = createHmac('sha256', key).update(payload).digest();
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error('UNAUTHORIZED');
-  const claims = unwrap(JSON.parse(Buffer.from(payload, 'base64url').toString()));
-  if (
-    typeof claims.userId !== 'string' ||
-    typeof claims.conversationId !== 'string' ||
-    !ID.test(claims.userId) ||
-    !ID.test(claims.conversationId)
-  )
-    throw new Error('UNAUTHORIZED');
-  return { userId: claims.userId, conversationId: claims.conversationId };
 }
 
 /** Authenticated public controls and a separate loopback-only MCP bridge share the same manager. */
@@ -146,10 +129,22 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
       : error instanceof Error && error.name === 'TimeoutError'
         ? 'BROWSER_TIMEOUT'
         : 'BROWSER_UNAVAILABLE';
+    const stage = error instanceof BrowserRuntimeError ? error.stage : 'request';
+    const diagnosticId = randomUUID();
+    if (
+      [
+        'BROWSER_UNAVAILABLE',
+        'BROWSER_PROFILE_LOCKED',
+        'BROWSER_RESOURCES_UNAVAILABLE',
+        'BROWSER_START_FAILED',
+        'BROWSER_TIMEOUT',
+      ].includes(code)
+    )
+      console.warn(JSON.stringify({ event: 'browser.failed', code, stage, diagnostic_id: diagnosticId }));
     send(
       res,
       code === 'UNAUTHORIZED' ? 401 : code === 'BROWSER_FORBIDDEN' ? 403 : code.startsWith('INVALID_') ? 400 : 409,
-      { error: { code } }
+      { error: { code, stage, diagnostic_id: diagnosticId } }
     );
   };
   const privateServer = http.createServer((req, res) => {

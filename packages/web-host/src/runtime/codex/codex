@@ -1,7 +1,13 @@
-#!/usr/bin/env bun
-import { launchCodex } from './retention/index.ts';
+#!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
 
-process.exitCode = await launchCodex().catch(() => {
-  console.error('Codex CLI could not be started.');
-  return 1;
-});
+// Resolve source assets from this immutable entry, not from the bundled module.
+process.env.AIONUI_CODEX_RUNTIME_DIR = fileURLToPath(new URL('.', import.meta.url));
+try {
+  const { launchCodex } = await import(new URL('../../../../../dist-server/codex/launcher.mjs', import.meta.url));
+  process.exitCode = await launchCodex();
+} catch (error) {
+  const code = error?.code === 'EAGAIN' ? 'CODEX_RESOURCES_UNAVAILABLE' : 'CODEX_LAUNCH_FAILED';
+  console.error(JSON.stringify({ event: 'codex.launchFailed', code }));
+  process.exitCode = 1;
+}

@@ -202,6 +202,10 @@
     "keyboard": "在共享浏览器中输入文字",
     "downloadFailed": "下载失败",
     "downloading": "保存中…",
-    "webDescription": "Docker 会在对话侧边显示共享浏览器，你和 AI 操作同一组网页。点击“接管”暂停 AI 的浏览器操作，完成后交还 AI。"
+    "webDescription": "Docker 会在对话侧边显示共享浏览器，你和 AI 操作同一组网页。点击“接管”暂停 AI 的浏览器操作，完成后交还 AI。",
+    "profileLocked": "浏览器配置文件仍被锁定，请待上一个浏览器停止后重试。",
+    "startFailed": "服务器无法启动浏览器，请重试或联系管理员。",
+    "resourcesUnavailable": "服务器暂时资源不足，请稍后重试。",
+    "timeout": "浏览器操作超时，请重试。"
   }
 }

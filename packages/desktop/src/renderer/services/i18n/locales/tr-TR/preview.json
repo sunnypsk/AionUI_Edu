@@ -202,6 +202,10 @@
     "keyboard": "Paylaşılan tarayıcıya yaz",
     "downloadFailed": "İndirme başarısız",
     "downloading": "Kaydediliyor…",
-    "webDescription": "Docker, konuşmanın yan panelinde paylaşılan bir tarayıcı gösterir. Siz ve yapay zekâ aynı sayfaları kullanırsınız. Yapay zekâ tarayıcı işlemlerini duraklatmak için kontrolü alın ve bitirince geri verin."
+    "webDescription": "Docker, konuşmanın yan panelinde paylaşılan bir tarayıcı gösterir. Siz ve yapay zekâ aynı sayfaları kullanırsınız. Yapay zekâ tarayıcı işlemlerini duraklatmak için kontrolü alın ve bitirince geri verin.",
+    "profileLocked": "Tarayıcı profili kilitli. Önceki tarayıcı kapandıktan sonra tekrar deneyin.",
+    "startFailed": "Sunucu tarayıcıyı başlatamadı. Tekrar deneyin veya yöneticiyle iletişime geçin.",
+    "resourcesUnavailable": "Sunucunun kaynakları geçici olarak yetersiz. Birazdan tekrar deneyin.",
+    "timeout": "Tarayıcı işlemi zaman aşımına uğradı. Tekrar deneyin."
   }
 }

@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { signBrowserCapability } from './routes.js';
+import path from 'node:path';
+import { signBrowserCapability } from './types.js';
 
 export type BrowserMcpConfig = {
   command: string;
@@ -27,7 +28,12 @@ export function browserCodexLaunch(
   childEnv.AIONUI_BROWSER_CAPABILITY = signBrowserCapability(key, env.AIONUI_USER_ID, env.AIONUI_CONVERSATION_ID);
   const config = {
     command: 'node',
-    args: ['--experimental-strip-types', fileURLToPath(new URL('./mcp.ts', import.meta.url))],
+    args: [
+      '--experimental-strip-types',
+      env.AIONUI_CODEX_RUNTIME_DIR
+        ? path.resolve(env.AIONUI_CODEX_RUNTIME_DIR, '../browser/mcp.ts')
+        : fileURLToPath(new URL('./mcp.ts', import.meta.url)),
+    ],
     env_vars: ['AIONUI_BROWSER_GATEWAY', 'AIONUI_BROWSER_CAPABILITY', 'AIONUI_RUNTIME_TOKEN'],
     startup_timeout_sec: 10,
     tool_timeout_sec: 20,
@@ -48,7 +54,9 @@ export function browserCodexSpawn(
   return {
     command: 'node',
     args: [
-      fileURLToPath(new URL('../codex/retention/stdioProxy.mjs', import.meta.url)),
+      launch.env.AIONUI_CODEX_RUNTIME_DIR
+        ? path.join(launch.env.AIONUI_CODEX_RUNTIME_DIR, 'retention/stdioProxy.mjs')
+        : fileURLToPath(new URL('../codex/retention/stdioProxy.mjs', import.meta.url)),
       JSON.stringify(launch.browser),
       command,
       ...launch.args,

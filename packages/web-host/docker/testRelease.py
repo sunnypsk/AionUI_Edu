@@ -84,6 +84,84 @@ class DockerCommands(unittest.TestCase):
                 deploy.docker("pull", deploy.IMAGE + ":stable")
 
 
+class BrowserProfileLocks(unittest.TestCase):
+    def setUp(self):
+        self.original_host_check = deploy.browser_profile_in_use
+        idle = patch.object(deploy, "browser_profile_in_use", return_value=False)
+        self.host_check = idle.start()
+        self.addCleanup(idle.stop)
+        self.folder = tempfile.TemporaryDirectory()
+        self.base = Path(self.folder.name)
+        self.subject = deploy.Deployment(self.base, self.base / "template")
+        self.subject.settings = {"puid": os.getuid(), "pgid": os.getgid()}
+        self.profile = self.subject.data / "browser-profiles" / ("a" * 64)
+        self.profile.mkdir(parents=True)
+        (self.profile / "Cookies").write_bytes(b"preserved login fixture")
+        for name, target in [("SingletonLock", "previous-host-2984"),
+                             ("SingletonSocket", "/tmp/previous-browser/socket"),
+                             ("SingletonCookie", "12345")]:
+            (self.profile / name).symlink_to(target)
+        self.backup = self.base / "backups" / "release"
+        deploy.copy_data(self.subject.data, self.backup / "data")
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def test_releases_only_snapshotted_symlinks_and_preserves_login(self):
+        with patch.object(deploy, "inventory", return_value={}):
+            self.subject.release_browser_locks(self.backup)
+        self.assertFalse((self.profile / "SingletonLock").is_symlink())
+        self.assertEqual((self.profile / "Cookies").read_bytes(), b"preserved login fixture")
+        self.assertTrue((self.backup / "data/browser-profiles" / ("a" * 64) / "SingletonLock").is_symlink())
+
+    def test_keeps_locks_when_another_container_owns_the_mount(self):
+        running = {"State": {"Running": True}, "Mounts": [{"Source": str(self.subject.data)}]}
+        with patch.object(deploy, "inventory", return_value={"active": running}):
+            with self.assertRaisesRegex(RuntimeError, "running container"):
+                self.subject.release_browser_locks(self.backup)
+        self.assertTrue((self.profile / "SingletonLock").is_symlink())
+
+    def test_requires_the_exact_lock_snapshot_before_releasing_any_lock(self):
+        (self.profile / "SingletonCookie").unlink()
+        (self.profile / "SingletonCookie").symlink_to("changed")
+        with self.assertRaisesRegex(RuntimeError, "snapshot is missing or changed"):
+            self.subject.release_browser_locks(self.backup)
+        self.assertTrue((self.profile / "SingletonLock").is_symlink())
+
+    def test_leaves_unrecognized_regular_lock_files_untouched(self):
+        (self.profile / "SingletonLock").unlink()
+        (self.profile / "SingletonLock").write_text("unrecognized")
+        with self.assertRaisesRegex(RuntimeError, "Unrecognized browser lock"):
+            self.subject.release_browser_locks(self.backup)
+        self.assertEqual((self.profile / "SingletonLock").read_text(), "unrecognized")
+
+    def test_refuses_a_symlinked_profile(self):
+        linked = self.profile.parent / ("b" * 64)
+        linked.symlink_to(self.profile, target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError, "owned directory"):
+            self.subject.release_browser_locks(self.backup)
+        self.assertTrue((self.profile / "SingletonLock").is_symlink())
+
+    def test_keeps_valid_locks_used_by_a_host_process(self):
+        self.host_check.return_value = True
+        with patch.object(deploy, "inventory", return_value={}):
+            with self.assertRaisesRegex(RuntimeError, "host process"):
+                self.subject.release_browser_locks(self.backup)
+        self.assertTrue((self.profile / "SingletonLock").is_symlink())
+
+    def test_host_scan_recognizes_both_profile_argument_forms(self):
+        proc = self.base / "proc"
+        process = proc / "123"
+        process.mkdir(parents=True)
+        for args in (["chromium", "--user-data-dir=" + str(self.profile)],
+                     ["chromium", "--user-data-dir", str(self.profile)]):
+            (process / "cmdline").write_bytes(b"\0".join(os.fsencode(arg) for arg in args))
+            self.assertTrue(self.original_host_check(self.profile.parent, proc))
+        (process / "cmdline").write_bytes(b"chromium\0--user-data-dir=/unrelated/profile\0")
+        self.assertFalse(self.original_host_check(self.profile.parent, proc))
+
+
+
 class Release(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()

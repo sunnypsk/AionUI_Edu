@@ -12,6 +12,7 @@ import {
 } from 'playwright-core';
 import {
   browserUrl,
+  BrowserRuntimeError,
   type BrowserAction,
   type BrowserControl,
   type BrowserOwner,
@@ -189,10 +190,22 @@ export class SharedBrowserManager {
           timeout: 10000,
           args: [...BROWSER_LAUNCH_ARGS],
         };
-        const context = await (this.options.launch ?? ((dir, opts) => chromium.launchPersistentContext(dir, opts)))(
-          directory,
-          options
-        );
+        let context: BrowserContext;
+        try {
+          context = await (this.options.launch ?? ((dir, opts) => chromium.launchPersistentContext(dir, opts)))(
+            directory,
+            options
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (/SingletonLock|ProcessSingleton|profile.*(?:in use|locked)/i.test(message))
+            throw new BrowserRuntimeError('BROWSER_PROFILE_LOCKED', 'profile');
+          if (/EAGAIN|pthread_create|Resource temporarily unavailable/i.test(message))
+            throw new BrowserRuntimeError('BROWSER_RESOURCES_UNAVAILABLE', 'launch');
+          if (error instanceof Error && error.name === 'TimeoutError')
+            throw new BrowserRuntimeError('BROWSER_TIMEOUT', 'launch');
+          throw new BrowserRuntimeError('BROWSER_START_FAILED', 'launch');
+        }
         context.setDefaultTimeout(10000);
         context.setDefaultNavigationTimeout(10000);
         // Restore cookies and storage, but never expose Chrome's unassigned startup pages.

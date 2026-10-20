@@ -208,14 +208,17 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
   const retry = (): void => {
     if (tab && tabAddress) void action({ kind: 'navigate', tabId: tab.id, url: tabAddress });
   };
-  const errorKey =
-    error === 'INVALID_BROWSER_URL'
-      ? 'invalidUrl'
-      : error === 'BROWSER_FILE_TOO_LARGE'
-        ? 'fileTooLarge'
-        : error === 'BROWSER_HUMAN_CONTROL' || error === 'BROWSER_AGENT_CONTROL'
-          ? 'controlChanged'
-          : 'unavailable';
+  const errorKeys = {
+    INVALID_BROWSER_URL: 'invalidUrl',
+    BROWSER_FILE_TOO_LARGE: 'fileTooLarge',
+    BROWSER_HUMAN_CONTROL: 'controlChanged',
+    BROWSER_AGENT_CONTROL: 'controlChanged',
+    BROWSER_PROFILE_LOCKED: 'profileLocked',
+    BROWSER_RESOURCES_UNAVAILABLE: 'resourcesUnavailable',
+    BROWSER_START_FAILED: 'startFailed',
+    BROWSER_TIMEOUT: 'timeout',
+  } as const;
+  const errorKey = errorKeys[error as keyof typeof errorKeys] ?? 'unavailable';
 
   return (
     <div className={styles.root} ref={root} data-testid='shared-browser'>

@@ -202,6 +202,10 @@
     "keyboard": "在共用瀏覽器輸入文字",
     "downloadFailed": "下載失敗",
     "downloading": "儲存中…",
-    "webDescription": "對話旁會顯示共用瀏覽器，你和 AI 可操作同一組網頁。按「接管」可暫停 AI 操作，完成後再交還 AI。"
+    "webDescription": "對話旁會顯示共用瀏覽器，你和 AI 可操作同一組網頁。按「接管」可暫停 AI 操作，完成後再交還 AI。",
+    "profileLocked": "瀏覽器設定檔仍被鎖定，請待上一個瀏覽器停止後重試。",
+    "startFailed": "伺服器無法啟動瀏覽器，請重試或聯絡管理員。",
+    "resourcesUnavailable": "伺服器暫時資源不足，請稍後重試。",
+    "timeout": "瀏覽器操作逾時，請重試。"
   }
 }

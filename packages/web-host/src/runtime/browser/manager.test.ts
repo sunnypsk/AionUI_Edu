@@ -90,6 +90,19 @@ describe('task-scoped shared browser', () => {
   const tab = async (): Promise<string> =>
     (await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' })).state.activeTabId!;
 
+  it.each([
+    ['ProcessSingleton: SingletonLock belongs to previous-host', 'BROWSER_PROFILE_LOCKED'],
+    ['pthread_create: Resource temporarily unavailable', 'BROWSER_RESOURCES_UNAVAILABLE'],
+    ['launch failed with a private fixture URL and password', 'BROWSER_START_FAILED'],
+  ])('reports a bounded launch failure for %s and allows the next attempt', async (reason, code) => {
+    await manager.close();
+    const launch = vi.fn().mockRejectedValue(new Error(reason));
+    manager = new SharedBrowserManager(directory, { launch });
+    await expect(tab()).rejects.toThrow(code);
+    await expect(tab()).rejects.toThrow(code);
+    expect(launch).toHaveBeenCalledTimes(2);
+  });
+
   it('expires an idle browser even when the viewer continues polling its state and screenshots', async () => {
     await tab();
     await vi.advanceTimersByTimeAsync(29 * 60000);

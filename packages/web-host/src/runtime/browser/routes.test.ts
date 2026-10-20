@@ -2,9 +2,11 @@ import http from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBrowserRuntime, signBrowserCapability } from './routes.js';
 import { browserCodexLaunch } from './launcher.js';
+import { SharedBrowserManager } from './manager.js';
+import { BrowserRuntimeError } from './types.js';
 
 describe('shared browser authorization and Codex integration', () => {
   let directory: string;
@@ -13,6 +15,7 @@ describe('shared browser authorization and Codex integration', () => {
   let runtime: Awaited<ReturnType<typeof createBrowserRuntime>>;
   let base: string;
   let authChecks: number;
+  let manager: SharedBrowserManager;
   const listen = async (server: http.Server): Promise<number> => {
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
@@ -41,7 +44,8 @@ describe('shared browser authorization and Codex integration', () => {
       else if (req.url === '/api/auth/user') res.end(JSON.stringify({ user: { id: 'teacher' } }));
       else res.writeHead(404).end('{}');
     });
-    runtime = await createBrowserRuntime({ dataDir: directory });
+    manager = new SharedBrowserManager(directory);
+    runtime = await createBrowserRuntime({ dataDir: directory, manager });
     runtime.setBackendPort(await listen(backend));
     server = http.createServer((req, res) => {
       void runtime.handleRequest(req, res).then((handled) => {
@@ -51,6 +55,7 @@ describe('shared browser authorization and Codex integration', () => {
     base = `http://127.0.0.1:${await listen(server)}`;
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
     await runtime.close();
     for (const item of [server, backend]) {
       item.closeAllConnections();
@@ -60,6 +65,21 @@ describe('shared browser authorization and Codex integration', () => {
   });
   const request = (route: string, options: RequestInit = {}): Promise<Response> =>
     fetch(base + '/api/edu/browser/' + route, { ...options, headers: { cookie: 'session=valid', ...options.headers } });
+
+  it('returns a diagnostic stage and correlation id without logging browser input', async () => {
+    vi.spyOn(manager, 'act').mockRejectedValue(new BrowserRuntimeError('BROWSER_START_FAILED', 'launch'));
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const response = await request('task-one/action', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'open', url: 'https://example.com/private?token=fixture-secret' }),
+    });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      error: { code: 'BROWSER_START_FAILED', stage: 'launch', diagnostic_id: expect.any(String) },
+    });
+    expect(JSON.stringify(warning.mock.calls)).not.toContain('fixture-secret');
+  });
 
   it('rejects anonymous requests even when the backend local identity route might allow them', async () => {
     expect((await fetch(base + '/api/edu/browser/task-one/state')).status).toBe(401);

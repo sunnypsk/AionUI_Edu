@@ -202,6 +202,10 @@
     "keyboard": "Escribir en el navegador compartido",
     "downloadFailed": "Error de descarga",
     "downloading": "Guardando…",
-    "webDescription": "Docker muestra un navegador compartido junto a la conversación. Tú y la IA usáis las mismas páginas. Toma el control para pausar las acciones del navegador de IA y devuélvelo al terminar."
+    "webDescription": "Docker muestra un navegador compartido junto a la conversación. Tú y la IA usáis las mismas páginas. Toma el control para pausar las acciones del navegador de IA y devuélvelo al terminar.",
+    "profileLocked": "El perfil del navegador está bloqueado. Reinténtalo cuando se cierre el navegador anterior.",
+    "startFailed": "El servidor no pudo iniciar el navegador. Reinténtalo o contacta con el administrador.",
+    "resourcesUnavailable": "El servidor no tiene suficientes recursos temporalmente. Reinténtalo en breve.",
+    "timeout": "La operación del navegador agotó el tiempo de espera. Reinténtalo."
   }
 }

@@ -29,7 +29,7 @@ export async function launchCodex(args = process.argv.slice(2), env = process.en
       }
     }
     if (!command) throw new Error('CODEX_BUNDLED_PATH_REQUIRED');
-    const browser = browserCodexLaunch(args, env);
+    const browser = browserCodexLaunch(args, { ...env, TOKIO_WORKER_THREADS: env.TOKIO_WORKER_THREADS || '4' });
     const executable = browserCodexSpawn(command, browser);
     const child = spawn(executable.command, executable.args, { env: browser.env, stdio: 'inherit' });
     const handlers = (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map((signal) => {

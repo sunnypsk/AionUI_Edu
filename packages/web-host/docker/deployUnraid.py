@@ -82,6 +82,32 @@ def inventory():
     return {item["Name"].lstrip("/"): item for item in json.loads(docker("inspect", *ids))} if ids else {}
 
 
+def browser_profile_in_use(profiles, proc=Path("/proc")):
+    """Check host Chromium launch arguments as well as the container mount guard."""
+    root = profiles.resolve()
+    for process in proc.iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            args = [os.fsdecode(part) for part in (process / "cmdline").read_bytes().split(b"\0") if part]
+            for index, argument in enumerate(args):
+                value = argument[len("--user-data-dir="):] if argument.startswith("--user-data-dir=") else (
+                    args[index + 1] if argument == "--user-data-dir" and index + 1 < len(args) else None)
+                if not value:
+                    continue
+                profile = Path(value)
+                if not profile.is_absolute():
+                    profile = (process / "cwd").resolve() / profile
+                profile = profile.resolve()
+                if profile == root or root in profile.parents:
+                    return True
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # The process exited while being inspected.
+        except OSError:
+            raise RuntimeError("Cannot verify browser profile process ownership") from None
+    return False
+
+
 def fingerprint(item):
     return item["Id"], item["Image"], item["State"]["Running"]
 
@@ -224,6 +250,47 @@ class Deployment:
         self.template.write_text(ET.tostring(tree, encoding="unicode"))
         self.template.chmod(0o600)
 
+    def release_browser_locks(self, backup):
+        """Release only backed-up Chromium symlinks after every owner of this data mount has stopped."""
+        profiles = self.data / "browser-profiles"
+        if profiles.is_symlink():
+            raise RuntimeError("Browser profile root must not be a symlink")
+        if not profiles.exists():
+            return
+        locks = []
+        for profile in profiles.iterdir():
+            if not re.fullmatch(r"[0-9a-f]{64}", profile.name):
+                continue
+            if profile.is_symlink() or not profile.is_dir():
+                raise RuntimeError("Browser profile must be an owned directory")
+            owner = profile.lstat()
+            if (owner.st_uid, owner.st_gid) != (self.settings["puid"], self.settings["pgid"]):
+                raise RuntimeError("Browser profile ownership differs from the application user")
+            for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+                lock = profile / name
+                if lock.is_symlink():
+                    archived = backup / "data" / lock.relative_to(self.data)
+                    if not archived.is_symlink() or archived.readlink() != lock.readlink():
+                        raise RuntimeError("Browser lock snapshot is missing or changed")
+                    locks.append(lock)
+                elif lock.exists():
+                    raise RuntimeError("Unrecognized browser lock; leaving it untouched")
+        if not locks:
+            return
+        data = self.data.resolve()
+        for container in inventory().values():
+            if not container.get("State", {}).get("Running"):
+                continue
+            for mount in container.get("Mounts", []):
+                source = Path(mount.get("Source", "/")).resolve()
+                if source == data or source in data.parents or data in source.parents:
+                    raise RuntimeError("Browser data is still mounted by a running container")
+        if browser_profile_in_use(profiles):
+            raise RuntimeError("Browser profile is still used by a host process")
+        for lock in locks:
+            lock.unlink()
+        print(json.dumps({"event": "browser.staleLocksReleased", "count": len(locks)}))
+
     def restore(self, journal):
         current = inventory().get(NAME)
         old_id = journal.get("oldId")
@@ -238,6 +305,7 @@ class Deployment:
                     raise RuntimeError("Interrupted data restore requires manual review")
                 self.data.rename(failed)
             copy_data(Path(journal["backup"]) / "data", self.data)
+            self.release_browser_locks(Path(journal["backup"]))
         if old_id:
             old = json.loads(docker("inspect", old_id))[0]
             if old["Name"] != "/" + NAME:
@@ -291,6 +359,7 @@ class Deployment:
             copy_data(self.data, backup / "data")
             journal["snapshotComplete"] = True
             atomic(self.control / "journal.json", journal)
+            self.release_browser_locks(backup)
             if old:
                 docker("rename", old["Id"], NAME + "-rollback-" + backup.name)
                 docker("update", "--restart=no", old["Id"])
