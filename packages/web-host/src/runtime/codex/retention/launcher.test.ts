@@ -30,7 +30,7 @@ describe.skipIf(process.platform === 'win32')('managed CLI process protection', 
       const cli = path.join(directory, 'node_modules', '.bin', 'codex');
       await writeFile(
         cli,
-        '#!/usr/bin/env node\nprocess.stdout.write("pool=" + process.env.TOKIO_WORKER_THREADS + "\\n"); process.stdin.resume(); process.on("SIGTERM", () => process.exit(0));\n'
+        '#!/usr/bin/env node\nprocess.on("SIGTERM", () => process.exit(0)); process.stdin.resume(); process.stdout.write("pool=" + process.env.TOKIO_WORKER_THREADS + "\\n");\n'
       );
       await chmod(cli, 0o755);
       ids.push(id);
