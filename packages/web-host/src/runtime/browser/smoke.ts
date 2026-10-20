@@ -170,6 +170,11 @@ export async function runBrowserSmoke(): Promise<void> {
   const tasks: Record<string, string> = { 'task-one': 'teacher', 'task-two': 'teacher', 'task-three': 'other' };
   await Promise.all(Object.keys(tasks).map((id) => mkdir(path.join(directory, id))));
   let uploaded = '';
+  const blockedStyles = new Set<http.ServerResponse>();
+  const releaseStyles = (): void => {
+    for (const response of blockedStyles) response.end('body { font-family: sans-serif; }');
+    blockedStyles.clear();
+  };
   const backend = http.createServer((req, res) => {
     const user = req.headers.cookie?.match(/qa=(\w+)/)?.[1] ?? req.headers['x-aionui-user-id'];
     const task = req.headers['x-aionui-conversation-id'];
@@ -217,6 +222,20 @@ export async function runBrowserSmoke(): Promise<void> {
       );
       return;
     }
+    if (req.url === '/blocked.css') {
+      res.writeHead(200, { 'content-type': 'text/css' });
+      res.flushHeaders();
+      blockedStyles.add(res);
+      res.once('close', () => blockedStyles.delete(res));
+      return;
+    }
+    if (req.url === '/blocked-paint') {
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.end(
+        '<title>Gated paint fixture</title><link rel="stylesheet" href="/blocked.css"><h1>Rendered after CSS</h1>'
+      );
+      return;
+    }
     if (req.url === '/uploaded') {
       let text = '';
       req.on('data', (data) => {
@@ -243,6 +262,16 @@ export async function runBrowserSmoke(): Promise<void> {
       manager: new SharedBrowserManager(directory, {
         launch: async (profile, options) => {
           const browser = await chromium.launchPersistentContext(profile, options);
+          const createPage = browser.newPage.bind(browser);
+          browser.newPage = async () => {
+            try {
+              return await createPage();
+            } catch (error) {
+              console.error('Fixture page creation failed:', error instanceof Error ? error.message : 'unknown');
+              throw error;
+            }
+          };
+          browser.on('page', (page) => page.on('crash', () => console.error('Fixture Chromium renderer crashed')));
           browsers.add(browser);
           browser.once('close', () => browsers.delete(browser));
           return browser;
@@ -282,7 +311,9 @@ export async function runBrowserSmoke(): Promise<void> {
   };
   const tool = async (client: Client, action: BrowserAction) =>
     client.callTool({ name: 'browser', arguments: { action } });
-  const result = (response: Awaited<ReturnType<typeof tool>>): { state: BrowserState; page: string } => {
+  const result = (
+    response: Awaited<ReturnType<typeof tool>>
+  ): { state: BrowserState; page: string; frameError?: BrowserResult['frameError']; actionCompleted?: boolean } => {
     assert(!response.isError, 'MCP browser action failed: ' + JSON.stringify(response.content));
     const content = response.content as { type: string; text?: string }[];
     return JSON.parse(content.find((item) => item.type === 'text')!.text!);
@@ -314,6 +345,49 @@ export async function runBrowserSmoke(): Promise<void> {
     assert((await ui('frame')).image, 'A pending website font must not block the teacher viewport');
     assert(result(await tool(agent, { kind: 'inspect' })).page.includes('Pending font fixture'));
     result(await tool(agent, { kind: 'close', tabId: fontTab.state.activeTabId! }));
+    result(await tool(agent, { kind: 'snapshot', tabId }));
+    console.log('Retain actions and controls before first paint, with concurrent viewer polling');
+    let polling = true;
+    const pollFailures: unknown[] = [];
+    const poll = (async () => {
+      while (polling) {
+        try {
+          await ui('frame');
+        } catch (error) {
+          pollFailures.push(error);
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+      }
+    })();
+    let blockedTabId: string | undefined;
+    try {
+      const started = Date.now();
+      const blocked = result(await tool(agent, { kind: 'open', url: site + '/blocked-paint' }));
+      assert(Date.now() - started < 8000, 'Pending paint must not stall a completed browser action');
+      blockedTabId = blocked.state.activeTabId!;
+      assert(blocked.actionCompleted);
+      assert.equal(blocked.frameError?.code, 'BROWSER_TIMEOUT');
+      assert.equal(blocked.state.tabs.find((tab) => tab.id === blockedTabId)?.title, 'Gated paint fixture');
+      const frame = await ui('frame');
+      assert.equal(frame.state.activeTabId, blockedTabId);
+      assert.equal(frame.frameError?.stage, 'capture');
+      assert(!frame.image);
+      const page = [...browsers]
+        .flatMap((context) => context.pages())
+        .find((page) => page.url().endsWith('/blocked-paint'));
+      assert(page);
+      assert.equal(await page.evaluate(() => performance.getEntriesByType('paint').length), 0);
+      releaseStyles();
+      let recovered = false;
+      for (let attempt = 0; attempt < 4 && !recovered; attempt++) recovered = Boolean((await ui('frame')).image);
+      assert(recovered, 'The viewer must recover automatically after render-blocking CSS completes');
+    } finally {
+      releaseStyles();
+      polling = false;
+      await poll;
+    }
+    assert.equal(pollFailures.length, 0, 'A pending frame must keep authenticated viewer requests successful');
+    result(await tool(agent, { kind: 'close', tabId: blockedTabId! }));
     result(await tool(agent, { kind: 'snapshot', tabId }));
     console.log('Manual takeover');
     await ui('control', { control: 'human' });
@@ -361,9 +435,10 @@ export async function runBrowserSmoke(): Promise<void> {
     assert.equal(browsers.size, 2, 'A sibling task must keep its shared browser running');
     result(await tool(sibling, { kind: 'close', tabId: siblingPage.state.activeTabId! }));
     assert.equal(browsers.size, 1, 'Closing the last tab must release only that user browser');
+    const reopenedProfile = result(await tool(agent, { kind: 'open', url: site + '/signed' }));
     assert(
-      result(await tool(agent, { kind: 'open', url: site + '/signed' })).page.includes('Welcome 老師'),
-      'Releasing Chromium must preserve website sign-ins'
+      reopenedProfile.page.includes('Welcome 老師'),
+      'Releasing Chromium must preserve website sign-ins: ' + JSON.stringify(reopenedProfile)
     );
     assert.equal(browsers.size, 2, 'Reopening a task must start its browser again');
     console.log('Codex discovery');
@@ -386,7 +461,7 @@ export async function runBrowserSmoke(): Promise<void> {
       'Login must survive browser restart'
     );
     console.log(
-      'Shared browser passed: pending web fonts, same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
+      'Shared browser passed: pending fonts, blocked first paint with concurrent polling, same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
     );
   } finally {
     await Promise.allSettled(clients.map((client) => client.close()));

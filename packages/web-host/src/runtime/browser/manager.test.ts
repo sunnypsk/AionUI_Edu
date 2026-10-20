@@ -51,6 +51,7 @@ describe('task-scoped shared browser', () => {
   let manager: SharedBrowserManager;
   let owner: BrowserOwner;
   let pages: FakePage[];
+  let createPage: () => FakePage;
   let contexts: FakeContext[];
   let launched: string[];
   let launchOptions: NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>[];
@@ -61,6 +62,7 @@ describe('task-scoped shared browser', () => {
     await mkdir(workspace);
     owner = { userId: 'teacher-one', conversationId: 'task-one', workspace };
     pages = [];
+    createPage = () => new FakePage();
     contexts = [];
     launched = [];
     launchOptions = [];
@@ -75,7 +77,7 @@ describe('task-scoped shared browser', () => {
           setDefaultTimeout: vi.fn(),
           setDefaultNavigationTimeout: vi.fn(),
           newPage: async () => {
-            const page = new FakePage();
+            const page = createPage();
             pages.push(page);
             return page as unknown as Page;
           },
@@ -94,11 +96,36 @@ describe('task-scoped shared browser', () => {
   const tab = async (): Promise<string> =>
     (await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' })).state.activeTabId!;
 
+  it('retains a completed open and accessible page text when the preview is not ready', async () => {
+    createPage = () => {
+      const page = new FakePage();
+      page.captureScreenshot.mockImplementationOnce(() => new Promise(() => {}));
+      return page;
+    };
+    const opened = manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' });
+    await vi.waitFor(() => expect(pages[0]?.captureScreenshot).toHaveBeenCalledOnce());
+    const accepted = expect(opened).resolves.toMatchObject({
+      state: { running: true, tabs: [{ title: 'Page', url: 'https://example.com/' }] },
+      text: '- textbox: updated page',
+      frameError: { code: 'BROWSER_TIMEOUT', stage: 'capture' },
+    });
+    await vi.advanceTimersByTimeAsync(3001);
+    await accepted;
+    expect((await opened).image).toBeUndefined();
+    const inspected = await manager.act(owner, 'agent', { kind: 'inspect' });
+    expect(inspected.state.tabs).toHaveLength(1);
+    expect(inspected.image).toBeTruthy();
+    expect(inspected.frameError).toBeUndefined();
+  });
+
   it('bounds an unresponsive viewport capture and detaches its session', async () => {
     await tab();
     pages[0].captureScreenshot.mockImplementationOnce(() => new Promise(() => {}));
     const frame = manager.frame(owner);
-    const failed = expect(frame).rejects.toMatchObject({ message: 'BROWSER_TIMEOUT', stage: 'capture' });
+    const failed = expect(frame).resolves.toMatchObject({
+      state: { running: true },
+      frameError: { code: 'BROWSER_TIMEOUT', stage: 'capture' },
+    });
     await vi.advanceTimersByTimeAsync(3001);
     await failed;
     expect(pages[0].detach).toHaveBeenCalledTimes(2);
@@ -115,7 +142,7 @@ describe('task-scoped shared browser', () => {
         })
     );
     const frame = manager.frame(owner);
-    const failed = expect(frame).rejects.toThrow('BROWSER_TIMEOUT');
+    const failed = expect(frame).resolves.toMatchObject({ frameError: { code: 'BROWSER_TIMEOUT' } });
     await vi.advanceTimersByTimeAsync(3001);
     await failed;
     attached({ send: pages[0].captureScreenshot, detach: pages[0].detach });
@@ -127,8 +154,20 @@ describe('task-scoped shared browser', () => {
   it('keeps private protocol diagnostics out of browser failures', async () => {
     await tab();
     pages[0].captureScreenshot.mockRejectedValueOnce(new Error('private URL and profile details'));
-    await expect(manager.frame(owner)).rejects.toMatchObject({ message: 'BROWSER_UNAVAILABLE', stage: 'capture' });
+    const result = await manager.frame(owner);
+    expect(result.frameError).toMatchObject({ code: 'BROWSER_UNAVAILABLE', stage: 'capture' });
+    expect(JSON.stringify(result)).not.toContain('private URL');
     expect(pages[0].detach).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds stalled title metadata without delaying a ready frame', async () => {
+    await tab();
+    pages[0].title = () => new Promise(() => {});
+    const frame = manager.frame(owner);
+    const ready = expect(frame).resolves.toMatchObject({ state: { tabs: [{ title: '' }] } });
+    await vi.advanceTimersByTimeAsync(1001);
+    await ready;
+    expect((await frame).image).toBeTruthy();
   });
 
   it.each([

@@ -1534,6 +1534,7 @@ export type I18nKey =
   | 'preview.sharedBrowser.downloading'
   | 'preview.sharedBrowser.fileTooLarge'
   | 'preview.sharedBrowser.forward'
+  | 'preview.sharedBrowser.frameUnavailable'
   | 'preview.sharedBrowser.go'
   | 'preview.sharedBrowser.humanControl'
   | 'preview.sharedBrowser.invalidUrl'

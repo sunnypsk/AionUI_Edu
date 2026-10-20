@@ -46,13 +46,16 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
         ? previous
         : {
             ...value,
-            image:
-              value.image ??
-              (previous?.state.activeTabId === value.state.activeTabId &&
-              previous?.state.viewport.width === value.state.viewport.width &&
-              previous?.state.viewport.height === value.state.viewport.height
-                ? previous.image
-                : undefined),
+            image: value.frameError
+              ? undefined
+              : (value.image ??
+                (previous?.state.activeTabId === value.state.activeTabId &&
+                previous?.state.viewport.width === value.state.viewport.width &&
+                previous?.state.viewport.height === value.state.viewport.height &&
+                previous?.state.tabs.find((item) => item.id === value.state.activeTabId)?.url ===
+                  value.state.tabs.find((item) => item.id === value.state.activeTabId)?.url
+                  ? previous.image
+                  : undefined)),
           }
     );
   }, []);
@@ -245,6 +248,7 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
         </Button>
       </div>
       {error && <Alert type='error' content={t(`preview.sharedBrowser.${errorKey}`)} />}
+      {!error && result?.frameError && <Alert type='warning' content={t('preview.sharedBrowser.frameUnavailable')} />}
       {state?.running && (
         <>
           <div className={styles.tabs}>
@@ -430,7 +434,9 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
             />
           </div>
         ) : (
-          <div className={styles.notice}>{!state ? <Spin /> : t('preview.sharedBrowser.startHint')}</div>
+          <div className={styles.notice}>
+            {!state || state.running ? <Spin /> : t('preview.sharedBrowser.startHint')}
+          </div>
         )}
       </div>
       <div className={styles.notice}>{t('preview.sharedBrowser.scopeHint')}</div>

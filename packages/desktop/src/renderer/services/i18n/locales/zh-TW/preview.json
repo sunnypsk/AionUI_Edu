@@ -206,6 +206,7 @@
     "profileLocked": "瀏覽器設定檔仍被鎖定，請待上一個瀏覽器停止後重試。",
     "startFailed": "伺服器無法啟動瀏覽器，請重試或聯絡管理員。",
     "resourcesUnavailable": "伺服器暫時資源不足，請稍後重試。",
-    "timeout": "瀏覽器操作逾時，請重試。"
+    "timeout": "瀏覽器操作逾時，請重試。",
+    "frameUnavailable": "網頁已開啟，畫面暫時未準備好，系統會自動重試。"
   }
 }

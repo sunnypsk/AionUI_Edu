@@ -206,6 +206,7 @@
     "profileLocked": "O perfil do navegador está bloqueado. Tente novamente após o navegador anterior encerrar.",
     "startFailed": "O servidor não conseguiu iniciar o navegador. Tente novamente ou contate o administrador.",
     "resourcesUnavailable": "O servidor está temporariamente sem recursos suficientes. Tente novamente em breve.",
-    "timeout": "A operação do navegador excedeu o tempo limite. Tente novamente."
+    "timeout": "A operação do navegador excedeu o tempo limite. Tente novamente.",
+    "frameUnavailable": "A página está aberta, mas a prévia ainda não está pronta. Tentando novamente automaticamente."
   }
 }

@@ -206,6 +206,7 @@
     "profileLocked": "Tarayıcı profili kilitli. Önceki tarayıcı kapandıktan sonra tekrar deneyin.",
     "startFailed": "Sunucu tarayıcıyı başlatamadı. Tekrar deneyin veya yöneticiyle iletişime geçin.",
     "resourcesUnavailable": "Sunucunun kaynakları geçici olarak yetersiz. Birazdan tekrar deneyin.",
-    "timeout": "Tarayıcı işlemi zaman aşımına uğradı. Tekrar deneyin."
+    "timeout": "Tarayıcı işlemi zaman aşımına uğradı. Tekrar deneyin.",
+    "frameUnavailable": "Sayfa açıldı ancak önizleme henüz hazır değil. Otomatik olarak yeniden deneniyor."
   }
 }

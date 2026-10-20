@@ -135,7 +135,12 @@ export type BrowserState = {
   downloads: { id: string; name: string; state: 'saving' | 'ready' | 'failed' }[];
   viewport: { width: number; height: number };
 };
-export type BrowserResult = { state: BrowserState; image?: string; text?: string };
+export type BrowserResult = {
+  state: BrowserState;
+  image?: string;
+  text?: string;
+  frameError?: { code: 'BROWSER_TIMEOUT' | 'BROWSER_UNAVAILABLE'; stage: 'capture'; diagnostic_id: string };
+};
 
 /** Only network pages are accepted; browser-internal and local-file schemes stay inaccessible. */
 export function browserUrl(value = 'about:blank'): string {

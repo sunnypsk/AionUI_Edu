@@ -206,6 +206,7 @@
     "profileLocked": "This browser profile is still locked. Retry after the previous browser has stopped.",
     "startFailed": "The server could not start the browser. Retry or contact the administrator.",
     "resourcesUnavailable": "The server is temporarily short of resources. Try again shortly.",
-    "timeout": "The browser operation timed out. Try again."
+    "timeout": "The browser operation timed out. Try again.",
+    "frameUnavailable": "The page is open, but its preview is not ready. Retrying automatically."
   }
 }

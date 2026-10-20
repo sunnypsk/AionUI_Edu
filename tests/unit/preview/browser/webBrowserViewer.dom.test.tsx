@@ -65,6 +65,30 @@ describe('shared browser manual controls', () => {
     expect(api.control).toHaveBeenCalledWith('task-one', 'human');
   });
 
+  it('keeps navigation usable during a preview failure and replaces the warning when a frame recovers', async () => {
+    const current = state({
+      running: true,
+      activeTabId: 'tab-one',
+      tabs: [{ id: 'tab-one', title: 'Page', url: 'https://example.com', fileChooser: false }],
+    });
+    api.frame.mockResolvedValue({ state: current, image: 'previous-frame' });
+    render(<WebBrowserViewer visible />);
+    await screen.findByAltText('preview.sharedBrowser.viewport');
+    api.frame.mockResolvedValue({
+      state: current,
+      frameError: { code: 'BROWSER_TIMEOUT', stage: 'capture', diagnostic_id: 'fixture' },
+    });
+    await screen.findByText('preview.sharedBrowser.frameUnavailable');
+    expect(screen.queryByAltText('preview.sharedBrowser.viewport')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'preview.browser.addressPlaceholder' }).hasAttribute('disabled')).toBe(
+      false
+    );
+    expect(screen.queryByText('preview.sharedBrowser.startHint')).toBeNull();
+    api.frame.mockResolvedValue({ state: current, image: 'recovered-frame' });
+    await waitFor(() => expect(screen.queryByText('preview.sharedBrowser.frameUnavailable')).toBeNull());
+    expect(screen.getByAltText('preview.sharedBrowser.viewport').getAttribute('src')).toContain('recovered-frame');
+  });
+
   it('keeps manual navigation available while preventing return to a disabled agent', async () => {
     show(
       state({

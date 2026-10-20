@@ -350,32 +350,51 @@ export class SharedBrowserManager {
 
   private async capture(s: Session, text: boolean): Promise<BrowserResult> {
     const state = this.state(s.owner);
-    await Promise.all(
-      state.tabs.map(async (item) => {
-        item.title =
-          (await s.tabs
-            .find((candidate) => candidate.id === item.id)
-            ?.page.title()
-            .catch(() => '')) ?? '';
+    const titles = Promise.all(
+      state.tabs.map(async (tab) => {
+        const page = s.tabs.find((t) => t.id === tab.id)?.page;
+        if (!page || page.isClosed()) return;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          tab.title = await Promise.race([
+            page.title().catch(() => ''),
+            new Promise<string>((resolve) => {
+              timer = setTimeout(() => resolve(''), 1000);
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
       })
     );
     const page = s.tabs.find((t) => t.id === s.active)?.page;
-    if (!page || page.isClosed()) return { state };
-    const image = await this.captureImage(page);
-    return {
-      state,
-      image,
-      ...(text
-        ? {
-            text: (
-              await page
-                .locator('body')
-                .ariaSnapshot({ timeout: 3000 })
-                .catch(() => '')
-            ).slice(0, 32000),
-          }
-        : {}),
-    };
+    if (!page || page.isClosed()) {
+      await titles;
+      return { state };
+    }
+    // A page can accept actions and expose text before render-blocking resources allow its first paint.
+    // Keep that successful result usable; a missing frame is independent of action failure.
+    const frame = this.captureImage(page).then(
+      (image): Pick<BrowserResult, 'image' | 'frameError'> => ({ image }),
+      (error: unknown): Pick<BrowserResult, 'image' | 'frameError'> => {
+        if (!(error instanceof BrowserRuntimeError) || error.stage !== 'capture') throw error;
+        const frameError: NonNullable<BrowserResult['frameError']> = {
+          code: error.message === 'BROWSER_TIMEOUT' ? 'BROWSER_TIMEOUT' : 'BROWSER_UNAVAILABLE',
+          stage: 'capture',
+          diagnostic_id: randomUUID(),
+        };
+        console.warn(JSON.stringify({ event: 'browser.failed', ...frameError }));
+        return { frameError };
+      }
+    );
+    const content = text
+      ? page
+          .locator('body')
+          .ariaSnapshot({ timeout: 3000 })
+          .catch(() => '')
+      : Promise.resolve(undefined);
+    const [, preview, accessibleText] = await Promise.all([titles, frame, content]);
+    return { state, ...preview, ...(text ? { text: accessibleText?.slice(0, 32000) ?? '' } : {}) };
   }
 
   async act(owner: BrowserOwner, actor: BrowserControl, action: BrowserAction): Promise<BrowserResult> {
