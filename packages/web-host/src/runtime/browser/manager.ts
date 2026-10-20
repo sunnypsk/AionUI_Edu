@@ -9,6 +9,7 @@ import {
   type Page,
   type FileChooser,
   type Dialog,
+  type CDPSession,
 } from 'playwright-core';
 import {
   browserUrl,
@@ -308,6 +309,45 @@ export class SharedBrowserManager {
     return this.capture(s, false);
   }
 
+  /** Capture the live viewport without waiting for website fonts or changing page styles. */
+  private async captureImage(page: Page): Promise<string> {
+    let connection: CDPSession | undefined;
+    let finished = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const capture = (async () => {
+      const session = await page.context().newCDPSession(page);
+      if (finished) {
+        void session.detach().catch(() => {});
+        throw new BrowserRuntimeError('BROWSER_TIMEOUT', 'capture');
+      }
+      connection = session;
+      return (
+        await session.send('Page.captureScreenshot', {
+          format: 'jpeg',
+          quality: 65,
+          captureBeyondViewport: false,
+          fromSurface: true,
+        })
+      ).data;
+    })();
+    try {
+      return await Promise.race([
+        capture,
+        new Promise<string>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new BrowserRuntimeError('BROWSER_TIMEOUT', 'capture')), 3000);
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof BrowserRuntimeError) throw error;
+      throw new BrowserRuntimeError('BROWSER_UNAVAILABLE', 'capture');
+    } finally {
+      finished = true;
+      clearTimeout(timer);
+      // A stalled compositor must not make detachment extend the response deadline.
+      void connection?.detach().catch(() => {});
+    }
+  }
+
   private async capture(s: Session, text: boolean): Promise<BrowserResult> {
     const state = this.state(s.owner);
     await Promise.all(
@@ -321,7 +361,7 @@ export class SharedBrowserManager {
     );
     const page = s.tabs.find((t) => t.id === s.active)?.page;
     if (!page || page.isClosed()) return { state };
-    const image = (await page.screenshot({ type: 'jpeg', quality: 65, timeout: 3000 })).toString('base64');
+    const image = await this.captureImage(page);
     return {
       state,
       image,

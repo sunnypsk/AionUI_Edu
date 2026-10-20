@@ -205,6 +205,18 @@ export async function runBrowserSmoke(): Promise<void> {
         .end('teacher lesson');
       return;
     }
+    if (req.url === '/pending-font.woff2') {
+      res.writeHead(200, { 'content-type': 'font/woff2' });
+      res.flushHeaders();
+      return;
+    }
+    if (req.url === '/slow-font') {
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.end(
+        '<style>@font-face{font-family:Pending;src:url(/pending-font.woff2);font-display:swap}body{font-family:Pending,sans-serif}</style><h1>Pending font fixture</h1>'
+      );
+      return;
+    }
     if (req.url === '/uploaded') {
       let text = '';
       req.on('data', (data) => {
@@ -292,6 +304,17 @@ export async function runBrowserSmoke(): Promise<void> {
     const tabId = opened.state.activeTabId!;
     assert(opened.page.includes('Guest'));
     assert((await ui('frame')).image, 'Manual viewport must show the agent page');
+    console.log('Capture a live page while its web font remains pending');
+    const fontTab = result(await tool(agent, { kind: 'open', url: site + '/slow-font' }));
+    const fontPage = [...browsers]
+      .flatMap((context) => context.pages())
+      .find((page) => page.url() === site + '/slow-font');
+    assert(fontPage);
+    await fontPage.waitForFunction(() => document.fonts.status === 'loading', undefined, { timeout: 3000 });
+    assert((await ui('frame')).image, 'A pending website font must not block the teacher viewport');
+    assert(result(await tool(agent, { kind: 'inspect' })).page.includes('Pending font fixture'));
+    result(await tool(agent, { kind: 'close', tabId: fontTab.state.activeTabId! }));
+    result(await tool(agent, { kind: 'snapshot', tabId }));
     console.log('Manual takeover');
     await ui('control', { control: 'human' });
     assert((await tool(agent, { kind: 'inspect' })).isError, 'AI must pause while user has control');
@@ -363,7 +386,7 @@ export async function runBrowserSmoke(): Promise<void> {
       'Login must survive browser restart'
     );
     console.log(
-      'Shared browser passed: same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
+      'Shared browser passed: pending web fonts, same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
     );
   } finally {
     await Promise.allSettled(clients.map((client) => client.close()));

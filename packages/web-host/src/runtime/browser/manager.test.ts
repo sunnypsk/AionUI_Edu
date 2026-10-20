@@ -29,6 +29,10 @@ class FakePage extends EventEmitter {
     this.address = url;
   };
   screenshot = async (): Promise<Buffer> => Buffer.from('jpeg');
+  captureScreenshot = vi.fn().mockResolvedValue({ data: Buffer.from('jpeg').toString('base64') });
+  detach = vi.fn().mockResolvedValue(undefined);
+  newCDPSession = vi.fn(async () => ({ send: this.captureScreenshot, detach: this.detach }));
+  context = (): BrowserContext => ({ newCDPSession: this.newCDPSession }) as unknown as BrowserContext;
   isClosed = (): boolean => this.closed;
   close = async (): Promise<void> => {
     this.closed = true;
@@ -51,7 +55,7 @@ describe('task-scoped shared browser', () => {
   let launched: string[];
   let launchOptions: NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>[];
   beforeEach(async () => {
-    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
     directory = await mkdtemp(path.join(os.tmpdir(), 'shared-browser-'));
     const workspace = path.join(directory, 'task-one');
     await mkdir(workspace);
@@ -89,6 +93,43 @@ describe('task-scoped shared browser', () => {
   });
   const tab = async (): Promise<string> =>
     (await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' })).state.activeTabId!;
+
+  it('bounds an unresponsive viewport capture and detaches its session', async () => {
+    await tab();
+    pages[0].captureScreenshot.mockImplementationOnce(() => new Promise(() => {}));
+    const frame = manager.frame(owner);
+    const failed = expect(frame).rejects.toMatchObject({ message: 'BROWSER_TIMEOUT', stage: 'capture' });
+    await vi.advanceTimersByTimeAsync(3001);
+    await failed;
+    expect(pages[0].detach).toHaveBeenCalledTimes(2);
+    expect(manager.state(owner).running).toBe(true);
+  });
+
+  it('detaches a session that arrives after the viewport deadline', async () => {
+    await tab();
+    let attached!: (session: Awaited<ReturnType<FakePage['newCDPSession']>>) => void;
+    pages[0].newCDPSession.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          attached = resolve;
+        })
+    );
+    const frame = manager.frame(owner);
+    const failed = expect(frame).rejects.toThrow('BROWSER_TIMEOUT');
+    await vi.advanceTimersByTimeAsync(3001);
+    await failed;
+    attached({ send: pages[0].captureScreenshot, detach: pages[0].detach });
+    await Promise.resolve();
+    expect(pages[0].detach).toHaveBeenCalledTimes(2);
+    expect(pages[0].captureScreenshot).toHaveBeenCalledOnce();
+  });
+
+  it('keeps private protocol diagnostics out of browser failures', async () => {
+    await tab();
+    pages[0].captureScreenshot.mockRejectedValueOnce(new Error('private URL and profile details'));
+    await expect(manager.frame(owner)).rejects.toMatchObject({ message: 'BROWSER_UNAVAILABLE', stage: 'capture' });
+    expect(pages[0].detach).toHaveBeenCalledTimes(2);
+  });
 
   it.each([
     ['ProcessSingleton: SingletonLock belongs to previous-host', 'BROWSER_PROFILE_LOCKED'],

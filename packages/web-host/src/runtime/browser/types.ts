@@ -6,9 +6,9 @@ const capabilityOwner = z.object({ userId: ownerId, conversationId: ownerId });
 
 /** A bounded diagnostic; raw Chromium errors can contain URLs and private profile data. */
 export class BrowserRuntimeError extends Error {
-  readonly stage: 'profile' | 'launch';
+  readonly stage: 'profile' | 'launch' | 'capture';
 
-  constructor(code: string, stage: 'profile' | 'launch') {
+  constructor(code: string, stage: 'profile' | 'launch' | 'capture') {
     super(code);
     this.stage = stage;
   }
