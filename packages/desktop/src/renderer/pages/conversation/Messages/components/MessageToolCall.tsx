@@ -44,6 +44,7 @@ export const ToolImageGallery: React.FC<{ images?: Array<{ path: string; mime_ty
           <Image
             src={buildFileStreamUrl(localFileRef(image.path))}
             alt={getAcpImageFileName(image.path)}
+            width='100%'
             className='max-w-full'
             style={{ maxWidth: '100%' }}
           />

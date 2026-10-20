@@ -76,11 +76,18 @@ function imageFixture(): Buffer {
     checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
     return Buffer.concat([size, body, checksum]);
   };
-  const header = Buffer.from([0, 0, 0, 64, 0, 0, 0, 64, 8, 2, 0, 0, 0]);
-  const pixels = Buffer.alloc(64 * (64 * 3 + 1));
-  for (let y = 0; y < 64; y++)
-    for (let x = 0; x < 64; x++) {
-      const at = y * 193 + 1 + x * 3;
+  const width = 1536;
+  const height = 1024;
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const stride = width * 3 + 1;
+  const pixels = Buffer.alloc(height * stride);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const at = y * stride + 1 + x * 3;
       pixels.set([x * 4, y * 4, 180], at);
     }
   const text = Buffer.alloc(3 * 1024 * 1024, 120);
@@ -455,7 +462,14 @@ db.commit()
     await image.evaluate(async (element: HTMLImageElement) => {
       await element.decode();
     });
-    assert.equal(await image.evaluate((element: HTMLImageElement) => element.naturalWidth), 64);
+    const renderedImage = await image.evaluate((element: HTMLImageElement) => ({
+      naturalWidth: element.naturalWidth,
+      width: element.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+    }));
+    assert.equal(renderedImage.naturalWidth, 1536);
+    assert.ok(renderedImage.width > 0 && renderedImage.width <= 520, 'large image fits the chat gallery');
+    assert.ok(Math.abs(renderedImage.width / renderedImage.height - 1.5) < 0.01, 'image preserves its aspect ratio');
     await savePage(desktop, 'native-generated-image');
     await image.click();
     await desktop.locator('.arco-image-preview').waitFor();
