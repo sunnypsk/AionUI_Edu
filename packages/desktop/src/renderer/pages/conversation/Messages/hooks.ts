@@ -397,13 +397,15 @@ export function composeMessageWithIndex(
     const existingIdx = index.msgIdIndex.get(message.msg_id);
     if (existingIdx !== undefined && existingIdx < list.length) {
       const existingMsg = list[existingIdx];
-      const newList = list.slice();
-      newList[existingIdx] = {
-        ...existingMsg,
-        ...message,
-        content: message.content,
-      } as TMessage;
-      return newList;
+      if (existingMsg.type === message.type) {
+        const newList = list.slice();
+        newList[existingIdx] = {
+          ...existingMsg,
+          ...message,
+          content: message.content,
+        } as TMessage;
+        return newList;
+      }
     }
   }
 

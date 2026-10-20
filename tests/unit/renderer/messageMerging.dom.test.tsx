@@ -242,6 +242,37 @@ describe('message merging', () => {
     expect(mergeLoadedPageWithCurrent(CONVERSATION_ID, [persisted], [live])).toEqual([persisted]);
   });
 
+  it('keeps a completed image when a terminal diagnostic shares its turn message id', async () => {
+    const tool: IMessageToolCall = {
+      id: 'live-image',
+      msg_id: 'assistant-turn-message',
+      type: 'tool_call',
+      conversation_id: CONVERSATION_ID,
+      content: {
+        call_id: 'image-call',
+        name: 'imageGeneration',
+        args: {},
+        status: 'completed',
+        images: [{ path: '/owned/result.png', mime_type: 'image/png' }],
+      },
+    };
+    const { result } = renderHook(useMessageHarness, { wrapper: TestWrapper });
+    act(() => {
+      result.current.addOrUpdateMessage(tool);
+      result.current.addOrUpdateMessage({
+        id: 'terminal-error',
+        msg_id: tool.msg_id,
+        type: 'tips',
+        conversation_id: CONVERSATION_ID,
+        content: { type: 'error', content: 'The final assistant request failed' },
+      });
+    });
+    await flushMessageQueue();
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[0]).toEqual(tool);
+    expect(result.current.messages[1].type).toBe('tips');
+  });
+
   it('shows the accepted row without a WebSocket echo and deduplicates a later acknowledgement', async () => {
     const row = {
       ...createTextMessage('accepted', 'question'),
