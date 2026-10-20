@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, rm, mkdir, writeFile, symlink } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, readFile, writeFile, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserContext, BrowserType, Page } from 'playwright-core';
 import { SharedBrowserManager } from './manager.js';
@@ -35,26 +36,36 @@ class FakePage extends EventEmitter {
   };
 }
 
+class FakeContext extends EventEmitter {
+  close = vi.fn(async (): Promise<void> => {
+    this.emit('close');
+  });
+}
+
 describe('task-scoped shared browser', () => {
   let directory: string;
   let manager: SharedBrowserManager;
   let owner: BrowserOwner;
   let pages: FakePage[];
+  let contexts: FakeContext[];
   let launched: string[];
   let launchOptions: NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>[];
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
     directory = await mkdtemp(path.join(os.tmpdir(), 'shared-browser-'));
     const workspace = path.join(directory, 'task-one');
     await mkdir(workspace);
     owner = { userId: 'teacher-one', conversationId: 'task-one', workspace };
     pages = [];
+    contexts = [];
     launched = [];
     launchOptions = [];
     manager = new SharedBrowserManager(directory, {
       launch: async (profile, options) => {
         launched.push(profile);
         launchOptions.push(options);
-        const context = new EventEmitter();
+        const context = new FakeContext();
+        contexts.push(context);
         return Object.assign(context, {
           pages: () => [],
           setDefaultTimeout: vi.fn(),
@@ -64,19 +75,229 @@ describe('task-scoped shared browser', () => {
             pages.push(page);
             return page as unknown as Page;
           },
-          close: async () => {
-            context.emit('close');
-          },
         }) as unknown as BrowserContext;
       },
     });
   });
   afterEach(async () => {
-    await manager.close();
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await manager.close();
+      await rm(directory, { recursive: true, force: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
   const tab = async (): Promise<string> =>
     (await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' })).state.activeTabId!;
+
+  it('expires an idle browser even when the viewer continues polling its state and screenshots', async () => {
+    await tab();
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    manager.state(owner);
+    await manager.frame(owner);
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(manager.state(owner).running).toBe(false);
+  });
+
+  it('does not let polling a task without tabs keep another tasks idle browser alive', async () => {
+    await tab();
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    manager.state({ ...owner, conversationId: 'unused-task' });
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+
+  it('does not let rejected agent requests keep a browser under manual control alive', async () => {
+    await tab();
+    await manager.control(owner, 'human');
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    await expect(manager.act(owner, 'agent', { kind: 'inspect' })).rejects.toThrow('BROWSER_HUMAN_CONTROL');
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+
+  it.each(['agent', 'human'] as const)('keeps a browser alive after a real %s interaction', async (actor) => {
+    const id = await tab();
+    if (actor === 'human') await manager.control(owner, 'human');
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    await manager.act(owner, actor, { kind: 'text', tabId: id, text: 'Still working' });
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+
+  it('waits for a running operation and starts its idle period after that operation finishes', async () => {
+    const id = await tab();
+    let finish!: () => void;
+    let started!: () => void;
+    const running = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    pages[0].fill.mockImplementationOnce(() => {
+      started();
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    const operation = manager.act(owner, 'agent', { kind: 'fill', tabId: id, selector: 'input', text: 'Work' });
+    await running;
+    try {
+      await vi.advanceTimersByTimeAsync(31 * 60000);
+      expect(contexts[0].close).not.toHaveBeenCalled();
+    } finally {
+      finish();
+      await operation;
+    }
+    await vi.advanceTimersByTimeAsync(29 * 60000);
+    expect(contexts[0].close).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+
+  it('releases Chromium immediately after the last tab closes', async () => {
+    const id = await tab();
+    await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(manager.state(owner).running).toBe(false);
+  });
+
+  it('releases Chromium when a website closes its own last tab', async () => {
+    await tab();
+    await pages[0].close();
+    await vi.waitFor(() => expect(contexts[0].close).toHaveBeenCalledOnce());
+  });
+
+  it('keeps other tasks and users browsers open when a tab closes', async () => {
+    const id = await tab();
+    const other = { ...owner, conversationId: 'task-two' };
+    const otherId = (await manager.act(other, 'agent', { kind: 'open' })).state.activeTabId!;
+    await manager.act({ ...owner, userId: 'teacher-two', conversationId: 'task-three' }, 'agent', { kind: 'open' });
+    await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    expect(contexts[0].close).not.toHaveBeenCalled();
+    await manager.act(other, 'agent', { kind: 'close', tabId: otherId });
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(contexts[1].close).not.toHaveBeenCalled();
+  });
+
+  it('preserves website sign-ins and task files when a browser is released and reopened', async () => {
+    const id = await tab();
+    const profileFile = path.join(launched[0], 'Cookies');
+    const taskFile = path.join(owner.workspace, 'keep.txt');
+    await writeFile(profileFile, 'saved sign-in');
+    await writeFile(taskFile, 'task artifact');
+    await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    await tab();
+    expect(launched).toEqual([launched[0], launched[0]]);
+    expect(await readFile(profileFile, 'utf8')).toBe('saved sign-in');
+    expect(await readFile(taskFile, 'utf8')).toBe('task artifact');
+  });
+
+  it('waits for Chromium to finish closing before opening the same profile again', async () => {
+    const id = await tab();
+    let finish!: () => void;
+    let started!: () => void;
+    const closingStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    contexts[0].close.mockImplementationOnce(async () => {
+      started();
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      contexts[0].emit('close');
+    });
+    const closing = manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    let opening: ReturnType<SharedBrowserManager['act']> | undefined;
+    try {
+      await Promise.race([closingStarted, closing]);
+      const other = { ...owner, conversationId: 'task-two' };
+      opening = manager.act(other, 'agent', { kind: 'open' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pages).toHaveLength(1);
+      finish?.();
+      await Promise.all([closing, opening]);
+      expect(launched).toHaveLength(2);
+      expect(manager.state(other).running).toBe(true);
+    } finally {
+      finish?.();
+      await opening?.catch(() => {});
+      contexts[0].close.mockReset().mockImplementation(async () => {
+        contexts[0].emit('close');
+      });
+    }
+  });
+
+  it('does not interrupt a download when the last tab closes', async () => {
+    const id = await tab();
+    const stream = new PassThrough();
+    pages[0].emit('download', { suggestedFilename: () => 'worksheet.txt', createReadStream: async () => stream });
+    try {
+      await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+      expect(contexts[0].close).not.toHaveBeenCalled();
+      stream.end('downloaded worksheet');
+      await vi.waitFor(() => expect(contexts[0].close).toHaveBeenCalledOnce());
+      const saved = manager.state(owner).downloads[0];
+      expect(await readFile(await manager.download(owner, saved.id), 'utf8')).toBe('downloaded worksheet');
+    } finally {
+      stream.destroy();
+    }
+  });
+
+  it('keeps Chromium alive while a download exceeds the idle timeout', async () => {
+    await tab();
+    const stream = new PassThrough();
+    pages[0].emit('download', { suggestedFilename: () => 'worksheet.txt', createReadStream: async () => stream });
+    try {
+      await vi.advanceTimersByTimeAsync(31 * 60000);
+      expect(contexts[0].close).not.toHaveBeenCalled();
+      stream.end('downloaded worksheet');
+      await vi.waitFor(() => expect(manager.state(owner).downloads[0].state).toBe('ready'));
+      await vi.advanceTimersByTimeAsync(29 * 60000);
+      expect(contexts[0].close).not.toHaveBeenCalled();
+    } finally {
+      stream.destroy();
+    }
+    await vi.advanceTimersByTimeAsync(2 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+
+  it('releases an empty browser after a download fails', async () => {
+    const id = await tab();
+    let fail!: (error: Error) => void;
+    pages[0].emit('download', {
+      suggestedFilename: () => 'worksheet.txt',
+      createReadStream: () =>
+        new Promise<never>((_resolve, reject) => {
+          fail = reject;
+        }),
+    });
+    await vi.waitFor(() => expect(fail).toBeTypeOf('function'));
+    await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    fail(new Error('Download interrupted'));
+    await vi.waitFor(() => expect(contexts[0].close).toHaveBeenCalledOnce());
+    expect(manager.state(owner).downloads[0].state).toBe('failed');
+  });
+
+  it('retries a failed browser release without failing the completed tab close', async () => {
+    const id = await tab();
+    contexts[0].close.mockRejectedValueOnce(new Error('Temporary browser close failure'));
+    await manager.act(owner, 'agent', { kind: 'close', tabId: id });
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(contexts[0].close).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not leave a failed operation blocking idle cleanup', async () => {
+    const id = await tab();
+    pages[0].fill.mockRejectedValueOnce(new Error('Page operation failed'));
+    await expect(
+      manager.act(owner, 'agent', { kind: 'fill', tabId: id, selector: 'input', text: 'Work' })
+    ).rejects.toThrow('Page operation failed');
+    await vi.advanceTimersByTimeAsync(31 * 60000);
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
 
   it('blocks agent reads and mutations throughout manual control', async () => {
     const id = await tab();

@@ -41,6 +41,7 @@ type Session = {
   revision: number;
   tail: Promise<unknown>;
   downloads: Download[];
+  pending: number;
   touched: number;
 };
 type Options = {
@@ -53,6 +54,7 @@ type Options = {
 export class SharedBrowserManager {
   private sessions = new Map<string, Session>();
   private contexts = new Map<string, Promise<BrowserContext>>();
+  private releasing = new Map<string, Promise<void>>();
   private closing = false;
   private idleTimer: ReturnType<typeof setInterval>;
   private preferences = new Map<string, BrowserPreferences>();
@@ -68,7 +70,7 @@ export class SharedBrowserManager {
     this.idleTimer.unref();
   }
 
-  private session(owner: BrowserOwner, touch = false): Session {
+  private session(owner: BrowserOwner): Session {
     let session = this.sessions.get(owner.conversationId);
     if (session && (session.owner.userId !== owner.userId || session.owner.workspace !== owner.workspace))
       throw new Error('BROWSER_FORBIDDEN');
@@ -83,11 +85,11 @@ export class SharedBrowserManager {
         revision: 0,
         tail: Promise.resolve(),
         downloads: [],
+        pending: 0,
         touched: Date.now(),
       };
       this.sessions.set(owner.conversationId, session);
     }
-    if (touch) session.touched = Date.now();
     return session;
   }
 
@@ -155,6 +157,7 @@ export class SharedBrowserManager {
         s.takingOver = true;
       });
       await Promise.all(sessions.map((s) => s.tail));
+      await this.releasing.get(userId);
       await (await this.contexts.get(userId))?.close();
       await rm(this.profile(userId), { recursive: true, force: true });
       sessions.forEach((s) => {
@@ -170,6 +173,7 @@ export class SharedBrowserManager {
   }
 
   private async context(userId: string): Promise<BrowserContext> {
+    await this.releasing.get(userId);
     if (this.closing) throw new Error('BROWSER_UNAVAILABLE');
     let pending = this.contexts.get(userId);
     if (!pending) {
@@ -197,9 +201,9 @@ export class SharedBrowserManager {
           this.contexts.delete(userId);
           for (const s of this.sessions.values())
             if (s.owner.userId === userId) {
+              if (!this.releasing.has(userId)) s.control = 'human';
               s.tabs = [];
               s.active = null;
-              s.control = 'human';
               s.revision++;
             }
         });
@@ -239,6 +243,7 @@ export class SharedBrowserManager {
       s.tabs = s.tabs.filter((t) => t !== tab);
       if (s.active === tab.id) s.active = s.tabs[0]?.id ?? null;
       s.revision++;
+      void this.releaseContext(s.owner.userId);
     });
     page.on('filechooser', (chooser) => {
       const target = s.tabs.find((candidate) => candidate.page === page);
@@ -256,14 +261,19 @@ export class SharedBrowserManager {
   }
 
   private enqueue<T>(s: Session, action: () => Promise<T>): Promise<T> {
-    const next = s.tail.then(action);
+    s.pending++;
+    const next = s.tail.then(action).finally(async () => {
+      s.pending--;
+      s.touched = Date.now();
+      await this.releaseContext(s.owner.userId);
+    });
     s.tail = next.catch(() => {});
     return next;
   }
 
   /** Block new agent work immediately, then drain the bounded action already in flight. */
   async control(owner: BrowserOwner, mode: BrowserControl): Promise<BrowserResult> {
-    const s = this.session(owner, true);
+    const s = this.session(owner);
     if (this.resetting.has(owner.userId)) throw new Error('BROWSER_UNAVAILABLE');
     if (mode === 'agent' && !(await this.getPreferences(owner.userId)).agentEnabled)
       throw new Error('BROWSER_AGENT_DISABLED');
@@ -280,7 +290,8 @@ export class SharedBrowserManager {
 
   async frame(owner: BrowserOwner): Promise<BrowserResult> {
     await this.getPreferences(owner.userId);
-    const s = this.session(owner, true);
+    // Passive viewer polls must not extend the browser's idle lifetime.
+    const s = this.session(owner);
     return this.capture(s, false);
   }
 
@@ -315,7 +326,7 @@ export class SharedBrowserManager {
   }
 
   async act(owner: BrowserOwner, actor: BrowserControl, action: BrowserAction): Promise<BrowserResult> {
-    const s = this.session(owner, true);
+    const s = this.session(owner);
     const preferences = await this.getPreferences(owner.userId);
     // Check again inside the queue: a takeover may arrive while this action is waiting.
     const permitted = (): void => {
@@ -447,6 +458,7 @@ export class SharedBrowserManager {
     };
     s.downloads.push(item);
     s.downloads = s.downloads.slice(-30);
+    s.pending++;
     let destination: string | undefined;
     try {
       const root = await realpath(s.owner.workspace);
@@ -462,6 +474,10 @@ export class SharedBrowserManager {
     } catch {
       item.state = 'failed';
       if (destination) await unlink(destination).catch(() => {});
+    } finally {
+      s.pending--;
+      s.touched = Date.now();
+      await this.releaseContext(s.owner.userId);
     }
   }
 
@@ -474,17 +490,41 @@ export class SharedBrowserManager {
     return file;
   }
 
-  private async expire(): Promise<void> {
-    for (const [user, pending] of this.contexts) {
-      const sessions = [...this.sessions.values()].filter((s) => s.owner.userId === user);
-      if (sessions.every((s) => Date.now() - s.touched > (this.options.idleMs ?? 30 * 60000)))
-        await (await pending.catch((): null => null))?.close();
+  private async releaseContext(userId: string, expireIdle = false): Promise<void> {
+    if (this.closing || this.resetting.has(userId) || this.releasing.has(userId)) return;
+    const pending = this.contexts.get(userId);
+    const context = await pending?.catch((): null => null);
+    if (!context || this.contexts.get(userId) !== pending || this.releasing.has(userId)) return;
+    // Recheck after awaiting the launch: another task may have queued work in the same profile.
+    if (this.closing || this.resetting.has(userId)) return;
+    const sessions = [...this.sessions.values()].filter((s) => s.owner.userId === userId);
+    if (sessions.some((s) => s.pending > 0)) return;
+    const withTabs = sessions.filter((s) => s.tabs.length > 0);
+    if (
+      withTabs.length &&
+      (!expireIdle || withTabs.some((s) => Date.now() - s.touched < (this.options.idleMs ?? 30 * 60000)))
+    )
+      return;
+    // Hold the profile until close finishes, including callers arriving while it is shutting down.
+    const closing = Promise.resolve().then(() => context.close());
+    this.releasing.set(userId, closing);
+    try {
+      await closing;
+    } catch {
+      // Leave the context registered so the next sweep retries; the deployer still sees its process.
+    } finally {
+      this.releasing.delete(userId);
     }
+  }
+
+  private async expire(): Promise<void> {
+    await Promise.all([...this.contexts.keys()].map((userId) => this.releaseContext(userId, true)));
   }
 
   async close(): Promise<void> {
     this.closing = true;
     clearInterval(this.idleTimer);
+    await Promise.allSettled(this.releasing.values());
     await Promise.allSettled([...this.contexts.values()].map(async (pending) => (await pending).close()));
     this.contexts.clear();
     this.sessions.clear();

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { chromium, type BrowserContext } from 'playwright-core';
+import { SharedBrowserManager } from './manager.js';
 import { createBrowserRuntime, signBrowserCapability } from './routes.js';
 import { browserCodexLaunch, browserCodexSpawn } from './launcher.js';
 import type { BrowserAction, BrowserResult, BrowserState } from './types.js';
@@ -209,7 +211,20 @@ export async function runBrowserSmoke(): Promise<void> {
   console.log('Listening for fixtures');
   const backendPort = await listen(backend);
   console.log('Fixtures ready');
-  let runtime = await createBrowserRuntime({ dataDir: directory });
+  const browsers = new Set<BrowserContext>();
+  const newRuntime = () =>
+    createBrowserRuntime({
+      dataDir: directory,
+      manager: new SharedBrowserManager(directory, {
+        launch: async (profile, options) => {
+          const browser = await chromium.launchPersistentContext(profile, options);
+          browsers.add(browser);
+          browser.once('close', () => browsers.delete(browser));
+          return browser;
+        },
+      }),
+    });
+  let runtime = await newRuntime();
   runtime.setBackendPort(backendPort);
   const server = http.createServer((req, res) => {
     void runtime.handleRequest(req, res).then((handled) => {
@@ -297,13 +312,24 @@ export async function runBrowserSmoke(): Promise<void> {
     assert.equal(resumed.state.activeTabId, tabId);
     assert(resumed.page.includes('Welcome 老師'));
     const sibling = await connection('task-two');
-    assert(result(await tool(sibling, { kind: 'open', url: site + '/signed' })).page.includes('Welcome 老師'));
+    const siblingPage = result(await tool(sibling, { kind: 'open', url: site + '/signed' }));
+    assert(siblingPage.page.includes('Welcome 老師'));
     assert((await tool(sibling, { kind: 'snapshot', tabId })).isError, 'Task tabs must be isolated');
     const other = await connection('task-three');
     assert(
       result(await tool(other, { kind: 'open', url: site + '/signed' })).page.includes('Guest'),
       'User profiles must be isolated'
     );
+    console.log('Release empty browser and reopen the saved profile');
+    result(await tool(agent, { kind: 'close', tabId }));
+    assert.equal(browsers.size, 2, 'A sibling task must keep its shared browser running');
+    result(await tool(sibling, { kind: 'close', tabId: siblingPage.state.activeTabId! }));
+    assert.equal(browsers.size, 1, 'Closing the last tab must release only that user browser');
+    assert(
+      result(await tool(agent, { kind: 'open', url: site + '/signed' })).page.includes('Welcome 老師'),
+      'Releasing Chromium must preserve website sign-ins'
+    );
+    assert.equal(browsers.size, 2, 'Reopening a task must start its browser again');
     console.log('Codex discovery');
     await codexInventory(
       {
@@ -316,7 +342,7 @@ export async function runBrowserSmoke(): Promise<void> {
     );
     await Promise.all(clients.splice(0).map((client) => client.close()));
     await runtime.close();
-    runtime = await createBrowserRuntime({ dataDir: directory });
+    runtime = await newRuntime();
     runtime.setBackendPort(backendPort);
     const reopened = await connection('task-one');
     assert(
@@ -324,7 +350,7 @@ export async function runBrowserSmoke(): Promise<void> {
       'Login must survive browser restart'
     );
     console.log(
-      'Shared browser passed: same-page handoff, Chinese upload, task/user isolation, downloads, persistent login and MCP.'
+      'Shared browser passed: same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
     );
   } finally {
     await Promise.allSettled(clients.map((client) => client.close()));
