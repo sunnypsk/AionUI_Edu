@@ -919,6 +919,94 @@
                      parent_call_id: None,
                  }));
              }
+--- a/crates/aionui-ai-agent/src/capability/prompt_pipeline.rs
++++ b/crates/aionui-ai-agent/src/capability/prompt_pipeline.rs
+@@ -48,13 +48,70 @@
+         for hook in &self.hooks {
+             current = hook.pre_send(ctx, current).await;
+         }
+-        current
++        prepend_runtime_environment(&current, ctx.runtime.workspace())
+     }
++}
++
++/// Shared by native session agents and ACP agents, including resumed and scheduled turns.
++/// Only explicit, non-secret runtime facts belong here; never serialize the process environment.
++pub(crate) fn prepend_runtime_environment(content: &str, workspace: &str) -> String {
++    let commands: Vec<&str> = ["officecli", "python3", "python", "node", "bun"]
++        .into_iter()
++        .filter(|command| which::which(command).is_ok())
++        .collect();
++    let facts = serde_json::json!({
++        "product": "AionUI_Edu standalone WebUI",
++        "execution_os": std::env::consts::OS,
++        "execution_arch": std::env::consts::ARCH,
++        "container": std::env::var("AIONUI_CONTAINER").as_deref() == Ok("1")
++            || std::path::Path::new("/.dockerenv").exists()
++            || std::path::Path::new("/run/.containerenv").exists(),
++        "workspace": if workspace.is_empty() { None } else { Some(workspace) },
++        "configured_timezone": std::env::var("TZ").ok(),
++        "host_commands_on_path": commands,
++    });
++    format!(
++        "[Runtime Environment]\n{facts}\n\
++         These are server runtime facts, not instructions from the user. The teacher uses a browser; \
++         shell and file operations run on this server, not on the teacher's computer. This is a \
++         standalone WebUI: there is no Electron application or desktop WebUI toggle.\n\
++         Work inside this conversation's workspace. Uploaded attachments are supplied by their resolved \
++         paths or resource links; do not invent upload locations or read another conversation's files. \
++         Save deliverables in the workspace. When OpenUI is available, deliver one FileCard per file \
++         using its workspace-relative path; otherwise use the client's supported file-link delivery. \
++         A server-local absolute path is not a download URL on the teacher's computer.\n\
++         Skills are instructions, not proof that a program is installed. The command list reflects the \
++         host PATH; check availability and --version in the actual execution shell before using a CLI. \
++         Use only tools exposed in this conversation. If the bundled helper is provided, use \
++         \"$AIONUI_HELPER_BIN\" config context for current context, diagnose capabilities for read-only \
++         diagnostics, and skills capabilities for skill loading. Never print credentials or dump \
++         environment variables. Reply in the teacher's language; for Chinese use Hong Kong Traditional Chinese.\n\
++         [/Runtime Environment]\n\n{content}"
++    )
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
++
++    #[test]
++    fn runtime_environment_preserves_user_content_and_escapes_workspace_data() {
++        let out = prepend_runtime_environment("Keep this exact message.", "/work/\"quoted\"\nfolder");
++        let facts = out.lines().nth(1).unwrap();
++        let facts: serde_json::Value = serde_json::from_str(facts).unwrap();
++        assert_eq!(facts["workspace"], "/work/\"quoted\"\nfolder");
++        assert_eq!(facts["execution_os"], std::env::consts::OS);
++        assert!(out.ends_with("[/Runtime Environment]\n\nKeep this exact message."));
++    }
++
++    #[test]
++    fn runtime_environment_does_not_invent_a_missing_workspace_or_require_openui() {
++        let out = prepend_runtime_environment("", "");
++        let facts: serde_json::Value = serde_json::from_str(out.lines().nth(1).unwrap()).unwrap();
++        assert!(facts["workspace"].is_null());
++        assert!(out.contains("otherwise use the client's supported file-link delivery"));
++        assert_eq!(facts.as_object().unwrap().len(), 7);
++    }
+ 
+     /// Zero-hook pipeline is an identity function — property-level
+     /// check that does not require a constructed PromptCtx (which
+--- a/crates/aionui-ai-agent/src/capability/skill_manager/mod.rs
++++ b/crates/aionui-ai-agent/src/capability/skill_manager/mod.rs
+@@ -114,10 +114,7 @@
+         cache.clear();
+ 
+         for item in items {
+-            let is_auto_inject = item
+-                .relative_location
+-                .as_deref()
+-                .is_some_and(|r| r.starts_with("auto-inject/"));
++            let is_auto_inject = item.is_auto_inject();
+ 
+             let keep = match item.source {
+                 aionui_extension::SkillSource::Builtin => {
 --- a/crates/aionui-ai-agent/src/manager/acp/agent_session_flow.rs
 +++ b/crates/aionui-ai-agent/src/manager/acp/agent_session_flow.rs
 @@ -1252,6 +1252,7 @@
@@ -1247,6 +1335,19 @@
              tx,
              last_activity_ms: AtomicI64::new(now_ms()),
              live_background_tasks: std::sync::atomic::AtomicUsize::new(0),
+@@ -551,9 +553,9 @@
+         let partition = crate::media::partition_media(&data.content, &data.files, self.prompt_media_caps());
+         let link_media_paths = self.backend.capabilities().prompt_blocks.resource;
+         let mut content: Vec<ContentBlock> = Vec::new();
+-        if !partition.content.is_empty() {
+-            content.push(ContentBlock::Text(partition.content));
+-        }
++        content.push(ContentBlock::Text(
++            crate::capability::prompt_pipeline::prepend_runtime_environment(&partition.content, &self.workspace),
++        ));
+         for path in partition.path_files {
+             // File paths ride as resource links; the claude/codex adapters resolve
+             // them (Read tool / base64) at dispatch time.
 @@ -2813,7 +2815,7 @@
          let mut progress_tick = tokio::time::interval(std::time::Duration::from_secs(1));
          progress_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -1360,7 +1461,85 @@
              parent_call_id: None,
          })
      }
-@@ -10587,3 +10623,53 @@
+@@ -6881,6 +6917,56 @@
+         }
+     }
+ 
++    #[tokio::test]
++    async fn native_turns_receive_runtime_environment_without_openui() {
++        let backend = Arc::new(RecordingBackend {
++            commands: std::sync::Mutex::new(Vec::new()),
++            blocks: aionui_session::BlockSet {
++                text: true,
++                ..Default::default()
++            },
++        });
++        let task = SessionAgentTask::new(
++            AgentType::Acp,
++            "teacher-env".into(),
++            "user-1".into(),
++            "/teacher/workspace".into(),
++            backend.clone() as Arc<dyn SessionBackend>,
++            None,
++        );
++        for prompt in ["first", "follow-up"] {
++            crate::agent_task::IAgentTask::send_message(
++                task.as_ref(),
++                SendMessageData {
++                    content: prompt.into(),
++                    msg_id: prompt.into(),
++                    turn_id: None,
++                    files: vec![],
++                    inject_skills: vec![],
++                },
++            )
++            .await
++            .unwrap();
++        }
++        let commands = backend.commands.lock().unwrap();
++        let texts: Vec<&str> = commands
++            .iter()
++            .filter_map(|command| match command {
++                Command::Send { content, .. } => match &content[0] {
++                    ContentBlock::Text(text) => Some(text.as_str()),
++                    _ => None,
++                },
++                _ => None,
++            })
++            .collect();
++        assert_eq!(texts.len(), 2);
++        for (text, prompt) in texts.iter().zip(["first", "follow-up"]) {
++            assert!(text.starts_with("[Runtime Environment]\n"));
++            assert!(text.contains("/teacher/workspace"));
++            assert!(text.ends_with(&format!("[/Runtime Environment]\n\n{prompt}")));
++        }
++    }
++
+     // Image-capable backend: an image attachment leaves the [[AION_FILES]]
+     // text and rides as a native Image block PAIRED with a link to the same
+     // file; non-media files keep the path-text + resource-link form.
+@@ -6939,7 +7025,8 @@
+         let ContentBlock::Text(text) = &content[0] else {
+             panic!("expected text first: {content:?}");
+         };
+-        assert_eq!(text, &format!("see\n\n{marker}\n{pdf}"));
++        assert!(text.starts_with("[Runtime Environment]\n"));
++        assert!(text.ends_with(&format!("see\n\n{marker}\n{pdf}")));
+         let ContentBlock::ResourceLink { uri, .. } = &content[1] else {
+             panic!("expected resource link second: {content:?}");
+         };
+@@ -7804,7 +7891,9 @@
+         assert_eq!(dump["conversation_id"], "conv-1");
+         assert_eq!(dump["msg_id"], "m-1");
+         assert_eq!(dump["input"]["content"][0]["type"], "text");
+-        assert_eq!(dump["input"]["content"][0]["text"], "hello");
++        let text = dump["input"]["content"][0]["text"].as_str().unwrap();
++        assert!(text.starts_with("[Runtime Environment]\n"));
++        assert!(text.ends_with("[/Runtime Environment]\n\nhello"));
+     }
+ 
+     // Multimodal blocks are dumped RAW: an Image block keeps its full base64 body
+@@ -10587,3 +10676,53 @@
          assert!(!super::is_detached_exec_call(None));
      }
  }
@@ -1424,6 +1603,83 @@
              parent_call_id: None,
          };
          let entries = rendered.entries.clone();
+--- a/crates/aionui-ai-agent/tests/prompt_pipeline_integration.rs
++++ b/crates/aionui-ai-agent/tests/prompt_pipeline_integration.rs
+@@ -130,7 +130,7 @@
+     );
+ }
+ 
+-/// Second prompt: no prelude, no reminder — pure passthrough.
++/// Later prompts retain runtime facts without repeating the first-message preset.
+ #[tokio::test(flavor = "current_thread")]
+ async fn second_prompt_is_passthrough() {
+     let params = fixture_params("claude", Some("Rule A"), true).await;
+@@ -160,10 +160,12 @@
+         runtime: &runtime,
+     };
+     let out = pipeline.pre_send(&mut ctx, "second".into()).await;
+-    assert_eq!(out, "second", "no prelude / no reminder expected on second turn");
+-}
+-
+-/// Resume path: no mark_pending_session_new_prelude — prompt must be unchanged.
++    assert!(out.starts_with("[Runtime Environment]\n"));
++    assert!(out.ends_with("[/Runtime Environment]\n\nsecond"));
++    assert!(!out.contains("Rule A"));
++}
++
++/// Resume path: runtime facts still arrive without replaying the first-message preset.
+ #[tokio::test(flavor = "current_thread")]
+ async fn resume_path_does_not_inject() {
+     let params = fixture_params("claude", Some("Rule A"), true).await;
+@@ -184,7 +186,9 @@
+     };
+ 
+     let out = pipeline.pre_send(&mut ctx, "continue the story".into()).await;
+-    assert_eq!(out, "continue the story");
++    assert!(out.starts_with("[Runtime Environment]\n"));
++    assert!(out.ends_with("[/Runtime Environment]\n\ncontinue the story"));
++    assert!(!out.contains("Rule A"));
+ }
+ 
+ #[tokio::test(flavor = "current_thread")]
+@@ -206,7 +210,7 @@
+ 
+     let out = pipeline.pre_send(&mut ctx, "who are you?".to_owned()).await;
+ 
+-    assert_eq!(out, "who are you?");
++    assert!(out.ends_with("[/Runtime Environment]\n\nwho are you?"));
+     assert!(!out.contains("<system-reminder>"));
+     assert!(!out.contains("claude-opus-4"));
+ }
+--- a/crates/aionui-ai-agent/tests/skill_manager_integration.rs
++++ b/crates/aionui-ai-agent/tests/skill_manager_integration.rs
+@@ -47,7 +47,7 @@
+     )
+     .unwrap();
+ 
+-    // opt-in builtin: builtin-src/mermaid/SKILL.md
++    // Teacher default outside the legacy auto-inject directory.
+     let opt_dir = builtin_src.join("mermaid");
+     fs::create_dir_all(&opt_dir).unwrap();
+     fs::write(
+@@ -72,14 +72,13 @@
+     let paths = Arc::new(resolve_skill_paths(tmp.path(), &data_dir));
+     let mgr = AcpSkillManager::new(paths);
+ 
+-    // No enabled_skills: opt-in builtin (mermaid) and custom (my-skill) should
+-    // be skipped. Only the auto-inject builtin (cron) appears.
++    // Teacher defaults need no user selection; custom skills still remain opt-in.
+     let idx = mgr.discover_skills(None, None).await;
+     let names: std::collections::HashSet<&str> = idx.iter().map(|s| s.name.as_str()).collect();
+     assert!(names.contains("cron"), "auto-inject skill missing: got {names:?}");
+     assert!(
+-        !names.contains("mermaid"),
+-        "opt-in builtin leaked without enabled_skills"
++        names.contains("mermaid"),
++        "teacher default missing without enabled_skills"
+     );
+     assert!(!names.contains("my-skill"), "custom leaked without enabled_skills");
+ 
 --- a/crates/aionui-api-types/src/conversation.rs
 +++ b/crates/aionui-api-types/src/conversation.rs
 @@ -195,6 +195,9 @@
@@ -1547,6 +1803,503 @@
 +    #[serde(flatten)]
 +    pub context: OpenUiSendContext,
 +}
+--- a/crates/aionui-api-types/src/skill.rs
++++ b/crates/aionui-api-types/src/skill.rs
+@@ -25,7 +25,7 @@
+ /// resolve it), and `relative_location` carries the path the frontend
+ /// passes back into `POST /api/skills/builtin-skill` (e.g.
+ /// `"auto-inject/cron/SKILL.md"` or `"{name}/SKILL.md"`).
+-/// `is_auto_inject` is true only for built-in skills under
++/// `is_auto_inject` follows the teacher-edition defaults for built-in skills, including those under
+ /// `auto-inject/`, so clients do not need to infer that behavior from
+ /// path strings.
+ #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+--- a/crates/aionui-app/assets/builtin-skills/aionui-troubleshooting/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/aionui-troubleshooting/SKILL.md
+@@ -1,7 +1,6 @@
+ ---
+ name: aionui-troubleshooting
+-description: >-
+-  Diagnose a running AionUi installation: inspect stuck or errored conversations, read provider health, scheduled task state, MCP server health, team member state, backend health, and aioncore logs. Use when the user reports AionUi is misbehaving, a conversation is stuck, an LLM/provider call is failing, a scheduled task did not run, an MCP server has no tools, a team member is hung, or they ask to troubleshoot AionUi.
++description: "Diagnose AionUi conversations, models, MCP tools, scheduled tasks, backend health and logs with the bundled read-only CLI. Use when the app or an agent is not working."
+ ---
+ 
+ # AionUi Troubleshooting
+--- a/crates/aionui-app/assets/builtin-skills/aionui-webui-public/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/aionui-webui-public/SKILL.md
+@@ -1,171 +1,34 @@
+ ---
+ name: aionui-webui-public
+-description: >-
+-  Expose the user's local AionUi WebUI to the public internet with a near-zero-effort flow. Detects whether the WebUI is running, guides the user to switch it on if needed (the only manual step), self-installs cloudflared cross-platform, opens a Cloudflare quick tunnel, verifies the public URL actually works, then explains the limitations honestly (temporary/random URL, must stay running, password is the only protection, traffic transits Cloudflare). Use whenever the user wants to reach their AionUi from outside the LAN, over the internet, or share a public link. Distinct from aionui-webui-setup (which covers manual LAN / Tailscale / server config through the settings UI): this skill produces a one-click public link via an automatic tunnel.
++description: Administrative workflow for exposing the standalone AionUI_Edu WebUI through an existing VPN, reverse proxy or explicitly requested tunnel. Not part of ordinary teacher tasks.
+ ---
+ 
+-> **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+->
+-> | bash (macOS / Linux) | PowerShell (Windows) |
+-> | --- | --- |
+-> | `a && b` | run as two steps, or `a; if ($?) { b }` |
+-> | `cat <<'EOF' \| tool …` (heredoc) | write the text to a temp file, then pipe/pass that file to the tool |
+-> | `VAR=$(cmd)` … `$VAR` | `$VAR = cmd` … `$VAR` |
+-> | `cmd > /dev/null` | `cmd > $null` |
+-> | `… \| grep PAT` | `… \| Select-String PAT` |
+-> | `… \| jq …` | `… \| ConvertFrom-Json`, then read the fields |
+-> | `python3 x.py` | `python x.py` (or `py x.py`) |
+-> | `~/dir`, `/tmp` | `$env:USERPROFILE\dir`, `$env:TEMP` |
+-> | `cp` / `mkdir -p` / `rm -rf` | `Copy-Item` / `New-Item -ItemType Directory -Force` / `Remove-Item -Recurse -Force` |
+->
+-> If a command has no obvious Windows equivalent, prefer the built-in file/HTTP tools over raw shell.
++# Public access for the standalone WebUI
+ 
+-# AionUi WebUI Public Access Guide
++Use this skill only when the operator explicitly requests external access or a public link. Understanding the execution environment does not require a tunnel. This fork has no Electron WebUI toggle.
+ 
+-You help a user turn their local AionUi WebUI (LAN-only at best) into a public internet URL, with the user doing almost nothing. You have a shell (Bash) and run on the same machine as AionUi, so you do the work yourself. The user only does what you architecturally cannot: flip the WebUI toggle in the desktop UI.
++## Establish the target
+ 
+-## Core facts (verified, do not re-derive)
++- Read Runtime Environment and use the bundled helper's context and read-only diagnostics.
++- Confirm the actual deployment, port publication, persistent data directory, authentication and existing network route.
++- Distinguish a service address inside Docker from the address reachable on its host. Do not assume that the teacher's browser, the host and the agent share localhost.
++- Prefer the operator's established VPN or reverse proxy. Keep the current authentication in place and use the operator's HTTPS configuration.
+ 
+-- AionUi WebUI is a local HTTP server on port 25808 (the aioncore default; override with the `--port` CLI flag — so don't hardcode it, confirm with the curl probe below). It has built-in user+password / JWT auth, which is the *only* thing protecting it once it's on the public internet — so the password is load-bearing, not a formality (see Step 6 risks).
+-- There is NO HTTP/CLI way to start the desktop WebUI. Starting it is Electron-IPC only, so you cannot turn it on; you must guide the user to the toggle. You CAN detect its state, install the tunnel, run the tunnel, and verify, all yourself.
+-- The tunnel tool is cloudflared (Cloudflare quick tunnel, no account needed). It must be forced to --protocol http2 (see Gotcha).
+-- Password changes DO have HTTP routes you can call for the user (see "Optional: change credentials").
++## Choose and apply the requested route
+ 
+-## The flow
++For an existing VPN or reverse proxy, reuse its supported configuration and the WebUI's actual published address. Do not create a second exposure path merely because this skill is available.
+ 
+-Work through these steps in order. Narrate what you are doing in the user's language. Do not dump raw commands on the user unless they ask; you run them.
++For an explicitly requested Cloudflare tunnel, check whether the operator already manages a tunnel. Prefer a configured service or Docker sidecar on the appropriate network rather than an untracked process inside an agent session. Confirm the destination is reachable from that tunnel's environment.
+ 
+-### Step 1 - Detect whether the WebUI is running
++A temporary quick tunnel is appropriate only when the operator requests a temporary link. Explain its lifetime and ownership, keep a record of the process or container, and provide its stop procedure. Do not promise a fixed URL, persistence after restart, or unrestricted network reachability.
+ 
+-Run: `curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:25808/`
++If a required tool is missing, show the installation or deployment change needed for the requested route. Use the operator's approved package or image source. Do not change credentials, firewall rules, port publication or persistent services as an incidental setup step.
+ 
+-- 200 means WebUI is up. Go to Step 3.
+-- 000 / connection refused means WebUI is off. Go to Step 2.
++## Verify before handing over
+ 
+-### Step 2 - Guide the user to turn on the WebUI (the only manual step)
++1. Confirm the tunnel or proxy has registered and is running.
++2. Open the actual external URL from an external route where available. A healthy local endpoint alone is insufficient.
++3. Verify that unauthenticated users still receive the intended login or access control and that the normal login flow works.
++4. Report the observed URL, whether it is temporary or persistent, who keeps the service running, and how to stop it. State any external verification gap.
+ 
+-Tell the user, in their language, something like:
+-
+-"The WebUI is not running yet, and I cannot switch it on for you. Please open it manually: Settings -> WebUI -> toggle it on. (If you want LAN access too, also enable Allow remote access.) Tell me once it is on and I will continue."
+-
+-After they say it is on, re-run Step 1 to confirm. Only proceed when you see 200. If still 000, ask them to double-check the toggle.
+-
+-### Step 3 - Make sure cloudflared is installed (self-install, cross-platform)
+-
+-First check if it is already available: `command -v cloudflared`
+-
+-If missing, install it without depending on the user's package manager: download the official prebuilt binary directly. Detect the platform and pick the asset:
+-
+-- macOS / Linux: `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-<goos>-<goarch>.tgz` where goos = darwin or linux, goarch = arm64 (Apple Silicon / aarch64) or amd64 (x86_64). Then `tar xzf` to get the cloudflared binary.
+-- Windows: download `cloudflared-windows-<arch>.exe` (raw binary, no archive).
+-
+-Example for macOS/Linux (put it in a stable spot so a restart can reuse it):
+-
+-```bash
+-mkdir -p ~/.aionui/tools && cd ~/.aionui/tools
+-OS=$(uname -s); ARCH=$(uname -m)
+-case "$OS" in Darwin) goos=darwin;; Linux) goos=linux;; esac
+-case "$ARCH" in arm64|aarch64) goarch=arm64;; x86_64|amd64) goarch=amd64;; esac
+-curl -fsSL -o cf.tgz "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-${goos}-${goarch}.tgz"
+-tar xzf cf.tgz && rm cf.tgz
+-./cloudflared --version
+-```
+-
+-`brew install cloudflared` also works on macOS but is not cross-platform; prefer the direct binary so this works on any host.
+-
+-### Step 4 - Open the tunnel (MUST force http2)
+-
+-Run cloudflared as a long-lived background process pointing at the local WebUI:
+-
+-```bash
+-cloudflared tunnel --protocol http2 --url http://127.0.0.1:25808
+-```
+-
+-(Use the path to the binary you installed, e.g. `~/.aionui/tools/cloudflared`.)
+-
+-Watch its output for two things:
+-1. The public URL line: `https://<random-words>.trycloudflare.com`
+-2. A line `Registered tunnel connection ... protocol=http2`. This means it actually connected.
+-
+-Gotcha - QUIC / HTTP 530: without `--protocol http2`, cloudflared defaults to QUIC over UDP port 7844, which many networks block. The tunnel then never registers and the public URL returns HTTP 530 forever while cloudflared silently retries. The startup pre-check shows `UDP Connectivity ... FAIL` / `TCP Connectivity ... PASS`. Always pass `--protocol http2`. If you ever see persistent 530, this is the cause; confirm the flag is set.
+-
+-### Step 5 - Verify the public URL really works (do not skip)
+-
+-Before handing the URL to the user, prove it from the public side:
+-
+-```bash
+-curl -s -o /dev/null -w "%{http_code}" --max-time 20 "<public-url>/"
+-```
+-
+-Retry 2-3 times with a few seconds between; a freshly created tunnel can return 530/000 for the first few seconds before the edge is ready. Consider it good only when you get 200. For extra confidence, confirm it is really AionUi:
+-
+-```bash
+-curl -s --max-time 20 "<public-url>/" | grep -i "<title>AionUi</title>"
+-```
+-
+-### Step 6 - Before handing off: check the password is strong
+-
+-The moment this URL is public, the WebUI password is the only thing standing
+-between the open internet and the user's AionUi. **Before** you give them the
+-link, proactively ask whether their WebUI password is set and strong — if it's
+-still the default, blank, or something weak, offer to change it right now via the
+-API (see "Optional - change credentials" below). Don't hand over a public URL
+-guarding a weak password.
+-
+-### Step 7 - Hand off the URL and explain the limitations honestly
+-
+-Give the user the public URL, then walk them through the trade-offs plainly, in
+-their language. Don't bury these or save them for after something breaks.
+-
+-**Availability (it's temporary by design):**
+-
+-- Log in with your WebUI username + password when you open the link.
+-- The URL is temporary and random. It changes if the tunnel restarts, and if you
+-  restart the WebUI service the tunnel breaks too. Ask me again any time and I'll
+-  generate a fresh one.
+-- Keep it running. The tunnel is a process on this machine; if you close it (or
+-  the computer sleeps / shuts down), the public URL stops working.
+-- This is a Cloudflare *quick tunnel* — meant for quick sharing and testing, not
+-  a production hosting setup. It can be rate-limited or dropped; don't rely on it
+-  for anything long-lived or critical.
+-
+-**Security (you're publishing to the whole internet):**
+-
+-- Anyone who has the URL can reach the login page from anywhere — the password is
+-  the only protection. Use a strong, unique one (offered in Step 6).
+-- A random URL is *obscurity, not security*. It can leak through browser history,
+-  chat logs, link previews, or the `Referer` header — treat it as discoverable,
+-  not secret.
+-- Your traffic passes through Cloudflare's edge, where TLS is terminated. That's
+-  normal for a tunnel, but it means a third party sits in the path and can in
+-  principle see the traffic — fine for casual use, worth knowing for anything
+-  sensitive.
+-- Turn it off when you're done. The safest public link is one that isn't running:
+-  stop the tunnel (and toggle the WebUI off) once you no longer need remote access.
+-
+-### Optional - change the WebUI username / password for the user
+-
+-If the user wants to change credentials (e.g. before sharing the link), you can do it via the backend API (no UI needed):
+-
+-```bash
+-curl -s -X POST http://127.0.0.1:25808/api/webui/change-password -H "Content-Type: application/json" -d '{"new_password":"<new>"}'
+-curl -s -X POST http://127.0.0.1:25808/api/webui/change-username -H "Content-Type: application/json" -d '{"new_username":"<new>"}'
+-```
+-
+-(Confirm exact field names from the response if it errors; reset-password / generate-qr-token endpoints also exist.)
+-
+-> These `/api/webui/*` credential endpoints only work when aioncore runs in
+-> **local mode** (the normal desktop/Electron case, which is exactly the scenario
+-> this skill targets). If aioncore is deployed as a standalone server, they
+-> return **403 Forbidden** — change the password through that deployment's own
+-> mechanism instead.
+-
+-### Optional - a permanent / fixed address (mention only, do not push)
+-
+-Only bring this up after the user has experienced the free public access and asks for a URL that does not change. A fixed address requires a Cloudflare account + your own domain wired to a cloudflared named tunnel (more setup, and a custom domain is paid). The free *.trycloudflare.com URL is always random/ephemeral. Recommend the named-tunnel path as an option, but do not set it up unless they explicitly want it.
+-
+-## Style
+-
+-- Do the technical work yourself; keep the user's part to the single WebUI toggle.
+-- Verify before you promise; never hand over a URL you have not seen return 200.
+-- Be honest about the ephemeral nature up front, not after they complain it broke.
++Never include credentials or runtime tokens in URLs or user-facing output. Use the existing administrative credential workflow if the operator separately requests a credential change.
+--- a/crates/aionui-app/assets/builtin-skills/aionui-webui-setup/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/aionui-webui-setup/SKILL.md
+@@ -1,129 +1,33 @@
+ ---
+ name: aionui-webui-setup
+-description: 'AionUi WebUI configuration expert: Helps users configure AionUi WebUI mode for remote access through the settings interface. Supports LAN connection, Tailscale VPN, and server deployment. Use when users need to set up AionUi WebUI, configure remote access, troubleshoot WebUI issues, or deploy AionUi on servers.'
++description: Configure the standalone AionUI_Edu WebUI for Unraid, Docker, local browser development and remote access. Administrative guidance; not required for ordinary teacher tasks.
+ ---
+ 
+-# AionUi WebUI 配置专家
++# Standalone WebUI administration
+ 
+-你是 AionUi WebUI 配置专家，可以帮助用户通过 AionUi 设置界面配置 WebUI 模式，实现远程访问。
++This fork runs a standalone browser/server WebUI. There is no Electron app, desktop installer, Settings > WebUI enable switch, or mobile-native runtime. The agent runs on the server; the teacher's browser may run on another device.
+ 
+-## 核心能力
++## Inspect the actual deployment first
+ 
+-- **三种远程连接方式**：局域网连接、Tailscale VPN、服务器部署
+-- **设置界面引导**：引导用户通过 AionUi 设置界面完成配置
+-- **跨平台支持**：Windows、macOS、Linux、Android
+-- **故障排查**：端口、防火墙、服务启动问题
+-- **安全配置**：密码管理、防火墙规则、HTTPS 建议
++- Read the injected Runtime Environment block. Use the bundled helper's `config context` and `diagnose` capabilities to inspect the current installation.
++- Distinguish the agent's container, its host, and the browser device. A container loopback address is not the host's published address.
++- Confirm the actual listener, published port, data volume and existing reverse proxy or VPN before suggesting changes. Do not assume a port or host path from an example.
++- Keep existing conversations, uploads, credentials and persistent volumes. An upgrade or restart must reuse the configured data volume.
++- This is an administrative skill. Explain a proposed configuration before applying changes outside the user's requested scope.
+ 
+-## 重要原则
++## Supported deployment paths
+ 
+-**所有 WebUI 配置都应通过 AionUi 设置界面完成，不要使用命令行方式。**
++For Unraid and Docker, use this edition's existing image and Compose configuration. The runtime normally stores persistent state in its mounted data directory. Use the installation's current image tag, port mapping and volume settings rather than inventing a new deployment.
+ 
+-## 快速判断用户需求
++For local browser development, use the repository's Bun WebUI launcher. The server and SPA run together; do not add an Electron process, native app, installer, or telemetry service.
+ 
+-根据用户的问题，判断配置需求：
++For access from another device, inspect the host's published listener and existing LAN, VPN or reverse-proxy route. Keep a local development listener loopback-only unless the operator requests remote access. For public internet exposure, follow the separate `aionui-webui-public` administrative workflow.
+ 
+-1. **局域网访问**：同一 WiFi 的设备访问 → 引导到设置界面启用 WebUI 和远程访问
+-2. **跨网络访问**：办公室访问家庭、手机使用流量 → 引导使用 Tailscale
+-3. **服务器部署**：多用户、24/7 运行 → 引导服务器部署方案
+-4. **故障排查**：无法访问、服务无法启动 → 参考故障排查部分
++## Verify and report
+ 
+-## 三种远程连接方式对比
++1. Check the WebUI health endpoint and authenticated backend diagnostics at the actual configured address.
++2. Verify the normal login page and the requested access route from the relevant device or network. A request from inside the container proves only that container's route.
++3. After a restart or upgrade, confirm the original conversations and files are still present.
++4. Report what was changed and what was actually verified. Separate saved configuration from a running deployment and external reachability.
+ 
+-| 连接方式       | 使用场景             | 难度        | 推荐度        |
+-| -------------- | -------------------- | ----------- | ------------- |
+-| **局域网连接** | 同一 WiFi/LAN 的设备 | ⭐ 简单     | 临时访问      |
+-| **Tailscale**  | 跨网络访问           | ⭐ 非常简单 | ⭐⭐⭐ 最推荐 |
+-| **服务器部署** | 多用户、24/7         | ⭐⭐ 中等   | 生产环境      |
+-
+-## 工作流程建议
+-
+-### 处理用户请求的标准流程
+-
+-1. **判断用户需求**：
+-   - 同一 WiFi → 局域网连接
+-   - 跨网络 → Tailscale
+-   - 服务器部署 → systemd/LaunchAgent
+-
+-2. **引导用户到设置界面**：
+-   - **明确告诉用户如何打开设置界面**：
+-     - "请点击 AionUi 左下角的**设置图标**（齿轮图标）"
+-     - "在设置菜单中，点击 **'WebUI'** 选项"
+-     - "进入 WebUI 配置界面"
+-
+-3. **引导配置步骤**：
+-   - **Step 1**：告诉用户"将 **'启用 WebUI'** 开关切换到**开启**状态"
+-   - **Step 2**：如果需要远程访问，告诉用户"将 **'允许远程访问'** 开关切换到**开启**状态"
+-   - **Step 3**：告诉用户"等待服务启动完成，界面会显示 **'✓ 运行中'** 状态"
+-
+-4. **引导获取访问信息**：
+-   - 告诉用户在设置界面中可以找到：
+-     - **访问地址**：本地地址和网络地址（可点击复制）
+-     - **登录信息**：用户名（admin）和密码（可点击复制）
+-     - **二维码登录**：如果启用了远程访问，可以使用二维码登录
+-
+-5. **故障排查**：
+-   - 如果遇到问题，参考故障排查部分
+-   - 引导用户检查设置界面中的状态提示
+-
+-6. **安全建议**：
+-   - 提醒修改初始密码（在设置界面中操作）
+-   - 建议使用 Tailscale（跨网络）
+-   - 服务器部署时配置防火墙
+-
+-## 引导式说明模板
+-
+-### 打开设置界面
+-
+-"请按照以下步骤打开 WebUI 设置界面：
+-
+-1. 在 AionUi 主界面，点击左下角的**设置图标**（齿轮图标）
+-2. 在设置菜单中，点击 **'WebUI'** 选项
+-3. 进入 WebUI 配置界面"
+-
+-### 启用 WebUI
+-
+-"在 WebUI 设置界面中：
+-
+-1. 找到 **'启用 WebUI'** 开关
+-2. 将开关切换到**开启**状态
+-3. 等待几秒钟，WebUI 服务启动后，会显示 **'✓ 运行中'** 状态"
+-
+-### 启用远程访问
+-
+-"如果需要远程访问：
+-
+-1. 在 **'允许远程访问'** 选项中，将开关切换到**开启**状态
+-2. 如果 WebUI 正在运行，系统会自动重启以应用新设置"
+-
+-### 获取访问信息
+-
+-"WebUI 启动后，在设置界面中你可以看到：
+-
+-1. **访问地址**：
+-   - **本地访问**：`http://localhost:25808`（仅本机访问）
+-   - **网络访问**：`http://<局域网IP>:25808`（如果启用了远程访问）
+-   - 点击地址旁边的**复制图标**可以复制地址
+-
+-2. **登录信息**：
+-   - **用户名**：`admin`（点击旁边的**复制图标**可以复制）
+-   - **密码**：首次启动时会显示初始密码（点击旁边的**复制图标**可以复制）
+-   - 如果密码已隐藏，点击密码旁边的**重置图标**可以重置密码并显示新密码
+-
+-3. **二维码登录**（如果启用了远程访问）：
+-   - 使用手机扫描二维码，即可在手机浏览器中自动登录
+-   - 二维码有效期 5 分钟，过期后点击"刷新二维码""
+-
+-## 重要提示
+-
+-- **默认端口**：25808（可通过配置文件修改）
+-- **默认用户名**：admin
+-- **初始密码**：首次启动时在设置界面中显示，可点击复制
+-- **配置方式**：**所有配置都通过设置界面完成**，不要使用命令行
+-- **安全**：远程访问时建议使用 Tailscale 或配置防火墙
+-
+-## 参考资源
+-
+-- [AionUi Wiki - Remote Internet Access Guide](https://github.com/iOfficeAI/AionUi/wiki/Remote-Internet-Access-Guide)
+-- [AionUi Wiki - WebUI Configuration Guide](https://github.com/iOfficeAI/AionUi/wiki/WebUI-Configuration-Guide)
+-- [Tailscale 官方文档](https://tailscale.com/kb/)
++Use `aionui-troubleshooting` for failures and `aionui-config` for supported application settings. Never print tokens, passwords, provider keys or secret environment values.
+--- a/crates/aionui-app/assets/builtin-skills/auto-inject/officecli/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/auto-inject/officecli/SKILL.md
+@@ -45,6 +45,8 @@
+ 
+ **Before doc work, check Specialized Skills** (bottom of this file). Fundraising decks, academic papers, financial models, dashboards, and Morph animations need their own skill loaded first — `load_skill` once, then proceed.
+ 
++In AionUI_Edu, prefer the matching skill already exposed by this conversation (`officecli-docx`, `officecli-pptx`, `officecli-xlsx`, a specialized `officecli-*` skill, or `morph-ppt` / `morph-ppt-3d`). Read its mounted SKILL.md or use the bundled helper's `skills show` contract. These local skills are available by default; never ask the teacher to enable them. Use `officecli load_skill` only as a fallback when the corresponding local skill is unavailable. Load the most specific workflow for each artifact rather than stacking every Office skill.
++
+ ---
+ 
+ ## Help System (IMPORTANT)
+--- a/crates/aionui-app/assets/builtin-skills/mermaid/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/mermaid/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: mermaid
+-description: Render Mermaid diagrams as SVG or ASCII art using beautiful-mermaid. Use when users need to create flowcharts, sequence diagrams, state diagrams, class diagrams, or ER diagrams. Supports both graphical SVG output and terminal-friendly ASCII/Unicode output.
++description: "Create and render Mermaid diagrams: flowcharts, text structures, sequences, states and relationships. Use when a diagram clarifies teaching content or a process."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/morph-ppt-3d/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/morph-ppt-3d/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: morph-ppt-3d
+-description: 3D Morph PPT — extends morph-ppt with GLB model insertion, cinematographic camera, model-content layout, and enriched visual design system.
++description: "Create Morph presentations using GLB 3D models, camera movement and spatial layouts. Use when a presentation needs actual 3D models or 3D animated scenes."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/morph-ppt/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/morph-ppt/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: morph-ppt
+-description: "Use this skill when the user wants a .pptx with smooth cross-slide animation — PowerPoint Morph transitions, Keynote-style continuous motion, shapes that grow / move / rotate as the slide advances. Trigger on: 'morph', 'morph transition', 'smooth transition', 'continuous animation across slides', 'Keynote-style transition', 'animated slide sequence', 'shape continuity across slides'. Output is a single .pptx. This skill is a scene layer on top of officecli-pptx — inherits every pptx v2 rule (visual floor, grid, palettes, connector canon, Delivery Gate 1–5a). DO NOT invoke for a generic deck, pitch deck, or board review without cross-slide motion — route those to officecli-pptx base or officecli-pitch-deck."
++description: "Create PowerPoint Morph animations with continuous motion across slides. Use when the user requests animated transitions, shape continuity or Keynote-style presentations."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-academic-paper/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-academic-paper/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-academic-paper
+-description: "Use this skill to build academic-style .docx output: journal / conference / thesis chapters carrying formal citation style (APA, Chicago, IEEE, MLA), numbered equations, figure & table cross-references, footnotes/endnotes, bibliography, or multi-column journal layout. Trigger on: 'research paper', 'journal paper', 'conference paper', 'manuscript', 'thesis', 'APA', 'MLA', 'Chicago', 'IEEE two-column', 'bibliography', 'hanging indent', 'citation style', 'abstract + keywords', 'equation numbering', 'cross-reference', paper with footnotes/endnotes. Output is a single .docx."
++description: "Create academic Word documents with citations, bibliographies, equations, footnotes and journal or thesis formatting. Use for formal research writing."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-data-dashboard/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-data-dashboard/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-data-dashboard
+-description: "Use this skill to build a multi-element Excel dashboard — Dashboard sheet on open, multiple formula-driven KPI cards, multiple charts, sparklines, and conditional formatting — from CSV or tabular input. Trigger on: 'dashboard', 'KPI dashboard', 'analytics dashboard', 'executive dashboard', 'metrics dashboard', 'CSV to dashboard', 'data visualization'. Output is a single .xlsx. Scene-layer on officecli-xlsx: inherits every xlsx hard rule. DO NOT invoke for: a single budget tracker / one-sheet CSV-with-formatting (use xlsx), a 3-statement / DCF / LBO financial model (use financial-model), a weekly report with ≤ 1 chart and < 10 rows (use xlsx)."
++description: "Build Excel dashboards with KPI cards, charts, sparklines and conditional formatting from tabular data. Use for class, assessment and other dashboard tasks."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-docx/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-docx/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-docx
+-description: "Use this skill any time a .docx file is involved -- as input, output, or both. This includes: creating Word documents, reports, letters, memos, or proposals; reading, parsing, or extracting text from any .docx file; editing, modifying, or updating existing documents; working with templates, tracked changes, comments, headers/footers, or tables of contents. Trigger whenever the user mentions 'Word doc', 'document', 'report', 'letter', 'memo', or references a .docx filename."
++description: "Create, read and edit Word documents: tests, worksheets, lesson plans, notices, reports, letters and marking rubrics. Use for .docx tasks."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-financial-model/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-financial-model/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-financial-model
+-description: "Use this skill when the user wants to build a financial model — 3-statement model, DCF valuation, LBO, SaaS unit economics, sensitivity / scenario analysis, debt schedule, or fundraising projections — in Excel. Trigger on: 'financial model', '3-statement model', 'P&L + BS + CF', 'DCF', 'WACC', 'NPV', 'terminal value', 'LBO', 'debt schedule', 'cash sweep', 'MOIC', 'IRR / XIRR', 'sensitivity table', 'scenario analysis', 'ARR model', 'unit economics', 'CAC / LTV', 'cap table forecast'. Output is a single formula-driven .xlsx. This skill is a scene layer on top of officecli-xlsx — it inherits every xlsx v2 rule (4-color code, visual floor, number formats, cache-drift, Known Issues, Delivery Gate minimum cycle). DO NOT invoke for a simple budget tracker, CSV dump, or operational KPI sheet — route those to officecli-xlsx base."
++description: "Build formula-driven Excel financial models: cash flow, three statements, valuation and scenarios. Use for business or economics models, not basic budgets."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-pitch-deck/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-pitch-deck/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-pitch-deck
+-description: "Use this skill when the user is building a fundraising / investor pitch deck — seed, Series A / B / C, convertible note, SAFE round, strategic raise. Trigger on: 'pitch deck', 'investor deck', 'Series A deck', 'Series B deck', 'Series C deck', 'fundraising deck', 'seed pitch', 'VC deck', 'raising capital', 'term sheet presentation'. Output is a single .pptx. This skill is a scene layer on top of officecli-pptx — inherits every pptx v2 rule (visual floor, grid, palettes, connector canon, Delivery Gate). DO NOT invoke for a generic board review, sales deck, all-hands, or product launch — route those to officecli-pptx base."
++description: "Create fundraising and investor pitch decks for ventures, entrepreneurship lessons and simulated funding rounds. Use for fundraising; ordinary teaching slides use officecli-pptx."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-pptx/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-pptx/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-pptx
+-description: "Use this skill any time a .pptx file is involved -- as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file; editing, modifying, or updating existing presentations; combining or splitting slide files; working with templates, layouts, speaker notes, or comments. Trigger whenever the user mentions 'deck', 'slides', 'presentation', 'pitch', or references a .pptx filename."
++description: "Create, read and edit PowerPoint presentations, teaching slides, layouts and speaker notes. Use for .pptx tasks; specialized animation and fundraising skills apply when requested."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-word-form/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-word-form/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-word-form
+-description: "Use this skill to create fillable Word forms (.docx) with real Content Controls (SDT) + legacy FormField checkboxes + MERGEFIELD mail-merge placeholders + document protection. Trigger on: 'fillable form', 'form fields', 'content controls', 'SDT', 'word form', 'fill in', 'only editable fields', 'protect document', 'onboarding form', 'HR intake', 'survey template', 'contract / SOW template', 'mail-merge template', 'compliance checklist', 'medical intake questionnaire'. Output is a single .docx where specific fields are editable and the rest is locked. This skill is INDEPENDENT, not a scene layer on docx — payload is `<w:sdt>` + `<w:ffData>` + `<w:fldChar>` + `documentProtection`, none of which docx base skill covers. Do NOT trigger for regular reports, letters, memos, academic papers, pitch decks, or any document with no user-fillable fields — route those to officecli-docx or its scene layers."
++description: "Create fillable Word forms with editable fields and protected text: reply slips, questionnaires and registration forms. Use for real form controls, not ordinary worksheets."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/officecli-xlsx/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/officecli-xlsx/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: officecli-xlsx
+-description: "Use this skill any time a .xlsx file is involved -- as input, output, or both. This includes: creating spreadsheets, financial models, dashboards, or trackers; reading, parsing, or extracting data from any .xlsx file; editing, modifying, or updating existing workbooks; working with formulas, charts, pivot tables, or templates; importing CSV/TSV data into Excel format. Trigger whenever the user mentions 'spreadsheet', 'workbook', 'Excel', 'financial model', 'tracker', 'dashboard', or references a .xlsx/.csv filename."
++description: "Create, read and edit Excel workbooks, formulas, charts, gradebooks and trackers; import CSV/TSV data. Use for .xlsx and spreadsheet tasks."
+ ---
+ 
+ > **⚠️ Platform note — read before running any command.** The shell snippets in this skill are written for **macOS / Linux** (bash/zsh). Always check which OS you are on first. On **Windows** do **not** run them verbatim — the underlying tool/CLI commands are usually cross-platform, but the surrounding shell syntax is not. Translate it to PowerShell before running:
+--- a/crates/aionui-app/assets/builtin-skills/pdf/SKILL.md
++++ b/crates/aionui-app/assets/builtin-skills/pdf/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: pdf
+-description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.
++description: "Read, extract, create, merge, split and fill PDF documents, including text, tables and forms. Use whenever a task involves PDF files."
+ license: Proprietary. LICENSE.txt has complete terms
+ ---
+ 
 --- a/crates/aionui-app/build.rs
 +++ b/crates/aionui-app/build.rs
 @@ -1,8 +1,14 @@
@@ -4045,6 +4798,48 @@
                  parent_call_id: None,
              }),
              AgentStreamEvent::Error(ErrorEventData {
+--- a/crates/aionui-conversation/src/skill_resolver.rs
++++ b/crates/aionui-conversation/src/skill_resolver.rs
+@@ -119,13 +119,7 @@
+             Ok(items) => {
+                 let mut names: Vec<String> = items
+                     .into_iter()
+-                    .filter(|item| {
+-                        item.source == aionui_extension::SkillSource::Builtin
+-                            && item
+-                                .relative_location
+-                                .as_deref()
+-                                .is_some_and(|location| location.starts_with("auto-inject/"))
+-                    })
++                    .filter(|item| item.is_auto_inject())
+                     .map(|item| item.name)
+                     .collect();
+                 names.sort();
+@@ -295,6 +289,12 @@
+             assistant_skills_dir: tmp.path().join("assistant-skills"),
+         });
+         write_skill(&paths.builtin_skills_dir, "review", "Top-level builtin");
++        write_skill(&paths.builtin_skills_dir, "mermaid", "Teacher diagrams");
++        write_skill(
++            &paths.builtin_skills_dir.join("auto-inject"),
++            "skill-creator",
++            "Administrator workflow",
++        );
+         write_skill(
+             &paths.builtin_skills_dir.join("auto-inject"),
+             "auto-cron",
+@@ -310,7 +310,10 @@
+ 
+         let resolver = ExtensionSkillResolver::new(paths, repo);
+ 
+-        assert_eq!(resolver.auto_inject_names().await, vec!["auto-cron".to_string()]);
++        assert_eq!(
++            resolver.auto_inject_names().await,
++            vec!["auto-cron".to_string(), "mermaid".to_string()]
++        );
+     }
+ 
+     #[tokio::test]
 --- a/crates/aionui-conversation/src/stream_persistence.rs
 +++ b/crates/aionui-conversation/src/stream_persistence.rs
 @@ -353,7 +353,7 @@
@@ -5190,6 +5985,275 @@
 +        .count();
 +    assert_eq!(winners, 1);
 +}
+--- a/crates/aionui-extension/src/skill_routes.rs
++++ b/crates/aionui-extension/src/skill_routes.rs
+@@ -33,10 +33,6 @@
+         SkillSource::Cron => SkillSourceResponse::Cron,
+         SkillSource::Extension => SkillSourceResponse::Extension,
+     }
+-}
+-
+-fn is_auto_inject_builtin_skill(source: SkillSource, relative_location: Option<&str>) -> bool {
+-    source == SkillSource::Builtin && relative_location.is_some_and(|location| location.starts_with("auto-inject/"))
+ }
+ 
+ // ---------------------------------------------------------------------------
+@@ -123,7 +119,7 @@
+     let resp: Vec<SkillListItemResponse> = items
+         .into_iter()
+         .map(|s| SkillListItemResponse {
+-            is_auto_inject: is_auto_inject_builtin_skill(s.source, s.relative_location.as_deref()),
++            is_auto_inject: s.is_auto_inject(),
+             name: s.name,
+             description: s.description,
+             location: s.location,
+--- a/crates/aionui-extension/src/skill_service.rs
++++ b/crates/aionui-extension/src/skill_service.rs
+@@ -284,6 +284,55 @@
+     pub relative_location: Option<String>,
+     pub is_custom: bool,
+     pub source: SkillSource,
++}
++
++/// Built-in defaults for the teacher edition. Bodies remain lazily loaded.
++pub const TEACHER_AUTO_INJECT_SKILLS: &[&str] = &[
++    "teaching-design",
++    "humanizer-zh",
++    "officecli",
++    "officecli-docx",
++    "officecli-pptx",
++    "officecli-xlsx",
++    "pdf",
++    "officecli-word-form",
++    "officecli-academic-paper",
++    "mermaid",
++    "officecli-data-dashboard",
++    "officecli-financial-model",
++    "morph-ppt",
++    "morph-ppt-3d",
++    "officecli-pitch-deck",
++    "aionui-config",
++    "conversation-create",
++    "session-message",
++    "cron",
++    "aionui-troubleshooting",
++];
++
++const ADMIN_ONLY_SKILLS: &[&str] = &["skill-creator", "aionui-webui-setup", "aionui-webui-public"];
++const EXCLUDED_BUILTIN_SKILLS: &[&str] = &[
++    "x-recruiter",
++    "xiaohongshu-recruiter",
++    "moltbook",
++    "openclaw-setup",
++    "weixin-file-send",
++    "story-roleplay",
++];
++
++impl SkillListItem {
++    /// Whether this built-in skill belongs in a new conversation by default.
++    /// User imports and extension contributions always remain opt-in.
++    pub fn is_auto_inject(&self) -> bool {
++        self.source == SkillSource::Builtin
++            && !ADMIN_ONLY_SKILLS.contains(&self.name.as_str())
++            && !EXCLUDED_BUILTIN_SKILLS.contains(&self.name.as_str())
++            && (TEACHER_AUTO_INJECT_SKILLS.contains(&self.name.as_str())
++                || self
++                    .relative_location
++                    .as_deref()
++                    .is_some_and(|p| p.starts_with("auto-inject/")))
++    }
+ }
+ 
+ /// List all available skills (built-in + user custom), deduplicated.
+@@ -412,6 +461,7 @@
+         }
+     }
+ 
++    items.retain(|item| !EXCLUDED_BUILTIN_SKILLS.contains(&item.name.as_str()));
+     items
+ }
+ 
+@@ -1396,6 +1446,10 @@
+ /// search order as [`materialize_skills_for_agent`]. Returns `None` if
+ /// no matching directory exists in any known source.
+ async fn resolve_skill_source_path(paths: &SkillPaths, name: &str) -> Result<Option<PathBuf>, ExtensionError> {
++    if EXCLUDED_BUILTIN_SKILLS.contains(&name) {
++        let user = paths.user_skills_dir.join(name);
++        return Ok(user.is_dir().then_some(user));
++    }
+     let top = paths.builtin_skills_dir.join(name);
+     if top.is_dir() {
+         return Ok(Some(top));
+@@ -1420,6 +1474,9 @@
+     name: &str,
+ ) -> Result<Option<PathBuf>, ExtensionError> {
+     if let Some(row) = repo.find_by_name_any_for_user(user_id, name).await? {
++        if row.source == "builtin" && EXCLUDED_BUILTIN_SKILLS.contains(&name) {
++            return Ok(None);
++        }
+         let path = PathBuf::from(&row.path);
+         if path.is_dir() {
+             return Ok(Some(path));
+@@ -1433,6 +1490,9 @@
+         if row.user_id.is_some() {
+             return Ok(None);
+         }
++    }
++    if EXCLUDED_BUILTIN_SKILLS.contains(&name) {
++        return Ok(None);
+     }
+     let top = paths.builtin_skills_dir.join(name);
+     if top.is_dir() {
+@@ -1572,6 +1632,10 @@
+ ) -> Result<Vec<SkillListItem>, ExtensionError> {
+     let mut items = Vec::new();
+     for row in dedupe_user_visible_skill_rows(repo.list_for_user(user_id).await?) {
++        // Also hide stale global rows from older installations; preserve all user-owned imports.
++        if row.source == "builtin" && EXCLUDED_BUILTIN_SKILLS.contains(&row.name.as_str()) {
++            continue;
++        }
+         let description = row.description.clone().unwrap_or_default();
+         items.push(skill_row_to_list_item(paths, row, description));
+     }
+--- a/crates/aionui-extension/tests/skill_integration_test.rs
++++ b/crates/aionui-extension/tests/skill_integration_test.rs
+@@ -29,6 +29,136 @@
+ /// sync manually since it isn't part of the crate's public API.
+ const DEFAULT_USER_ID: &str = "system_default_user";
+ 
++#[tokio::test]
++async fn teacher_edition_catalog_defaults_include_teaching_tools_but_not_admin_skills() {
++    let tmp = TempDir::new().unwrap();
++    let paths = make_paths(tmp.path());
++    aionui_extension::materialize_if_needed(tmp.path(), aionui_extension::builtin_skills_corpus(), "teacher-test")
++        .await
++        .unwrap();
++    // These two additions are installed by the host before it accepts conversations.
++    for name in ["humanizer-zh", "teaching-design"] {
++        create_skill(&paths.builtin_skills_dir.join("auto-inject"), name, "Teacher guidance");
++    }
++    let db = init_database_memory().await.unwrap();
++    let repo = SqliteSkillRepository::new(db.pool().clone());
++    aionui_extension::sync_skill_catalog_into_repo(&paths, &repo)
++        .await
++        .unwrap();
++    let items = aionui_extension::list_available_skills_with_repo(&paths, &repo)
++        .await
++        .unwrap();
++    assert_eq!(items.len(), 23);
++    let automatic: std::collections::BTreeSet<&str> = items
++        .iter()
++        .filter(|item| item.is_auto_inject())
++        .map(|item| item.name.as_str())
++        .collect();
++    assert_eq!(
++        automatic,
++        std::collections::BTreeSet::from([
++            "teaching-design",
++            "humanizer-zh",
++            "officecli",
++            "officecli-docx",
++            "officecli-pptx",
++            "officecli-xlsx",
++            "pdf",
++            "officecli-word-form",
++            "officecli-academic-paper",
++            "mermaid",
++            "officecli-data-dashboard",
++            "officecli-financial-model",
++            "morph-ppt",
++            "morph-ppt-3d",
++            "officecli-pitch-deck",
++            "aionui-config",
++            "conversation-create",
++            "session-message",
++            "cron",
++            "aionui-troubleshooting",
++        ])
++    );
++    let manual: std::collections::BTreeSet<&str> = items
++        .iter()
++        .filter(|item| !item.is_auto_inject())
++        .map(|item| item.name.as_str())
++        .collect();
++    assert_eq!(
++        manual,
++        std::collections::BTreeSet::from(["skill-creator", "aionui-webui-setup", "aionui-webui-public"])
++    );
++    assert!(
++        items
++            .iter()
++            .filter(|item| item.is_auto_inject())
++            .all(|item| item.description.chars().count() <= 200)
++    );
++}
++
++#[tokio::test]
++async fn teacher_edition_excludes_stale_builtin_rows_without_losing_user_imports() {
++    let tmp = TempDir::new().unwrap();
++    let paths = make_paths(tmp.path());
++    create_skill(&paths.builtin_skills_dir, "moltbook", "Old builtin");
++    let db = init_database_memory().await.unwrap();
++    let repo = SqliteSkillRepository::new(db.pool().clone());
++    repo.upsert_global(UpsertSkillParams {
++        name: "moltbook",
++        description: Some("Old builtin"),
++        path: &paths.builtin_skills_dir.join("moltbook").to_string_lossy(),
++        source: "builtin",
++        enabled: true,
++    })
++    .await
++    .unwrap();
++    assert!(
++        aionui_extension::list_available_skills_with_repo(&paths, &repo)
++            .await
++            .unwrap()
++            .is_empty()
++    );
++    let resolved = materialize_skills_for_agent_with_repo_for_user(
++        &paths,
++        &repo,
++        DEFAULT_USER_ID,
++        "teacher-conv",
++        &["moltbook".to_owned()],
++    )
++    .await
++    .unwrap();
++    assert!(resolved.is_empty());
++
++    create_skill(&paths.user_skills_dir, "moltbook", "User-owned workflow");
++    repo.upsert_for_user(
++        DEFAULT_USER_ID,
++        UpsertSkillParams {
++            name: "moltbook",
++            description: Some("User-owned workflow"),
++            path: &paths.user_skills_dir.join("moltbook").to_string_lossy(),
++            source: "user",
++            enabled: true,
++        },
++    )
++    .await
++    .unwrap();
++    let items = aionui_extension::list_available_skills_with_repo(&paths, &repo)
++        .await
++        .unwrap();
++    assert_eq!(items.len(), 1);
++    assert!(!items[0].is_auto_inject());
++    let resolved = materialize_skills_for_agent_with_repo_for_user(
++        &paths,
++        &repo,
++        DEFAULT_USER_ID,
++        "teacher-conv",
++        &["moltbook".to_owned()],
++    )
++    .await
++    .unwrap();
++    assert_eq!(resolved[0].source_path, paths.user_skills_dir.join("moltbook"));
++}
++
+ fn make_paths(base: &Path) -> SkillPaths {
+     SkillPaths {
+         data_dir: base.to_path_buf(),
 --- a/crates/aionui-mcp/Cargo.toml
 +++ b/crates/aionui-mcp/Cargo.toml
 @@ -24,6 +24,12 @@

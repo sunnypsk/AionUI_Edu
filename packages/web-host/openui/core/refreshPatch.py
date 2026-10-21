@@ -36,7 +36,7 @@ def main():
             tofile='b/' + name if name in current else '/dev/null',
         ))
     output = Path(__file__).with_name('openui.patch')
-    output.write_text(''.join(chunks))
+    output.write_text(''.join(chunks), encoding='utf-8', newline='\n')
     print('Wrote', output, 'bytes:', output.stat().st_size)
 
 
