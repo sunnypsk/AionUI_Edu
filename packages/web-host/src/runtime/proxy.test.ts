@@ -4,6 +4,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { spawn } from 'node:child_process';
+import { lookup } from 'node:dns/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NetworkProxyProbeResult } from '../types.js';
 import {
@@ -12,12 +13,20 @@ import {
   loadProxySettings,
   NetworkProxyStore,
   parseSocksProxy,
+  resolveSocksProxy,
   proxyFingerprint,
   PROXY_FILE_NAME,
   probeProxyConnection,
 } from './proxy.js';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
+vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
+
+beforeEach(() => {
+  vi.mocked(lookup).mockReset().mockRejectedValue(new Error('Unconfigured DNS fixture'));
+});
+
+afterEach(() => vi.useRealTimers());
 
 describe('SOCKS5 full routing', () => {
   let dataDir: string;
@@ -30,11 +39,13 @@ describe('SOCKS5 full routing', () => {
 
   it.each([
     'http://192.0.2.1:1080',
-    'socks5://proxy.example:1080',
+    'socks5://bad_host.example:1080',
+    'socks5://proxy..example:1080',
+    'socks5://-proxy.example:1080',
     'socks5://192.0.2.1:0',
     'socks5://192.0.2.1:1080/?secret=password',
     'socks5://192.0.2.1:1080/path',
-  ])('rejects invalid or DNS-dependent upstreams without disclosing their URL', (url) => {
+  ])('rejects invalid upstreams without disclosing their URL', (url) => {
     expect(() => parseSocksProxy(url)).toThrow(/^INVALID_SOCKS5_PROXY$/);
   });
 
@@ -46,6 +57,94 @@ describe('SOCKS5 full routing', () => {
 
   it('supports IPv6 upstream addresses', () => {
     expect(parseSocksProxy('socks5://[2001:db8::1]:1080').server).toBe('2001:db8::1');
+  });
+
+  it('accepts and normalizes authenticated hostname URLs without exposing credentials in the endpoint', () => {
+    expect(parseSocksProxy('socks5h://alice:p%40ss@Proxy.Example:1080')).toMatchObject({
+      server: 'proxy.example',
+      password: 'p@ss',
+      endpoint: 'socks5://proxy.example:1080',
+    });
+  });
+
+  it('prefers a resolved IPv4 upstream and preserves encoded credentials', async () => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: '2001:db8::1', family: 6 },
+      { address: '192.0.2.1', family: 4 },
+    ]);
+    expect(await resolveSocksProxy('socks5://alice:p%40ss@proxy.example:1080')).toMatchObject({
+      server: '192.0.2.1',
+      url: 'socks5://alice:p%40ss@192.0.2.1:1080',
+      endpoint: 'socks5://192.0.2.1:1080',
+    });
+  });
+
+  it('supports hostname upstreams with only IPv6 records', async () => {
+    vi.mocked(lookup).mockResolvedValue([{ address: '2001:db8::1', family: 6 }]);
+    expect((await resolveSocksProxy('socks5://proxy.example:1080')).url).toBe('socks5://[2001:db8::1]:1080');
+  });
+
+  it('does not resolve IP literals', async () => {
+    expect((await resolveSocksProxy('socks5://192.0.2.1:1080')).server).toBe('192.0.2.1');
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it.each([[], [{ address: 'not-an-ip', family: 4 }]])('rejects DNS answers without an IP (%j)', async (answers) => {
+    vi.mocked(lookup).mockResolvedValue(answers);
+    await expect(resolveSocksProxy('socks5://alice:secret@proxy.example')).rejects.toThrow(
+      /^SOCKS5_HOSTNAME_RESOLUTION_FAILED$/
+    );
+  });
+
+  it('bounds DNS resolution time and clears its timeout', async () => {
+    vi.useFakeTimers();
+    vi.mocked(lookup).mockReturnValue(new Promise(() => {}));
+    const failure = expect(resolveSocksProxy('socks5://proxy.example')).rejects.toThrow(
+      /^SOCKS5_HOSTNAME_RESOLUTION_FAILED$/
+    );
+    await vi.advanceTimersByTimeAsync(5000);
+    await failure;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('rejects unresolved hostnames at both routing boundaries', () => {
+    const proxy = parseSocksProxy('socks5://proxy.example:1080');
+    expect(() => buildTunConfig(proxy)).toThrow('SOCKS5_PROXY_IP_REQUIRED');
+    expect(() => buildEgressRules(proxy)).toThrow('SOCKS5_PROXY_IP_REQUIRED');
+  });
+
+  it('pins saved hostnames to an IP so restarts and blank replacements do not require DNS', async () => {
+    vi.mocked(lookup).mockResolvedValue([{ address: '192.0.2.1', family: 4 }]);
+    const store = new NetworkProxyStore(dataDir, {});
+    expect(await store.save({ enabled: true, proxyUrl: 'socks5://alice:secret@proxy.example:1080' })).toMatchObject({
+      endpoint: 'socks5://192.0.2.1:1080',
+      hasCredentials: true,
+    });
+    await store.save({ enabled: false });
+    expect(await loadProxySettings(dataDir, {})).toEqual({
+      enabled: false,
+      proxyUrl: 'socks5://alice:secret@192.0.2.1:1080',
+    });
+    expect(lookup).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves existing settings and redacts errors when hostname resolution fails', async () => {
+    const store = new NetworkProxyStore(dataDir, {});
+    await store.save({ enabled: true, proxyUrl: 'socks5://192.0.2.1:1080' });
+    const before = await readFile(path.join(dataDir, PROXY_FILE_NAME), 'utf8');
+    vi.mocked(lookup).mockRejectedValue(new Error('private URL and credential detail'));
+    await expect(store.save({ enabled: true, proxyUrl: 'socks5://alice:secret@proxy.example' })).rejects.toThrow(
+      /^SOCKS5_HOSTNAME_RESOLUTION_FAILED$/
+    );
+    expect(await readFile(path.join(dataDir, PROXY_FILE_NAME), 'utf8')).toBe(before);
+  });
+
+  it('resolves environment-managed hostnames before generating IP-only routing rules', async () => {
+    vi.mocked(lookup).mockResolvedValue([{ address: '192.0.2.1', family: 4 }]);
+    const settings = await loadProxySettings(dataDir, { AIONUI_SOCKS5_PROXY: 'socks5://proxy.example:1080' });
+    const proxy = await resolveSocksProxy(settings.proxyUrl);
+    expect(buildTunConfig(proxy).outbounds).toEqual([expect.objectContaining({ server: '192.0.2.1' })]);
+    expect(buildEgressRules(proxy).some((rule) => rule.args.includes('proxy.example'))).toBe(false);
   });
 
   it('sends both DNS and arbitrary destinations through SOCKS with no direct outbound', () => {
@@ -216,6 +315,25 @@ describe('read-only proxy connection tests', () => {
       configuredSource: 'input',
     });
     expect(probe).toHaveBeenCalledExactlyOnceWith(undefined);
+  });
+
+  it('tests a hostname draft through its resolved IP without saving it', async () => {
+    vi.mocked(lookup).mockResolvedValue([{ address: '192.0.2.2', family: 4 }]);
+    const store = new NetworkProxyStore(dataDir, env, probe);
+    const result = await store.test({ proxyUrl: 'socks5://alice:secret@proxy.example:1080' });
+    expect(result.configured.state).toBe('success');
+    expect(probe.mock.calls[1][0]).toMatchObject({ server: '192.0.2.2', password: 'secret' });
+    await expect(readFile(path.join(dataDir, PROXY_FILE_NAME))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps the current route result independent from DNS errors without disclosing credentials', async () => {
+    vi.mocked(lookup).mockRejectedValue(new Error('private URL and credential detail'));
+    const result = await new NetworkProxyStore(dataDir, env, probe).test({
+      proxyUrl: 'socks5://alice:secret@proxy.example',
+    });
+    expect(result).toMatchObject({ current: success, configured: { state: 'failed', reason: 'connection' } });
+    expect(probe).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(JSON.stringify(result)).not.toMatch(/secret|private/);
   });
 
   it('keeps a saved settings read failure independent from the current route', async () => {

@@ -7,7 +7,7 @@ import {
   buildEgressRules,
   buildTunConfig,
   loadProxySettings,
-  parseSocksProxy,
+  resolveSocksProxy,
   proxyFingerprint,
   TUN_DNS,
   TUN_INTERFACE,
@@ -66,7 +66,7 @@ export async function runContainer(): Promise<void> {
   process.once('SIGTERM', () => stop(0));
   process.once('SIGINT', () => stop(0));
   if (settings.enabled) {
-    const proxy = parseSocksProxy(settings.proxyUrl);
+    const proxy = await resolveSocksProxy(settings.proxyUrl);
     await mkdir('/run/aionui', { recursive: true, mode: 0o700 });
     const configPath = '/run/aionui/sing-box.json';
     await writeFile(configPath, JSON.stringify(buildTunConfig(proxy)), { mode: 0o600 });

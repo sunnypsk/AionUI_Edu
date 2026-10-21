@@ -137,10 +137,13 @@ In **Settings → Agents → SOCKS5 network proxy**, enable routing and enter, f
 ```text
 socks5://192.168.1.10:1080
 socks5://username:password@192.168.1.10:1080
+socks5://username:password@proxy.example.com:1080
 socks5://[2001:db8::10]:1080
 ```
 
-Use the proxy's reachable IPv4 or IPv6 address, rather than a hostname, to avoid a direct bootstrap DNS lookup. URL-encode special characters in credentials. `127.0.0.1` refers to the AionUI container itself; a proxy on the NAS or another container needs its reachable LAN/container-network address.
+Use a reachable hostname, IPv4 or IPv6 address. Settings resolves hostnames before testing or saving, preferring IPv4 when available, and saves the selected IP with the existing credentials. DNS failures leave the saved configuration unchanged. Re-enter and save the hostname to refresh its IP if the provider changes addresses. URL-encode special characters in credentials. `127.0.0.1` refers to the AionUI container itself; a proxy on the NAS or another container needs its reachable LAN/container-network address.
+
+Environment-managed hostnames are resolved during container startup before tunnel/firewall setup; resolution failure prevents application startup. Runtime routing still uses only the selected IP, and the existing tunnel DNS and direct-egress restrictions remain in place.
 
 Save, then restart the container from Unraid's Docker page, or run:
 

@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { lookup } from 'node:dns/promises';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
 import path from 'node:path';
+import { domainToASCII } from 'node:url';
 import type {
   NetworkProxyProbeResult,
   NetworkProxySettings,
@@ -16,6 +18,7 @@ export const TUN_DNS = '198.18.0.2';
 export const PROXY_FILE_NAME = 'network-proxy.json';
 const PROXY_TEST_URL = 'https://api.ipify.org';
 const PROXY_TEST_TIMEOUT_MS = 10000;
+const PROXY_DNS_TIMEOUT_MS = 5000;
 
 export type SocksProxy = {
   url: string;
@@ -26,18 +29,23 @@ export type SocksProxy = {
   endpoint: string;
 };
 
-/** Full routing uses an IP upstream so no bootstrap DNS query can bypass the tunnel. */
+/** Parse a proxy URL without resolving it or exposing credentials in errors. */
 export function parseSocksProxy(value: unknown): SocksProxy {
   try {
     if (typeof value !== 'string' || value.length > 2048) throw new Error();
     const url = new URL(value.trim());
-    const server = url.hostname.replace(/^\[|\]$/g, '');
+    const rawServer = url.hostname.replace(/^\[|\]$/g, '');
+    const server = isIP(rawServer) ? rawServer : domainToASCII(rawServer).toLowerCase();
+    const hostname = server.replace(/\.$/, '');
+    const validHostname =
+      hostname.length <= 253 &&
+      hostname.split('.').every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
     const port = url.port ? Number(url.port) : 1080;
     const username = decodeURIComponent(url.username);
     const password = decodeURIComponent(url.password);
     if (
       !['socks5:', 'socks5h:'].includes(url.protocol) ||
-      !isIP(server) ||
+      (!isIP(server) && !validHostname) ||
       !Number.isInteger(port) ||
       port < 1 ||
       port > 65535 ||
@@ -64,6 +72,32 @@ export function parseSocksProxy(value: unknown): SocksProxy {
   }
 }
 
+/** Pin a hostname to one IP before saving settings, probing, or installing routing rules. */
+export async function resolveSocksProxy(value: unknown): Promise<SocksProxy> {
+  const proxy = parseSocksProxy(value);
+  if (isIP(proxy.server)) return proxy;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const addresses = await Promise.race([
+      lookup(proxy.server, { all: true }),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error('SOCKS5_HOSTNAME_RESOLUTION_FAILED')), PROXY_DNS_TIMEOUT_MS);
+      }),
+    ]);
+    const address =
+      addresses.find((entry) => isIP(entry.address) === 4)?.address ??
+      addresses.find((entry) => isIP(entry.address) === 6)?.address;
+    if (!address) throw new Error('SOCKS5_HOSTNAME_RESOLUTION_FAILED');
+    const url = new URL(proxy.url);
+    url.hostname = isIP(address) === 6 ? `[${address}]` : address;
+    return parseSocksProxy(url.href);
+  } catch {
+    throw new Error('SOCKS5_HOSTNAME_RESOLUTION_FAILED');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function proxyFingerprint(settings: NetworkProxySettings): string {
   return settings.enabled && settings.proxyUrl
     ? createHash('sha256').update(parseSocksProxy(settings.proxyUrl).url).digest('hex')
@@ -72,6 +106,7 @@ export function proxyFingerprint(settings: NetworkProxySettings): string {
 
 /** Route every external destination through SOCKS; DNS itself uses HTTPS through SOCKS. */
 export function buildTunConfig(proxy: SocksProxy): Record<string, unknown> {
+  if (!isIP(proxy.server)) throw new Error('SOCKS5_PROXY_IP_REQUIRED');
   return {
     log: { level: 'error', timestamp: true },
     dns: {
@@ -124,6 +159,7 @@ export function buildTunConfig(proxy: SocksProxy): Record<string, unknown> {
 
 /** A stopped/crashed tunnel must not expose the container's ordinary default route. */
 export function buildEgressRules(proxy: SocksProxy): Array<{ command: string; args: string[] }> {
+  if (!isIP(proxy.server)) throw new Error('SOCKS5_PROXY_IP_REQUIRED');
   return [4, 6].flatMap((family) => {
     const command = family === 4 ? 'iptables' : 'ip6tables';
     const rules: string[][] = [
@@ -310,7 +346,16 @@ export class NetworkProxyStore {
       } catch {
         return { state: 'failed', reason: 'invalidProxy', elapsedMs: 0 };
       }
-      return runProbe(proxy);
+      const startedAt = performance.now();
+      let resolved: SocksProxy;
+      try {
+        resolved = await resolveSocksProxy(proxy.url);
+      } catch {
+        return { state: 'failed', reason: 'connection', elapsedMs: Math.round(performance.now() - startedAt) };
+      }
+      const resolutionMs = isIP(proxy.server) ? 0 : Math.round(performance.now() - startedAt);
+      const result = await runProbe(resolved);
+      return result.state === 'skipped' ? result : { ...result, elapsedMs: result.elapsedMs + resolutionMs };
     };
     const [currentResult, configuredResult] = await Promise.all([current, configured()]);
     return { current: currentResult, configured: configuredResult, configuredSource };
@@ -338,7 +383,7 @@ export class NetworkProxyStore {
     const request = input as NetworkProxySettings;
     if (request.proxyUrl !== undefined && typeof request.proxyUrl !== 'string') throw new Error('INVALID_SOCKS5_PROXY');
     const previous = await loadProxySettings(this.dataDir, this.env);
-    const proxyUrl = request.proxyUrl?.trim() ? parseSocksProxy(request.proxyUrl).url : previous.proxyUrl;
+    const proxyUrl = request.proxyUrl?.trim() ? (await resolveSocksProxy(request.proxyUrl)).url : previous.proxyUrl;
     if (request.enabled && !proxyUrl) throw new Error('INVALID_SOCKS5_PROXY');
     const settings = { enabled: request.enabled, ...(proxyUrl ? { proxyUrl } : {}) };
     await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
