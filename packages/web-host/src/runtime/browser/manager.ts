@@ -10,6 +10,7 @@ import {
   type FileChooser,
   type Dialog,
   type CDPSession,
+  type Locator,
 } from 'playwright-core';
 import {
   browserUrl,
@@ -31,7 +32,14 @@ const VIEWPORT = { width: 1280, height: 800 };
  */
 export const BROWSER_LAUNCH_ARGS = ['--disable-dev-shm-usage', '--disable-quic'];
 type LaunchOptions = NonNullable<Parameters<BrowserType['launchPersistentContext']>[1]>;
-type Tab = { id: string; page: Page; requestedUrl?: string; chooser?: FileChooser; dialog?: Dialog };
+type Tab = {
+  id: string;
+  page: Page;
+  requestedUrl?: string;
+  chooser?: FileChooser;
+  dialog?: Dialog;
+  pendingAction?: Promise<void>;
+};
 type Download = { id: string; name: string; state: 'saving' | 'ready' | 'failed'; path?: string };
 type Session = {
   owner: BrowserOwner;
@@ -265,8 +273,10 @@ export class SharedBrowserManager {
     });
     page.on('dialog', (dialog) => {
       const target = s.tabs.find((candidate) => candidate.page === page);
-      if (target) target.dialog = dialog;
-      else void dialog.dismiss();
+      if (target) {
+        target.dialog = dialog;
+        s.revision++;
+      } else void dialog.dismiss();
     });
     page.on('download', (download) => {
       void this.saveDownload(s, download);
@@ -285,6 +295,52 @@ export class SharedBrowserManager {
     return next;
   }
 
+  /** Release the command queue when a modal suspends the page, so its answer can reach that same page. */
+  private async perform(tab: Tab, operation: () => Promise<void>): Promise<void> {
+    let opened!: () => void;
+    const dialog = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    tab.page.on('dialog', opened);
+    const completion = Promise.resolve().then(operation);
+    // Keep later ordinary input serialized, and handle a late rejection after returning the dialog state.
+    const settled = completion.then(
+      () => {},
+      () => {}
+    );
+    tab.pendingAction = settled;
+    void settled.then(() => {
+      if (tab.pendingAction === settled) tab.pendingAction = undefined;
+    });
+    try {
+      await Promise.race([completion, dialog]);
+    } finally {
+      tab.page.off('dialog', opened);
+    }
+  }
+
+  private async selectorAction(
+    page: Page,
+    selector: string,
+    operation: (locator: Locator) => Promise<unknown>
+  ): Promise<void> {
+    const locator = page.locator(selector);
+    const ambiguous = (matchCount: number): BrowserRuntimeError =>
+      new BrowserRuntimeError('BROWSER_SELECTOR_AMBIGUOUS', 'selector', { matchCount });
+    const count = await locator.count();
+    if (count > 1) throw ambiguous(count);
+    try {
+      // Retain Playwright's normal wait when an element has not appeared yet.
+      await operation(locator);
+    } catch (error) {
+      const matches = await locator.count().catch(() => undefined);
+      if (matches !== undefined && matches > 1) throw ambiguous(matches);
+      if (matches === 0 && error instanceof Error && error.name === 'TimeoutError')
+        throw new BrowserRuntimeError('BROWSER_SELECTOR_NOT_FOUND', 'selector', { matchCount: 0 });
+      throw error;
+    }
+  }
+
   /** Block new agent work immediately, then drain the bounded action already in flight. */
   async control(owner: BrowserOwner, mode: BrowserControl): Promise<BrowserResult> {
     const s = this.session(owner);
@@ -297,7 +353,7 @@ export class SharedBrowserManager {
       s.takingOver = false;
       s.needsInspection = mode === 'agent';
       s.revision++;
-      await Promise.all(s.tabs.map((tab) => tab.page.mouse.up().catch(() => {})));
+      await Promise.all(s.tabs.filter((tab) => !tab.dialog).map((tab) => tab.page.mouse.up().catch(() => {})));
       return this.capture(s, false);
     });
   }
@@ -350,10 +406,13 @@ export class SharedBrowserManager {
 
   private async capture(s: Session, text: boolean): Promise<BrowserResult> {
     const state = this.state(s.owner);
+    const active = s.tabs.find((tab) => tab.id === s.active);
+    // A modal blocks DOM and compositor requests. Its bounded metadata is enough to answer it.
+    if (active?.dialog) return { state };
     const titles = Promise.all(
       state.tabs.map(async (tab) => {
         const page = s.tabs.find((t) => t.id === tab.id)?.page;
-        if (!page || page.isClosed()) return;
+        if (!page || page.isClosed() || s.tabs.find((item) => item.id === tab.id)?.dialog) return;
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           tab.title = await Promise.race([
@@ -412,6 +471,16 @@ export class SharedBrowserManager {
     permitted();
     return this.enqueue(s, async () => {
       permitted();
+      let navigationError: BrowserResult['navigationError'];
+      const navigate = async (operation: () => Promise<unknown>): Promise<void> => {
+        try {
+          await operation();
+        } catch (error) {
+          if (!(error instanceof Error) || error.name !== 'TimeoutError') throw error;
+          navigationError = { code: 'BROWSER_TIMEOUT', stage: 'navigation', diagnostic_id: randomUUID() };
+          console.warn(JSON.stringify({ event: 'browser.failed', ...navigationError }));
+        }
+      };
       if (action.kind === 'inspect') {
         s.needsInspection = false;
       } else if (action.kind === 'open') {
@@ -419,100 +488,120 @@ export class SharedBrowserManager {
         if (s.tabs.length >= 8) throw new Error('BROWSER_TAB_LIMIT');
         const tab = this.attach(s, await (await this.context(owner.userId)).newPage());
         tab.requestedUrl = url;
-        if (url !== 'about:blank') await tab.page.goto(url, { waitUntil: 'domcontentloaded' });
+        if (url !== 'about:blank')
+          await this.perform(tab, () => navigate(() => tab.page.goto(url, { waitUntil: 'domcontentloaded' })));
       } else {
         const tab = s.tabs.find((t) => t.id === action.tabId);
         if (!tab || tab.page.isClosed()) throw new Error('BROWSER_TAB_NOT_FOUND');
         const page = tab.page;
-        s.active = tab.id;
-        switch (action.kind) {
-          case 'resize':
-            await page.setViewportSize({ width: action.width, height: action.height });
-            break;
-          case 'navigate':
-            tab.requestedUrl = browserUrl(action.url);
-            await page.goto(tab.requestedUrl, { waitUntil: 'domcontentloaded' });
-            break;
-          case 'back':
-            await page.goBack({ waitUntil: 'domcontentloaded' });
-            break;
-          case 'forward':
-            await page.goForward({ waitUntil: 'domcontentloaded' });
-            break;
-          case 'reload':
-            await page.reload({ waitUntil: 'domcontentloaded' });
-            break;
-          case 'close':
-            await page.close();
-            break;
-          case 'select':
-            break;
-          case 'snapshot':
-            s.needsInspection = false;
-            break;
-          case 'click':
-            await page.mouse.click(action.x, action.y, { button: action.button });
-            break;
-          case 'move':
-            await page.mouse.move(action.x, action.y);
-            break;
-          case 'down':
-            await page.mouse.move(action.x, action.y);
-            await page.mouse.down();
-            break;
-          case 'up':
-            await page.mouse.move(action.x, action.y);
-            await page.mouse.up();
-            break;
-          case 'scroll':
-            await page.mouse.wheel(action.x, action.y);
-            break;
-          case 'text':
-            await page.keyboard.insertText(action.text);
-            break;
-          case 'key':
-            await page.keyboard.press(action.key);
-            break;
-          case 'fill':
-            await page.locator(action.selector).fill(action.text);
-            break;
-          case 'clickElement':
-            await page.locator(action.selector).click({ noWaitAfter: true });
-            break;
-          case 'upload': {
-            const buffer = Buffer.from(action.base64, 'base64');
-            if (buffer.length > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
-            const payload = {
-              name: path.basename(action.name),
-              mimeType: action.mimeType ?? 'application/octet-stream',
-              buffer,
-            };
-            if (tab.chooser) {
-              await tab.chooser.setFiles(payload);
-              tab.chooser = undefined;
-            } else if (action.selector) await page.locator(action.selector).setInputFiles(payload);
-            else throw new Error('BROWSER_NO_FILE_CHOOSER');
-            break;
-          }
-          case 'uploadPath': {
-            const root = await realpath(owner.workspace);
-            const file = await realpath(path.resolve(root, action.path));
-            if (!file.startsWith(root + path.sep) || !(await stat(file)).isFile()) throw new Error('BROWSER_FORBIDDEN');
-            if ((await stat(file)).size > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
-            await page.locator(action.selector).setInputFiles(file);
-            break;
-          }
-          case 'dialog': {
-            if (!tab.dialog) throw new Error('BROWSER_NO_DIALOG');
-            if (action.accept) await tab.dialog.accept(action.text);
-            else await tab.dialog.dismiss();
-            tab.dialog = undefined;
-            break;
-          }
+        const previous = tab.pendingAction;
+        if (!['dialog', 'close', 'select', 'snapshot'].includes(action.kind)) {
+          if (tab.dialog) throw new Error('BROWSER_DIALOG_OPEN');
+          await previous;
         }
+        if (action.kind !== 'close') s.active = tab.id;
+        const operation = async (): Promise<void> => {
+          switch (action.kind) {
+            case 'resize':
+              await page.setViewportSize({ width: action.width, height: action.height });
+              break;
+            case 'navigate':
+              tab.requestedUrl = browserUrl(action.url);
+              await navigate(() => page.goto(tab.requestedUrl!, { waitUntil: 'domcontentloaded' }));
+              break;
+            case 'back':
+              await navigate(() => page.goBack({ waitUntil: 'domcontentloaded' }));
+              break;
+            case 'forward':
+              await navigate(() => page.goForward({ waitUntil: 'domcontentloaded' }));
+              break;
+            case 'reload':
+              await navigate(() => page.reload({ waitUntil: 'domcontentloaded' }));
+              break;
+            case 'close':
+              await page.close();
+              break;
+            case 'select':
+              break;
+            case 'snapshot':
+              s.needsInspection = false;
+              break;
+            case 'click':
+              await page.mouse.click(action.x, action.y, { button: action.button });
+              break;
+            case 'move':
+              await page.mouse.move(action.x, action.y);
+              break;
+            case 'down':
+              await page.mouse.move(action.x, action.y);
+              await page.mouse.down();
+              break;
+            case 'up':
+              await page.mouse.move(action.x, action.y);
+              await page.mouse.up();
+              break;
+            case 'scroll':
+              await page.mouse.wheel(action.x, action.y);
+              break;
+            case 'text':
+              await page.keyboard.insertText(action.text);
+              break;
+            case 'key':
+              await page.keyboard.press(action.key);
+              break;
+            case 'fill':
+              await this.selectorAction(page, action.selector, (locator) => locator.fill(action.text));
+              break;
+            case 'clickElement':
+              await this.selectorAction(page, action.selector, (locator) => locator.click({ noWaitAfter: true }));
+              break;
+            case 'upload': {
+              const buffer = Buffer.from(action.base64, 'base64');
+              if (buffer.length > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
+              const payload = {
+                name: path.basename(action.name),
+                mimeType: action.mimeType ?? 'application/octet-stream',
+                buffer,
+              };
+              if (tab.chooser) {
+                await tab.chooser.setFiles(payload);
+                tab.chooser = undefined;
+              } else if (action.selector) await page.locator(action.selector).setInputFiles(payload);
+              else throw new Error('BROWSER_NO_FILE_CHOOSER');
+              break;
+            }
+            case 'uploadPath': {
+              const root = await realpath(owner.workspace);
+              const file = await realpath(path.resolve(root, action.path));
+              if (!file.startsWith(root + path.sep) || !(await stat(file)).isFile())
+                throw new Error('BROWSER_FORBIDDEN');
+              if ((await stat(file)).size > 30 * 1024 * 1024) throw new Error('BROWSER_FILE_TOO_LARGE');
+              await page.locator(action.selector).setInputFiles(file);
+              break;
+            }
+            case 'dialog': {
+              if (!tab.dialog) throw new Error('BROWSER_NO_DIALOG');
+              const dialog = tab.dialog;
+              tab.dialog = undefined;
+              try {
+                if (action.accept) await dialog.accept(action.text);
+                else await dialog.dismiss();
+              } catch (error) {
+                if (!tab.dialog && !page.isClosed()) tab.dialog = dialog;
+                throw error;
+              }
+              // The handler may immediately open another modal; perform() returns its state without waiting.
+              await previous;
+              break;
+            }
+          }
+        };
+        if (action.kind === 'select' || action.kind === 'snapshot') await operation();
+        else await this.perform(tab, operation);
       }
       s.revision++;
-      return actor === 'agent' ? this.capture(s, true) : { state: this.state(owner) };
+      const result = actor === 'agent' ? await this.capture(s, true) : { state: this.state(owner) };
+      return { ...result, ...(navigationError ? { navigationError } : {}) };
     });
   }
 

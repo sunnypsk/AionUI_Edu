@@ -171,6 +171,11 @@ export async function runBrowserSmoke(): Promise<void> {
   await Promise.all(Object.keys(tasks).map((id) => mkdir(path.join(directory, id))));
   let uploaded = '';
   const blockedStyles = new Set<http.ServerResponse>();
+  const blockedScripts = new Set<http.ServerResponse>();
+  const releaseScripts = (): void => {
+    for (const response of blockedScripts) response.end('');
+    blockedScripts.clear();
+  };
   const releaseStyles = (): void => {
     for (const response of blockedStyles) response.end('body { font-family: sans-serif; }');
     blockedStyles.clear();
@@ -215,6 +220,20 @@ export async function runBrowserSmoke(): Promise<void> {
       res.flushHeaders();
       return;
     }
+    if (req.url === '/pending-navigation.js') {
+      res.writeHead(200, { 'content-type': 'application/javascript' });
+      res.flushHeaders();
+      blockedScripts.add(res);
+      res.once('close', () => blockedScripts.delete(res));
+      return;
+    }
+    if (req.url === '/slow-navigation') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(
+        '<title>Slow navigation fixture</title><h1>Navigation submitted once</h1><script src="/pending-navigation.js"></script>'
+      );
+      return;
+    }
     if (req.url === '/slow-font') {
       res.setHeader('content-type', 'text/html; charset=utf-8');
       res.end(
@@ -249,7 +268,7 @@ export async function runBrowserSmoke(): Promise<void> {
     }
     res.setHeader('content-type', 'text/html; charset=utf-8');
     res.end(
-      `<h1>${req.headers.cookie?.includes('browser-qa=signed') ? 'Welcome 老師' : 'Guest'}</h1><input id="name"><a id="signin" href="/signin">Sign in</a><a id="download" href="/download">Download</a><input type="file" onchange="this.files[0].text().then(text=>fetch('/uploaded',{method:'POST',body:text}))">`
+      `<h1>${req.headers.cookie?.includes('browser-qa=signed') ? 'Welcome 老師' : 'Guest'}</h1><input id="name"><a id="signin" href="/signin">Sign in</a><a id="download" href="/download">Download</a><input type="file" onchange="this.files[0].text().then(text=>fetch('/uploaded',{method:'POST',body:text}))"><button id="ask" onclick="document.querySelector('#answer').textContent=prompt('Lesson title')??'Cancelled'">Open prompt</button><output id="answer"></output><button id="chain" onclick="const title=prompt('First title');document.querySelector('#answer').textContent=confirm('Save title?')?title:'Cancelled'">Chained dialogs</button>`
     );
   });
   console.log('Listening for fixtures');
@@ -313,7 +332,14 @@ export async function runBrowserSmoke(): Promise<void> {
     client.callTool({ name: 'browser', arguments: { action } });
   const result = (
     response: Awaited<ReturnType<typeof tool>>
-  ): { state: BrowserState; page: string; frameError?: BrowserResult['frameError']; actionCompleted?: boolean } => {
+  ): {
+    state: BrowserState;
+    page: string;
+    frameError?: BrowserResult['frameError'];
+    navigationError?: BrowserResult['navigationError'];
+    actionCompleted?: boolean;
+    actionSubmitted?: boolean;
+  } => {
     assert(!response.isError, 'MCP browser action failed: ' + JSON.stringify(response.content));
     const content = response.content as { type: string; text?: string }[];
     return JSON.parse(content.find((item) => item.type === 'text')!.text!);
@@ -335,6 +361,49 @@ export async function runBrowserSmoke(): Promise<void> {
     const tabId = opened.state.activeTabId!;
     assert(opened.page.includes('Guest'));
     assert((await ui('frame')).image, 'Manual viewport must show the agent page');
+    console.log('Recoverable selector diagnostics through MCP');
+    const ambiguous = await tool(agent, { kind: 'fill', tabId, selector: 'input', text: 'must not be entered' });
+    assert(ambiguous.isError);
+    const selectorError = JSON.parse((ambiguous.content as { text: string }[])[0].text);
+    assert.equal(selectorError.code, 'BROWSER_SELECTOR_AMBIGUOUS');
+    assert.equal(selectorError.details.matchCount, 2);
+    assert(selectorError.hint.includes('unique selector'));
+    result(await tool(agent, { kind: 'fill', tabId, selector: '#name', text: 'Recovered' }));
+    console.log('Agent dialog responses and nested dialogs without blocking the command queue');
+    const prompt = result(await tool(agent, { kind: 'clickElement', tabId, selector: '#ask' }));
+    assert.equal(prompt.state.tabs.find((tab) => tab.id === tabId)?.dialog?.type, 'prompt');
+    const answered = result(await tool(agent, { kind: 'dialog', tabId, accept: true, text: '中文標題' }));
+    assert(answered.page.includes('中文標題'));
+    result(await tool(agent, { kind: 'clickElement', tabId, selector: '#chain' }));
+    const confirm = result(await tool(agent, { kind: 'dialog', tabId, accept: true, text: 'Nested title' }));
+    assert.equal(confirm.state.tabs.find((tab) => tab.id === tabId)?.dialog?.type, 'confirm');
+    assert(result(await tool(agent, { kind: 'dialog', tabId, accept: false })).page.includes('Cancelled'));
+    console.log('Manual takeover of an agent dialog');
+    result(await tool(agent, { kind: 'clickElement', tabId, selector: '#ask' }));
+    await ui('control', { control: 'human' });
+    assert((await tool(agent, { kind: 'dialog', tabId, accept: false })).isError);
+    await ui('action', { kind: 'dialog', tabId, accept: true, text: 'Human answer' });
+    assert((await ui('frame')).image);
+    await ui('control', { control: 'agent' });
+    assert(result(await tool(agent, { kind: 'inspect' })).page.includes('Human answer'));
+    console.log('Navigation timeout retains one submitted page and supports inspection');
+    let slowId: string | undefined;
+    try {
+      const slow = result(await tool(agent, { kind: 'open', url: site + '/slow-navigation' }));
+      slowId = slow.state.activeTabId!;
+      assert.equal(slow.navigationError?.code, 'BROWSER_TIMEOUT');
+      assert.equal(slow.actionSubmitted, true);
+      assert.equal(slow.actionCompleted, false);
+      assert.equal(slow.state.tabs.find((tab) => tab.id === slowId)?.requestedUrl, site + '/slow-navigation');
+      releaseScripts();
+      assert(result(await tool(agent, { kind: 'inspect' })).page.includes('Navigation submitted once'));
+      result(await tool(agent, { kind: 'select', tabId }));
+      const closed = result(await tool(agent, { kind: 'close', tabId: slowId }));
+      assert.equal(closed.state.activeTabId, tabId, 'Closing a background tab must preserve the selected page');
+      assert.equal(closed.state.tabs.length, 1);
+    } finally {
+      releaseScripts();
+    }
     console.log('Capture a live page while its web font remains pending');
     const fontTab = result(await tool(agent, { kind: 'open', url: site + '/slow-font' }));
     const fontPage = [...browsers]
@@ -464,6 +533,7 @@ export async function runBrowserSmoke(): Promise<void> {
       'Shared browser passed: pending fonts, blocked first paint with concurrent polling, same-page handoff, Chinese upload, task/user isolation, downloads, last-tab release, persistent login and MCP.'
     );
   } finally {
+    releaseScripts();
     await Promise.allSettled(clients.map((client) => client.close()));
     await runtime.close();
     await Promise.all([close(server), close(backend)]);

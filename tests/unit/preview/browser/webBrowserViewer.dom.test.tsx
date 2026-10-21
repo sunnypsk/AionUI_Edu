@@ -104,6 +104,64 @@ describe('shared browser manual controls', () => {
     );
   });
 
+  it('pauses automatic resizing until the user answers a website dialog', async () => {
+    const observe = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe = observe;
+        disconnect(): void {}
+      }
+    );
+    const current = state({
+      running: true,
+      activeTabId: 'tab-one',
+      tabs: [
+        {
+          id: 'tab-one',
+          title: 'Page',
+          url: 'https://example.com',
+          fileChooser: false,
+          dialog: { type: 'prompt', message: 'Lesson title' },
+        },
+      ],
+    });
+    show(current);
+    await screen.findByText('Lesson title');
+    expect(observe).not.toHaveBeenCalled();
+    const answered = { ...current, revision: 2, tabs: current.tabs.map(({ dialog: _dialog, ...tab }) => tab) };
+    api.action.mockResolvedValue({ state: answered });
+    api.frame.mockResolvedValue({ state: answered });
+    fireEvent.click(screen.getByRole('button', { name: 'common.confirm' }));
+    await waitFor(() => expect(observe).toHaveBeenCalledOnce());
+    expect(api.action).toHaveBeenCalledWith('task-one', { kind: 'dialog', tabId: 'tab-one', accept: true, text: '' });
+  });
+
+  it('fits the remote viewport to the available content box without subtracting padding twice', async () => {
+    let resized!: ResizeObserverCallback;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resized = callback;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      }
+    );
+    const current = state({
+      running: true,
+      activeTabId: 'tab-one',
+      tabs: [{ id: 'tab-one', title: 'Page', url: 'https://example.com', fileChooser: false }],
+    });
+    show(current);
+    await screen.findByRole('button', { name: 'preview.sharedBrowser.returnToAi' });
+    resized([{ contentRect: { width: 480, height: 640 } } as ResizeObserverEntry], {} as ResizeObserver);
+    await waitFor(() =>
+      expect(api.action).toHaveBeenCalledWith('task-one', { kind: 'resize', tabId: 'tab-one', width: 480, height: 640 })
+    );
+  });
+
   it('prevents manual navigation until the user takes control', async () => {
     show(
       state({

@@ -22,6 +22,9 @@ const SAFE_ERRORS = new Set([
   'BROWSER_TAB_LIMIT',
   'BROWSER_NO_FILE_CHOOSER',
   'BROWSER_NO_DIALOG',
+  'BROWSER_DIALOG_OPEN',
+  'BROWSER_SELECTOR_AMBIGUOUS',
+  'BROWSER_SELECTOR_NOT_FOUND',
   'BROWSER_FILE_TOO_LARGE',
   'BROWSER_FILE_NOT_FOUND',
   'BROWSER_PROFILE_LOCKED',
@@ -144,7 +147,14 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
     send(
       res,
       code === 'UNAUTHORIZED' ? 401 : code === 'BROWSER_FORBIDDEN' ? 403 : code.startsWith('INVALID_') ? 400 : 409,
-      { error: { code, stage, diagnostic_id: diagnosticId } }
+      {
+        error: {
+          code,
+          stage,
+          diagnostic_id: diagnosticId,
+          ...(error instanceof BrowserRuntimeError && error.details ? { details: error.details } : {}),
+        },
+      }
     );
   };
   const privateServer = http.createServer((req, res) => {

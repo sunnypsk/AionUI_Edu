@@ -12,12 +12,16 @@ class FakePage extends EventEmitter {
   address = 'about:blank';
   closed = false;
   fill = vi.fn().mockResolvedValue(undefined);
+  click = vi.fn().mockResolvedValue(undefined);
+  count = vi.fn().mockResolvedValue(1);
   upload = vi.fn().mockResolvedValue(undefined);
   mouse = { up: vi.fn().mockResolvedValue(undefined), click: vi.fn().mockResolvedValue(undefined) };
   keyboard = { insertText: vi.fn().mockResolvedValue(undefined), press: vi.fn().mockResolvedValue(undefined) };
   locator = vi.fn(() => ({
     ariaSnapshot: async () => '- textbox: updated page',
     fill: this.fill,
+    click: this.click,
+    count: this.count,
     setInputFiles: this.upload,
   }));
   frame = { url: (): string => this.address };
@@ -95,6 +99,189 @@ describe('task-scoped shared browser', () => {
   });
   const tab = async (): Promise<string> =>
     (await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com' })).state.activeTabId!;
+
+  it.each(['click', 'clickElement', 'key'] as const)(
+    'returns a dialog opened by %s before its triggering action finishes',
+    async (kind) => {
+      const id = await tab();
+      let finish!: () => void;
+      const dialog = {
+        type: () => 'prompt',
+        message: () => 'Lesson title',
+        accept: vi.fn(async () => finish()),
+        dismiss: vi.fn(async () => finish()),
+      };
+      const trigger = (): Promise<void> =>
+        new Promise((resolve) => {
+          finish = resolve;
+          pages[0].emit('dialog', dialog);
+        });
+      if (kind === 'click') pages[0].mouse.click.mockImplementationOnce(trigger);
+      else if (kind === 'clickElement') pages[0].click.mockImplementationOnce(trigger);
+      else pages[0].keyboard.press.mockImplementationOnce(trigger);
+      const command =
+        kind === 'click'
+          ? { kind, tabId: id, x: 1, y: 1 }
+          : kind === 'clickElement'
+            ? { kind, tabId: id, selector: '#ask' }
+            : { kind, tabId: id, key: 'Enter' };
+      const operation = manager.act(owner, 'agent', command);
+      let returned = false;
+      void operation.then(() => {
+        returned = true;
+      });
+      try {
+        await vi.waitFor(() => expect(returned).toBe(true));
+        expect((await operation).state.tabs[0].dialog).toEqual({ type: 'prompt', message: 'Lesson title' });
+        await manager.act(owner, 'agent', { kind: 'dialog', tabId: id, accept: true, text: '中文標題' });
+        expect(dialog.accept).toHaveBeenCalledWith('中文標題');
+        await manager.act(owner, 'agent', { kind: 'text', tabId: id, text: 'Continue' });
+      } finally {
+        finish?.();
+        await operation;
+      }
+    }
+  );
+
+  it('lets the user take over and cancel a dialog opened by the agent', async () => {
+    const id = await tab();
+    let finish!: () => void;
+    const dialog = {
+      type: () => 'confirm',
+      message: () => 'Continue?',
+      dismiss: vi.fn(async () => finish()),
+    };
+    pages[0].mouse.click.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+          pages[0].emit('dialog', dialog);
+        })
+    );
+    const operation = manager.act(owner, 'agent', { kind: 'click', tabId: id, x: 1, y: 1 });
+    let returned = false;
+    void operation.then(() => {
+      returned = true;
+    });
+    try {
+      await vi.waitFor(() => expect(returned).toBe(true));
+      await manager.control(owner, 'human');
+      await expect(manager.act(owner, 'agent', { kind: 'dialog', tabId: id, accept: false })).rejects.toThrow(
+        'BROWSER_HUMAN_CONTROL'
+      );
+      await manager.act(owner, 'human', { kind: 'dialog', tabId: id, accept: false });
+      expect(dialog.dismiss).toHaveBeenCalledOnce();
+      await manager.control(owner, 'agent');
+      expect((await manager.act(owner, 'agent', { kind: 'inspect' })).state.tabs[0].dialog).toBeUndefined();
+    } finally {
+      finish?.();
+      await operation;
+    }
+  });
+
+  it('returns a second dialog opened while answering the first one', async () => {
+    const id = await tab();
+    let finish!: () => void;
+    const second = { type: () => 'confirm', message: () => 'Save?', accept: vi.fn(async () => finish()) };
+    const first = {
+      type: () => 'prompt',
+      message: () => 'Title',
+      accept: vi.fn(async () => {
+        pages[0].emit('dialog', second);
+      }),
+    };
+    pages[0].mouse.click.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+          pages[0].emit('dialog', first);
+        })
+    );
+    try {
+      await manager.act(owner, 'agent', { kind: 'click', tabId: id, x: 1, y: 1 });
+      const next = await manager.act(owner, 'agent', { kind: 'dialog', tabId: id, accept: true, text: 'Lesson' });
+      expect(next.state.tabs[0].dialog?.message).toBe('Save?');
+      await expect(manager.act(owner, 'agent', { kind: 'text', tabId: id, text: 'not yet' })).rejects.toThrow(
+        'BROWSER_DIALOG_OPEN'
+      );
+      await manager.act(owner, 'agent', { kind: 'dialog', tabId: id, accept: true });
+      expect((await manager.act(owner, 'agent', { kind: 'inspect' })).state.tabs[0].dialog).toBeUndefined();
+    } finally {
+      finish?.();
+    }
+  });
+
+  it('does not wait for blocked page metadata while a dialog needs an answer', async () => {
+    await tab();
+    pages[0].emit('dialog', { type: () => 'alert', message: () => 'Notice' });
+    pages[0].title = () => new Promise(() => {});
+    pages[0].captureScreenshot.mockImplementationOnce(() => new Promise(() => {}));
+    const frame = await manager.frame(owner);
+    expect(frame.state.tabs[0].dialog?.message).toBe('Notice');
+    expect(pages[0].captureScreenshot).toHaveBeenCalledOnce();
+  });
+
+  it.each(['fill', 'clickElement'] as const)(
+    'explains an ambiguous %s selector without exposing page contents',
+    async (kind) => {
+      const id = await tab();
+      pages[0].count.mockResolvedValue(2);
+      const command =
+        kind === 'fill'
+          ? { kind, tabId: id, selector: 'input', text: 'private value' }
+          : { kind, tabId: id, selector: 'input' };
+      await expect(manager.act(owner, 'agent', command)).rejects.toMatchObject({
+        message: 'BROWSER_SELECTOR_AMBIGUOUS',
+        stage: 'selector',
+        details: { matchCount: 2 },
+      });
+      expect(pages[0].fill).not.toHaveBeenCalled();
+      expect(pages[0].click).not.toHaveBeenCalled();
+    }
+  );
+
+  it('explains a missing element after its normal action wait expires', async () => {
+    const id = await tab();
+    pages[0].count.mockResolvedValue(0);
+    pages[0].fill.mockRejectedValueOnce(
+      Object.assign(new Error('private selector diagnostic'), { name: 'TimeoutError' })
+    );
+    await expect(
+      manager.act(owner, 'agent', { kind: 'fill', tabId: id, selector: '#missing', text: 'value' })
+    ).rejects.toMatchObject({
+      message: 'BROWSER_SELECTOR_NOT_FOUND',
+      stage: 'selector',
+      details: { matchCount: 0 },
+    });
+  });
+
+  it('preserves the current tab when closing a background tab', async () => {
+    await tab();
+    const background = await tab();
+    const active = await tab();
+    const result = await manager.act(owner, 'agent', { kind: 'close', tabId: background });
+    expect(result.state.activeTabId).toBe(active);
+    expect(result.state.tabs.map((item) => item.id)).not.toContain(background);
+  });
+
+  it('returns the existing page and an uncertain navigation outcome after an open times out', async () => {
+    createPage = () => {
+      const page = new FakePage();
+      page.goto = async (url: string): Promise<void> => {
+        page.address = url;
+        throw Object.assign(new Error('private navigation diagnostics'), { name: 'TimeoutError' });
+      };
+      return page;
+    };
+    const result = await manager.act(owner, 'agent', { kind: 'open', url: 'https://example.com/slow' });
+    expect(result).toMatchObject({
+      state: { tabs: [{ url: 'https://example.com/slow' }] },
+      text: '- textbox: updated page',
+      navigationError: { code: 'BROWSER_TIMEOUT', stage: 'navigation' },
+    });
+    expect(JSON.stringify(result)).not.toContain('private navigation diagnostics');
+    expect((await manager.act(owner, 'agent', { kind: 'inspect' })).state.tabs).toHaveLength(1);
+  });
 
   it('retains a completed open and accessible page text when the preview is not ready', async () => {
     createPage = () => {

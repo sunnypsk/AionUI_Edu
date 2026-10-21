@@ -6,11 +6,13 @@ const capabilityOwner = z.object({ userId: ownerId, conversationId: ownerId });
 
 /** A bounded diagnostic; raw Chromium errors can contain URLs and private profile data. */
 export class BrowserRuntimeError extends Error {
-  readonly stage: 'profile' | 'launch' | 'capture';
+  readonly stage: 'profile' | 'launch' | 'capture' | 'selector';
+  readonly details?: { matchCount: number };
 
-  constructor(code: string, stage: 'profile' | 'launch' | 'capture') {
+  constructor(code: string, stage: BrowserRuntimeError['stage'], details?: { matchCount: number }) {
     super(code);
     this.stage = stage;
+    this.details = details;
   }
 }
 
@@ -140,6 +142,8 @@ export type BrowserResult = {
   image?: string;
   text?: string;
   frameError?: { code: 'BROWSER_TIMEOUT' | 'BROWSER_UNAVAILABLE'; stage: 'capture'; diagnostic_id: string };
+  /** The request was issued, but reaching the navigation milestone is unconfirmed. Inspect before retrying. */
+  navigationError?: { code: 'BROWSER_TIMEOUT'; stage: 'navigation'; diagnostic_id: string };
 };
 
 /** Only network pages are accepted; browser-internal and local-file schemes stay inaccessible. */

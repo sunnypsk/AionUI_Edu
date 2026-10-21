@@ -36,6 +36,7 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
   currentId.current = id;
   const state = result?.state;
   const tab = state?.tabs.find((item) => item.id === state.activeTabId);
+  const hasDialog = Boolean(tab?.dialog);
   const human = state?.control === 'human' && !state.takingOver;
   const tabAddress = tab ? browserTabAddress(tab) : '';
   const loadFailed = Boolean(tab && isBrowserErrorUrl(tab.url));
@@ -113,13 +114,14 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
   );
 
   useEffect(() => {
-    if (!human || !tab || !viewport.current || !visible) return;
+    if (!human || !tab || hasDialog || !viewport.current || !visible) return;
     let timer: ReturnType<typeof setTimeout>;
     const observer = new ResizeObserver(([entry]) => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        const width = Math.min(1920, Math.max(320, Math.round(entry.contentRect.width) - 16));
-        const height = Math.min(1600, Math.max(240, Math.round(entry.contentRect.height) - 16));
+        // contentRect already excludes padding; subtracting it again makes narrow previews overflow and resize repeatedly.
+        const width = Math.min(1920, Math.max(320, Math.round(entry.contentRect.width)));
+        const height = Math.min(1600, Math.max(240, Math.round(entry.contentRect.height)));
         void action({ kind: 'resize', tabId: tab.id, width, height });
       }, 150);
     });
@@ -128,7 +130,7 @@ const WebBrowserViewer: React.FC<{ visible: boolean }> = ({ visible }) => {
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [human, tab?.id, visible, action]);
+  }, [human, tab?.id, hasDialog, visible, action]);
 
   const control = async (mode: 'human' | 'agent'): Promise<void> => {
     if (!id || busy) return;

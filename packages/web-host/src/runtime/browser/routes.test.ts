@@ -81,6 +81,21 @@ describe('shared browser authorization and Codex integration', () => {
     expect(JSON.stringify(warning.mock.calls)).not.toContain('fixture-secret');
   });
 
+  it.each([
+    ['BROWSER_SELECTOR_AMBIGUOUS', 2],
+    ['BROWSER_SELECTOR_NOT_FOUND', 0],
+  ])('preserves the bounded %s diagnosis for callers', async (code, matchCount) => {
+    vi.spyOn(manager, 'act').mockRejectedValue(
+      new BrowserRuntimeError(String(code), 'selector', { matchCount: Number(matchCount) })
+    );
+    const response = await request('task-one/action', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'open', url: 'https://example.com' }),
+    });
+    expect(await response.json()).toMatchObject({ error: { code, stage: 'selector', details: { matchCount } } });
+  });
+
   it('rejects anonymous requests even when the backend local identity route might allow them', async () => {
     expect((await fetch(base + '/api/edu/browser/task-one/state')).status).toBe(401);
   });
