@@ -12,6 +12,7 @@ import { usePreviewLauncher } from '@/renderer/hooks/file/usePreviewLauncher';
 import { useOptionalPreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { getContentTypeByExtension } from '@/renderer/pages/conversation/Preview/fileUtils';
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
+import { previewErrorToI18nKey, type PreviewErrorKind } from '@/renderer/utils/previewError';
 import styles from './OpenUIComponents.module.css';
 
 /**
@@ -35,11 +36,19 @@ const ICONS: Partial<Record<PreviewContentType, React.ElementType>> = {
 };
 
 /** Preview needs the conversation's preview panel; only mount the launcher where one exists. */
-function PreviewButton({ path, disabled, onError }: { path: string; disabled: boolean; onError: () => void }) {
+function PreviewButton({
+  path,
+  disabled,
+  onError,
+}: {
+  path: string;
+  disabled: boolean;
+  onError: (kind: PreviewErrorKind) => void;
+}) {
   const { t } = useTranslation();
   const { launchPreview, loading, errorKind } = usePreviewLauncher();
   useEffect(() => {
-    if (errorKind) onError();
+    if (errorKind) onError(errorKind);
   }, [errorKind, onError]);
   return (
     <Button
@@ -62,19 +71,22 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
   const streaming = useIsStreaming();
   const preview = useOptionalPreviewContext();
   const workspace = useConversationContextSafe()?.workspace;
-  const [problem, setProblem] = useState<'unavailable' | 'downloadError' | null>(null);
+  /** An i18n key for the last preview or download failure. */
+  const [problem, setProblem] = useState<string | null>(null);
   const path = normalizeWorkspacePath(props.path ?? '');
   const name = path?.split('/').pop() ?? props.path;
   const Icon = (path && ICONS[getContentTypeByExtension(path)]) || FileText;
   const disabled = streaming || !workspace;
-  const status = !path ? 'invalidPath' : !workspace ? 'unavailable' : problem;
-  const markUnavailable = useCallback(() => setProblem('unavailable'), []);
+  const status = !path ? 'messages.openui.file.invalidPath' : !workspace ? 'messages.openui.file.unavailable' : problem;
+  const reportPreview = useCallback((kind: PreviewErrorKind) => setProblem(previewErrorToI18nKey(kind)), []);
   const download = async () => {
     if (!path || !workspace) return;
     try {
       await downloadFileFromRef(localFileRef(joinPath(workspace, path)), name);
-    } catch {
-      setProblem('downloadError');
+    } catch (error) {
+      // downloadFileFromRef reports the HTTP status in its message; a 404 means the file is missing.
+      const missing = error instanceof Error && /\(404\)/.test(error.message);
+      setProblem(missing ? previewErrorToI18nKey('not_found') : 'messages.openui.file.downloadError');
     }
   };
   return (
@@ -85,13 +97,13 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
         {props.description && <div className={styles.fileDescription}>{props.description}</div>}
         {status && (
           <div className={styles.fileStatus} role='status'>
-            {t(`messages.openui.file.${status}`)}
+            {t(status)}
           </div>
         )}
       </div>
       {path && (
         <div className={styles.fileActions}>
-          {preview && <PreviewButton path={path} disabled={disabled} onError={markUnavailable} />}
+          {preview && <PreviewButton path={path} disabled={disabled} onError={reportPreview} />}
           <Button size='small' icon={<Download />} disabled={disabled} onClick={() => void download()}>
             {t('messages.openui.file.download')}
           </Button>

@@ -387,6 +387,17 @@ describe('FileCard', () => {
     fireEvent.click(await ready('messages.openui.file.download'));
     expect(await screen.findByText('messages.openui.file.downloadError')).toBeTruthy();
   });
+  it('says the file is missing when preview reports it not found', async () => {
+    host.errorKind = 'not_found';
+    card('簡報/不存在.pptx');
+    expect(await screen.findByText('conversation.workspace.preview.errors.notFound')).toBeTruthy();
+  });
+  it('says the file is missing when the download returns 404', async () => {
+    host.download.mockRejectedValueOnce(new Error('File download failed (404)'));
+    card('簡報/不存在.pptx');
+    fireEvent.click(await ready('messages.openui.file.download'));
+    expect(await screen.findByText('conversation.workspace.preview.errors.notFound')).toBeTruthy();
+  });
 });
 describe('SlideOutline', () => {
   const outline =
@@ -477,6 +488,20 @@ describe('SlideOutline', () => {
     expect(within(slides()[0]).getByRole('button', { name: 'messages.openui.slides.add' })).toBeDisabled();
     expect(within(slides()[0]).getByRole('button', { name: 'messages.openui.slides.addPoint' })).toBeDisabled();
     expect(screen.getAllByText('messages.openui.slides.limit').length).toBeGreaterThan(0);
+  });
+  it('shows the suggested slides when a bound variable starts empty', async () => {
+    display('root = Stack([SlideOutline("outline", [{title: "引入"}, {title: "分析"}], $outline)])\n$outline = []');
+    await editable();
+    expect(titles()).toEqual(['引入', '分析']);
+  });
+  it('keeps an outline the teacher emptied and lets them add a slide again', async () => {
+    display(outline);
+    await editable();
+    press(1, 'remove');
+    press(0, 'remove');
+    expect(screen.queryAllByRole('group', { name: 'messages.openui.slides.slide' })).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.openui.slides.add' }));
+    expect(titles()).toEqual(['']);
   });
   it('renders a partially streamed slide read-only', async () => {
     display('root = Stack([SlideOutline("outline", [{title: "引入"}])])', true);

@@ -16,10 +16,15 @@ export const SlideOutlineRenderer: ComponentRenderer<SlideOutlineProps> = ({ pro
   const { t } = useTranslation();
   const streaming = useIsStreaming();
   const field = useStateField(props.name, props.value);
+  // Models often bind `value` to a `$var = []` default; only the teacher's own edits make an empty outline real.
+  const edited = useStateField(props.name + '__edited');
   const stored = field.value as Slide[] | undefined;
-  // An empty array is a real value (every slide removed); only an unset field falls back to the program.
-  const slides = capped(Array.isArray(stored) ? stored : (props.slides ?? []));
-  const update = (next: Slide[]) => field.setValue(capped(next));
+  const useStored = Array.isArray(stored) && (stored.length > 0 || edited.value === true);
+  const slides = capped(useStored ? stored : (props.slides ?? []));
+  const update = (next: Slide[]) => {
+    if (edited.value !== true) edited.setValue(true);
+    field.setValue(capped(next));
+  };
   const edit = (index: number, change: Partial<Slide>) =>
     update(slides.map((slide, position) => (position === index ? { ...slide, ...change } : slide)));
   const move = (index: number, offset: number) => {
@@ -30,6 +35,17 @@ export const SlideOutlineRenderer: ComponentRenderer<SlideOutlineProps> = ({ pro
   const fullSlides = slides.length >= SLIDE_LIMITS.slides;
   return (
     <div className={styles.outline}>
+      {slides.length === 0 && (
+        <Button
+          size='small'
+          type='dashed'
+          icon={<Plus />}
+          disabled={streaming}
+          onClick={() => update([{ title: '', points: [] }])}
+        >
+          {t('messages.openui.slides.add')}
+        </Button>
+      )}
       {slides.map((slide, index) => {
         const points = slide.points ?? [];
         const fullPoints = points.length >= SLIDE_LIMITS.points;
