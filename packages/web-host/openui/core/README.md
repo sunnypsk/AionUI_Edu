@@ -12,6 +12,10 @@ Accepted conversation sends add an optional `user_message` containing the canoni
 
 Native Codex image results retain `savedPath`/`saved_path` references to the original file. Inline PNG/JPEG/WebP/GIF results are stored under the owning conversation workspace's `.aionui-generated-images` directory, with a 32 MiB limit and stable tool-call identity for replay. Only file metadata reaches chat persistence and realtime events. Completed images remain visible outside collapsed tool steps even when the final assistant text is empty; preview and download use the authenticated raw-byte file stream. Failed or canceled tools do not display partial artifacts. Codex wire diagnostics record frame boundaries and sizes without copying image bytes or tool payloads.
 
+Codex notifications are scoped to the bound thread before updating session bindings, turn state or message delivery. A subagent's completion must not end the parent's turn before its final `FileCard` arrives; that previously left the card's message unfinished until the background relay's three-minute idle timeout. Parent-scoped collaboration items continue to update the subagent roster. The bundled Codex 0.163.0 schemas (`v2/ThreadStartedNotification.json`, `v2/TurnCompletedNotification.json` and `v2/AgentMessageDeltaNotification.json`, generated with `codex app-server generate-json-schema`) define the thread identities used by this filter.
+
+Office preview start and stop operations are serialized per user, resolved file and document type. Closing during startup waits for session registration before stopping the process; reopening waits for an earlier delayed stop instead of reusing a process that is about to be killed. Concurrent starts share one watch, while unrelated previews remain independent. Idle operation locks use weak references and are reclaimed on subsequent operations. The existing HTTP and preview status events provide lifecycle diagnostics without additional payload logging.
+
 Prepare the source without starting a service:
 
 ```sh

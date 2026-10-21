@@ -6494,6 +6494,330 @@
 +        .unwrap();
 +    assert!(result.is_err());
 +}
+--- a/crates/aionui-office/src/watch_manager.rs
++++ b/crates/aionui-office/src/watch_manager.rs
+@@ -1,5 +1,6 @@
++use std::collections::HashMap;
+ use std::path::{Path, PathBuf};
+-use std::sync::Arc;
++use std::sync::{Arc, Mutex as StdMutex, Weak};
+ use std::time::Duration;
+ 
+ use aionui_api_types::{PreviewState, PreviewStatusEvent, WebSocketMessage};
+@@ -63,6 +64,7 @@
+ 
+ pub struct OfficecliWatchManager {
+     sessions: DashMap<WatchSessionKey, WatchSession>,
++    operation_locks: StdMutex<HashMap<WatchSessionKey, Weak<Mutex<()>>>>,
+     spawner: Arc<dyn ProcessSpawner>,
+     broadcaster: Arc<dyn EventBroadcaster>,
+     last_version_check: Mutex<Option<std::time::Instant>>,
+@@ -89,6 +91,7 @@
+     pub fn new(spawner: Arc<dyn ProcessSpawner>, broadcaster: Arc<dyn EventBroadcaster>) -> Self {
+         Self {
+             sessions: DashMap::new(),
++            operation_locks: StdMutex::new(HashMap::new()),
+             spawner,
+             broadcaster,
+             last_version_check: Mutex::new(None),
+@@ -102,6 +105,10 @@
+     pub async fn start_for_user(&self, user_id: &str, file_path: &str, doc_type: DocType) -> Result<u16, OfficeError> {
+         let resolved = resolve_path(file_path)?;
+         let key = session_key(user_id, &resolved, doc_type);
++        // Keep startup, registration and stop in request order for this watch.
++        // Other documents, document types and users have independent queues.
++        let operation_lock = self.operation_lock(&key);
++        let _operation_guard = operation_lock.lock().await;
+ 
+         if let Some(entry) = self.sessions.get(&key) {
+             if !entry.aborted && entry.process.is_alive() {
+@@ -225,12 +232,32 @@
+             Err(_) => return,
+         };
+         let key = session_key(user_id, &resolved, doc_type);
++        // Wait for an in-flight start to register before removing its process,
++        // and hold the queue through the delay so a reopen cannot reuse it.
++        let operation_lock = self.operation_lock(&key);
++        let _operation_guard = operation_lock.lock().await;
+ 
+         tokio::time::sleep(Duration::from_millis(STOP_DELAY_MS)).await;
+ 
+         if let Some((_, session)) = self.sessions.remove(&key) {
+             session.process.kill();
+         }
++    }
++
++    fn operation_lock(&self, key: &WatchSessionKey) -> Arc<Mutex<()>> {
++        let mut locks = self
++            .operation_locks
++            .lock()
++            .unwrap_or_else(|poisoned| poisoned.into_inner());
++        // Retain only keys with active or queued operations, rather than keeping
++        // one strong mutex and file path for every preview ever opened.
++        locks.retain(|_, lock| lock.strong_count() > 0);
++        if let Some(lock) = locks.get(key).and_then(Weak::upgrade) {
++            return lock;
++        }
++        let lock = Arc::new(Mutex::new(()));
++        locks.insert(key.clone(), Arc::downgrade(&lock));
++        lock
+     }
+ 
+     pub fn stop_all(&self) {
+--- a/crates/aionui-office/tests/watch_manager_integration.rs
++++ b/crates/aionui-office/tests/watch_manager_integration.rs
+@@ -359,3 +359,251 @@
+     assert_ne!(p1, p2);
+     assert_eq!(spawner.spawn_count.load(Ordering::SeqCst), 2);
+ }
++
++// ---------------------------------------------------------------------------
++// Watch lifecycle races: real loopback listeners, controlled startup timing
++// ---------------------------------------------------------------------------
++
++type ListenerState = Arc<std::sync::Mutex<Option<std::net::TcpListener>>>;
++
++struct ControlledHandle {
++    listener: ListenerState,
++}
++
++impl ProcessHandle for ControlledHandle {
++    fn kill(&self) {
++        self.listener.lock().unwrap().take();
++    }
++
++    fn is_alive(&self) -> bool {
++        self.listener.lock().unwrap().is_some()
++    }
++}
++
++struct ControlledSpawner {
++    first_started: tokio::sync::Notify,
++    release_first: tokio::sync::Semaphore,
++    spawn_count: AtomicU32,
++    fail_first: bool,
++    listeners: std::sync::Mutex<Vec<ListenerState>>,
++}
++
++impl ControlledSpawner {
++    fn new(fail_first: bool) -> Self {
++        Self {
++            first_started: tokio::sync::Notify::new(),
++            release_first: tokio::sync::Semaphore::new(0),
++            spawn_count: AtomicU32::new(0),
++            fail_first,
++            listeners: std::sync::Mutex::new(Vec::new()),
++        }
++    }
++
++    fn live_ports(&self) -> Vec<u16> {
++        self.listeners
++            .lock()
++            .unwrap()
++            .iter()
++            .filter_map(|listener| {
++                listener
++                    .lock()
++                    .unwrap()
++                    .as_ref()
++                    .map(|listener| listener.local_addr().unwrap().port())
++            })
++            .collect()
++    }
++}
++
++#[async_trait::async_trait]
++impl ProcessSpawner for ControlledSpawner {
++    async fn spawn_officecli(
++        &self,
++        _file_path: &str,
++        port: u16,
++        _doc_type: DocType,
++    ) -> Result<Box<dyn ProcessHandle>, OfficeError> {
++        if self.spawn_count.fetch_add(1, Ordering::SeqCst) == 0 {
++            self.first_started.notify_one();
++            self.release_first.acquire().await.unwrap().forget();
++            if self.fail_first {
++                return Err(OfficeError::StartFailed("controlled startup failure".into()));
++            }
++        }
++        let listener = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
++            .map_err(|error| OfficeError::StartFailed(error.to_string()))?;
++        let listener = Arc::new(std::sync::Mutex::new(Some(listener)));
++        self.listeners.lock().unwrap().push(Arc::clone(&listener));
++        Ok(Box::new(ControlledHandle { listener }))
++    }
++
++    async fn install_officecli(&self) -> Result<(), OfficeError> {
++        Ok(())
++    }
++
++    async fn is_officecli_installed(&self) -> bool {
++        true
++    }
++
++    async fn check_update(&self, _doc_type: DocType) -> Result<(), OfficeError> {
++        Ok(())
++    }
++}
++
++async fn queued_stop(
++    manager: Arc<OfficecliWatchManager>,
++    path: String,
++    doc_type: DocType,
++) -> tokio::task::JoinHandle<()> {
++    let entered = Arc::new(tokio::sync::Notify::new());
++    let task_entered = Arc::clone(&entered);
++    let task = tokio::spawn(async move {
++        task_entered.notify_one();
++        manager.stop(&path, doc_type).await;
++    });
++    entered.notified().await;
++    task
++}
++
++#[tokio::test(start_paused = true)]
++async fn watch_lifecycle_close_during_start_leaves_no_process() {
++    for doc_type in [DocType::Word, DocType::Excel, DocType::Ppt] {
++        let spawner = Arc::new(ControlledSpawner::new(false));
++        let manager = Arc::new(OfficecliWatchManager::new(
++            spawner.clone(),
++            Arc::new(TestBroadcaster::new()),
++        ));
++        let dir = tempfile::tempdir().unwrap();
++        let path = create_temp_file(&dir, "closing-office-file");
++        let starting = {
++            let manager = Arc::clone(&manager);
++            let path = path.clone();
++            tokio::spawn(async move { manager.start(&path, doc_type).await })
++        };
++        spawner.first_started.notified().await;
++        let stopping = queued_stop(Arc::clone(&manager), path, doc_type).await;
++        tokio::time::advance(Duration::from_millis(600)).await;
++        tokio::task::yield_now().await;
++        spawner.release_first.add_permits(1);
++        starting.await.unwrap().unwrap();
++        stopping.await.unwrap();
++
++        assert!(
++            spawner.live_ports().is_empty(),
++            "{doc_type:?} process outlived its preview"
++        );
++        assert_eq!(manager.active_session_count(), 0);
++    }
++}
++
++#[tokio::test(start_paused = true)]
++async fn watch_lifecycle_reopen_survives_earlier_delayed_stop() {
++    let spawner = Arc::new(ControlledSpawner::new(false));
++    let manager = Arc::new(OfficecliWatchManager::new(
++        spawner.clone(),
++        Arc::new(TestBroadcaster::new()),
++    ));
++    let dir = tempfile::tempdir().unwrap();
++    let path = create_temp_file(&dir, "reopening.docx");
++    spawner.release_first.add_permits(1);
++    manager.start(&path, DocType::Word).await.unwrap();
++    let stopping = queued_stop(Arc::clone(&manager), path.clone(), DocType::Word).await;
++    let reopened = manager.start(&path, DocType::Word).await.unwrap();
++    stopping.await.unwrap();
++
++    assert_eq!(spawner.live_ports(), vec![reopened]);
++    assert!(manager.is_active_port(reopened, DocType::Word));
++}
++
++#[tokio::test(start_paused = true)]
++async fn watch_lifecycle_concurrent_starts_share_one_process() {
++    let spawner = Arc::new(ControlledSpawner::new(false));
++    let manager = Arc::new(OfficecliWatchManager::new(
++        spawner.clone(),
++        Arc::new(TestBroadcaster::new()),
++    ));
++    let dir = tempfile::tempdir().unwrap();
++    let path = create_temp_file(&dir, "concurrent.xlsx");
++    let first = {
++        let manager = Arc::clone(&manager);
++        let path = path.clone();
++        tokio::spawn(async move { manager.start(&path, DocType::Excel).await })
++    };
++    spawner.first_started.notified().await;
++    let second_entered = Arc::new(tokio::sync::Notify::new());
++    let second = {
++        let manager = Arc::clone(&manager);
++        let second_entered = Arc::clone(&second_entered);
++        tokio::spawn(async move {
++            second_entered.notify_one();
++            manager.start(&path, DocType::Excel).await
++        })
++    };
++    second_entered.notified().await;
++    spawner.release_first.add_permits(1);
++    let first = first.await.unwrap().unwrap();
++    let second = second.await.unwrap().unwrap();
++
++    assert_eq!(first, second);
++    assert_eq!(spawner.live_ports(), vec![first]);
++    assert_eq!(spawner.spawn_count.load(Ordering::SeqCst), 1);
++}
++
++#[tokio::test]
++async fn watch_lifecycle_independent_documents_and_users_do_not_block() {
++    let spawner = Arc::new(ControlledSpawner::new(false));
++    let manager = Arc::new(OfficecliWatchManager::new(
++        spawner.clone(),
++        Arc::new(TestBroadcaster::new()),
++    ));
++    let dir = tempfile::tempdir().unwrap();
++    let path = create_temp_file(&dir, "first.docx");
++    let other_path = create_temp_file(&dir, "other.docx");
++    let first = {
++        let manager = Arc::clone(&manager);
++        let path = path.clone();
++        tokio::spawn(async move { manager.start_for_user("alpha", &path, DocType::Word).await })
++    };
++    spawner.first_started.notified().await;
++    let independent = tokio::time::timeout(Duration::from_secs(3), async {
++        for (user, path, doc_type) in [
++            ("beta", &path, DocType::Word),
++            ("alpha", &other_path, DocType::Word),
++            ("alpha", &path, DocType::Excel),
++        ] {
++            manager.start_for_user(user, path, doc_type).await.unwrap();
++        }
++    })
++    .await;
++    spawner.release_first.add_permits(1);
++    first.await.unwrap().unwrap();
++
++    assert!(independent.is_ok(), "one slow document blocked an unrelated preview");
++    assert_eq!(spawner.live_ports().len(), 4);
++    manager.stop_all();
++}
++
++#[tokio::test(start_paused = true)]
++async fn watch_lifecycle_failed_start_allows_queued_stop_and_retry() {
++    let spawner = Arc::new(ControlledSpawner::new(true));
++    let manager = Arc::new(OfficecliWatchManager::new(
++        spawner.clone(),
++        Arc::new(TestBroadcaster::new()),
++    ));
++    let dir = tempfile::tempdir().unwrap();
++    let path = create_temp_file(&dir, "retry.docx");
++    let first = {
++        let manager = Arc::clone(&manager);
++        let path = path.clone();
++        tokio::spawn(async move { manager.start(&path, DocType::Word).await })
++    };
++    spawner.first_started.notified().await;
++    let stopping = queued_stop(Arc::clone(&manager), path.clone(), DocType::Word).await;
++    spawner.release_first.add_permits(1);
++    let error = first.await.unwrap().unwrap_err();
++    stopping.await.unwrap();
++    let retried = manager.start(&path, DocType::Word).await.unwrap();
++
++    assert!(matches!(error, OfficeError::StartFailed(message) if message == "controlled startup failure"));
++    assert_eq!(spawner.live_ports(), vec![retried]);
++}
 --- a/crates/aionui-session/src/backend/codex_conn.rs
 +++ b/crates/aionui-session/src/backend/codex_conn.rs
 @@ -22,7 +22,7 @@
@@ -6621,7 +6945,27 @@
  
                  // A server-initiated REQUEST has BOTH `method` and `id`
                  // (reverse-RPC). A notification has `method` but no `id`. A
-@@ -1877,6 +1899,14 @@
+@@ -1724,6 +1746,19 @@
+                         // server notification → SessionEvent(s)
+                         let cur = turn_gen.load(Ordering::SeqCst);
+                         let params = frame.get("params").unwrap_or(&Value::Null);
++                        // Filter before a child's notification can change our binding or
++                        // terminal state. Parent-scoped collab items still update the roster.
++                        if let Some(notification_thread) = notification_thread_id(m, params)
++                            && thread_binding
++                                .lock()
++                                .await
++                                .as_deref()
++                                .is_some_and(|bound| bound != notification_thread)
++                        {
++                            tracing::debug!(session_id = %session_id, method = m,
++                                "Ignoring Codex notification for another thread");
++                            continue;
++                        }
+                         if m == "thread/started" {
+                             // bind threadId (backend transport key, kept private).
+                             if let Some(tid) = params.get("thread").and_then(|t| t.get("id")).and_then(Value::as_str) {
+@@ -1877,6 +1912,14 @@
                              continue;
                          }
                          for ev in map_notification(m, params) {
@@ -6636,7 +6980,24 @@
                              emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
                          }
                      }
-@@ -3204,7 +3234,9 @@
+@@ -2780,6 +2823,16 @@
+     }
+ }
+ 
++fn notification_thread_id<'a>(method: &str, params: &'a Value) -> Option<&'a str> {
++    params.get("threadId").and_then(Value::as_str).or_else(|| {
++        if method == "thread/started" {
++            params.pointer("/thread/id").and_then(Value::as_str)
++        } else {
++            None
++        }
++    })
++}
++
+ /// Map a codex server notification → canonical SessionEvent(s). The A1 fix lives
+ /// here: `item` payloads are matched on the `type` STRING (never deserialized
+ /// into the closed 16-variant ThreadItem enum), so an unknown future variant is
+@@ -3204,7 +3257,9 @@
              if completed {
                  // 009 R7/H3: a codex tool is failed when status==failed OR a command
                  // exited non-zero — carry it so a failed tool is not shown as success.
@@ -6647,7 +7008,7 @@
                      || item.get("exitCode").and_then(Value::as_i64).is_some_and(|c| c != 0);
                  // 009 R8: carry the tool OUTPUT. `aggregatedOutput` (command stdout)
                  // is fixture-confirmed (commandExecution completed). codex writes any
-@@ -3242,15 +3274,35 @@
+@@ -3242,15 +3297,35 @@
                  // aggregatedOutput (a commandExecution-only field imageGeneration lacks),
                  // so the image card was empty. Carry the path as FilePath (NOT the
                  // base64 `result` as Text — that would dump megabytes of bytes).
@@ -6692,7 +7053,7 @@
                  }
                  if let Some(text) = item.get("aggregatedOutput").and_then(Value::as_str)
                      && !text.is_empty()
-@@ -3300,7 +3352,15 @@
+@@ -3300,7 +3375,15 @@
                      // tool calls) are present while the output fields are still null,
                      // so the whole item Value is the faithful argument carrier.
                      // TIO-13: never logged at info.
@@ -6709,7 +7070,7 @@
                      // 009 H5: codex inline tool — main agent.
                      parent_tool_use_id: None,
                  });
-@@ -3767,8 +3827,8 @@
+@@ -3767,8 +3850,8 @@
  
  /// Parse a completed `dynamicToolCall` item's `contentItems[]`
  /// (`{type:"inputText",text}` / `{type:"inputImage",imageUrl}`). Previously DROPPED.
@@ -6720,7 +7081,7 @@
  fn parse_codex_dynamic_content_items(items: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
      use crate::event::ToolResultContent;
      let Some(arr) = items.and_then(Value::as_array) else {
-@@ -3776,17 +3836,64 @@
+@@ -3776,17 +3859,64 @@
      };
      arr.iter()
          .filter_map(|el| match el.get("type").and_then(Value::as_str) {
@@ -6791,7 +7152,98 @@
  }
  
  /// Completed→EndTurn (or Truncated if a stop reason says so), Interrupted→
-@@ -9375,6 +9482,212 @@
+@@ -4778,6 +4908,90 @@
+         assert!(codex_capabilities().supports_midturn_delivery);
+     }
+ 
++    #[tokio::test]
++    async fn foreign_thread_completion_cannot_finish_parent_before_file_card() {
++        let events = drive_codex(&[
++            r#"{"method":"thread/started","params":{"thread":{"id":"parent"}}}"#,
++            r#"{"method":"turn/started","params":{"threadId":"parent","turn":{"id":"parent-turn"}}}"#,
++            r#"{"method":"thread/started","params":{"thread":{"id":"reviewer"}}}"#,
++            r#"{"method":"turn/started","params":{"threadId":"reviewer","turn":{"id":"review-turn"}}}"#,
++            r#"{"method":"item/agentMessage/delta","params":{"threadId":"reviewer","turnId":"review-turn","itemId":"review","delta":"PASS"}}"#,
++            r#"{"method":"thread/status/changed","params":{"threadId":"reviewer","status":{"type":"idle"}}}"#,
++            r#"{"method":"turn/completed","params":{"threadId":"reviewer","turn":{"id":"review-turn","status":"completed"}}}"#,
++            r#"{"method":"item/agentMessage/delta","params":{"threadId":"parent","turnId":"parent-turn","itemId":"file","delta":"root = FileCard(\"output/schools.pptx\")"}}"#,
++            r#"{"method":"turn/completed","params":{"threadId":"parent","turn":{"id":"parent-turn","status":"completed"}}}"#,
++        ])
++        .await;
++        let delivery: Vec<_> = events
++            .iter()
++            .filter_map(|event| match event {
++                SessionEvent::MessageDelta { text, .. } => Some(text.as_str()),
++                SessionEvent::TurnResult { .. } => Some("finish"),
++                _ => None,
++            })
++            .collect();
++
++        assert_eq!(delivery, ["root = FileCard(\"output/schools.pptx\")", "finish"]);
++    }
++
++    #[tokio::test]
++    async fn foreign_thread_started_preserves_parent_resume_and_turn_anchors() {
++        let events = drive_codex(&[
++            r#"{"method":"thread/started","params":{"thread":{"id":"parent"}}}"#,
++            r#"{"method":"turn/started","params":{"threadId":"parent","turn":{"id":"parent-turn"}}}"#,
++            r#"{"method":"thread/started","params":{"thread":{"id":"reviewer"}}}"#,
++            r#"{"method":"turn/started","params":{"threadId":"reviewer","turn":{"id":"review-turn"}}}"#,
++        ])
++        .await;
++        let anchors: Vec<_> = events
++            .iter()
++            .filter_map(|event| match event {
++                SessionEvent::BackendBound {
++                    backend_session_id: Some(id),
++                } => Some(id.as_str()),
++                SessionEvent::BackendTurnBound { backend_turn_id } => Some(backend_turn_id.as_str()),
++                _ => None,
++            })
++            .collect();
++
++        assert_eq!(anchors, ["parent", "parent-turn"]);
++    }
++
++    #[tokio::test]
++    async fn foreign_thread_error_cannot_abort_parent_turn() {
++        let events = drive_codex(&[
++            r#"{"method":"thread/started","params":{"thread":{"id":"parent"}}}"#,
++            r#"{"method":"turn/started","params":{"threadId":"parent","turn":{"id":"parent-turn"}}}"#,
++            r#"{"method":"error","params":{"threadId":"reviewer","turnId":"review-turn","willRetry":false,"error":{"message":"review failed"}}}"#,
++            r#"{"method":"turn/completed","params":{"threadId":"parent","turn":{"id":"parent-turn","status":"completed"}}}"#,
++        ])
++        .await;
++        let results: Vec<_> = events
++            .iter()
++            .filter_map(|event| match event {
++                SessionEvent::TurnResult { is_error, .. } => Some(*is_error),
++                _ => None,
++            })
++            .collect();
++
++        assert_eq!(results, [false]);
++    }
++
++    #[tokio::test]
++    async fn foreign_thread_filter_preserves_parent_scoped_subagent_updates() {
++        let events = drive_codex(&[
++            r#"{"method":"thread/started","params":{"thread":{"id":"parent"}}}"#,
++            r#"{"method":"thread/started","params":{"thread":{"id":"reviewer"}}}"#,
++            r#"{"method":"item/completed","params":{"threadId":"parent","turnId":"parent-turn","item":{"type":"collabAgentToolCall","id":"spawn","tool":"spawnAgent","status":"completed","senderThreadId":"parent","receiverThreadIds":["reviewer"],"agentsStates":{"reviewer":{"status":"pendingInit","message":null}}}}}"#,
++        ])
++        .await;
++
++        assert!(events.iter().any(|event| matches!(event,
++            SessionEvent::SubagentUpdate { r#ref, status: SubagentStatus::PendingInit, parent_ref: Some(parent), .. }
++                if r#ref == "reviewer" && parent == "parent"
++        )));
++    }
++
+     /// A retrying error must reach the user, not just tick the heartbeat.
+     ///
+     /// Frame captured live from codex 0.147.0, whose response stream kept
+@@ -9375,6 +9589,212 @@
          assert!(backend.suspend.is_active().await, "stays Active (production parity)");
      }
  
@@ -7004,7 +7456,7 @@
      /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
      /// next dispatch(Send) wakes by re-spawning `codex app-server` through the
      /// injected spawner (then replaying the thread/resume handshake against the
-@@ -9800,3 +10113,81 @@
+@@ -9800,3 +10220,81 @@
          );
      }
  }
