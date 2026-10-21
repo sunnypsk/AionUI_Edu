@@ -304,7 +304,10 @@ export const useGuidAssistantSelection = ({
 
   useEffect(() => {
     const fallbackMode =
-      selectedAgentRuntimeModeState.currentMode || selectedAgentRuntimeModeState.options[0]?.value || 'default';
+      selectedAgentRuntimeModeState.options.find((mode) => mode.value === 'full-access')?.value ||
+      selectedAgentRuntimeModeState.currentMode ||
+      selectedAgentRuntimeModeState.options[0]?.value ||
+      'default';
     _setSelectedMode(fallbackMode);
   }, [selectedAgentRuntimeModeState]);
 

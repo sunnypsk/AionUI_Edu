@@ -466,7 +466,7 @@ describe('GuidPage', () => {
     );
   });
 
-  it('renders example prompts with wrapping text for long assistant suggestions', () => {
+  it('omits example prompts even when the assistant provides recommendations', () => {
     agentSelectionMock.assistants = [
       {
         id: 'bare-aionrs',
@@ -505,20 +505,18 @@ describe('GuidPage', () => {
 
     render(<GuidPage />);
 
-    const promptButton = screen.getByRole('button', {
-      name: /Create a three-page financial dashboard with profit/i,
-    });
-
-    expect(promptButton.className).toContain('!whitespace-normal');
-    expect(promptButton.className).toContain('!break-words');
+    expect(screen.queryByText('Try these example prompts:')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Create a three-page financial dashboard with profit/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('falls back to default instruction prompts when the selected assistant has no recommendations', () => {
+  it('omits fallback instruction prompts when the selected assistant has no recommendations', () => {
     render(<GuidPage />);
 
-    expect(screen.getByRole('button', { name: 'guid.defaultPrompts.understand' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'guid.defaultPrompts.cleanup' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'guid.defaultPrompts.create' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'guid.defaultPrompts.understand' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'guid.defaultPrompts.cleanup' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'guid.defaultPrompts.create' })).not.toBeInTheDocument();
   });
 
   it('does not seed skill defaults from the assistant list while detail is loading', async () => {

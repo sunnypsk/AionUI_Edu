@@ -104,6 +104,53 @@ describe('useGuidAssistantSelection', () => {
     expect(result.current.selectedAssistantAvailable).toBe(false);
   });
 
+  it.each(['available_modes', 'config_options'])(
+    'defaults to full access from %s instead of the last runtime mode',
+    async (catalogField) => {
+      const modes = [
+        { value: 'read-only', name: 'Read Only' },
+        { value: 'auto', name: 'Auto' },
+        { value: 'full-access', name: 'Full Access' },
+      ];
+      mockManagedAgents = [
+        {
+          id: 'agent-codex',
+          [catalogField]:
+            catalogField === 'config_options'
+              ? [{ id: 'mode', category: 'mode', type: 'select', current_value: 'auto', options: modes }]
+              : { current_mode_id: 'auto', available_modes: modes },
+        } as unknown as ManagedAgent,
+      ];
+
+      const { result } = renderHook(() => useGuidAssistantSelection({ resetAssistant: false }));
+
+      await waitFor(() => expect(result.current.selectedMode).toBe('full-access'));
+      act(() => result.current.setSelectedMode('read-only'));
+      expect(result.current.selectedMode).toBe('read-only');
+    }
+  );
+
+  it('selects full access when the runtime catalog arrives after the assistant', async () => {
+    const { result, rerender } = renderHook(() => useGuidAssistantSelection({ resetAssistant: false }));
+    await waitFor(() => expect(result.current.selectedAssistantId).toBe('bare-codex'));
+    mockManagedAgents = [
+      {
+        id: 'agent-codex',
+        available_modes: {
+          current_mode_id: 'read-only',
+          available_modes: [
+            { id: 'read-only', name: 'Read Only' },
+            { id: 'full-access', name: 'Full Access' },
+          ],
+        },
+      } as unknown as ManagedAgent,
+    ];
+
+    rerender();
+
+    await waitFor(() => expect(result.current.selectedMode).toBe('full-access'));
+  });
+
   it('uses the selected assistant agent_id to read runtime catalogs from managed agents', async () => {
     mockAssistants = [
       {

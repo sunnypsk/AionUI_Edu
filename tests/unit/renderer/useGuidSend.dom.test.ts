@@ -138,6 +138,18 @@ describe('useGuidSend', () => {
     expect(swrMutateMock).toHaveBeenCalledWith('assistants.list');
   });
 
+  it('creates a new conversation with full access selected in the composer', async () => {
+    const deps = createDeps();
+    deps.selectedMode = 'full-access';
+    const { result } = renderHook(() => useGuidSend(deps));
+
+    await act(async () => result.current.handleSend());
+
+    expect(createConversationInvokeMock.mock.calls[0][0].assistant.conversation_overrides.permission).toBe(
+      'full-access'
+    );
+  });
+
   it('falls back to assistant default skill and MCP ids for preset conversations before local Guid overrides exist', async () => {
     const deps = createDeps();
     deps.guidEnabledSkills = undefined;

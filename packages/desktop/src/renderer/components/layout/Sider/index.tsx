@@ -7,18 +7,17 @@ import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { SiderToolbar, SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
+import { SiderToolbar, SiderSearchEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
-import TeamSiderSection from './TeamSiderSection';
 import siderStyles from './Sider.module.css';
 
 const WorkspaceGroupedHistory = React.lazy(() => import('@renderer/pages/conversation/GroupedHistory'));
 const SettingsSider = React.lazy(() => import('@renderer/pages/settings/components/SettingsSider'));
 
-interface SiderProps {
+type SiderProps = {
   onSessionClick?: () => void;
   collapsed?: boolean;
-}
+};
 
 const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
   const layout = useLayoutContext();
@@ -81,32 +80,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     // keeps the preview open when switching between conversations of the same
     // scope and closes it only when the scope (today = workspace) actually changes.
     setIsBatchMode(false);
-  };
-
-  const handleScheduledClick = () => {
-    cleanupSiderTooltips();
-    blurActiveElement();
-    closePreview();
-    setIsBatchMode(false);
-    Promise.resolve(navigate('/scheduled')).catch((error) => {
-      console.error('Navigation failed:', error);
-    });
-    if (onSessionClick) {
-      onSessionClick();
-    }
-  };
-
-  const handleAssistantClick = () => {
-    cleanupSiderTooltips();
-    blurActiveElement();
-    closePreview();
-    setIsBatchMode(false);
-    Promise.resolve(navigate('/assistants')).catch((error) => {
-      console.error('Navigation failed:', error);
-    });
-    if (onSessionClick) {
-      onSessionClick();
-    }
   };
 
   const handleQuickThemeToggle = () => {
@@ -200,22 +173,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 onSessionClick={onSessionClick}
               />
             )}
-            {/* Assistant nav entry - fixed above Scheduled */}
-            <SiderAssistantEntry
-              isMobile={isMobile}
-              isActive={pathname.startsWith('/assistants')}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleAssistantClick}
-            />
-            {/* Scheduled tasks nav entry - fixed above scroll */}
-            <SiderScheduledEntry
-              isMobile={isMobile}
-              isActive={pathname === '/scheduled'}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleScheduledClick}
-            />
             {/* Divider between fixed top nav and scrollable content area */}
             <div
               className={classNames(
@@ -223,22 +180,10 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 collapsed ? 'mx-6px' : 'mx-10px'
               )}
             />
-            {/* Scrollable content: pinned → team (slot) → projects → conversations */}
+            {/* Scrollable content: pinned → projects → conversations */}
             <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
               <Suspense fallback={<div className='min-h-200px' />}>
-                <WorkspaceGroupedHistory
-                  {...workspaceHistoryProps}
-                  afterPinnedContent={
-                    <>
-                      <TeamSiderSection
-                        collapsed={collapsed}
-                        pathname={pathname}
-                        siderTooltipProps={siderTooltipProps}
-                        onSessionClick={onSessionClick}
-                      />
-                    </>
-                  }
-                />
+                <WorkspaceGroupedHistory {...workspaceHistoryProps} />
               </Suspense>
             </div>
           </div>

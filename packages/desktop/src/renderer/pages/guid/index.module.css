@@ -13,12 +13,6 @@
   margin-bottom: 16px;
 }
 
-.assistantPromptHint {
-  color: var(--color-text-3);
-  font-size: 13px;
-  line-height: 20px;
-}
-
 .guidInputCard {
   width: 100%;
   box-sizing: border-box;
