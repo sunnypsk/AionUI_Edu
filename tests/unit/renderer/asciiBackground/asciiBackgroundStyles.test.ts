@@ -7,8 +7,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ASCII_STYLES,
+  BACKGROUND_SCENES,
   createAsciiField,
   pickAsciiStyle,
+  pickBackgroundScene,
   renderAsciiField,
   STYLE_PALETTE_TOKENS,
 } from '@/renderer/pages/guid/components/AsciiBackground/asciiStyles';
@@ -32,6 +34,19 @@ describe('pickAsciiStyle', () => {
   it('handles out-of-range random values without crashing', () => {
     expect(ASCII_STYLES).toContain(pickAsciiStyle(null, () => 0));
     expect(ASCII_STYLES).toContain(pickAsciiStyle(null, () => 0.999999));
+  });
+});
+
+describe('pickBackgroundScene', () => {
+  it('includes the pet playground in the rotation', () => {
+    const picked = new Set<string>();
+    for (let i = 0; i < 300; i++) picked.add(pickBackgroundScene(null));
+    expect(picked).toEqual(new Set(BACKGROUND_SCENES));
+    expect(picked.has('playground')).toBe(true);
+  });
+
+  it('never shows the playground twice in a row', () => {
+    for (let i = 0; i < 50; i++) expect(pickBackgroundScene('playground')).not.toBe('playground');
   });
 });
 

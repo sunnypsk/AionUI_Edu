@@ -12,6 +12,10 @@
 export const ASCII_STYLES = ['fog', 'ripple', 'stars'] as const;
 export type AsciiStyle = (typeof ASCII_STYLES)[number];
 
+/** Everything the background can show: the procedural fields plus the interactive pet playground. */
+export const BACKGROUND_SCENES = [...ASCII_STYLES, 'playground'] as const;
+export type BackgroundScene = (typeof BACKGROUND_SCENES)[number];
+
 /** Center and half-size of the area the ripple style radiates from, in cells. */
 export type AsciiFocus = { cx: number; cy: number; hw: number; hh: number };
 
@@ -36,12 +40,21 @@ export const STYLE_PALETTE_TOKENS: Record<AsciiStyle, readonly string[]> = {
   stars: ['--brand', '--primary', '--warning', '--danger'],
 };
 
-/** Picks a random style, never repeating the previous one. */
-export const pickAsciiStyle = (previous: AsciiStyle | null, random: () => number = Math.random): AsciiStyle => {
-  const options = ASCII_STYLES.filter((style) => style !== previous);
+const pickDifferent = <T extends string>(all: readonly T[], previous: T | null, random: () => number): T => {
+  const options = all.filter((option) => option !== previous);
   const index = Math.min(options.length - 1, Math.max(0, Math.floor(random() * options.length)));
-  return options[index] ?? ASCII_STYLES[0];
+  return options[index] ?? all[0];
 };
+
+/** Picks a random style, never repeating the previous one. */
+export const pickAsciiStyle = (previous: AsciiStyle | null, random: () => number = Math.random): AsciiStyle =>
+  pickDifferent(ASCII_STYLES, previous, random);
+
+/** Picks a random background scene, never repeating the previous one. */
+export const pickBackgroundScene = (
+  previous: BackgroundScene | null,
+  random: () => number = Math.random
+): BackgroundScene => pickDifferent(BACKGROUND_SCENES, previous, random);
 
 export const createAsciiField = (cols: number, rows: number, aspect: number, seed: number): AsciiField => ({
   cols,

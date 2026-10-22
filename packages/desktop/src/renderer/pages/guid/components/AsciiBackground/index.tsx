@@ -6,13 +6,26 @@
 
 import React, { useEffect, useRef } from 'react';
 import { AsciiEngine } from './asciiEngine';
-import { pickAsciiStyle, type AsciiStyle } from './asciiStyles';
+import { pickBackgroundScene, type BackgroundScene } from './asciiStyles';
+import { PlaygroundEngine } from './playground/playgroundEngine';
 import { useIdle } from './useIdle';
 import styles from './AsciiBackground.module.css';
 
 export const IDLE_DELAY_MS = 20_000;
 
-let lastPickedStyle: AsciiStyle | null = null;
+let lastPickedScene: BackgroundScene | null = null;
+
+type BackgroundEngine = Pick<AsciiEngine, 'setClearElement' | 'setIdle' | 'start' | 'destroy'>;
+
+const createEngine = (
+  scene: BackgroundScene,
+  canvas: HTMLCanvasElement,
+  root: HTMLElement,
+  reducedMotion: boolean
+): BackgroundEngine | null =>
+  scene === 'playground'
+    ? PlaygroundEngine.create({ canvas, root, reducedMotion })
+    : AsciiEngine.create({ canvas, root, style: scene, seed: Math.random() * 1000, reducedMotion });
 
 const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -24,11 +37,11 @@ type AsciiBackgroundProps = {
   clearRef: React.RefObject<HTMLElement | null>;
 };
 
-/** Decorative animated ASCII art that turns colorful while the page is idle. */
+/** Decorative animated ASCII art that turns colorful while the page is idle; one scene is an interactive pet playground. */
 const AsciiBackground: React.FC<AsciiBackgroundProps> = ({ visitKey, clearRef }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const engineRef = useRef<AsciiEngine | null>(null);
+  const engineRef = useRef<BackgroundEngine | null>(null);
   const reducedMotionRef = useRef(prefersReducedMotion());
   const idle = useIdle(IDLE_DELAY_MS, !reducedMotionRef.current);
   const idleRef = useRef(idle);
@@ -38,15 +51,10 @@ const AsciiBackground: React.FC<AsciiBackgroundProps> = ({ visitKey, clearRef })
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (!root || !canvas) return;
-    const style = pickAsciiStyle(lastPickedStyle);
-    lastPickedStyle = style;
-    const engine = AsciiEngine.create({
-      canvas,
-      root,
-      style,
-      seed: Math.random() * 1000,
-      reducedMotion: reducedMotionRef.current,
-    });
+    const scene = pickBackgroundScene(lastPickedScene);
+    lastPickedScene = scene;
+    root.dataset.scene = scene;
+    const engine = createEngine(scene, canvas, root, reducedMotionRef.current);
     if (!engine) return;
     engine.setClearElement(clearRef.current);
     engine.setIdle(idleRef.current);

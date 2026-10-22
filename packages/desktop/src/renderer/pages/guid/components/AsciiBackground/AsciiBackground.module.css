@@ -19,6 +19,12 @@
   opacity: calc(0.28 + 0.37 * var(--ascii-epic));
 }
 
+/* Pets need to read clearly, so the playground scene is less transparent than the fields. */
+.root[data-scene='playground'] .canvas,
+:global([data-theme='light']) .root[data-scene='playground'] .canvas {
+  opacity: calc(0.85 + 0.15 * var(--ascii-epic));
+}
+
 /* Soft colored glow that fades in with the idle "epic" level. */
 .aura {
   position: absolute;
