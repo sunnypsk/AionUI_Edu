@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Especialistas em escrita Factory",
-    "accountDescription": "O Codex colabora com o Gemini em textos e com o Opus no planejamento de aulas. Os especialistas recebem apenas o material fornecido para a tarefa.",
+    "accountDescription": "Escolha modelos separados para redação e planejamento pedagógico. Os especialistas recebem apenas o material da tarefa.",
     "unavailable": "Indisponível",
     "available": "Disponível",
     "signedIn": "Conectado à Factory",
@@ -267,8 +267,8 @@
     "authRequired": "Entre na Factory nas configurações e peça ao Codex para tentar novamente.",
     "taskFailed": "A tarefa não foi concluída. O rascunho parcial continua disponível.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Redação",
+      "opus": "Planejamento pedagógico"
     },
     "status": {
       "initializing": "Iniciando",
@@ -277,5 +277,20 @@
       "failed": "Falhou",
       "canceled": "Cancelado"
     }
+  },
+  "catalog": {
+    "loadFailed": "Não foi possível carregar modelos ou configurações. Atualize para tentar novamente.",
+    "empty": "A CLI não retornou modelos.",
+    "noReasoning": "Este modelo não tem configuração de raciocínio.",
+    "invalidSelection": "O modelo ou raciocínio salvo está indisponível. Escolha uma combinação compatível.",
+    "factoryTitle": "Configurações dos especialistas Droid",
+    "newTasks": "As alterações valem para novas tarefas. Rascunhos e revisões existentes mantêm suas configurações.",
+    "updateTitle": "Atualizações do Droid CLI",
+    "updateHint": "Instala uma versão oficial verificada nesta instância. Tarefas em execução continuam na versão atual.",
+    "updateFailed": "Falha na atualização. A versão anterior permanece ativa.",
+    "updateSuccess": "Droid atualizado com sucesso.",
+    "updateUnsupported": "As atualizações exigem instalação gerenciada no Linux ou macOS. Uma CLI explicitamente configurada não será sobrescrita.",
+    "updateInstall": "Atualizar Droid CLI",
+    "updateDownloading": "Baixando Droid CLI…"
   }
 }

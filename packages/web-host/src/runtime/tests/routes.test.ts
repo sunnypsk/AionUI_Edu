@@ -32,6 +32,11 @@ describe('authenticated WebUI runtime controls', () => {
     close: vi.fn(),
   };
   const proxyProbe = vi.fn();
+  const catalog = {
+    get: vi.fn(async () => ({ models: [], version: '0.163.0', fetchedAt: '' })),
+    invalidate: vi.fn(),
+    close: vi.fn(),
+  };
   const auth = {
     status: vi.fn().mockResolvedValue(signedOut),
     startLogin: vi.fn().mockResolvedValue(signedOut),
@@ -74,6 +79,7 @@ describe('authenticated WebUI runtime controls', () => {
       dataDir,
       auth,
       updates,
+      catalog,
       proxy: new NetworkProxyStore(dataDir, {}, proxyProbe),
       sourceCommit: 'a'.repeat(40),
       releaseSequence: '12.1',
@@ -84,6 +90,12 @@ describe('authenticated WebUI runtime controls', () => {
       });
     });
     base = `http://127.0.0.1:${await listen(server)}`;
+  });
+  it('requires authentication for model discovery and forwards explicit refresh', async () => {
+    expect((await fetch(base + '/api/edu/codex/models')).status).toBe(401);
+    expect(catalog.get).not.toHaveBeenCalled();
+    expect((await request('/api/edu/codex/models?refresh=1')).status).toBe(200);
+    expect(catalog.get).toHaveBeenCalledWith('0.163.0', 0, true);
   });
   afterEach(async () => {
     controls?.close();

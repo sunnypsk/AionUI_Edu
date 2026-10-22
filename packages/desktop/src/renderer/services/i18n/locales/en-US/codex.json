@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory writing specialists",
-    "accountDescription": "Let Codex collaborate with Gemini on writing and Opus on lesson planning. Specialists receive only the material supplied for their task.",
+    "accountDescription": "Choose separate models for writing and teaching design. Specialists receive only the material supplied for their task.",
     "unavailable": "Unavailable",
     "available": "Available",
     "signedIn": "Signed in to Factory",
@@ -267,8 +267,8 @@
     "authRequired": "Sign in to Factory in settings, then ask Codex to retry.",
     "taskFailed": "This task could not finish. Any partial draft remains available.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Writing",
+      "opus": "Teaching design"
     },
     "status": {
       "initializing": "Starting",
@@ -277,5 +277,20 @@
       "failed": "Failed",
       "canceled": "Cancelled"
     }
+  },
+  "catalog": {
+    "loadFailed": "Could not load models or settings. Refresh to try again.",
+    "empty": "The CLI returned no models.",
+    "noReasoning": "This model has no reasoning setting.",
+    "invalidSelection": "The saved model or reasoning is unavailable. Choose a supported combination.",
+    "factoryTitle": "Droid specialist settings",
+    "newTasks": "Changes apply to new tasks. Existing drafts and revisions keep their original settings.",
+    "updateTitle": "Droid CLI updates",
+    "updateHint": "Install a verified official release for this AionUI instance. Running tasks continue on their current version.",
+    "updateFailed": "Update failed. The previous version remains active.",
+    "updateSuccess": "Droid updated successfully.",
+    "updateUnsupported": "Updates require managed Linux or macOS installation. An explicitly configured CLI is not overwritten.",
+    "updateInstall": "Update Droid CLI",
+    "updateDownloading": "Downloading Droid CLI…"
   }
 }

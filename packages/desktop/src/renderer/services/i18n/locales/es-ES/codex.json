@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Especialistas de escritura Factory",
-    "accountDescription": "Codex colabora con Gemini en textos y con Opus en la planificación de clases. Los especialistas solo reciben el material proporcionado para la tarea.",
+    "accountDescription": "Elige modelos independientes para redacción y diseño didáctico. Los especialistas solo reciben el material de su tarea.",
     "unavailable": "No disponible",
     "available": "Disponible",
     "signedIn": "Sesión de Factory iniciada",
@@ -267,8 +267,8 @@
     "authRequired": "Inicia sesión en Factory desde los ajustes y pide a Codex que lo intente de nuevo.",
     "taskFailed": "La tarea no pudo completarse. El borrador parcial sigue disponible.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Redacción",
+      "opus": "Diseño didáctico"
     },
     "status": {
       "initializing": "Iniciando",
@@ -277,5 +277,20 @@
       "failed": "Fallido",
       "canceled": "Cancelado"
     }
+  },
+  "catalog": {
+    "loadFailed": "No se pudieron cargar los modelos o ajustes. Actualiza para reintentar.",
+    "empty": "La CLI no devolvió modelos.",
+    "noReasoning": "Este modelo no tiene ajuste de razonamiento.",
+    "invalidSelection": "El modelo o razonamiento guardado no está disponible. Elige una combinación compatible.",
+    "factoryTitle": "Ajustes de especialistas Droid",
+    "newTasks": "Los cambios se aplican a tareas nuevas. Los borradores y revisiones existentes conservan sus ajustes.",
+    "updateTitle": "Actualizaciones de Droid CLI",
+    "updateHint": "Instala una versión oficial verificada para esta instancia. Las tareas en curso continúan con su versión actual.",
+    "updateFailed": "La actualización falló. Se mantiene la versión anterior.",
+    "updateSuccess": "Droid se actualizó correctamente.",
+    "updateUnsupported": "Las actualizaciones requieren una instalación administrada de Linux o macOS. No se sobrescribe una CLI configurada explícitamente.",
+    "updateInstall": "Actualizar Droid CLI",
+    "updateDownloading": "Descargando Droid CLI…"
   }
 }

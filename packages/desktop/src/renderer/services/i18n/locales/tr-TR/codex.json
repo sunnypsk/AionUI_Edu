@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory yazı uzmanları",
-    "accountDescription": "Codex, metinler için Gemini ve ders planlaması için Opus ile çalışır. Uzmanlar yalnızca görev için sağlanan materyali alır.",
+    "accountDescription": "Yazım ve öğretim tasarımı için ayrı modeller seçin. Uzmanlar yalnızca görev için sağlanan materyali alır.",
     "unavailable": "Kullanılamıyor",
     "available": "Kullanılabilir",
     "signedIn": "Factory oturumu açık",
@@ -267,8 +267,8 @@
     "authRequired": "Ayarlarda Factory oturumu açın, ardından Codex’ten tekrar denemesini isteyin.",
     "taskFailed": "Görev tamamlanamadı. Kısmi taslak hâlâ kullanılabilir.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Yazım",
+      "opus": "Öğretim tasarımı"
     },
     "status": {
       "initializing": "Başlatılıyor",
@@ -277,5 +277,20 @@
       "failed": "Başarısız",
       "canceled": "İptal edildi"
     }
+  },
+  "catalog": {
+    "loadFailed": "Modeller veya ayarlar yüklenemedi. Yenileyip tekrar deneyin.",
+    "empty": "CLI model döndürmedi.",
+    "noReasoning": "Bu modelde akıl yürütme ayarı yok.",
+    "invalidSelection": "Kaydedilen model veya akıl yürütme kullanılamıyor. Desteklenen bir birleşim seçin.",
+    "factoryTitle": "Droid uzman ayarları",
+    "newTasks": "Değişiklikler yeni görevlere uygulanır. Mevcut taslaklar ve düzeltmeler eski ayarlarını korur.",
+    "updateTitle": "Droid CLI güncellemeleri",
+    "updateHint": "Bu AionUI için doğrulanmış resmi sürümü kurar. Çalışan görevler mevcut sürümle devam eder.",
+    "updateFailed": "Güncelleme başarısız. Önceki sürüm etkin kalır.",
+    "updateSuccess": "Droid güncellendi.",
+    "updateUnsupported": "Güncellemeler yönetilen Linux veya macOS kurulumu gerektirir. Açıkça yapılandırılan CLI üzerine yazılmaz.",
+    "updateInstall": "Droid CLI güncelle",
+    "updateDownloading": "Droid CLI indiriliyor…"
   }
 }

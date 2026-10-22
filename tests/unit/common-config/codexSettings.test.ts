@@ -1,8 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CodexSettings } from '@/common/config/configKeys';
 import { configService, readCodexSettings } from '@/common/config/configService';
+import { isModelSelectionAvailable, selectCatalogModel } from '@/common/types/platform/cliModels';
 
 describe('Codex settings persistence', () => {
+  it('changes reasoning only to a capability advertised by the selected model', () => {
+    const model = {
+      id: 'live',
+      displayName: 'Live',
+      supportedReasoningEfforts: ['dynamic', 'future'],
+      defaultReasoningEffort: 'dynamic',
+      disabled: false,
+    };
+    expect(selectCatalogModel(model, 'future').reasoningEffort).toBe('future');
+    expect(selectCatalogModel(model, 'low').reasoningEffort).toBe('dynamic');
+    expect(
+      selectCatalogModel({ ...model, supportedReasoningEfforts: [], defaultReasoningEffort: null }, 'future')
+        .reasoningEffort
+    ).toBeNull();
+    expect(isModelSelectionAvailable({ model: 'live', reasoningEffort: 'low' }, [model])).toBe(false);
+    expect(
+      isModelSelectionAvailable({ model: 'live', reasoningEffort: 'future' }, [{ ...model, disabled: true }])
+    ).toBe(false);
+  });
   beforeEach(() => configService.reset());
   afterEach(() => {
     configService.reset();
@@ -14,8 +34,15 @@ describe('Codex settings persistence', () => {
   });
 
   it('ignores malformed persisted settings', () => {
-    configService.setLocal('codex.settings', { model: ' ', reasoningEffort: 'invalid' } as unknown as CodexSettings);
+    configService.setLocal('codex.settings', { model: ' ', reasoningEffort: 42 } as unknown as CodexSettings);
     expect(readCodexSettings()).toEqual({ model: 'gpt-6-astra', reasoningEffort: 'low' });
+  });
+
+  it('preserves new catalog efforts and models without configurable reasoning', () => {
+    configService.setLocal('codex.settings', { model: 'future/model', reasoningEffort: 'ultra' });
+    expect(readCodexSettings().reasoningEffort).toBe('ultra');
+    configService.setLocal('codex.settings', { model: 'future/model', reasoningEffort: null });
+    expect(readCodexSettings().reasoningEffort).toBeNull();
   });
 
   it('restores saved settings loaded from the server after a reload', async () => {
@@ -60,5 +87,20 @@ describe('Codex settings persistence', () => {
       configService.setConfirmed('codex.settings', { model: 'gpt-6-astra', reasoningEffort: 'max' })
     ).rejects.toThrow('503');
     expect(readCodexSettings().reasoningEffort).toBe('low');
+  });
+
+  it('sends the current browser CSRF token when saving confirmed settings', async () => {
+    const document = { cookie: 'aionui-csrf-token=first-token' };
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('document', document);
+    const request = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', request);
+    await configService.setConfirmed('codex.settings', { model: 'live', reasoningEffort: 'ultra' });
+    document.cookie = 'aionui-csrf-token=rotated-token';
+    await configService.setConfirmed('codex.settings', { model: 'live', reasoningEffort: 'max' });
+    expect(request.mock.calls.map(([, options]) => options.headers['x-csrf-token'])).toEqual([
+      'first-token',
+      'rotated-token',
+    ]);
   });
 });

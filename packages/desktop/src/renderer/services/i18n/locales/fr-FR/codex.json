@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Spécialistes de rédaction Factory",
-    "accountDescription": "Codex collabore avec Gemini pour les textes et Opus pour la préparation des cours. Les spécialistes reçoivent uniquement les documents fournis pour la tâche.",
+    "accountDescription": "Choisissez des modèles distincts pour la rédaction et la conception pédagogique. Les spécialistes reçoivent uniquement les documents de leur tâche.",
     "unavailable": "Indisponible",
     "available": "Disponible",
     "signedIn": "Connecté à Factory",
@@ -267,8 +267,8 @@
     "authRequired": "Connectez-vous à Factory dans les paramètres, puis demandez à Codex de réessayer.",
     "taskFailed": "La tâche n’a pas pu être terminée. Le brouillon partiel reste disponible.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Rédaction",
+      "opus": "Conception pédagogique"
     },
     "status": {
       "initializing": "Démarrage",
@@ -277,5 +277,20 @@
       "failed": "Échec",
       "canceled": "Annulé"
     }
+  },
+  "catalog": {
+    "loadFailed": "Impossible de charger les modèles ou réglages. Actualisez pour réessayer.",
+    "empty": "La CLI n’a renvoyé aucun modèle.",
+    "noReasoning": "Ce modèle ne propose pas de réglage de raisonnement.",
+    "invalidSelection": "Le modèle ou raisonnement enregistré est indisponible. Choisissez une combinaison prise en charge.",
+    "factoryTitle": "Réglages des spécialistes Droid",
+    "newTasks": "Les changements concernent les nouvelles tâches. Les brouillons et révisions existants conservent leurs réglages.",
+    "updateTitle": "Mises à jour de Droid CLI",
+    "updateHint": "Installe une version officielle vérifiée pour cette instance. Les tâches en cours conservent leur version actuelle.",
+    "updateFailed": "Échec de la mise à jour. La version précédente reste active.",
+    "updateSuccess": "Droid a été mis à jour.",
+    "updateUnsupported": "Les mises à jour nécessitent une installation gérée sous Linux ou macOS. Une CLI configurée explicitement n’est pas remplacée.",
+    "updateInstall": "Mettre à jour Droid CLI",
+    "updateDownloading": "Téléchargement de Droid CLI…"
   }
 }

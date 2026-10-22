@@ -2,7 +2,7 @@ import type { Theme } from '@/common/theme/types';
 
 export type CodexSettings = {
   model: string;
-  reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  reasoningEffort: string | null;
 };
 
 export type ConfigKeyMap = {

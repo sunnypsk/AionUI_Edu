@@ -4,7 +4,6 @@ import { SpecialistStore } from './store.js';
 import {
   active,
   errorCode,
-  MODELS,
   type Owner,
   type State,
   type StoredTask,
@@ -13,6 +12,7 @@ import {
   type SpecialistPage,
 } from './types.js';
 import { FactoryProvider, sourceMaterial, type SpecialistProvider, type SpecialistSession } from './provider/index.js';
+import { SpecialistSettingsStore, LEGACY_EFFORTS } from './provider/settings.js';
 
 type Work = { controller: AbortController; session?: SpecialistSession; done: Promise<void> };
 const PAGE_SIZE = 24000;
@@ -20,6 +20,7 @@ const publicTask = (task: StoredTask): SpecialistTask => ({
   id: task.id,
   specialist: task.specialist,
   model: task.model,
+  reasoningEffort: task.reasoningEffort,
   createdAt: task.createdAt,
   runs: task.runs.map((run) => ({ ...run, text: '' })),
 });
@@ -28,6 +29,7 @@ const publicTask = (task: StoredTask): SpecialistTask => ({
 export class SpecialistManager {
   private state: State = { version: 1, tasks: [], gates: {} };
   private readonly store: SpecialistStore;
+  private readonly preferences: SpecialistSettingsStore;
   private readonly ready: Promise<void>;
   private readonly work = new Map<string, Work>();
   private readonly listeners = new Set<() => void>();
@@ -39,8 +41,11 @@ export class SpecialistManager {
     private readonly provider: SpecialistProvider = new FactoryProvider(dataDir)
   ) {
     this.store = new SpecialistStore(path.join(dataDir, 'droid'));
+    this.preferences = new SpecialistSettingsStore(dataDir);
     this.ready = this.store.load().then(async (state) => {
       this.state = state;
+      for (const task of state.tasks)
+        if (task.reasoningEffort === undefined) task.reasoningEffort = LEGACY_EFFORTS[task.specialist];
       for (const gate of Object.values(state.gates)) gate.open = false;
       for (const task of state.tasks)
         if (active(task))
@@ -125,13 +130,14 @@ export class SpecialistManager {
   }
   async start(owner: Owner, specialist: Specialist, prompt: string, files?: string[]): Promise<SpecialistTask> {
     await this.ready;
+    const selection = (await this.preferences.get(owner.userId))[specialist];
     const epoch = this.admit(owner);
     const task: StoredTask = {
       id: randomUUID(),
       userId: owner.userId,
       conversationId: owner.conversationId,
       specialist,
-      model: MODELS[specialist],
+      ...selection,
       epoch,
       createdAt: Date.now(),
       disabledToolIds: [],

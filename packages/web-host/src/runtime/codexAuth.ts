@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import type { CodexAccountStatus } from '../types.js';
+import type { CliModel } from '../../../desktop/src/common/types/platform/cliModels.js';
 
 type PendingRequest = {
   resolve: (value: unknown) => void;
@@ -14,8 +15,9 @@ type RpcMessage = { id?: number; result?: unknown; error?: unknown; method?: str
 type LoginResult = { type: string; loginId: string; verificationUrl: string; userCode: string };
 export type AuthProcessFactory = () => ChildProcessWithoutNullStreams;
 
-/** Dedicated account-only app-server client. It never starts a thread or sends a prompt. */
+/** Account and catalog app-server client. It never starts a thread or sends a prompt. */
 export class CodexAuthService {
+  cacheEpoch = 0;
   private child: ChildProcessWithoutNullStreams | null = null;
   private ready: Promise<void> | null = null;
   private sequence = 0;
@@ -69,6 +71,7 @@ export class CodexAuthService {
         if (message.error) request.reject(new Error('CODEX_AUTH_FAILED'));
         else request.resolve(message.result);
       } else if (message.method === 'account/login/completed' && message.params?.loginId === this.loginId) {
+        this.cacheEpoch += 1;
         if (this.expiry) clearTimeout(this.expiry);
         this.expiry = null;
         this.loginId = null;
@@ -141,6 +144,64 @@ export class CodexAuthService {
     return this.snapshot();
   }
 
+  /** Read every catalog page, preserving newly advertised reasoning values. */
+  async models(): Promise<CliModel[]> {
+    await this.ensureClient();
+    const models = new Map<string, CliModel>();
+    const cursors = new Set<string>();
+    let cursor: string | undefined;
+    do {
+      const result = await this.request('model/list', { limit: 100, ...(cursor ? { cursor } : {}) });
+      if (!result || typeof result !== 'object' || !('data' in result) || !Array.isArray(result.data))
+        throw new Error('CODEX_MODEL_CATALOG_INVALID');
+      for (const raw of result.data as unknown[]) {
+        if (!raw || typeof raw !== 'object') throw new Error('CODEX_MODEL_CATALOG_INVALID');
+        const m = raw as Record<string, unknown>;
+        if (
+          typeof m.model !== 'string' ||
+          !m.model ||
+          typeof m.displayName !== 'string' ||
+          !Array.isArray(m.supportedReasoningEfforts)
+        )
+          throw new Error('CODEX_MODEL_CATALOG_INVALID');
+        const efforts = m.supportedReasoningEfforts.map((item: unknown) => {
+          const value =
+            typeof item === 'string'
+              ? item
+              : item && typeof item === 'object' && 'reasoningEffort' in item
+                ? item.reasoningEffort
+                : null;
+          if (typeof value !== 'string' || !value.trim()) throw new Error('CODEX_MODEL_CATALOG_INVALID');
+          return value;
+        });
+        if (
+          efforts.length &&
+          (typeof m.defaultReasoningEffort !== 'string' || !efforts.includes(m.defaultReasoningEffort))
+        )
+          throw new Error('CODEX_MODEL_CATALOG_INVALID');
+        if (m.hidden === true) continue;
+        models.set(m.model, {
+          id: m.model,
+          displayName: m.displayName,
+          supportedReasoningEfforts: [...new Set(efforts)],
+          defaultReasoningEffort: efforts.length ? (m.defaultReasoningEffort as string) : null,
+          disabled: false,
+          isDefault: m.isDefault === true,
+        });
+      }
+      const next = (result as { nextCursor?: unknown }).nextCursor;
+      if (
+        next !== null &&
+        next !== undefined &&
+        (typeof next !== 'string' || !next || cursors.has(next) || cursors.size >= 100)
+      )
+        throw new Error('CODEX_MODEL_CATALOG_INVALID');
+      cursor = typeof next === 'string' ? next : undefined;
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    return [...models.values()];
+  }
+
   startLogin(): Promise<CodexAccountStatus> {
     if (this.loginRequest) return this.loginRequest;
     if (this.login.state === 'pending') return Promise.resolve(this.snapshot());
@@ -195,6 +256,7 @@ export class CodexAuthService {
   }
 
   async logout(): Promise<CodexAccountStatus> {
+    this.cacheEpoch += 1;
     await this.cancelLogin();
     await this.ensureClient();
     await this.request('account/logout', {});

@@ -6,6 +6,7 @@ import { verifyBrowserCapability } from '../browser/types.js';
 import { SpecialistManager } from './manager.js';
 import { FactoryProvider } from './provider/index.js';
 import { FactoryAccountService } from './provider/auth.js';
+import { DroidUpdateService } from './runtime/updates.js';
 import { idSchema, toolSchemas, errorCode, type Owner, type ToolName } from './types.js';
 
 const record = (value: unknown): Record<string, unknown> =>
@@ -47,8 +48,10 @@ export async function createSpecialistRuntime(options: {
   dataDir: string;
   manager?: SpecialistManager;
   provider?: FactoryProvider;
+  updates?: DroidUpdateService;
 }) {
   const provider = options.provider ?? new FactoryProvider(options.dataDir);
+  const updates = options.updates ?? new DroidUpdateService(provider);
   const manager = options.manager ?? new SpecialistManager(options.dataDir, provider);
   const accounts = new Map<string, FactoryAccountService>();
   const sessions = new Map<string, { until: number; promise: Promise<string> }>();
@@ -234,12 +237,26 @@ export async function createSpecialistRuntime(options: {
         const authRoute = url.pathname.slice('/api/edu/factory/'.length);
         if (url.pathname.startsWith('/api/edu/factory/')) {
           const service = account(userId);
-          if (req.method === 'GET' && authRoute === 'account') send(res, 200, { data: await service.status() });
+          if (req.method === 'GET' && authRoute === 'models')
+            send(res, 200, { data: await provider.models(userId, url.searchParams.get('refresh') === '1') });
+          else if (req.method === 'GET' && authRoute === 'settings')
+            send(res, 200, { data: await provider.preferences.get(userId) });
+          else if (req.method === 'POST' && authRoute === 'settings') {
+            const input = await body(req);
+            const catalog = await provider.models(userId, true);
+            const saved = await provider.preferences.save(userId, input, catalog.models);
+            service.invalidate();
+            send(res, 200, { data: saved });
+          } else if (req.method === 'GET' && authRoute === 'version') send(res, 200, { data: await updates.status() });
+          else if (req.method === 'GET' && authRoute === 'account')
+            send(res, 200, { data: await service.status(url.searchParams.get('refresh') === '1') });
           else if (req.method === 'POST') {
             z.object({})
               .strict()
               .parse(await body(req));
-            if (authRoute === 'login') send(res, 200, { data: service.login() });
+            if (authRoute === 'check-update') send(res, 200, { data: await updates.check() });
+            else if (authRoute === 'install-update') send(res, 200, { data: await updates.install(userId) });
+            else if (authRoute === 'login') send(res, 200, { data: service.login() });
             else if (authRoute === 'login/cancel') send(res, 200, { data: await service.cancel() });
             else if (authRoute === 'logout') {
               await manager.cancelUser(userId);
@@ -282,6 +299,7 @@ export async function createSpecialistRuntime(options: {
         );
     },
     async close(): Promise<void> {
+      await updates.close();
       await Promise.all([...accounts.values()].map((service) => service.close()));
       await manager.close();
       privateServer.closeAllConnections();

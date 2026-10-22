@@ -44,7 +44,7 @@ export class FactoryAccountService {
     let stdout: string;
     try {
       stdout = (
-        await execute(this.provider.command, ['doctor', '--checks', 'auth', '--json'], {
+        await execute(await this.provider.executable(), ['doctor', '--checks', 'auth', '--json'], {
           ...context,
           windowsHide: true,
           timeout: 15000,
@@ -66,6 +66,10 @@ export class FactoryAccountService {
     if (this.checking) {
       if (!force) return this.checking;
       await this.checking;
+    }
+    if (this.snapshot.version && !['starting', 'pending'].includes(this.snapshot.login.state)) {
+      const version = await this.provider.version().catch((): null => null);
+      if (version !== this.snapshot.version) this.checkedAt = 0;
     }
     if (!force && (Date.now() - this.checkedAt < 60000 || ['starting', 'pending'].includes(this.snapshot.login.state)))
       return structuredClone(this.snapshot);
@@ -94,6 +98,9 @@ export class FactoryAccountService {
       this.checking = undefined;
     });
     return this.checking;
+  }
+  invalidate(): void {
+    this.checkedAt = 0;
   }
   private request(method: string, params: unknown, timeout = 15000): Promise<Record<string, unknown>> {
     const transport = this.transport;
@@ -216,6 +223,7 @@ export class FactoryAccountService {
         await this.request('authenticate', { methodId: 'device-pairing' }, 15 * 60 * 1000);
         if (generation !== this.generation) return;
         this.snapshot.login = { state: 'succeeded' };
+        this.provider.invalidate(this.userId);
         this.checkedAt = 0;
         await this.status(true);
       } catch (error) {
@@ -258,6 +266,7 @@ export class FactoryAccountService {
       const generation = this.generation;
       await this.connect(generation);
       await this.request('logout', {});
+      this.provider.invalidate(this.userId);
       this.snapshot.authenticated = false;
       this.snapshot.login = { state: 'idle' };
       this.checkedAt = 0;

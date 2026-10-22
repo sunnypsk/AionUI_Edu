@@ -8,6 +8,50 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const fixtures = vi.hoisted(() => ({
+  'edu.codex.models': {
+    version: '0.163.0',
+    fetchedAt: '',
+    models: [
+      {
+        id: 'gpt-5',
+        displayName: 'Catalog Codex',
+        supportedReasoningEfforts: ['medium', 'future-effort'],
+        defaultReasoningEffort: 'medium',
+        disabled: false,
+      },
+    ],
+  },
+  'edu.factory.models': {
+    version: '0.247.0',
+    fetchedAt: '',
+    models: [
+      {
+        id: 'writer-live',
+        displayName: 'Catalog Writer',
+        supportedReasoningEfforts: ['dynamic', 'max'],
+        defaultReasoningEffort: 'dynamic',
+        disabled: false,
+      },
+      {
+        id: 'designer-live',
+        displayName: 'Catalog Designer',
+        supportedReasoningEfforts: [],
+        defaultReasoningEffort: null,
+        disabled: false,
+      },
+    ],
+  },
+  'edu.factory.settings': {
+    argon: { model: 'writer-live', reasoningEffort: 'dynamic' },
+    opus: { model: 'designer-live', reasoningEffort: null },
+  },
+  'edu.factory.version': {
+    installedVersion: '0.247.0',
+    latestVersion: null,
+    updateAvailable: null,
+    canInstall: true,
+    installation: { phase: 'idle' },
+  },
   'edu.factory.account': {
     available: true,
     version: '0.245.1',
@@ -87,10 +131,10 @@ vi.mock('@arco-design/web-react', async (importOriginal) => {
       ))}
     </ul>
   );
-  return { ...actual, Descriptions };
+  return { ...actual, Descriptions, Message: { ...actual.Message, error: vi.fn(), success: vi.fn() } };
 });
 vi.mock('swr', async () => {
-  const mutate = vi.fn();
+  const mutate = vi.fn(async () => {});
   return {
     default: (key: keyof typeof fixtures) => ({
       data: fixtures[key],
@@ -106,8 +150,28 @@ vi.mock('swr', async () => {
 import AgentModalContent from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent';
 import FactoryAccountPanel from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent/FactoryAccountPanel';
 import { specialistApi } from '@/renderer/services/runtime/specialists';
+import FactoryModelSettings from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent/ModelSettings/FactoryModelSettings';
 
 describe('Codex settings layout', () => {
+  it('renders live role selections and omits unsupported reasoning controls', () => {
+    render(<FactoryModelSettings />);
+    expect(screen.getByText('Catalog Writer')).toBeTruthy();
+    expect(screen.getByText('Catalog Designer')).toBeTruthy();
+    expect(screen.getByText('dynamic')).toBeTruthy();
+    expect(screen.getByText('codex.catalog.noReasoning')).toBeTruthy();
+  });
+  it('saves both role settings and retains the draft when saving fails', async () => {
+    const save = vi.spyOn(specialistApi, 'saveSettings').mockRejectedValue(new Error('unavailable'));
+    try {
+      render(<FactoryModelSettings />);
+      fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+      await waitFor(() => expect(save).toHaveBeenCalledWith(fixtures['edu.factory.settings']));
+      expect(screen.getByText('Catalog Writer')).toBeTruthy();
+      expect(screen.getByText('dynamic')).toBeTruthy();
+    } finally {
+      save.mockRestore();
+    }
+  });
   it('shows the official Factory pairing link and cancels a pending login', async () => {
     const account = fixtures['edu.factory.account'];
     account.login = { state: 'pending', url: 'https://app.factory.ai/device?code=fixture' };
@@ -161,13 +225,19 @@ describe('Codex settings layout', () => {
       expect(section.querySelectorAll('button.arco-btn-primary').length).toBeLessThanOrEqual(1);
     }
     const primaryLabels = Array.from(container.querySelectorAll('button.arco-btn-primary')).map((b) => b.textContent);
-    expect(primaryLabels).toEqual(['codex.updates.install', 'common.save', 'codex.proxy.save']);
+    expect(primaryLabels).toEqual([
+      'codex.updates.install',
+      'common.save',
+      'codex.catalog.updateInstall',
+      'common.save',
+      'codex.proxy.save',
+    ]);
   });
 
   it('right-aligns the Codex CLI save button and shows the translated Agents heading', async () => {
     render(<AgentModalContent />);
-    const save = await screen.findByText('common.save');
-    expect(save.closest('button')?.parentElement?.className).toContain('justify-end');
+    const save = (await screen.findAllByText('common.save'))[0];
+    expect(save.closest('section')?.querySelector('.justify-end')).toBeTruthy();
     expect(screen.getByText('settings.agentsTitle')).toBeTruthy();
   });
 });

@@ -40,6 +40,7 @@ vi.mock('@arco-design/web-react', async (importOriginal) => {
 vi.mock('swr', async () => {
   const { useEffect, useState } = await import('react');
   return {
+    mutate: vi.fn().mockResolvedValue(undefined),
     default: (key: string, fetcher: () => Promise<unknown>) => {
       const [data, setData] = useState<unknown>();
       useEffect(() => {

@@ -18,7 +18,10 @@ const CodexAccountPanel: React.FC = () => {
       refreshInterval: (status) =>
         status?.login.state === 'pending' || (status?.login.state === 'succeeded' && !status.authenticated) ? 2000 : 0,
       onSuccess: (status) => {
-        if (status.login.state === 'succeeded') void swrMutate('assistants.list');
+        if (status.login.state === 'succeeded') {
+          void swrMutate('assistants.list');
+          void swrMutate('edu.codex.models');
+        }
       },
     }
   );
@@ -27,6 +30,7 @@ const CodexAccountPanel: React.FC = () => {
     setBusy(true);
     try {
       await mutate(await action(), false);
+      void swrMutate('edu.codex.models');
     } catch {
       Message.error(t('codex.account.actionFailed'));
     } finally {

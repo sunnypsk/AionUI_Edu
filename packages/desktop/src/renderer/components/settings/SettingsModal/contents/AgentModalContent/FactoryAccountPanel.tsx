@@ -1,7 +1,7 @@
 import { Alert, Button, Link, Message, Space, Typography } from '@arco-design/web-react';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import useSWR from 'swr';
+import useSWR, { mutate as refresh } from 'swr';
 import type { FactoryAccount } from '@/common/types/platform/specialists';
 import { specialistApi } from '@/renderer/services/runtime/specialists';
 import SettingsSection from './SettingsSection';
@@ -15,6 +15,14 @@ const FactoryAccountPanel: React.FC = () => {
     refreshInterval: (value) => (value && ['starting', 'pending'].includes(value.login.state) ? 2000 : 0),
   });
   const pending = data && ['starting', 'pending'].includes(data.login.state);
+  const identity = `${data?.authenticated}:${data?.login.state}`;
+  const previous = useRef(identity);
+  useEffect(() => {
+    if (previous.current !== identity) {
+      previous.current = identity;
+      void refresh('edu.factory.models');
+    }
+  }, [identity]);
   const action = async (run: () => Promise<FactoryAccount>): Promise<void> => {
     if (busy) return;
     setBusy(true);

@@ -103,7 +103,7 @@ const SpecialistTasks: React.FC<{ conversationId: string; state: ReturnType<type
           <Collapse.Item
             key={task.id}
             name={task.id}
-            header={`${t(`codex.specialists.models.${task.specialist}`)} · ${t(`codex.specialists.status.${task.runs.at(-1)!.status}`)}`}
+            header={`${t(`codex.specialists.models.${task.specialist}`)} · ${task.model}${task.reasoningEffort ? ` · ${task.reasoningEffort}` : ''} · ${t(`codex.specialists.status.${task.runs.at(-1)!.status}`)}`}
           >
             <Draft conversationId={conversationId} task={task} cancel={() => state.cancel(task.id)} />
           </Collapse.Item>

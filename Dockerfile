@@ -51,6 +51,7 @@ COPY --from=builder /app/LICENSE ./LICENSE
 COPY --from=builder /app/packages/web-host/package.json ./packages/web-host/package.json
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY --from=builder /app/packages/web-host/src ./packages/web-host/src
+COPY --from=builder /app/packages/desktop/src/common/types/platform/cliModels.ts ./packages/desktop/src/common/types/platform/cliModels.ts
 COPY --from=builder /app/packages/web-host/openui ./packages/web-host/openui
 COPY --from=builder /app/packages/web-host/docker ./packages/web-host/docker
 COPY --from=builder /app/scripts/webui.ts /app/scripts/resetpass.ts ./scripts/
@@ -70,7 +71,7 @@ ENV NODE_ENV=production \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \
     AIONUI_BROWSER_EXECUTABLE=/usr/bin/chromium \
-    AIONUI_DROID_BIN=/usr/local/bin/droid \
+    AIONUI_BUNDLED_DROID=/usr/local/bin/droid \
     AIONUI_LOG_LEVEL=info \
     AIONUI_PORT=25808 \
     CODEX_HOME=/data/codex \

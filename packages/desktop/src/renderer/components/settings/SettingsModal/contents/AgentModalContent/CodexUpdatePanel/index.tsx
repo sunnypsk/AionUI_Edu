@@ -1,9 +1,9 @@
 import { ipcBridge } from '@/common';
 import { Alert, Button, Descriptions, Space, Typography } from '@arco-design/web-react';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gt, valid } from 'semver';
-import useSWR from 'swr';
+import useSWR, { mutate as refresh } from 'swr';
 import SettingsSection from '../SettingsSection';
 import CodexVersionsPanel from './CodexVersionsPanel';
 
@@ -25,6 +25,13 @@ const CodexUpdatePanel: React.FC = () => {
     }
   );
   const phase = data?.installation?.phase ?? 'idle';
+  const previousVersion = useRef(data?.installedVersion);
+  useEffect(() => {
+    if (data?.installedVersion && previousVersion.current !== data.installedVersion) {
+      previousVersion.current = data.installedVersion;
+      void refresh('edu.codex.models');
+    }
+  }, [data?.installedVersion]);
   const installing = startingInstall || ['checking', 'downloading', 'verifying'].includes(phase);
   const install = async () => {
     if (installing) return;

@@ -1,11 +1,10 @@
 import type { CodexSettings, ConfigKey, ConfigKeyMap } from './configKeys';
+import { resolveCoreCsrfToken } from '../adapter/httpBridge';
 
 export const DEFAULT_CODEX_SETTINGS: Readonly<CodexSettings> = {
   model: 'gpt-6-astra',
   reasoningEffort: 'low',
 };
-
-export const CODEX_REASONING_EFFORTS: CodexSettings['reasoningEffort'][] = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 /** Validate CLI model identifiers before persisting a preference. */
 export function isCodexModelId(value: unknown): value is string {
@@ -35,6 +34,10 @@ async function fetchJson<T>(method: string, path: string, body?: unknown): Promi
   const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
+  }
+  if (/^(POST|PUT|PATCH|DELETE)$/i.test(method)) {
+    const csrf = resolveCoreCsrfToken();
+    if (csrf) headers['x-csrf-token'] = csrf;
   }
   const response = await fetch(url, {
     method,
@@ -162,8 +165,10 @@ export function readCodexSettings(): CodexSettings {
   const model = typeof saved?.model === 'string' ? saved.model.trim() : '';
   return {
     model: isCodexModelId(model) ? model : DEFAULT_CODEX_SETTINGS.model,
-    reasoningEffort: CODEX_REASONING_EFFORTS.includes(saved?.reasoningEffort as CodexSettings['reasoningEffort'])
-      ? saved!.reasoningEffort
-      : DEFAULT_CODEX_SETTINGS.reasoningEffort,
+    reasoningEffort:
+      saved?.reasoningEffort === null ||
+      (typeof saved?.reasoningEffort === 'string' && saved.reasoningEffort.trim().length > 0)
+        ? saved.reasoningEffort
+        : DEFAULT_CODEX_SETTINGS.reasoningEffort,
   };
 }

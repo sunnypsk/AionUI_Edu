@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory-Schreibexperten",
-    "accountDescription": "Codex arbeitet für Texte mit Gemini und für Unterrichtsplanung mit Opus zusammen. Die Experten erhalten nur das für die Aufgabe bereitgestellte Material.",
+    "accountDescription": "Wählen Sie separate Modelle für Texte und Unterrichtsplanung. Spezialisten erhalten nur das Material ihrer Aufgabe.",
     "unavailable": "Nicht verfügbar",
     "available": "Verfügbar",
     "signedIn": "Bei Factory angemeldet",
@@ -267,8 +267,8 @@
     "authRequired": "Melden Sie sich in den Einstellungen bei Factory an und bitten Sie Codex, es erneut zu versuchen.",
     "taskFailed": "Die Aufgabe konnte nicht abgeschlossen werden. Der Teilentwurf bleibt verfügbar.",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "Schreiben",
+      "opus": "Unterrichtsplanung"
     },
     "status": {
       "initializing": "Startet",
@@ -277,5 +277,20 @@
       "failed": "Fehlgeschlagen",
       "canceled": "Abgebrochen"
     }
+  },
+  "catalog": {
+    "loadFailed": "Modelle oder Einstellungen konnten nicht geladen werden. Bitte aktualisieren.",
+    "empty": "Die CLI hat keine Modelle zurückgegeben.",
+    "noReasoning": "Dieses Modell hat keine Reasoning-Einstellung.",
+    "invalidSelection": "Das gespeicherte Modell oder Reasoning ist nicht verfügbar. Wählen Sie eine unterstützte Kombination.",
+    "factoryTitle": "Droid-Spezialisten",
+    "newTasks": "Änderungen gelten für neue Aufgaben. Bestehende Entwürfe und Überarbeitungen behalten ihre Einstellungen.",
+    "updateTitle": "Droid-CLI-Updates",
+    "updateHint": "Installiert eine geprüfte offizielle Version für diese AionUI-Instanz. Laufende Aufgaben nutzen weiterhin ihre bisherige Version.",
+    "updateFailed": "Update fehlgeschlagen. Die vorherige Version bleibt aktiv.",
+    "updateSuccess": "Droid wurde aktualisiert.",
+    "updateUnsupported": "Updates erfordern eine verwaltete Linux- oder macOS-Installation. Eine explizit konfigurierte CLI wird nicht überschrieben.",
+    "updateInstall": "Droid CLI aktualisieren",
+    "updateDownloading": "Droid CLI wird heruntergeladen…"
   }
 }

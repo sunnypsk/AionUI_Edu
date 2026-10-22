@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory 寫作專家",
-    "accountDescription": "讓 Codex 與 Gemini 協作撰寫文字，並交由 Opus 設計教案及課程。專家只會取得這項任務提供的資料。",
+    "accountDescription": "分別選擇寫作與教學設計使用的模型。專家只會取得該項任務提供的資料。",
     "unavailable": "無法使用",
     "available": "可使用",
     "signedIn": "已登入 Factory",
@@ -267,8 +267,8 @@
     "authRequired": "請在設定中登入 Factory，再請 Codex 重試。",
     "taskFailed": "任務未能完成，已產生的部分草稿仍可讀取。",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "寫作",
+      "opus": "教學設計"
     },
     "status": {
       "initializing": "啟動中",
@@ -277,5 +277,20 @@
       "failed": "失敗",
       "canceled": "已取消"
     }
+  },
+  "catalog": {
+    "loadFailed": "無法載入模型或設定，請重新整理再試。",
+    "empty": "CLI 沒有回傳可用模型。",
+    "noReasoning": "此模型沒有 reasoning 設定。",
+    "invalidSelection": "已儲存的模型或 reasoning 不可用，請選擇支援的組合。",
+    "factoryTitle": "Droid 專家設定",
+    "newTasks": "變更只套用至新任務；既有稿件及修訂保留原本設定。",
+    "updateTitle": "Droid CLI 更新",
+    "updateHint": "為此 AionUI 安裝通過驗證的官方版本。執行中的任務繼續使用目前版本。",
+    "updateFailed": "更新失敗，已保留原本版本。",
+    "updateSuccess": "Droid 已成功更新。",
+    "updateUnsupported": "更新功能支援由 AionUI 管理的 Linux 或 macOS 安裝，不會覆寫明確指定的 CLI。",
+    "updateInstall": "更新 Droid CLI",
+    "updateDownloading": "正在下載 Droid CLI…"
   }
 }

@@ -128,6 +128,17 @@ vi.mock('@renderer/utils/platform', async () => {
 vi.mock('@/renderer/components/base/AionModal', () => ({ default: () => null }));
 vi.mock('@renderer/pages/settings/AgentSettings/InlineAgentEditor', () => ({ default: () => null }));
 vi.mock('@renderer/pages/settings/AgentSettings/AgentHubModal', () => ({ AgentHubModal: () => null }));
+vi.mock('@renderer/components/settings/SettingsModal/contents/AgentModalContent/FactoryAccountPanel', () => ({
+  default: () => null,
+}));
+vi.mock('@renderer/components/settings/SettingsModal/contents/AgentModalContent/DroidUpdatePanel', () => ({
+  default: () => null,
+}));
+vi.mock(
+  '@renderer/components/settings/SettingsModal/contents/AgentModalContent/ModelSettings/FactoryModelSettings',
+  () => ({ default: () => null })
+);
+vi.mock('@renderer/services/runtime/specialists', () => ({ codexModels: vi.fn().mockResolvedValue({ models: [] }) }));
 
 import LocalAgents from '@renderer/pages/settings/AgentSettings/LocalAgents';
 import AgentModalContent from '@renderer/components/settings/SettingsModal/contents/AgentModalContent';
@@ -138,6 +149,7 @@ import { SWRConfig } from 'swr';
 import { getBoundAssistants } from '@renderer/pages/settings/AgentSettings/BoundAssistants';
 import type { Assistant } from '@/common/types/agent/assistantTypes';
 import { configService, readCodexSettings } from '@/common/config/configService';
+import { codexModels } from '@renderer/services/runtime/specialists';
 
 const makeAgents = () => [
   {
@@ -521,10 +533,38 @@ function renderSettings() {
 }
 
 describe('Codex settings form', () => {
+  const catalog = {
+    version: '0.163.0',
+    fetchedAt: new Date().toISOString(),
+    models: [
+      {
+        id: 'gpt-6-astra',
+        displayName: 'GPT Astra',
+        supportedReasoningEfforts: ['low', 'high'],
+        defaultReasoningEffort: 'low',
+        disabled: false,
+      },
+      {
+        id: 'future-model',
+        displayName: 'Future Model',
+        supportedReasoningEfforts: ['ultra', 'max'],
+        defaultReasoningEffort: 'max',
+        disabled: false,
+      },
+    ],
+  };
+  const chooseFutureModel = async () => {
+    const select = screen.getByRole('combobox', { name: 'codex.settings.model' });
+    await waitFor(() => expect(select).not.toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.click(select);
+    fireEvent.change(select.querySelector('input')!, { target: { value: 'Future Model' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Future Model' }));
+  };
   beforeEach(() => {
     mockMatchMedia();
     configService.reset();
     vi.clearAllMocks();
+    vi.mocked(codexModels).mockResolvedValue(catalog);
     useManagedAgents.mockReturnValue({ agents: [codexAgent], refreshCatalog: vi.fn() });
   });
   afterEach(() => {
@@ -532,43 +572,50 @@ describe('Codex settings form', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the default model and low reasoning', () => {
+  it('shows the CLI model name and supported reasoning', async () => {
     renderSettings();
-    expect(screen.getByRole('textbox', { name: 'codex.settings.model' })).toHaveValue('gpt-6-astra');
-    expect(screen.getByText('codex.settings.efforts.low')).toBeInTheDocument();
+    await screen.findByText('GPT Astra');
+    expect(screen.getByRole('combobox', { name: 'codex.settings.reasoning' })).toHaveTextContent('low');
   });
 
-  it('rejects an empty model without saving it', async () => {
+  it('preserves the stored selection and prevents saving when the catalog is empty', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    vi.mocked(codexModels).mockResolvedValueOnce({ ...catalog, models: [] });
     renderSettings();
-    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), { target: { value: ' ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
-    await waitFor(() => expect(screen.getByText('codex.settings.invalidModel')).toBeInTheDocument());
+    await screen.findByText('codex.catalog.empty');
+    expect(screen.getByRole('combobox', { name: 'codex.settings.model' })).toHaveTextContent('gpt-6-astra');
+    expect(screen.getByRole('button', { name: 'common.save', exact: true })).toBeDisabled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('retains settings when discovery fails and lets the user refresh the catalog', async () => {
+    vi.mocked(codexModels).mockRejectedValueOnce(new Error('offline'));
+    renderSettings();
+    await screen.findByText('codex.catalog.loadFailed');
+    expect(readCodexSettings().model).toBe('gpt-6-astra');
+    fireEvent.click(screen.getByRole('button', { name: 'codex.account.refresh' }));
+    await screen.findByText('GPT Astra');
+    expect(screen.queryByText('codex.catalog.loadFailed')).not.toBeInTheDocument();
   });
 
   it('saves the selected model to the server', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     renderSettings();
-    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), {
-      target: { value: 'gpt-6-astra-test' },
-    });
+    await chooseFutureModel();
     fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
     await waitFor(() => expect(messageSuccess).toHaveBeenCalledWith('common.saveSuccess'));
-    expect(readCodexSettings().model).toBe('gpt-6-astra-test');
+    expect(readCodexSettings().model).toBe('future-model');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      'codex.settings': { model: 'gpt-6-astra-test', reasoningEffort: 'low' },
+      'codex.settings': { model: 'future-model', reasoningEffort: 'max' },
     });
   });
 
   it('reports failed saves and keeps the previously saved model', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('unavailable', { status: 503 })));
     renderSettings();
-    fireEvent.change(screen.getByRole('textbox', { name: 'codex.settings.model' }), {
-      target: { value: 'gpt-6-astra-test' },
-    });
+    await chooseFutureModel();
     fireEvent.click(screen.getByRole('button', { name: 'common.save', exact: true }));
     await waitFor(() => expect(messageError).toHaveBeenCalledWith('common.saveFailed'));
     expect(readCodexSettings().model).toBe('gpt-6-astra');

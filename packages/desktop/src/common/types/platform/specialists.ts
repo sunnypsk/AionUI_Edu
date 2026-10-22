@@ -14,8 +14,22 @@ export type SpecialistTask = {
   id: string;
   specialist: Specialist;
   model: string;
+  reasoningEffort?: string | null;
   createdAt: number;
   runs: SpecialistRun[];
+};
+export type SpecialistSettings = Record<Specialist, { model: string; reasoningEffort: string | null }>;
+export type DroidUpdateStatus = {
+  installedVersion: string | null;
+  latestVersion: string | null;
+  checkedAt: string | null;
+  updateAvailable: boolean | null;
+  canInstall: boolean;
+  installation: {
+    phase: 'idle' | 'checking' | 'downloading' | 'verifying' | 'succeeded' | 'failed';
+    targetVersion: string | null;
+    error?: string;
+  };
 };
 export type SpecialistPage = {
   task: SpecialistTask;

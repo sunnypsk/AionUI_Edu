@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EFFORTS, FactoryProvider } from '../../droid/provider/sdk.js';
+import { FactoryProvider } from '../../droid/provider/sdk.js';
 import { SYSTEM_PROMPTS } from '../../droid/provider/prompts.js';
 import { MODELS, type StoredTask } from '../../droid/types.js';
 import type { DroidTransport } from '../../droid/provider/transport.js';
@@ -84,7 +84,6 @@ describe('verified SDK isolation', () => {
   it('creates the teaching designer with medium effort and its own prompt', async () => {
     Object.assign(task, { specialist: 'opus', model: MODELS.opus });
     const session = await provider.open(task, new AbortController().signal);
-    expect(EFFORTS.opus).toBe('medium');
     expect(mocked.createSession.mock.calls[0][0]).toMatchObject({
       modelId: MODELS.opus,
       reasoningEffort: 'medium',
@@ -121,5 +120,39 @@ describe('verified SDK isolation', () => {
     mocked.listModels.mockResolvedValue([]);
     await expect(provider.open(task, new AbortController().signal)).rejects.toThrow('SPECIALIST_MODEL_UNAVAILABLE');
     expect(mocked.createSession).not.toHaveBeenCalled();
+  });
+  it('uses the task snapshot rather than role defaults for create and resume', async () => {
+    Object.assign(task, { model: 'future-model', reasoningEffort: 'max' });
+    mocked.listModels.mockResolvedValue([
+      {
+        id: 'future-model',
+        displayName: 'Future',
+        supportedReasoningEfforts: ['max'],
+        defaultReasoningEffort: 'max',
+        disabled: false,
+      },
+    ]);
+    const session = await provider.open(task, new AbortController().signal);
+    expect(mocked.createSession.mock.calls[0][0]).toMatchObject({ modelId: 'future-model', reasoningEffort: 'max' });
+    await session.close();
+    task.sessionId = 'native';
+    const resumed = await provider.open(task, new AbortController().signal);
+    expect(resumed.id).toBeTruthy();
+    await resumed.close();
+  });
+  it('rejects policy-disabled models even without a disabled reason', async () => {
+    mocked.listModels.mockResolvedValue([{ id: task.model, supportedReasoningEfforts: ['low'], disabled: true }]);
+    await expect(provider.open(task, new AbortController().signal)).rejects.toThrow('SPECIALIST_MODEL_UNAVAILABLE');
+  });
+  it('invalidates discovery independently by user and CLI version', async () => {
+    await provider.catalog('one');
+    await provider.catalog('one');
+    await provider.catalog('two');
+    expect(mocked.listModels).toHaveBeenCalledTimes(2);
+    provider.invalidate('one');
+    await provider.catalog('one');
+    vi.mocked(provider.version).mockResolvedValue('0.247.0');
+    await provider.catalog('two');
+    expect(mocked.listModels).toHaveBeenCalledTimes(4);
   });
 });

@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CodexAuthService } from './codexAuth.js';
 import { CodexUpdateService, CodexInstaller, CodexRetention, isInstallId } from './codex/index.js';
 import { NetworkProxyStore } from './proxy.js';
+import { CodexModelCatalog } from './codex/catalog.js';
 
 type RuntimeControlsOptions = {
   backendPort: number;
@@ -11,6 +12,7 @@ type RuntimeControlsOptions = {
   auth?: Pick<CodexAuthService, 'status' | 'startLogin' | 'cancelLogin' | 'logout' | 'close'>;
   proxy?: Pick<NetworkProxyStore, 'status' | 'save' | 'test'>;
   updates?: Pick<CodexUpdateService, 'status' | 'check' | 'install' | 'versions' | 'cleanup' | 'close'>;
+  catalog?: Pick<CodexModelCatalog, 'get' | 'invalidate' | 'close'>;
 };
 
 function send(res: ServerResponse, status: number, data: unknown): void {
@@ -34,6 +36,7 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 /** The host reuses AionCore's session validation; no parallel password/auth store. */
 export function createRuntimeControls(options: RuntimeControlsOptions) {
   const auth = options.auth ?? new CodexAuthService();
+  const catalog = options.catalog ?? new CodexModelCatalog();
   const proxy = options.proxy ?? new NetworkProxyStore(options.dataDir);
   const updates =
     options.updates ??
@@ -47,6 +50,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
   return {
     close: () => {
       auth.close();
+      catalog.close();
       updates.close();
     },
     async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -98,7 +102,14 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
           }
         }
         let result: unknown;
-        if (route === '/api/edu/codex/version' && req.method === 'GET') result = await updates.status();
+        if (route === '/api/edu/codex/models' && req.method === 'GET') {
+          const version = (await updates.status()).installedVersion;
+          result = await catalog.get(
+            version,
+            'cacheEpoch' in auth ? Number(auth.cacheEpoch) : 0,
+            new URL(req.url!, 'http://localhost').searchParams.get('refresh') === '1'
+          );
+        } else if (route === '/api/edu/codex/version' && req.method === 'GET') result = await updates.status();
         else if (route === '/api/edu/codex/versions' && req.method === 'GET') result = await updates.versions();
         else if (route === '/api/edu/codex/cleanup-versions' && req.method === 'POST') {
           const body = await readBody(req);
@@ -120,6 +131,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
           if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length)
             throw new Error('INVALID_REQUEST');
           result = await updates.install();
+          catalog.invalidate();
         } else if (route === '/api/edu/codex/check-update' && req.method === 'POST') {
           await readBody(req);
           result = await updates.check();
@@ -127,12 +139,14 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
         else if (route === '/api/edu/codex/login' && req.method === 'POST') {
           await readBody(req);
           result = await auth.startLogin();
+          catalog.invalidate();
         } else if (route === '/api/edu/codex/login/cancel' && req.method === 'POST') {
           await readBody(req);
           result = await auth.cancelLogin();
         } else if (route === '/api/edu/codex/logout' && req.method === 'POST') {
           await readBody(req);
           result = await auth.logout();
+          catalog.invalidate();
         } else if (route === '/api/edu/network-proxy/test' && req.method === 'POST')
           result = await proxy.test(await readBody(req));
         else if (route === '/api/edu/network-proxy' && req.method === 'GET') result = await proxy.status();

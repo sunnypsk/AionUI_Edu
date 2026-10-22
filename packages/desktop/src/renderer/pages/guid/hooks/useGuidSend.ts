@@ -136,7 +136,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     const assistantOverrides = {
       model: codexSettings.model,
       permission: selectedMode || undefined,
-      thought_level: codexSettings.reasoningEffort,
+      thought_level: codexSettings.reasoningEffort ?? undefined,
       skill_ids: enabled_skills_to_send,
       disabled_builtin_skill_ids: excludeBuiltinSkills,
       mcp_ids: assistantOverrideMcpIds,

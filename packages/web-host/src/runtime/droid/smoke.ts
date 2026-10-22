@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { EFFORTS, FactoryProvider } from './provider/sdk.js';
+import { FactoryProvider } from './provider/sdk.js';
+import { LEGACY_EFFORTS } from './provider/settings.js';
 import { MODELS, type StoredTask } from './types.js';
 
 /** Verify both model settings and zero-tool create/resume using an isolated Factory home. */
@@ -20,6 +21,7 @@ export async function runDroidSmoke(): Promise<void> {
         conversationId: 'smoke',
         specialist,
         model: MODELS[specialist],
+        reasoningEffort: LEGACY_EFFORTS[specialist],
         epoch: 1,
         createdAt: Date.now(),
         disabledToolIds: [],
@@ -36,7 +38,7 @@ export async function runDroidSmoke(): Promise<void> {
               specialist,
               phase,
               verified: true,
-              reasoningEffort: EFFORTS[specialist],
+              reasoningEffort: task.reasoningEffort,
               disabledTools: session.disabledToolIds.length,
             })
           );

@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory 執筆スペシャリスト",
-    "accountDescription": "Codex が文章は Gemini、授業計画は Opus と共同制作します。専門家にはタスクに提供された資料のみが渡されます。",
+    "accountDescription": "執筆と授業設計のモデルを個別に選択します。専門家はタスクに提供された資料のみを受け取ります。",
     "unavailable": "利用不可",
     "available": "利用可能",
     "signedIn": "Factory にログイン済み",
@@ -267,8 +267,8 @@
     "authRequired": "設定で Factory にログインしてから Codex に再試行を依頼してください。",
     "taskFailed": "タスクを完了できませんでした。途中の草稿は引き続き閲覧できます。",
     "models": {
-      "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · medium"
+      "argon": "執筆",
+      "opus": "授業設計"
     },
     "status": {
       "initializing": "起動中",
@@ -277,5 +277,20 @@
       "failed": "失敗",
       "canceled": "キャンセル済み"
     }
+  },
+  "catalog": {
+    "loadFailed": "モデルや設定を読み込めません。更新して再試行してください。",
+    "empty": "CLI がモデルを返しませんでした。",
+    "noReasoning": "このモデルに推論設定はありません。",
+    "invalidSelection": "保存されたモデルまたは推論レベルは利用できません。対応する組み合わせを選択してください。",
+    "factoryTitle": "Droid 専門家の設定",
+    "newTasks": "変更は新規タスクに適用されます。既存の原稿と修正は元の設定を保持します。",
+    "updateTitle": "Droid CLI の更新",
+    "updateHint": "検証済みの公式リリースをこの AionUI にインストールします。実行中のタスクは現在のバージョンで継続します。",
+    "updateFailed": "更新に失敗しました。以前のバージョンが維持されます。",
+    "updateSuccess": "Droid を更新しました。",
+    "updateUnsupported": "更新には管理対象の Linux または macOS 環境が必要です。明示指定の CLI は上書きしません。",
+    "updateInstall": "Droid CLI を更新",
+    "updateDownloading": "Droid CLI をダウンロード中…"
   }
 }
