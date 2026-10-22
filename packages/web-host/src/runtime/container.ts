@@ -3,6 +3,7 @@ import { chown, mkdir, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { containerErrorCode, ProxyLog } from './proxyLog.js';
 import {
   buildEgressRules,
   buildTunConfig,
@@ -91,10 +92,25 @@ export async function runContainer(): Promise<void> {
     // Docker's embedded resolver runs outside this namespace; replace it so DNS cannot escape via Docker.
     await writeFile('/etc/resolv.conf', `nameserver ${TUN_DNS}\noptions timeout:2 attempts:2\n`);
     tunnel = spawn('sing-box', ['run', '-c', configPath], { stdio: ['ignore', 'ignore', 'pipe'] });
-    tunnel.stderr?.resume();
-    tunnel.once('error', () => stop(1));
-    tunnel.once('exit', () => {
-      if (!stopping) stop(1);
+    const diagnostics = new ProxyLog(proxy, (line) => console.error(line));
+    tunnel.stderr?.setEncoding('utf8');
+    tunnel.stderr?.on('data', (chunk: string) => diagnostics.push(chunk));
+    tunnel.stderr?.once('error', (error) => {
+      console.error(`[network] SOCKS5 diagnostics failed code=${containerErrorCode(error)}`);
+      stop(1);
+    });
+    tunnel.once('error', (error) => {
+      console.error(`[network] SOCKS5 process failed code=${containerErrorCode(error)}`);
+      stop(1);
+    });
+    tunnel.once('exit', (code, signal) => {
+      diagnostics.finish();
+      if (!stopping) {
+        console.error(
+          `[network] SOCKS5 process exited code=${code} signal=${signal} tail=${JSON.stringify(diagnostics.tail())}`
+        );
+        stop(1);
+      }
     });
     let ready = false;
     for (let attempt = 0; attempt < 100 && !stopping; attempt += 1) {
@@ -137,14 +153,20 @@ export async function runContainer(): Promise<void> {
     ],
     { cwd: repoRoot, env, detached: true, stdio: 'inherit' }
   );
-  app.once('error', () => stop(1));
-  app.once('exit', (code) => stop(code ?? 1));
+  app.once('error', (error) => {
+    console.error(`[network] Application process failed code=${containerErrorCode(error)}`);
+    stop(1);
+  });
+  app.once('exit', (code, signal) => {
+    if (!stopping) console.error(`[network] Application exited code=${code} signal=${signal}`);
+    stop(code ?? 1);
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  void runContainer().catch(() => {
+  void runContainer().catch((error: unknown) => {
     console.error(
-      '[network] Container startup failed; the application was not started. Check proxy settings, NET_ADMIN and /dev/net/tun.'
+      `[network] Container startup failed code=${containerErrorCode(error)}; check proxy settings, NET_ADMIN and /dev/net/tun.`
     );
     process.exit(1);
   });
