@@ -333,7 +333,7 @@ export class SharedBrowserManager {
       // Retain Playwright's normal wait when an element has not appeared yet.
       await operation(locator);
     } catch (error) {
-      const matches = await locator.count().catch(() => undefined);
+      const matches = await locator.count().catch((): undefined => undefined);
       if (matches !== undefined && matches > 1) throw ambiguous(matches);
       if (matches === 0 && error instanceof Error && error.name === 'TimeoutError')
         throw new BrowserRuntimeError('BROWSER_SELECTOR_NOT_FOUND', 'selector', { matchCount: 0 });

@@ -10,6 +10,17 @@ import { Left, Right, Refresh, Loading } from '@icon-park/react';
 import { ipcBridge } from '@/common';
 import { InternalNavTracker, shouldResetHistoryForUrlProp } from './webviewHistory';
 
+type WebviewElement = HTMLElement & {
+  src: string;
+  canGoBack: () => boolean;
+  canGoForward: () => boolean;
+  goBack: () => void;
+  goForward: () => void;
+  reload: () => void;
+  getWebContentsId: () => number;
+  executeJavaScript: (code: string) => Promise<unknown>;
+};
+
 export interface WebviewHostProps {
   /** URL to display */
   url: string;
@@ -74,7 +85,7 @@ const WebviewHost: React.FC<WebviewHostProps> = ({
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const webviewRef = useRef<Electron.WebviewTag | null>(null);
+  const webviewRef = useRef<WebviewElement | null>(null);
   const autoFitPendingRef = useRef(false);
 
   // Callbacks are mirrored into refs so the listener effect does not re-subscribe
@@ -255,7 +266,7 @@ const WebviewHost: React.FC<WebviewHostProps> = ({
         .catch(() => {});
     };
 
-    const handleConsoleMessage = (event: Electron.ConsoleMessageEvent) => {
+    const handleConsoleMessage = (event: Event & { message: string }) => {
       try {
         if (event.message.includes('__WEBVIEW_HOST_NAVIGATE__')) {
           const match = event.message.match(/"url":"([^"]+)"/);
