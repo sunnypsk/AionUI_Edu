@@ -15,7 +15,38 @@
     "download_aria": "Download image",
     "download_success": "Download successful",
     "download_error": "Failed to download",
-    "generated_alt": "Generated image"
+    "generated_alt": "Generated image",
+    "edit": {
+      "open": "Edit",
+      "open_aria": "Edit image",
+      "title": "Edit image",
+      "submit": "Attach to chat",
+      "toolbar_aria": "Annotation tools",
+      "canvas_aria": "Image annotation canvas",
+      "color_aria": "Color {{color}}",
+      "tools": {
+        "brush": "Brush",
+        "arrow": "Arrow",
+        "rect": "Box",
+        "text": "Text",
+        "crop": "Crop"
+      },
+      "sizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "undo": "Undo",
+      "redo": "Redo",
+      "clear": "Clear all",
+      "text_placeholder": "Type a label, press Enter",
+      "instruction_placeholder": "Describe the changes you want (optional)",
+      "load_error": "Failed to load image",
+      "attached": "Edited image attached to the message box",
+      "attach_error": "Failed to attach edited image",
+      "prompt": "Generate a new version of this image. The first attached image is the original; the second shows my marked-up edits (drawings, arrows, boxes, notes and any crop). Apply the marked changes and keep everything else consistent with the original.",
+      "prompt_with_instruction": "Generate a new version of this image. The first attached image is the original; the second shows my marked-up edits (drawings, arrows, boxes, notes and any crop). Apply the marked changes and keep everything else consistent with the original.\n\nRequested changes: {{instruction}}"
+    }
   },
   "status": {
     "connecting": "Connecting to {{agent}}...",

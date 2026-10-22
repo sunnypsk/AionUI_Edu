@@ -76,6 +76,12 @@ export interface ConversationContextValue {
    * attachments reach the agent as file paths, and the send box hints so.
    */
   promptCapability?: { image: boolean; audio: boolean };
+
+  /**
+   * Agent backend driving this conversation (e.g. `codex`), when known.
+   * Used to gate backend-specific message actions such as image editing.
+   */
+  backend?: string;
 }
 
 /**

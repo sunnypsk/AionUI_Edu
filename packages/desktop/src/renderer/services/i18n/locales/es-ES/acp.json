@@ -15,7 +15,38 @@
     "download_aria": "Descargar imagen",
     "download_success": "Descarga exitosa",
     "download_error": "Error al descargar",
-    "generated_alt": "Imagen generada"
+    "generated_alt": "Imagen generada",
+    "edit": {
+      "open": "Editar",
+      "open_aria": "Editar imagen",
+      "title": "Editar imagen",
+      "submit": "Adjuntar al chat",
+      "toolbar_aria": "Herramientas de anotación",
+      "canvas_aria": "Lienzo de anotación de imagen",
+      "color_aria": "Color {{color}}",
+      "tools": {
+        "brush": "Pincel",
+        "arrow": "Flecha",
+        "rect": "Recuadro",
+        "text": "Texto",
+        "crop": "Recortar"
+      },
+      "sizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "clear": "Borrar todo",
+      "text_placeholder": "Escribe una etiqueta y pulsa Enter",
+      "instruction_placeholder": "Describe los cambios que quieres (opcional)",
+      "load_error": "No se pudo cargar la imagen",
+      "attached": "Imagen editada adjuntada al cuadro de mensaje",
+      "attach_error": "No se pudo adjuntar la imagen editada",
+      "prompt": "Genera una nueva versión de esta imagen. El primer adjunto es el original; el segundo muestra mis marcas (dibujos, flechas, recuadros, notas y recorte). Aplica los cambios marcados y mantén todo lo demás coherente con el original.",
+      "prompt_with_instruction": "Genera una nueva versión de esta imagen. El primer adjunto es el original; el segundo muestra mis marcas (dibujos, flechas, recuadros, notas y recorte). Aplica los cambios marcados y mantén todo lo demás coherente con el original.\n\nCambios solicitados: {{instruction}}"
+    }
   },
   "status": {
     "connecting": "Conectando a {{agent}}...",

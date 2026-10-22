@@ -15,7 +15,38 @@
     "download_aria": "Télécharger l'image",
     "download_success": "Téléchargement réussi",
     "download_error": "Échec du téléchargement",
-    "generated_alt": "Image générée"
+    "generated_alt": "Image générée",
+    "edit": {
+      "open": "Modifier",
+      "open_aria": "Modifier l'image",
+      "title": "Modifier l'image",
+      "submit": "Joindre au chat",
+      "toolbar_aria": "Outils d'annotation",
+      "canvas_aria": "Zone d'annotation de l'image",
+      "color_aria": "Couleur {{color}}",
+      "tools": {
+        "brush": "Pinceau",
+        "arrow": "Flèche",
+        "rect": "Cadre",
+        "text": "Texte",
+        "crop": "Recadrer"
+      },
+      "sizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "undo": "Annuler",
+      "redo": "Rétablir",
+      "clear": "Tout effacer",
+      "text_placeholder": "Saisissez une étiquette, puis Entrée",
+      "instruction_placeholder": "Décrivez les modifications souhaitées (facultatif)",
+      "load_error": "Échec du chargement de l'image",
+      "attached": "Image modifiée jointe à la zone de message",
+      "attach_error": "Échec de l'ajout de l'image modifiée",
+      "prompt": "Génère une nouvelle version de cette image. La première pièce jointe est l'original ; la seconde montre mes annotations (dessins, flèches, cadres, notes et recadrage). Applique les modifications indiquées et garde tout le reste cohérent avec l'original.",
+      "prompt_with_instruction": "Génère une nouvelle version de cette image. La première pièce jointe est l'original ; la seconde montre mes annotations (dessins, flèches, cadres, notes et recadrage). Applique les modifications indiquées et garde tout le reste cohérent avec l'original.\n\nModifications demandées : {{instruction}}"
+    }
   },
   "status": {
     "connecting": "Connexion à {{agent}}...",

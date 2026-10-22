@@ -1,0 +1,48 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-3);
+  vertical-align: middle;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 240px;
+  background: var(--color-fill-2);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.canvas[data-tool='text'] {
+  cursor: text;
+}
+
+.textInput {
+  position: absolute;
+  width: 220px;
+}
+
+.instruction {
+  margin-top: 12px;
+}

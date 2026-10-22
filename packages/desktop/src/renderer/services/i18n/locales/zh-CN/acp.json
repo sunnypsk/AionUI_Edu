@@ -15,7 +15,38 @@
     "download_aria": "下载图片",
     "download_success": "下载成功",
     "download_error": "下载失败",
-    "generated_alt": "生成的图片"
+    "generated_alt": "生成的图片",
+    "edit": {
+      "open": "编辑",
+      "open_aria": "编辑图片",
+      "title": "编辑图片",
+      "submit": "添加到对话",
+      "toolbar_aria": "标注工具",
+      "canvas_aria": "图片标注画布",
+      "color_aria": "颜色 {{color}}",
+      "tools": {
+        "brush": "画笔",
+        "arrow": "箭头",
+        "rect": "方框",
+        "text": "文字",
+        "crop": "裁剪"
+      },
+      "sizes": {
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "undo": "撤销",
+      "redo": "重做",
+      "clear": "全部清除",
+      "text_placeholder": "输入标注文字，按回车确认",
+      "instruction_placeholder": "描述你想要的修改（可选）",
+      "load_error": "图片加载失败",
+      "attached": "已将编辑后的图片添加到输入框",
+      "attach_error": "添加编辑后的图片失败",
+      "prompt": "请生成这张图片的新版本。第一张附件是原图，第二张是我标注的修改（涂画、箭头、方框、文字说明及裁剪）。请应用标注的修改，其余部分与原图保持一致。",
+      "prompt_with_instruction": "请生成这张图片的新版本。第一张附件是原图，第二张是我标注的修改（涂画、箭头、方框、文字说明及裁剪）。请应用标注的修改，其余部分与原图保持一致。\n\n具体修改：{{instruction}}"
+    }
   },
   "status": {
     "connecting": "正在连接 {{agent}}...",

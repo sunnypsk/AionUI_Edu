@@ -200,7 +200,7 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
           ))}
         </div>
       )}
-      {images.length > 0 && <ToolImageGallery images={images} />}
+      {images.length > 0 && <ToolImageGallery images={images} editable />}
     </div>
   );
 };

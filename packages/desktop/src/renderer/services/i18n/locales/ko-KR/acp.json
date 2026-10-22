@@ -15,7 +15,38 @@
     "download_aria": "이미지 다운로드",
     "download_success": "다운로드 성공",
     "download_error": "다운로드 실패",
-    "generated_alt": "생성된 이미지"
+    "generated_alt": "생성된 이미지",
+    "edit": {
+      "open": "편집",
+      "open_aria": "이미지 편집",
+      "title": "이미지 편집",
+      "submit": "채팅에 첨부",
+      "toolbar_aria": "주석 도구",
+      "canvas_aria": "이미지 주석 캔버스",
+      "color_aria": "색상 {{color}}",
+      "tools": {
+        "brush": "브러시",
+        "arrow": "화살표",
+        "rect": "상자",
+        "text": "텍스트",
+        "crop": "자르기"
+      },
+      "sizes": {
+        "small": "소",
+        "medium": "중",
+        "large": "대"
+      },
+      "undo": "실행 취소",
+      "redo": "다시 실행",
+      "clear": "모두 지우기",
+      "text_placeholder": "라벨 입력 후 Enter",
+      "instruction_placeholder": "원하는 변경 사항을 설명하세요 (선택)",
+      "load_error": "이미지를 불러오지 못했습니다",
+      "attached": "편집한 이미지를 메시지 입력창에 첨부했습니다",
+      "attach_error": "편집한 이미지를 첨부하지 못했습니다",
+      "prompt": "이 이미지의 새 버전을 생성해 주세요. 첫 번째 첨부는 원본이고, 두 번째는 제가 표시한 수정 사항(그림, 화살표, 상자, 메모, 자르기)입니다. 표시한 변경 사항을 적용하고 나머지는 원본과 일관되게 유지해 주세요.",
+      "prompt_with_instruction": "이 이미지의 새 버전을 생성해 주세요. 첫 번째 첨부는 원본이고, 두 번째는 제가 표시한 수정 사항(그림, 화살표, 상자, 메모, 자르기)입니다. 표시한 변경 사항을 적용하고 나머지는 원본과 일관되게 유지해 주세요.\n\n요청 사항: {{instruction}}"
+    }
   },
   "status": {
     "connecting": "{{agent}}에 연결 중...",

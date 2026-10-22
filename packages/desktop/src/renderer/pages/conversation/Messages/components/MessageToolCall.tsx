@@ -11,24 +11,56 @@ import FileChangesPanel from '@/renderer/components/base/FileChangesPanel';
 import { useDiffPreviewHandlers } from '@/renderer/hooks/file/useDiffPreviewHandlers';
 import { parseDiff } from '@/renderer/utils/file/diffUtils';
 import { Badge, Button, Image, Message, Tooltip } from '@arco-design/web-react';
-import { Download } from '@icon-park/react';
+import { Download, Edit } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { localFileRef } from '@/common/types/chatFile';
 import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { getAcpImageFileName } from '@/common/chat/acpToolCallOutput';
+import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
+import ImageAnnotatorModal from '@renderer/pages/conversation/Messages/acp/ImageAnnotator';
+import { attachImageEditToSendBox } from '@renderer/pages/conversation/Messages/acp/ImageAnnotator/attachImageEdit';
+import type { ImageEditResult } from '@renderer/pages/conversation/Messages/acp/ImageAnnotator/types';
 import { IconDown, IconRight } from '@arco-design/web-react/icon';
 import { createTwoFilesPatch } from 'diff';
 import React, { useMemo, useState } from 'react';
 import type { BadgeProps } from '@arco-design/web-react';
 import './MessageToolGroupSummary.css';
 
-/** Render raster tool images with authenticated preview and download. */
-export const ToolImageGallery: React.FC<{ images?: Array<{ path: string; mime_type: string }> }> = ({ images }) => {
+/**
+ * Render raster tool images with authenticated preview and download.
+ * `editable` marks generated results; Codex conversations then offer an annotate-and-regenerate editor.
+ */
+export const ToolImageGallery: React.FC<{
+  images?: Array<{ path: string; mime_type: string }>;
+  editable?: boolean;
+}> = ({ images, editable = false }) => {
   const { t } = useTranslation();
   const [messageApi, context] = Message.useMessage();
+  const conversation = useConversationContextSafe();
+  const [editingPath, setEditingPath] = useState<string | null>(null);
   const unique = [...new Map((images ?? []).map((image) => [image.path, image])).values()];
+  const canEdit = editable && conversation?.backend === 'codex' && !conversation.hideSendBox;
   if (!unique.length) return null;
+  const submitEdit = async (edit: ImageEditResult): Promise<void> => {
+    if (!conversation || !editingPath) return;
+    const prompt = edit.instruction
+      ? t('acp.image.edit.prompt_with_instruction', { instruction: edit.instruction })
+      : t('acp.image.edit.prompt');
+    try {
+      await attachImageEditToSendBox({
+        conversationId: conversation.conversation_id,
+        fileName: getAcpImageFileName(editingPath),
+        edit,
+        prompt,
+      });
+      setEditingPath(null);
+      messageApi.success(t('acp.image.edit.attached'));
+    } catch (error) {
+      console.error('[ToolImageGallery] Failed to attach edited image:', error);
+      messageApi.error(t('acp.image.edit.attach_error'));
+    }
+  };
   const download = async (path: string): Promise<void> => {
     try {
       await downloadFileFromRef(localFileRef(path), getAcpImageFileName(path));
@@ -59,8 +91,29 @@ export const ToolImageGallery: React.FC<{ images?: Array<{ path: string; mime_ty
               onClick={() => void download(image.path)}
             />
           </Tooltip>
+          {canEdit && (
+            <Tooltip content={t('acp.image.edit.open')}>
+              <Button
+                aria-label={t('acp.image.edit.open_aria')}
+                type='secondary'
+                size='mini'
+                shape='circle'
+                className='!absolute end-40px top-10px'
+                icon={<Edit size='14' />}
+                onClick={() => setEditingPath(image.path)}
+              />
+            </Tooltip>
+          )}
         </div>
       ))}
+      {canEdit && (
+        <ImageAnnotatorModal
+          visible={editingPath !== null}
+          src={editingPath ? buildFileStreamUrl(localFileRef(editingPath)) : ''}
+          onCancel={() => setEditingPath(null)}
+          onSubmit={submitEdit}
+        />
+      )}
     </div>
   );
 };
@@ -162,7 +215,7 @@ const MessageToolCall: React.FC<{ message: IMessageToolCall }> = ({ message }) =
           <ToolImageGallery images={observationImages} />
         </div>
       )}
-      {normalized.imageRole === 'generated' && <ToolImageGallery images={normalized.images} />}
+      {normalized.imageRole === 'generated' && <ToolImageGallery images={normalized.images} editable />}
     </div>
   );
 };

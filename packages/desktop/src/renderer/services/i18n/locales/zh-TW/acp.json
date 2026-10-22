@@ -15,7 +15,38 @@
     "download_aria": "下載圖片",
     "download_success": "下載成功",
     "download_error": "下載失敗",
-    "generated_alt": "生成的圖片"
+    "generated_alt": "生成的圖片",
+    "edit": {
+      "open": "編輯",
+      "open_aria": "編輯圖片",
+      "title": "編輯圖片",
+      "submit": "加入對話",
+      "toolbar_aria": "標註工具",
+      "canvas_aria": "圖片標註畫布",
+      "color_aria": "顏色 {{color}}",
+      "tools": {
+        "brush": "畫筆",
+        "arrow": "箭頭",
+        "rect": "方框",
+        "text": "文字",
+        "crop": "裁切"
+      },
+      "sizes": {
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "undo": "復原",
+      "redo": "重做",
+      "clear": "全部清除",
+      "text_placeholder": "輸入標註文字，按 Enter 確認",
+      "instruction_placeholder": "描述你想要的修改（選填）",
+      "load_error": "圖片載入失敗",
+      "attached": "已將編輯後的圖片加入輸入框",
+      "attach_error": "加入編輯後的圖片失敗",
+      "prompt": "請產生這張圖片的新版本。第一張附件是原圖，第二張是我標註的修改（塗畫、箭頭、方框、文字說明及裁切）。請套用標註的修改，其餘部分與原圖保持一致。",
+      "prompt_with_instruction": "請產生這張圖片的新版本。第一張附件是原圖，第二張是我標註的修改（塗畫、箭頭、方框、文字說明及裁切）。請套用標註的修改，其餘部分與原圖保持一致。\n\n具體修改：{{instruction}}"
+    }
   },
   "status": {
     "connecting": "正在連線至 {{agent}}...",

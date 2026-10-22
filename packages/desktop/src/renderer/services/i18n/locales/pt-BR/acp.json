@@ -27,6 +27,37 @@
     "download_aria": "Baixar imagem",
     "download_success": "Download concluído",
     "download_error": "Falha ao baixar",
-    "generated_alt": "Imagem gerada"
+    "generated_alt": "Imagem gerada",
+    "edit": {
+      "open": "Editar",
+      "open_aria": "Editar imagem",
+      "title": "Editar imagem",
+      "submit": "Anexar ao chat",
+      "toolbar_aria": "Ferramentas de anotação",
+      "canvas_aria": "Tela de anotação da imagem",
+      "color_aria": "Cor {{color}}",
+      "tools": {
+        "brush": "Pincel",
+        "arrow": "Seta",
+        "rect": "Caixa",
+        "text": "Texto",
+        "crop": "Recortar"
+      },
+      "sizes": {
+        "small": "P",
+        "medium": "M",
+        "large": "G"
+      },
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "clear": "Limpar tudo",
+      "text_placeholder": "Digite um rótulo e pressione Enter",
+      "instruction_placeholder": "Descreva as alterações desejadas (opcional)",
+      "load_error": "Falha ao carregar a imagem",
+      "attached": "Imagem editada anexada à caixa de mensagem",
+      "attach_error": "Falha ao anexar a imagem editada",
+      "prompt": "Gere uma nova versão desta imagem. O primeiro anexo é o original; o segundo mostra minhas marcações (desenhos, setas, caixas, notas e recorte). Aplique as alterações marcadas e mantenha todo o resto consistente com o original.",
+      "prompt_with_instruction": "Gere uma nova versão desta imagem. O primeiro anexo é o original; o segundo mostra minhas marcações (desenhos, setas, caixas, notas e recorte). Aplique as alterações marcadas e mantenha todo o resto consistente com o original.\n\nAlterações solicitadas: {{instruction}}"
+    }
   }
 }

@@ -15,7 +15,38 @@
     "download_aria": "Bild herunterladen",
     "download_success": "Erfolgreich heruntergeladen",
     "download_error": "Download fehlgeschlagen",
-    "generated_alt": "Generiertes Bild"
+    "generated_alt": "Generiertes Bild",
+    "edit": {
+      "open": "Bearbeiten",
+      "open_aria": "Bild bearbeiten",
+      "title": "Bild bearbeiten",
+      "submit": "An Chat anhängen",
+      "toolbar_aria": "Anmerkungswerkzeuge",
+      "canvas_aria": "Bild-Anmerkungsfläche",
+      "color_aria": "Farbe {{color}}",
+      "tools": {
+        "brush": "Pinsel",
+        "arrow": "Pfeil",
+        "rect": "Rahmen",
+        "text": "Text",
+        "crop": "Zuschneiden"
+      },
+      "sizes": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "clear": "Alles löschen",
+      "text_placeholder": "Beschriftung eingeben, Enter drücken",
+      "instruction_placeholder": "Gewünschte Änderungen beschreiben (optional)",
+      "load_error": "Bild konnte nicht geladen werden",
+      "attached": "Bearbeitetes Bild an das Nachrichtenfeld angehängt",
+      "attach_error": "Bearbeitetes Bild konnte nicht angehängt werden",
+      "prompt": "Erzeuge eine neue Version dieses Bildes. Der erste Anhang ist das Original, der zweite zeigt meine Markierungen (Zeichnungen, Pfeile, Rahmen, Notizen und Zuschnitt). Übernimm die markierten Änderungen und halte alles andere konsistent mit dem Original.",
+      "prompt_with_instruction": "Erzeuge eine neue Version dieses Bildes. Der erste Anhang ist das Original, der zweite zeigt meine Markierungen (Zeichnungen, Pfeile, Rahmen, Notizen und Zuschnitt). Übernimm die markierten Änderungen und halte alles andere konsistent mit dem Original.\n\nGewünschte Änderungen: {{instruction}}"
+    }
   },
   "status": {
     "connecting": "Verbinde mit {{agent}}...",

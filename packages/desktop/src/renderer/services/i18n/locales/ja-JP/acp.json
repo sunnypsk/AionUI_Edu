@@ -15,7 +15,38 @@
     "download_aria": "画像をダウンロード",
     "download_success": "ダウンロードしました",
     "download_error": "ダウンロードに失敗しました",
-    "generated_alt": "生成された画像"
+    "generated_alt": "生成された画像",
+    "edit": {
+      "open": "編集",
+      "open_aria": "画像を編集",
+      "title": "画像を編集",
+      "submit": "チャットに添付",
+      "toolbar_aria": "注釈ツール",
+      "canvas_aria": "画像注釈キャンバス",
+      "color_aria": "色 {{color}}",
+      "tools": {
+        "brush": "ブラシ",
+        "arrow": "矢印",
+        "rect": "枠",
+        "text": "テキスト",
+        "crop": "切り抜き"
+      },
+      "sizes": {
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "undo": "元に戻す",
+      "redo": "やり直す",
+      "clear": "すべてクリア",
+      "text_placeholder": "ラベルを入力して Enter",
+      "instruction_placeholder": "変更内容を入力（任意）",
+      "load_error": "画像の読み込みに失敗しました",
+      "attached": "編集した画像をメッセージ欄に添付しました",
+      "attach_error": "編集した画像の添付に失敗しました",
+      "prompt": "この画像の新しいバージョンを生成してください。1枚目の添付は元画像、2枚目は私が書き込んだ修正指示（描画、矢印、枠、メモ、切り抜き）です。指示した変更を適用し、それ以外は元画像と一貫性を保ってください。",
+      "prompt_with_instruction": "この画像の新しいバージョンを生成してください。1枚目の添付は元画像、2枚目は私が書き込んだ修正指示（描画、矢印、枠、メモ、切り抜き）です。指示した変更を適用し、それ以外は元画像と一貫性を保ってください。\n\n変更内容：{{instruction}}"
+    }
   },
   "status": {
     "connecting": "{{agent}} に接続中...",

@@ -15,7 +15,38 @@
     "download_aria": "Görseli indir",
     "download_success": "İndirme başarılı",
     "download_error": "İndirme başarısız",
-    "generated_alt": "Oluşturulan görsel"
+    "generated_alt": "Oluşturulan görsel",
+    "edit": {
+      "open": "Düzenle",
+      "open_aria": "Görseli düzenle",
+      "title": "Görseli düzenle",
+      "submit": "Sohbete ekle",
+      "toolbar_aria": "Açıklama araçları",
+      "canvas_aria": "Görsel açıklama tuvali",
+      "color_aria": "Renk {{color}}",
+      "tools": {
+        "brush": "Fırça",
+        "arrow": "Ok",
+        "rect": "Kutu",
+        "text": "Metin",
+        "crop": "Kırp"
+      },
+      "sizes": {
+        "small": "K",
+        "medium": "O",
+        "large": "B"
+      },
+      "undo": "Geri al",
+      "redo": "Yinele",
+      "clear": "Tümünü temizle",
+      "text_placeholder": "Etiket yazın, Enter'a basın",
+      "instruction_placeholder": "İstediğiniz değişiklikleri açıklayın (isteğe bağlı)",
+      "load_error": "Görsel yüklenemedi",
+      "attached": "Düzenlenen görsel mesaj kutusuna eklendi",
+      "attach_error": "Düzenlenen görsel eklenemedi",
+      "prompt": "Bu görselin yeni bir sürümünü oluştur. İlk ek orijinal görsel; ikincisi işaretlediğim düzenlemeleri (çizimler, oklar, kutular, notlar ve kırpma) gösteriyor. İşaretlenen değişiklikleri uygula ve geri kalan her şeyi orijinalle tutarlı tut.",
+      "prompt_with_instruction": "Bu görselin yeni bir sürümünü oluştur. İlk ek orijinal görsel; ikincisi işaretlediğim düzenlemeleri (çizimler, oklar, kutular, notlar ve kırpma) gösteriyor. İşaretlenen değişiklikleri uygula ve geri kalan her şeyi orijinalle tutarlı tut.\n\nİstenen değişiklikler: {{instruction}}"
+    }
   },
   "status": {
     "connecting": "{{agent}} ajanına bağlanılıyor...",
