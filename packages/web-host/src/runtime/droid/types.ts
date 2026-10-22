@@ -15,7 +15,17 @@ export const idSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/);
 const prompt = z.string().trim().min(1).max(200_000);
 const files = z.array(z.string().min(1).max(4096)).max(32).optional();
 export const toolSchemas = {
-  specialist_start: z.object({ specialist: z.enum(['argon', 'opus']), prompt, files }).strict(),
+  specialist_start: z
+    .object({
+      specialist: z
+        .enum(['argon', 'opus'])
+        .describe(
+          'argon: writer for student-, parent- or colleague-facing text. opus: teaching designer for lesson and curriculum plans.'
+        ),
+      prompt,
+      files,
+    })
+    .strict(),
   specialist_reply: z.object({ task_id: z.string().uuid(), prompt, files }).strict(),
   specialist_wait: z
     .object({ task_ids: z.array(z.string().uuid()).min(1).max(32), wait_sec: z.number().min(0).max(50).default(50) })

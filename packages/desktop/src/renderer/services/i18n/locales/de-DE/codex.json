@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory-Schreibexperten",
-    "accountDescription": "Codex arbeitet für Texte mit Gemini und für Geschichten mit Opus zusammen. Die Experten erhalten nur das für die Aufgabe bereitgestellte Material.",
+    "accountDescription": "Codex arbeitet für Texte mit Gemini und für Unterrichtsplanung mit Opus zusammen. Die Experten erhalten nur das für die Aufgabe bereitgestellte Material.",
     "unavailable": "Nicht verfügbar",
     "available": "Verfügbar",
     "signedIn": "Bei Factory angemeldet",
@@ -268,7 +268,7 @@
     "taskFailed": "Die Aufgabe konnte nicht abgeschlossen werden. Der Teilentwurf bleibt verfügbar.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Startet",

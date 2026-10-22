@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { FactoryProvider } from './provider/sdk.js';
+import { EFFORTS, FactoryProvider } from './provider/sdk.js';
 import { MODELS, type StoredTask } from './types.js';
 
 /** Verify both model settings and zero-tool create/resume using an isolated Factory home. */
@@ -36,7 +36,7 @@ export async function runDroidSmoke(): Promise<void> {
               specialist,
               phase,
               verified: true,
-              reasoningEffort: 'low',
+              reasoningEffort: EFFORTS[specialist],
               disabledTools: session.disabledToolIds.length,
             })
           );

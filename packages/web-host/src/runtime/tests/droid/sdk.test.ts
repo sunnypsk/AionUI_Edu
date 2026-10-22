@@ -2,7 +2,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FactoryProvider } from '../../droid/provider/sdk.js';
+import { EFFORTS, FactoryProvider } from '../../droid/provider/sdk.js';
+import { SYSTEM_PROMPTS } from '../../droid/provider/prompts.js';
 import { MODELS, type StoredTask } from '../../droid/types.js';
 import type { DroidTransport } from '../../droid/provider/transport.js';
 
@@ -23,12 +24,16 @@ describe('verified SDK isolation', () => {
     vi.spyOn(provider, 'version').mockResolvedValue('0.245.1');
     vi.spyOn(provider, 'transport').mockResolvedValue({ close: async () => {} } as unknown as DroidTransport);
     mocked.listModels.mockResolvedValue(
-      Object.values(MODELS).map((id) => ({ id, supportedReasoningEfforts: ['low'], disabledReason: undefined }))
+      Object.values(MODELS).map((id) => ({
+        id,
+        supportedReasoningEfforts: ['low', 'medium'],
+        disabledReason: undefined,
+      }))
     );
-    const native = (options: { modelId?: string; disabledToolIds: string[] }) => {
+    const native = (options: { modelId?: string; reasoningEffort?: string; disabledToolIds: string[] }) => {
       const settings = {
         modelId: options.modelId ?? MODELS.argon,
-        reasoningEffort: 'low',
+        reasoningEffort: options.reasoningEffort ?? 'low',
         disabledToolIds: options.disabledToolIds,
       };
       return {
@@ -69,11 +74,33 @@ describe('verified SDK isolation', () => {
     expect(mocked.createSession.mock.calls[0][0]).toMatchObject({
       modelId: MODELS.argon,
       reasoningEffort: 'low',
+      systemPrompt: SYSTEM_PROMPTS.argon,
       disableBuiltinSkills: true,
       autoRejectPermissionRequests: true,
     });
     expect(session.disabledToolIds).toContain('list-computers-cli');
     await session.close();
+  });
+  it('creates the teaching designer with medium effort and its own prompt', async () => {
+    Object.assign(task, { specialist: 'opus', model: MODELS.opus });
+    const session = await provider.open(task, new AbortController().signal);
+    expect(EFFORTS.opus).toBe('medium');
+    expect(mocked.createSession.mock.calls[0][0]).toMatchObject({
+      modelId: MODELS.opus,
+      reasoningEffort: 'medium',
+      systemPrompt: SYSTEM_PROMPTS.opus,
+    });
+    expect(SYSTEM_PROMPTS.opus).toContain('teaching designer');
+    expect(SYSTEM_PROMPTS.argon).toContain('writer');
+    await session.close();
+  });
+  it('rejects a model that does not offer the required effort', async () => {
+    Object.assign(task, { specialist: 'opus', model: MODELS.opus });
+    mocked.listModels.mockResolvedValue(
+      Object.values(MODELS).map((id) => ({ id, supportedReasoningEfforts: ['low'], disabledReason: undefined }))
+    );
+    await expect(provider.open(task, new AbortController().signal)).rejects.toThrow('SPECIALIST_MODEL_UNAVAILABLE');
+    expect(mocked.createSession).not.toHaveBeenCalled();
   });
   it('passes isolation settings before resuming the exact native session', async () => {
     task.sessionId = 'previous';

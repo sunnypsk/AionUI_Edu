@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Авторы Factory",
-    "accountDescription": "Codex работает с Gemini над текстами, а с Opus — над историями. Специалисты получают только материалы задания.",
+    "accountDescription": "Codex работает с Gemini над текстами, а с Opus — над планами уроков. Специалисты получают только материалы задания.",
     "unavailable": "Недоступно",
     "available": "Доступно",
     "signedIn": "Вход в Factory выполнен",
@@ -268,7 +268,7 @@
     "taskFailed": "Задание не завершено. Частичный черновик остаётся доступным.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Запуск",

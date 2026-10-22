@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "متخصصان نویسندگی Factory",
-    "accountDescription": "Codex برای متن با Gemini و برای داستان با Opus همکاری می‌کند. متخصصان فقط مطالب ارائه‌شده برای همان کار را دریافت می‌کنند.",
+    "accountDescription": "Codex برای متن با Gemini و برای طراحی طرح درس با Opus همکاری می‌کند. متخصصان فقط مطالب ارائه‌شده برای همان کار را دریافت می‌کنند.",
     "unavailable": "در دسترس نیست",
     "available": "در دسترس",
     "signedIn": "وارد Factory شده‌اید",
@@ -268,7 +268,7 @@
     "taskFailed": "کار کامل نشد. پیش‌نویس ناقص همچنان در دسترس است.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "در حال شروع",

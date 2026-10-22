@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory 執筆スペシャリスト",
-    "accountDescription": "Codex が文章は Gemini、物語は Opus と共同制作します。専門家にはタスクに提供された資料のみが渡されます。",
+    "accountDescription": "Codex が文章は Gemini、授業計画は Opus と共同制作します。専門家にはタスクに提供された資料のみが渡されます。",
     "unavailable": "利用不可",
     "available": "利用可能",
     "signedIn": "Factory にログイン済み",
@@ -268,7 +268,7 @@
     "taskFailed": "タスクを完了できませんでした。途中の草稿は引き続き閲覧できます。",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "起動中",

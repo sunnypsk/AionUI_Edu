@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory 寫作專家",
-    "accountDescription": "讓 Codex 與 Gemini 協作撰寫文字，並交由 Opus 創作故事。專家只會取得這項任務提供的資料。",
+    "accountDescription": "讓 Codex 與 Gemini 協作撰寫文字，並交由 Opus 設計教案及課程。專家只會取得這項任務提供的資料。",
     "unavailable": "無法使用",
     "available": "可使用",
     "signedIn": "已登入 Factory",
@@ -268,7 +268,7 @@
     "taskFailed": "任務未能完成，已產生的部分草稿仍可讀取。",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "啟動中",

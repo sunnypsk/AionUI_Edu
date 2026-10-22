@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Especialistas em escrita Factory",
-    "accountDescription": "O Codex colabora com o Gemini em textos e com o Opus em histórias. Os especialistas recebem apenas o material fornecido para a tarefa.",
+    "accountDescription": "O Codex colabora com o Gemini em textos e com o Opus no planejamento de aulas. Os especialistas recebem apenas o material fornecido para a tarefa.",
     "unavailable": "Indisponível",
     "available": "Disponível",
     "signedIn": "Conectado à Factory",
@@ -268,7 +268,7 @@
     "taskFailed": "A tarefa não foi concluída. O rascunho parcial continua disponível.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Iniciando",

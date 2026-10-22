@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory yazı uzmanları",
-    "accountDescription": "Codex, metinler için Gemini ve hikâyeler için Opus ile çalışır. Uzmanlar yalnızca görev için sağlanan materyali alır.",
+    "accountDescription": "Codex, metinler için Gemini ve ders planlaması için Opus ile çalışır. Uzmanlar yalnızca görev için sağlanan materyali alır.",
     "unavailable": "Kullanılamıyor",
     "available": "Kullanılabilir",
     "signedIn": "Factory oturumu açık",
@@ -268,7 +268,7 @@
     "taskFailed": "Görev tamamlanamadı. Kısmi taslak hâlâ kullanılabilir.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Başlatılıyor",

@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Spécialistes de rédaction Factory",
-    "accountDescription": "Codex collabore avec Gemini pour les textes et Opus pour les récits. Les spécialistes reçoivent uniquement les documents fournis pour la tâche.",
+    "accountDescription": "Codex collabore avec Gemini pour les textes et Opus pour la préparation des cours. Les spécialistes reçoivent uniquement les documents fournis pour la tâche.",
     "unavailable": "Indisponible",
     "available": "Disponible",
     "signedIn": "Connecté à Factory",
@@ -268,7 +268,7 @@
     "taskFailed": "La tâche n’a pas pu être terminée. Le brouillon partiel reste disponible.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Démarrage",

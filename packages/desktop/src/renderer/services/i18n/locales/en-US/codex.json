@@ -249,7 +249,7 @@
   },
   "specialists": {
     "accountTitle": "Factory writing specialists",
-    "accountDescription": "Let Codex collaborate with Gemini on prose and Opus on stories. Specialists receive only the material supplied for their task.",
+    "accountDescription": "Let Codex collaborate with Gemini on writing and Opus on lesson planning. Specialists receive only the material supplied for their task.",
     "unavailable": "Unavailable",
     "available": "Available",
     "signedIn": "Signed in to Factory",
@@ -268,7 +268,7 @@
     "taskFailed": "This task could not finish. Any partial draft remains available.",
     "models": {
       "argon": "Gemini 4 Argon · low",
-      "opus": "Claude Opus 5.5 · low"
+      "opus": "Claude Opus 5.5 · medium"
     },
     "status": {
       "initializing": "Starting",

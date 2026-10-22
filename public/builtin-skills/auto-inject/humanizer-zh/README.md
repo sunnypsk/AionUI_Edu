@@ -8,6 +8,7 @@ Upstream `SKILL.md` SHA-256: `95627fd4437d886f98032ccc62d79136e6310f1fc04e354bb8
 
 - Shorten the description and expand the trigger to include Chinese drafting and ordinary Chinese replies.
 - Add the `AionUI_Edu 自動套用規則` section before the upstream editing guidance. It applies the guidance to completed drafts, preserves the requested language (including Hong Kong Cantonese and Traditional Chinese), and protects facts, quotations, code, commands, paths, URLs, and structured data.
+- Route long student-, parent- or colleague-facing Chinese text to the `argon` writing specialist when `aionui_specialists` is available, and leave specialist drafts unpolished so their wording is kept.
 - Keep the remaining upstream front matter and editing guidance unchanged. No runtime download or third-party installer is used.
 
 ## Default enablement
