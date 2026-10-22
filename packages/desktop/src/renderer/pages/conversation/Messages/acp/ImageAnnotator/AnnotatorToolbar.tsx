@@ -57,11 +57,11 @@ const AnnotatorToolbar: React.FC<AnnotatorToolbarProps> = ({
     <div className={styles.toolbar} role='toolbar' aria-label={t('acp.image.edit.toolbar_aria')}>
       <Radio.Group type='button' size='small' value={tool} onChange={(value: AnnotationTool) => onToolChange(value)}>
         {TOOLS.map((item) => (
-          <Tooltip key={item} content={t(`acp.image.edit.tools.${item}` as const)}>
-            <Radio value={item} aria-label={t(`acp.image.edit.tools.${item}` as const)}>
+          <Radio key={item} value={item} aria-label={t(`acp.image.edit.tools.${item}` as const)}>
+            <Tooltip content={t(`acp.image.edit.tools.${item}` as const)}>
               <span className='flex items-center h-full'>{TOOL_ICONS[item]}</span>
-            </Radio>
-          </Tooltip>
+            </Tooltip>
+          </Radio>
         ))}
       </Radio.Group>
       <Divider type='vertical' />

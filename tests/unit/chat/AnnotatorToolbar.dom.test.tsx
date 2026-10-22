@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-const renderToolbar = (canUndo: boolean, onUndo = vi.fn()) => (
+const renderToolbar = (canUndo: boolean, onUndo = vi.fn(), onToolChange = vi.fn()) => (
   <AnnotatorToolbar
     tool='brush'
     color='#F53F3F'
@@ -21,7 +21,7 @@ const renderToolbar = (canUndo: boolean, onUndo = vi.fn()) => (
     canUndo={canUndo}
     canRedo={false}
     canClear={canUndo}
-    onToolChange={vi.fn()}
+    onToolChange={onToolChange}
     onColorChange={vi.fn()}
     onSizeChange={vi.fn()}
     onUndo={onUndo}
@@ -45,5 +45,39 @@ describe('AnnotatorToolbar history buttons', () => {
     render(renderToolbar(false, onUndo));
     fireEvent.click(screen.getByLabelText('acp.image.edit.undo'));
     expect(onUndo).not.toHaveBeenCalled();
+  });
+});
+
+describe('AnnotatorToolbar tool tips', () => {
+  it.each(['brush', 'arrow', 'rect', 'text', 'crop'])(
+    'shows the %s tooltip after hovering its icon without crashing the editor',
+    async (tool) => {
+      render(renderToolbar(false));
+      const name = `acp.image.edit.tools.${tool}`;
+      const radio = screen.getByRole('radio', { name });
+      const icon = radio.closest('label')?.querySelector('svg');
+      if (!icon) throw new Error('Tool icon is missing');
+
+      fireEvent.mouseOver(icon);
+
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
+      expect(screen.getByRole('toolbar')).toBeInTheDocument();
+    }
+  );
+
+  it('selects a tool by clicking its icon while its tooltip is visible', async () => {
+    const onToolChange = vi.fn();
+    render(renderToolbar(false, vi.fn(), onToolChange));
+    const icon = screen
+      .getByRole('radio', { name: 'acp.image.edit.tools.arrow' })
+      .closest('label')
+      ?.querySelector('svg');
+    if (!icon) throw new Error('Tool icon is missing');
+    fireEvent.mouseOver(icon);
+    await screen.findByRole('tooltip');
+
+    fireEvent.click(icon);
+
+    expect(onToolChange).toHaveBeenCalledWith('arrow');
   });
 });
