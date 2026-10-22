@@ -17,9 +17,14 @@ describe('specialist gateway ownership and parent Stop', () => {
   let host: StaticServerHandle;
   let capability: string;
   let manager: SpecialistManager;
+  let requests: string[];
+  let identity: string;
   beforeEach(async () => {
+    requests = [];
+    identity = 'teacher';
     directory = await mkdtemp(path.join(os.tmpdir(), 'aion-gateway-'));
     core = http.createServer((req, res) => {
+      requests.push(req.url ?? '');
       const authenticated =
         req.headers.cookie === 'fixture=teacher' || req.headers['x-aionui-runtime-token'] === 'fixture-runtime';
       res.setHeader('content-type', 'application/json');
@@ -29,7 +34,7 @@ describe('specialist gateway ownership and parent Stop', () => {
       }
       if (req.url === '/api/auth/user' && req.headers.cookie === 'fixture=teacher')
         res.end(JSON.stringify({ data: { user: { id: 'teacher' } } }));
-      else if (req.url === '/api/system/current-user') res.end(JSON.stringify({ data: { id: 'teacher' } }));
+      else if (req.url === '/api/system/current-user') res.end(JSON.stringify({ data: { id: identity } }));
       else if (req.url === '/api/conversations/lesson')
         res.end(JSON.stringify({ data: { id: 'lesson', extra: { workspace: directory } } }));
       else if (req.url === '/api/conversations/lesson/cancel') res.end(JSON.stringify({ data: { idle: true } }));
@@ -78,6 +83,24 @@ describe('specialist gateway ownership and parent Stop', () => {
   it('requires a real browser session even when local Core identity is available', async () => {
     const response = await fetch(`${host.url}/api/edu/specialists/tasks?conversation_id=lesson`);
     expect(response.status).toBe(401);
+  });
+  it('checks live identity and ownership once per public task read', async () => {
+    const response = await fetch(`${host.url}/api/edu/specialists/tasks?conversation_id=lesson`, {
+      headers: { cookie: 'fixture=teacher' },
+    });
+    expect(response.status).toBe(200);
+    expect(requests.filter((route) => route === '/api/system/current-user')).toHaveLength(1);
+    expect(requests.filter((route) => route === '/api/conversations/lesson')).toHaveLength(1);
+  });
+  it('rejects an identity change even when the public session lookup is cached', async () => {
+    const read = () =>
+      fetch(`${host.url}/api/edu/specialists/tasks?conversation_id=lesson`, {
+        headers: { cookie: 'fixture=teacher' },
+      });
+    expect((await read()).status).toBe(200);
+    identity = 'other-teacher';
+    expect((await read()).status).toBe(401);
+    expect(requests.filter((route) => route === '/api/conversations/lesson')).toHaveLength(1);
   });
   it('refuses cross-origin cancellation even with a valid session cookie', async () => {
     const response = await fetch(`${host.url}/api/edu/specialists/cancel?conversation_id=lesson`, {

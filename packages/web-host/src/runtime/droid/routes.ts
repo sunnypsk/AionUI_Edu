@@ -75,9 +75,14 @@ export async function createSpecialistRuntime(options: {
     const result = record(await response.json());
     return result.data ? record(result.data) : result;
   };
-  const owner = async (id: string, headers: Record<string, string>, expectedUser: string): Promise<Owner> => {
+  const owner = async (
+    id: string,
+    headers: Record<string, string>,
+    expectedUser: string,
+    currentIdentity?: Record<string, unknown>
+  ): Promise<Owner> => {
     idSchema.parse(id);
-    const identity = await backend('/api/system/current-user', headers);
+    const identity = currentIdentity ?? (await backend('/api/system/current-user', headers));
     if (identity.id !== expectedUser) throw new Error('UNAUTHORIZED');
     const conversation = await backend(`/api/conversations/${encodeURIComponent(id)}`, headers);
     const workspace = record(conversation.extra).workspace;
@@ -226,7 +231,8 @@ export async function createSpecialistRuntime(options: {
         if (req.headers.cookie) headers.cookie = req.headers.cookie;
         if (req.headers.authorization) headers.authorization = req.headers.authorization;
         const userId = await publicUser(headers);
-        if ((await backend('/api/system/current-user', headers)).id !== userId) throw new Error('UNAUTHORIZED');
+        const identity = await backend('/api/system/current-user', headers);
+        if (identity.id !== userId) throw new Error('UNAUTHORIZED');
         if (
           req.method === 'POST' &&
           (req.headers['sec-fetch-site'] === 'cross-site' ||
@@ -264,7 +270,7 @@ export async function createSpecialistRuntime(options: {
             } else throw new Error('INVALID_REQUEST');
           } else throw new Error('INVALID_REQUEST');
         } else {
-          const context = await owner(url.searchParams.get('conversation_id') ?? '', headers, userId);
+          const context = await owner(url.searchParams.get('conversation_id') ?? '', headers, userId, identity);
           if (req.method === 'GET' && url.pathname === '/api/edu/specialists/tasks') {
             const p = toolSchemas.specialist_get.parse({
               task_id: url.searchParams.get('task_id') ?? undefined,
