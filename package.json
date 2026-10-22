@@ -31,7 +31,7 @@
     "openui:core:build": "bun packages/web-host/openui/core/build.ts",
     "openui:core:test": "bun packages/web-host/openui/core/build.ts --test",
     "openui:qa": "tsx packages/web-host/openui/qa/browser.ts",
-    "web:runtime:build": "bun packages/web-host/src/runtime/codex/build.ts",
+    "web:runtime:build": "bun packages/web-host/build.ts",
     "test": "bun run web:runtime:build && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

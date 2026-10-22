@@ -4,7 +4,7 @@
  * Copyright 2025 AionUi (aionui.com)
  * SPDX-License-Identifier: Apache-2.0
  *
- * Bun launcher for the WebUI backend, static server and authentication.
+ * WebUI backend, static server and authentication (Bun development, bundled Node production).
  *
  * Env vars:
  *   AIONUI_PORT           : static server port (default 25809 dev / 25808 production)
@@ -26,7 +26,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { startWebHost, readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
 import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-host/src/browser.js';
-import { buildCodexRuntime, CODEX_RUNTIME_BUNDLE } from '../packages/web-host/src/runtime/codex/build.js';
 
 // Aligned with packages/desktop/src/common/config/constants.ts WEBUI_DEFAULT_PORT.
 const DEFAULT_PORT = (() => {
@@ -37,7 +36,9 @@ const DEFAULT_PORT = (() => {
 const BACKEND_BINARY = process.platform === 'win32' ? 'aioncore.exe' : 'aioncore';
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..');
+const repoRoot = process.env.AIONUI_APP_ROOT
+  ? path.resolve(process.env.AIONUI_APP_ROOT)
+  : path.resolve(path.dirname(__filename), '..');
 
 const args = process.argv.slice(2);
 const has = (name: string): boolean => args.includes(name);
@@ -102,6 +103,7 @@ function resolveStaticDir(): string {
  *   $AIONUI_STATIC_DIR is set : caller is pointing us at a prebuilt artifact dir
  */
 function runPackageIfNeeded(): void {
+  if (process.env.AIONUI_CONTAINER === '1') return;
   if (has('--no-build')) return;
   if (parseBoolean(process.env.AIONUI_NO_BUILD)) return;
   if (process.env.AIONUI_STATIC_DIR) return;
@@ -155,7 +157,13 @@ async function main(): Promise<void> {
   // history live here. Admin credentials live in the backend's users table.
   const workDir = resolveBackendDataDir();
   if (process.platform !== 'win32') {
-    if (!fs.existsSync(CODEX_RUNTIME_BUNDLE)) buildCodexRuntime();
+    const codexBundle = path.join(repoRoot, 'dist-server', 'codex', 'launcher.mjs');
+    if (!fs.existsSync(codexBundle)) {
+      if (process.env.NODE_ENV === 'production' || process.env.AIONUI_CONTAINER === '1') {
+        throw new Error('CODEX_RUNTIME_BUNDLE_MISSING');
+      }
+      execSync('bun run web:runtime:build', { cwd: repoRoot, stdio: 'inherit' });
+    }
     process.env.AIONUI_CODEX_RUNTIME_ROOT = path.join(workDir, 'runtime', 'codex-cli');
     process.env.AIONUI_BUNDLED_CODEX = path.join(repoRoot, 'node_modules', '.bin', 'codex');
     process.env.PATH = [

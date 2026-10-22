@@ -32,6 +32,17 @@ console.log(`WebUI running at ${handle.url}`);
 await handle.stop();
 ```
 
-## Status
+## Production runtime
 
-M3: skeleton + type definitions + placeholder implementations (all throw `not implemented yet`)
+`bun run web:runtime:build` bundles the host and container supervisor into
+`dist-server/host/*.mjs` for Node, alongside the Codex launcher. Runtime dependencies
+remain external packages in `node_modules`; Bun is used for builds and local development.
+
+The container runs `tini -- node /app/dist-server/host/container.mjs` and sets
+`AIONUI_APP_ROOT=/app`. The supervisor checks the bundled host, Codex launcher and
+renderer before changing networking, then launches the Node host with reduced privileges.
+Missing production assets fail startup instead of invoking a build in the container.
+Existing `/data`, proxy routing, authentication and shutdown behavior are preserved.
+
+This removes the two Bun processes observed aborting in production. The original
+native crash trigger is unknown; unit/build checks do not establish long-term runtime stability.

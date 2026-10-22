@@ -56,7 +56,7 @@ COPY --from=builder /app/packages/web-host/openui ./packages/web-host/openui
 COPY --from=builder /app/packages/web-host/docker ./packages/web-host/docker
 COPY --from=builder /app/scripts/webui.ts /app/scripts/resetpass.ts ./scripts/
 COPY --from=builder /app/out/renderer ./out/renderer
-COPY --from=builder /app/dist-server/codex ./dist-server/codex
+COPY --from=builder /app/dist-server ./dist-server
 
 # Built natively for each requested Linux architecture from the pinned source and patch set.
 COPY --from=core-builder /output/aioncore /usr/local/bin/aioncore
@@ -65,6 +65,7 @@ COPY --from=core-builder /output/aioncore.json /usr/local/share/aioncore/build.j
 ENV NODE_ENV=production \
     TZ=Asia/Hong_Kong \
     AIONUI_CONTAINER=1 \
+    AIONUI_APP_ROOT=/app \
     AIONUI_CODEX_IDLE_TTL_MS=1800000 \
     TOKIO_WORKER_THREADS=4 \
     AIONUI_DATA_DIR=/data \
@@ -82,4 +83,4 @@ ENV NODE_ENV=production \
 VOLUME ["/data"]
 EXPOSE 25808
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 CMD curl --fail --silent http://127.0.0.1:25808/healthz > /dev/null || exit 1
-ENTRYPOINT ["/usr/bin/tini", "--", "bun", "/app/packages/web-host/src/runtime/container.ts"]
+ENTRYPOINT ["/usr/bin/tini", "--", "node", "/app/dist-server/host/container.mjs"]

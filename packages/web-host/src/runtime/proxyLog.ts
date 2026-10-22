@@ -101,6 +101,7 @@ export class ProxyLog {
 export function containerErrorCode(error: unknown): string {
   const allowed = new Set([
     'CONTAINER_ENTRYPOINT_REQUIRES_LINUX_ROOT',
+    'CONTAINER_ASSETS_MISSING',
     'INVALID_CONTAINER_USER',
     'INVALID_SOCKS5_PROXY',
     'SOCKS5_HOSTNAME_RESOLUTION_FAILED',

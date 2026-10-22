@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { chown, mkdir, writeFile } from 'node:fs/promises';
+import { access, chown, mkdir, writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -18,6 +18,15 @@ import {
 export async function runContainer(): Promise<void> {
   if (process.platform !== 'linux' || process.env.AIONUI_CONTAINER !== '1' || process.getuid?.() !== 0)
     throw new Error('CONTAINER_ENTRYPOINT_REQUIRES_LINUX_ROOT');
+  const repoRoot = process.env.AIONUI_APP_ROOT
+    ? path.resolve(process.env.AIONUI_APP_ROOT)
+    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+  try {
+    for (const asset of ['dist-server/host/webui.mjs', 'dist-server/codex/launcher.mjs', 'out/renderer/index.html'])
+      await access(path.join(repoRoot, asset));
+  } catch {
+    throw new Error('CONTAINER_ASSETS_MISSING');
+  }
   const dataDir = process.env.AIONUI_DATA_DIR || '/data';
   const userId = Number(process.env.PUID || 99);
   const groupId = Number(process.env.PGID || 100);
@@ -125,12 +134,12 @@ export async function runContainer(): Promise<void> {
     if (!ready || stopping) throw new Error('SOCKS5_TUNNEL_START_FAILED');
     console.log('[network] SOCKS5 full routing enabled; direct external egress is blocked.');
   }
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
   const env = {
     ...process.env,
     CODEX_HOME: codexHome,
     HOME: homeDir,
     AIONUI_DATA_DIR: dataDir,
+    AIONUI_APP_ROOT: repoRoot,
     AIONUI_ACTIVE_PROXY_HASH: proxyFingerprint(settings),
   };
   // The application and all its tools run without network-administration capabilities.
@@ -145,8 +154,8 @@ export async function runContainer(): Promise<void> {
       '--bounding-set=-all',
       '--inh-caps=-all',
       '--no-new-privs',
-      'bun',
-      path.join(repoRoot, 'scripts/webui.ts'),
+      'node',
+      path.join(repoRoot, 'dist-server', 'host', 'webui.mjs'),
       '--no-build',
       '--no-open',
       '--remote',
