@@ -21,7 +21,7 @@ import MessagePermission from './components/MessagePermission';
 import MessageAcpTerminalOutput from '@renderer/pages/conversation/Messages/acp/MessageAcpTerminalOutput';
 import MessageAcpToolCall from '@renderer/pages/conversation/Messages/acp/MessageAcpToolCall';
 import classNames from 'classnames';
-import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { uuid } from '@renderer/utils/common';
@@ -63,6 +63,7 @@ type IMessageVO =
     };
 type IArtifactVO = { type: 'artifact'; id: string; artifact: IConversationArtifact; created_at: number };
 type IProcessedItem = IMessageVO | IArtifactVO;
+type ToolSummary = Extract<IMessageVO, { type: 'tool_summary' }>;
 
 type CompactAcpToolCallContent = IMessageAcpToolCall['content'] & {
   _compact?: {
@@ -354,6 +355,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
   const loadingTargetKeyRef = useRef<string>('');
   const scrollerElementRef = useRef<HTMLDivElement | null>(null);
   const contentElementRef = useRef<HTMLDivElement | null>(null);
+  const previousToolSummaries = useRef(new Map<string, ToolSummary>());
 
   // Pre-process message list to group tool outputs into summary cards
   const processedList = useMemo(() => {
@@ -457,10 +459,30 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         created_at: artifact.created_at,
       }));
 
-    return [...result, ...visibleArtifacts].toSorted(
+    // Streaming replaces only the changed message. Preserve arrays for all other
+    // groups so memoized summaries do not normalize historical tool output again.
+    const stableResult = result.map((item) => {
+      if (item.type !== 'tool_summary') return item;
+      const previous = previousToolSummaries.current.get(item.id);
+      return previous &&
+        previous.created_at === item.created_at &&
+        previous.messages.length === item.messages.length &&
+        previous.messages.every((message, index) => message === item.messages[index])
+        ? previous
+        : item;
+    });
+    return [...stableResult, ...visibleArtifacts].toSorted(
       (a, b) => getProcessedItemCreatedAt(a) - getProcessedItemCreatedAt(b)
     );
   }, [artifacts, list]);
+
+  useLayoutEffect(() => {
+    // Retain only the committed, visible groups; removed conversations/pages
+    // must not accumulate in the cache, nor should an abandoned render publish it.
+    previousToolSummaries.current = new Map(
+      processedList.filter((item): item is ToolSummary => item.type === 'tool_summary').map((item) => [item.id, item])
+    );
+  }, [processedList]);
 
   // An AI reply can be split into several messages (thinking / multiple text /
   // tool blocks). The hover copy + timestamp row should appear once per turn,

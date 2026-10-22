@@ -17,9 +17,10 @@ import {
 } from '@/renderer/pages/conversation/Messages/hooks';
 import MessageList from '@/renderer/pages/conversation/Messages/MessageList';
 
-const { parseDiffMock, useTeamPermissionMock } = vi.hoisted(() => ({
+const { parseDiffMock, useTeamPermissionMock, toolSummaryRender } = vi.hoisted(() => ({
   parseDiffMock: vi.fn(),
   useTeamPermissionMock: vi.fn(),
+  toolSummaryRender: vi.fn(),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -135,9 +136,10 @@ vi.mock('@/renderer/pages/conversation/Messages/components/MessageSkillSuggest',
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary', () => ({
-  default: ({ messages }: { messages: Array<IMessageToolGroup | IMessageAcpToolCall> }) => (
-    <div data-testid='tool-summary'>{messages.map((message) => message.id).join(',')}</div>
-  ),
+  default: React.memo(({ messages }: { messages: Array<IMessageToolGroup | IMessageAcpToolCall> }) => {
+    toolSummaryRender(messages);
+    return <div data-testid='tool-summary'>{messages.map((message) => message.id).join(',')}</div>;
+  }),
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/MessageFileChanges', () => ({
@@ -251,6 +253,7 @@ function ReplaceMessagesButton({ messages }: { messages: TMessage[] }): JSX.Elem
 describe('MessageList', () => {
   beforeEach(() => {
     mockIsProcessing = false;
+    toolSummaryRender.mockClear();
     parseDiffMock.mockReset();
     parseDiffMock.mockReturnValue({
       file_name: 'file.ts',
@@ -260,6 +263,74 @@ describe('MessageList', () => {
       diff: 'diff',
     });
     useTeamPermissionMock.mockReturnValue(null);
+  });
+
+  it('does not re-render unchanged tool summaries while another message streams', () => {
+    const tool = createAcpToolCall({ id: 'read-1' });
+    const text = createTextMessage();
+    render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[tool, { ...text, content: { content: 'streamed text' } }]} />
+      </>,
+      {
+        wrapper: ({ children }) => <Wrapper messages={[tool, text]}>{children}</Wrapper>,
+      }
+    );
+    toolSummaryRender.mockClear();
+
+    fireEvent.click(screen.getByText('replace messages'));
+
+    expect(screen.getByText('streamed text')).toBeInTheDocument();
+    expect(toolSummaryRender).not.toHaveBeenCalled();
+  });
+
+  it('updates a changed tool group without re-rendering an unchanged earlier group', () => {
+    const earlier = createAcpToolCall({ id: 'read-1' });
+    const text = createTextMessage();
+    const active = createAcpToolCall({ id: 'read-2', status: 'in_progress' });
+    const failed = createAcpToolCall({ id: 'read-2', status: 'failed' });
+    render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[earlier, text, failed]} />
+      </>,
+      {
+        wrapper: ({ children }) => <Wrapper messages={[earlier, text, active]}>{children}</Wrapper>,
+      }
+    );
+    toolSummaryRender.mockClear();
+
+    fireEvent.click(screen.getByText('replace messages'));
+
+    expect(toolSummaryRender).toHaveBeenCalledTimes(1);
+    expect(toolSummaryRender).toHaveBeenCalledWith([failed]);
+  });
+
+  it('updates summary membership when a tool is appended or removed', () => {
+    const first = createAcpToolCall({ id: 'read-1' });
+    const second = createAcpToolCall({ id: 'read-2' });
+    const { rerender } = render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[first, second]} />
+      </>,
+      {
+        wrapper: ({ children }) => <Wrapper messages={[first]}>{children}</Wrapper>,
+      }
+    );
+
+    fireEvent.click(screen.getByText('replace messages'));
+    expect(screen.getByTestId('tool-summary')).toHaveTextContent('read-1,read-2');
+    rerender(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[second]} />
+      </>
+    );
+    fireEvent.click(screen.getByText('replace messages'));
+    expect(screen.getByTestId('tool-summary')).toHaveTextContent('read-2');
+    expect(screen.getByTestId('tool-summary')).not.toHaveTextContent('read-1');
   });
 
   it('never renders a plan as a stream row (it belongs to ConversationPlanBar)', () => {
