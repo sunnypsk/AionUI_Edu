@@ -7,8 +7,9 @@
 import { ipcBridge } from '@/common';
 import type { TConversationRuntimeSummary } from '@/common/config/storage';
 import {
-  reconcileGeneratingFromRuntime,
-  reconcileWaitingConfirmationFromRuntime,
+  beginSidebarRuntimeRead,
+  invalidateSidebarRuntime,
+  reconcileSidebarRuntime,
 } from '@/renderer/pages/conversation/GroupedHistory/hooks/useConversationListSync';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
@@ -90,20 +91,15 @@ export const useConversationRuntimeView = (conversation_id: string): UseConversa
     let cancelled = false;
     flushRuntimeViewLogs(hydrateStarted(conversation_id));
 
+    const sidebarRead = beginSidebarRuntimeRead(conversation_id);
     void getConversationOrNull(conversation_id)
       .then((conversation) => {
         if (cancelled) {
           return;
         }
         const runtime = getRuntimeOrNull(conversation?.runtime);
+        if (runtime && !reconcileSidebarRuntime(conversation_id, runtime, sidebarRead)) return;
         flushRuntimeViewLogs(hydrateSucceeded(conversation_id, runtime));
-        // Reconcile the sidebar spinner against authoritative runtime state:
-        // a missed WS frame (window reload/reconnect race) can otherwise
-        // leave the row dark even though the runtime is still processing.
-        if (runtime) {
-          reconcileGeneratingFromRuntime(conversation_id, runtime.is_processing === true);
-          reconcileWaitingConfirmationFromRuntime(conversation_id, runtime.pending_confirmations ?? 0);
-        }
       })
       .catch((error: unknown) => {
         if (cancelled) {
@@ -150,13 +146,15 @@ export const useConversationRuntimeView = (conversation_id: string): UseConversa
   }, [conversation_id]);
 
   const markSendStarted = useCallback(() => {
+    invalidateSidebarRuntime(conversation_id);
     flushRuntimeViewLogs(localSendStarted(conversation_id));
   }, [conversation_id]);
 
   const markSendAccepted = useCallback(
     (turn_id: string, runtime: TConversationRuntimeSummary, msg_id?: string) => {
       flushRuntimeViewLogs(localSendAccepted(conversation_id, turn_id, runtime, msg_id));
-      reconcileGeneratingFromRuntime(conversation_id, runtime.is_processing === true);
+      invalidateSidebarRuntime(conversation_id);
+      reconcileSidebarRuntime(conversation_id, runtime, beginSidebarRuntimeRead(conversation_id));
     },
     [conversation_id]
   );

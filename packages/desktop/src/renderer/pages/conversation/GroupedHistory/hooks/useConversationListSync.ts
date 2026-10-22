@@ -5,7 +5,9 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { TChatConversation } from '@/common/config/storage';
+import type { TChatConversation, TConversationRuntimeSummary } from '@/common/config/storage';
+import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
+import { hydrateSucceeded } from '@/renderer/pages/conversation/runtime/conversationRuntimeViewStore';
 import { addEventListener } from '@/renderer/utils/emitter';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
@@ -545,6 +547,61 @@ const clearManualUnreadState = (conversation_id: string) => {
 /** Turn id that put a conversation into the `completed` set (for turn-aware
  *  late-frame detection). */
 const completedTurnIdByConversation = new Map<string, string | null>();
+const activeTurnIdByConversation = new Map<string, string>();
+const runtimeVersions = new Map<string, number>();
+const runtimeReads = new Map<string, number>();
+type RuntimeRead = { version: number; request: number };
+
+/** Invalidate pending snapshots before a local send or an incoming runtime event. */
+export const invalidateSidebarRuntime = (id: string): void => {
+  runtimeVersions.set(id, (runtimeVersions.get(id) ?? 0) + 1);
+};
+
+/** Capture both stream revision and request order before fetching runtime state. */
+export const beginSidebarRuntimeRead = (id: string): RuntimeRead => {
+  const request = (runtimeReads.get(id) ?? 0) + 1;
+  runtimeReads.set(id, request);
+  return { version: runtimeVersions.get(id) ?? 0, request };
+};
+
+/** Reconcile idle as well as busy, provided no newer event or request superseded this read. */
+export const reconcileSidebarRuntime = (
+  id: string,
+  runtime: TConversationRuntimeSummary,
+  read: RuntimeRead
+): boolean => {
+  if ((runtimeVersions.get(id) ?? 0) !== read.version || runtimeReads.get(id) !== read.request) return false;
+  if (runtime.is_processing) {
+    if (runtime.turn_id) activeTurnIdByConversation.set(id, runtime.turn_id);
+    clearCompleted(id);
+    markGenerating(id, 'reconcile');
+  } else {
+    markCompleted(id, runtime.turn_id ?? activeTurnIdByConversation.get(id));
+    clearGenerating(id, 'reconcile');
+  }
+  if ((runtime.pending_confirmations ?? 0) > 0) {
+    markWaitingConfirmation(id, RUNTIME_PENDING_CONFIRMATION_ID);
+  } else {
+    clearAllWaitingConfirmation(id);
+  }
+  return true;
+};
+
+const reconcileAfterReconnect = (): void => {
+  const ids = new Set([...generatingConversationIdsState, ...waitingConfirmationConversationIdsState]);
+  if (activeConversationIdState) ids.add(activeConversationIdState);
+  for (const id of ids) {
+    const read = beginSidebarRuntimeRead(id);
+    void getConversationOrNull(id, { fresh: true })
+      .then((conversation) => {
+        if (conversation?.runtime && reconcileSidebarRuntime(id, conversation.runtime, read)) {
+          hydrateSucceeded(id, conversation.runtime);
+        }
+      })
+      .catch(() => {});
+  }
+  refreshConversations();
+};
 
 const markCompleted = (conversation_id: string, turn_id?: string | null) => {
   completedConversationIdsState = new Set(completedConversationIdsState).add(conversation_id);
@@ -589,8 +646,11 @@ const initializeConversationListSyncStore = () => {
   refreshConversations();
 
   addEventListener('chat.history.refresh', refreshConversations);
+  ipcBridge.realtime?.reconnected.on(reconcileAfterReconnect);
   ipcBridge.conversation.listChanged.on((event) => {
     if (event.action === 'deleted') {
+      invalidateSidebarRuntime(event.conversation_id);
+      activeTurnIdByConversation.delete(event.conversation_id);
       clearGenerating(event.conversation_id, 'deleted');
       clearAllWaitingConfirmation(event.conversation_id);
       clearCompletionUnreadState(event.conversation_id);
@@ -603,6 +663,7 @@ const initializeConversationListSyncStore = () => {
     if (!event?.conversation_id || !event.id) {
       return;
     }
+    invalidateSidebarRuntime(event.conversation_id);
     clearWaitingConfirmationById(event.conversation_id, event.id);
   });
   ipcBridge.conversation.responseStream.on((message) => {
@@ -615,11 +676,35 @@ const initializeConversationListSyncStore = () => {
       refreshConversations();
     }
 
+    const activeTurn = activeTurnIdByConversation.get(conversation_id);
+    if (
+      message.turn_id &&
+      activeTurn &&
+      message.turn_id !== activeTurn &&
+      generatingConversationIdsState.has(conversation_id) &&
+      message.type !== 'start'
+    )
+      return;
+    if (
+      message.turn_id &&
+      completedConversationIdsState.has(conversation_id) &&
+      message.turn_id === completedTurnIdByConversation.get(conversation_id)
+    )
+      return;
+    if (
+      message.type === 'start' ||
+      (isGeneratingStreamMessage(message.type) && !generatingConversationIdsState.has(conversation_id)) ||
+      isTerminalStreamMessage(message) ||
+      isWaitingConfirmationStreamMessage(message.type)
+    ) {
+      invalidateSidebarRuntime(conversation_id);
+    }
     if (isTerminalStreamMessage(message)) {
       const wasGenerating = generatingConversationIdsState.has(conversation_id);
       if (wasGenerating && activeConversationIdState !== conversation_id) {
         markCompletionUnread(conversation_id);
       }
+      markCompleted(conversation_id, message.turn_id);
       clearGenerating(conversation_id, 'terminal');
       clearAllWaitingConfirmation(conversation_id);
       return;
@@ -650,15 +735,20 @@ const initializeConversationListSyncStore = () => {
       return;
     }
     if (decision.markGenerating) {
+      if (message.turn_id) activeTurnIdByConversation.set(conversation_id, message.turn_id);
       markGenerating(conversation_id, 'stream');
     }
   });
   ipcBridge.conversation.turnCompleted.on((event) => {
+    const activeTurn = activeTurnIdByConversation.get(event.session_id);
+    if (activeTurn && event.turn_id && event.turn_id !== activeTurn) return;
+    invalidateSidebarRuntime(event.session_id);
     if (isTerminalTurnState(event.state) && activeConversationIdState !== event.session_id) {
       markCompletionUnread(event.session_id);
     }
     markCompleted(event.session_id, event.turn_id);
     clearGenerating(event.session_id, 'turnCompleted');
+    clearAllWaitingConfirmation(event.session_id);
     refreshConversations();
   });
 };
