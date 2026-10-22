@@ -1308,6 +1308,55 @@
      #[serde(skip_serializing_if = "Option::is_none")]
      pub description: Option<String>,
      /// The `call_id` of the Task/Agent call this call runs INSIDE (claude's
+--- a/crates/aionui-ai-agent/src/protocol/send_error.rs
++++ b/crates/aionui-ai-agent/src/protocol/send_error.rs
+@@ -546,6 +546,14 @@
+ }
+ 
+ fn classify_agent_lifecycle(lower: &str) -> Option<ClassifiedError> {
++    if lower.contains("codex_state_db_unavailable") {
++        return Some(agent_error(
++            "Codex could not initialize its local state database",
++            AgentErrorCode::CodexStateDbUnavailable,
++            true,
++            AgentErrorResolutionKind::ReconnectAgent,
++        ));
++    }
+     // codex dead resume anchor (ELECTRON-3Q0): `thread/resume` against a threadId
+     // with no on-disk rollout / `turn/start` against a threadId unknown to the
+     // process (verified: samples/codex-cli/0.144.1/dead_resume.jsonl). MUST
+@@ -577,7 +585,7 @@
+             AgentErrorResolutionKind::ReconnectAgent,
+         ));
+     }
+-    if lower.contains("initialize handshake timed out") {
++    if lower.contains("initialize handshake timed out") || lower.contains("backend handshake timed out") {
+         return Some(agent_error(
+             "The selected Agent did not finish starting in time",
+             AgentErrorCode::UserAgentHandshakeTimeout,
+@@ -1536,6 +1544,22 @@
+     }
+ 
+     #[test]
++    fn classifies_codex_database_failure_and_backend_timeout() {
++        assert_classification(
++            "transport error: CODEX_STATE_DB_UNAVAILABLE",
++            AgentErrorCode::CodexStateDbUnavailable,
++            AgentErrorOwnership::UserAgent,
++            AgentErrorResolutionKind::ReconnectAgent,
++        );
++        assert_classification(
++            "backend handshake timed out (agent still starting): codex threadId not bound",
++            AgentErrorCode::UserAgentHandshakeTimeout,
++            AgentErrorOwnership::UserAgent,
++            AgentErrorResolutionKind::ReconnectAgent,
++        );
++    }
++
++    #[test]
+     fn classifies_mid_session_cli_exit_as_agent_disconnected() {
+         // Mid-session ACP CLI exit (e.g. Claude Code) surfaces as -32603 with
+         // `details: "Claude Code process exited with code 1"`. Previously this
 --- a/crates/aionui-ai-agent/src/session_agent.rs
 +++ b/crates/aionui-ai-agent/src/session_agent.rs
 @@ -25,7 +25,7 @@
@@ -1680,6 +1729,16 @@
      );
      assert!(!names.contains("my-skill"), "custom leaked without enabled_skills");
  
+--- a/crates/aionui-api-types/src/agent_error.rs
++++ b/crates/aionui-api-types/src/agent_error.rs
+@@ -21,6 +21,7 @@
+     WorkspacePathRuntimeUnavailable,
+     UserAgentHandshakeFailed,
+     UserAgentHandshakeTimeout,
++    CodexStateDbUnavailable,
+     UserAgentAcpInitFailed,
+     UserAgentProtocolMismatch,
+     UserAgentNotInstalled,
 --- a/crates/aionui-api-types/src/conversation.rs
 +++ b/crates/aionui-api-types/src/conversation.rs
 @@ -195,6 +195,9 @@
@@ -4086,7 +4145,7 @@
 +}
 --- /dev/null
 +++ b/crates/aionui-conversation/src/openui/service.rs
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,251 @@
 +use std::sync::Arc;
 +
 +use aionui_api_types::{OpenUiCapabilities, OpenUiState};
@@ -4198,7 +4257,10 @@
 +        let Some(row) = self.conversations.get(user_id, conversation_id).await? else {
 +            return Ok(());
 +        };
-+        if matches!(row.name_source.as_deref(), Some("user") | Some(crate::service::OPENUI_NAME_SOURCE)) {
++        if matches!(
++            row.name_source.as_deref(),
++            Some("user") | Some(crate::service::OPENUI_NAME_SOURCE)
++        ) {
 +            return Ok(());
 +        }
 +        let update = ConversationRowUpdate {
@@ -5010,6 +5072,40 @@
              parent_call_id: None,
          }))
          .unwrap();
+--- a/crates/aionui-conversation/src/turn_recovery_policy.rs
++++ b/crates/aionui-conversation/src/turn_recovery_policy.rs
+@@ -143,6 +143,31 @@
+     }
+ 
+     #[test]
++    fn codex_database_failure_replays_only_once_and_before_side_effects() {
++        let mut outcome = retryable_clean_error();
++        outcome.terminal = RelayTerminal::Error {
++            code: Some(AgentErrorCode::CodexStateDbUnavailable),
++            retryable: Some(true),
++        };
++        let decide = |outcome: &RelayOutcome, replayed| {
++            TurnRecoveryPolicy::decide(
++                AgentType::Acp,
++                Some("codex"),
++                outcome,
++                RuntimeLifecycleState::Active,
++                replayed,
++            )
++        };
++        assert!(matches!(
++            decide(&outcome, false),
++            TurnRecoveryDecision::AutoReplayOnce { .. }
++        ));
++        assert_eq!(decide(&outcome, true), TurnRecoveryDecision::None);
++        outcome.attempt.saw_tool_or_side_effect = true;
++        assert_eq!(decide(&outcome, false), TurnRecoveryDecision::None);
++    }
++
++    #[test]
+     fn retryable_clean_acp_error_auto_replays_once() {
+         let outcome = retryable_clean_error();
+ 
 --- /dev/null
 +++ b/crates/aionui-conversation/tests/openui_state.rs
 @@ -0,0 +1,147 @@
@@ -5162,7 +5258,7 @@
 +}
 --- /dev/null
 +++ b/crates/aionui-conversation/tests/openui_title.rs
-@@ -0,0 +1,100 @@
+@@ -0,0 +1,103 @@
 +use std::sync::Arc;
 +
 +use aionui_ai_agent::{AgentStreamEvent, protocol::events::FinishEventData};
@@ -5182,13 +5278,15 @@
 +async fn service() -> (OpenUiService, Arc<SqliteConversationRepository>, aionui_db::Database) {
 +    let db = init_database_memory().await.unwrap();
 +    // The renderer's `auto` title leaves `name_source` NULL (agent-overwritable).
-+    sqlx::query("INSERT INTO conversations (id,user_id,name,type,extra,created_at,updated_at) VALUES (?,?,?,'acp','{}',1,1)")
-+        .bind(CONVERSATION)
-+        .bind(USER)
-+        .bind(USER_TITLE)
-+        .execute(db.pool())
-+        .await
-+        .unwrap();
++    sqlx::query(
++        "INSERT INTO conversations (id,user_id,name,type,extra,created_at,updated_at) VALUES (?,?,?,'acp','{}',1,1)",
++    )
++    .bind(CONVERSATION)
++    .bind(USER)
++    .bind(USER_TITLE)
++    .execute(db.pool())
++    .await
++    .unwrap();
 +    let conversations = Arc::new(SqliteConversationRepository::new(db.pool().clone()));
 +    let state = OpenUiService::new(
 +        Arc::new(SqliteOpenUiRepository::new(db.pool().clone())),
@@ -5210,7 +5308,8 @@
 +        Arc::new(BroadcastEventBus::new(16)),
 +    );
 +    let rx = tx.subscribe();
-+    tx.send(AgentStreamEvent::AcpSessionInfo(serde_json::json!({ "title": title }))).unwrap();
++    tx.send(AgentStreamEvent::AcpSessionInfo(serde_json::json!({ "title": title })))
++        .unwrap();
 +    tx.send(AgentStreamEvent::Finish(FinishEventData::default())).unwrap();
 +    relay.consume(rx).await;
 +}
@@ -7918,7 +8017,15 @@
          // Live spawn: `codex app-server --stdio` via the INJECTED Spawner (S14,
          // never raw-spawn). The PARSE/reverse-RPC/dispatch contract (the real 007
          // risk) is fully hermetic-tested via build_with_io; this path adds the
-@@ -1014,6 +1024,8 @@
+@@ -994,6 +1004,7 @@
+ /// and bindings (the threadId binding survives a suspend, so a wake re-attaches).
+ #[derive(Clone)]
+ struct CodexReaderState {
++    startup_failure: Arc<std::sync::Mutex<Option<&'static str>>>,
+     session_id: String,
+     turn_gen: Arc<AtomicU64>,
+     event_tx: broadcast::Sender<SessionEnvelope>,
+@@ -1014,6 +1025,8 @@
      /// terminal (TurnResult / Detached). The idle timer reads it so a streaming turn
      /// is never suspended mid-flight.
      turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
@@ -7927,7 +8034,19 @@
      /// First-turn session-title latch. Fired by the reader on a successful turn
      /// terminal; runs on its OWN process (see `codex_title`), so nothing here
      /// touches `thread_binding` / `turn_in_flight` / the R8 `terminated` flag.
-@@ -1049,6 +1061,7 @@
+@@ -1027,9 +1040,11 @@
+     stdout: Option<aionui_process::BoxedStdout>,
+     io: Arc<dyn AgentIo>,
+ ) -> tokio::task::JoinHandle<()> {
++    *state.startup_failure.lock().unwrap_or_else(|e| e.into_inner()) = None;
+     let state = state.clone();
+     tokio::spawn(async move {
+         reader_task(
++            state.startup_failure,
+             state.session_id,
+             stdout,
+             io,
+@@ -1049,6 +1064,7 @@
              state.discovered,
              state.stdin,
              state.turn_in_flight,
@@ -7935,7 +8054,7 @@
              state.title_gen,
          )
          .await;
-@@ -1259,6 +1272,7 @@
+@@ -1259,6 +1275,7 @@
          let pending_fork = Arc::new(Mutex::new(None));
          let discovered = Arc::new(std::sync::Mutex::new(Discovered::default()));
          let turn_in_flight = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -7943,7 +8062,15 @@
          let (event_tx, _) = broadcast::channel(1024);
  
          let (stdin, stdout) = match io.take_stdio().await {
-@@ -1285,6 +1299,7 @@
+@@ -1268,6 +1285,7 @@
+         let stdin = Arc::new(Mutex::new(stdin));
+ 
+         let reader_state = CodexReaderState {
++            startup_failure: Arc::new(std::sync::Mutex::new(None)),
+             session_id: session_id.clone(),
+             turn_gen: turn_gen.clone(),
+             event_tx: event_tx.clone(),
+@@ -1285,6 +1303,7 @@
              discovered: discovered.clone(),
              stdin: stdin.clone(),
              turn_in_flight: turn_in_flight.clone(),
@@ -7951,7 +8078,7 @@
              title_gen: title_gen.clone(),
          };
          let reader = start_codex_reader(&reader_state, stdout, io.clone());
-@@ -1296,6 +1311,7 @@
+@@ -1296,6 +1315,7 @@
          ));
          let idle_timer = {
              let tif = turn_in_flight.clone();
@@ -7959,7 +8086,7 @@
              // 009 R6 cleanup path 3: emit BackendSuspended on idle-reap → orchestrator
              // clears the workflow_roster (a running workflow's task_notification will
              // never arrive once the process is reaped).
-@@ -1306,7 +1322,10 @@
+@@ -1306,7 +1326,10 @@
                  &suspend,
                  idle_check_interval_ms(idle_ttl_ms),
                  aionui_common::now_ms,
@@ -7971,7 +8098,35 @@
                  move || {
                      let _ = etx.send(SessionEnvelope {
                          session_id: sid.clone(),
-@@ -1599,6 +1618,7 @@
+@@ -1402,6 +1425,19 @@
+             }
+             if let Some(tid) = self.thread_binding.lock().await.clone() {
+                 return Ok(tid);
++            }
++            if let Some(reason) = *self
++                .reader_state
++                .startup_failure
++                .lock()
++                .unwrap_or_else(|e| e.into_inner())
++            {
++                return Err(BackendError::Transport(reason.into()));
++            }
++            // This exact signature was captured on the NAS. It establishes a local
++            // state initialization failure, not its cause (locking/disk/proxy).
++            if codex_state_db_unavailable(&self.suspend.peek_stderr(20).await) {
++                return Err(BackendError::Transport("CODEX_STATE_DB_UNAVAILABLE".into()));
+             }
+             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+         }
+@@ -1580,6 +1616,7 @@
+ /// Permission.
+ #[allow(clippy::too_many_arguments)]
+ async fn reader_task(
++    startup_failure: Arc<std::sync::Mutex<Option<&'static str>>>,
+     session_id: String,
+     stdout: Option<aionui_process::BoxedStdout>,
+     io: Arc<dyn AgentIo>,
+@@ -1599,11 +1636,14 @@
      discovered: Arc<std::sync::Mutex<Discovered>>,
      stdin: Arc<Mutex<Option<aionui_process::BoxedStdin>>>,
      turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
@@ -7979,7 +8134,14 @@
      title_gen: Arc<TitleGen>,
  ) {
      use tokio::io::{AsyncBufReadExt, BufReader};
-@@ -1680,10 +1700,6 @@
+ 
+     let Some(stdout) = stdout else {
++        *startup_failure.lock().unwrap_or_else(|e| e.into_inner()) =
++            Some("agent process exited before initialize handshake completed");
+         emit(
+             &event_tx,
+             &session_id,
+@@ -1680,10 +1720,6 @@
                  if line.is_empty() {
                      continue;
                  }
@@ -7990,7 +8152,7 @@
                  let Ok(frame): Result<Value, _> = serde_json::from_str(line) else {
                      // unparseable line → opaque, never panic
                      emit(
-@@ -1692,11 +1708,17 @@
+@@ -1692,11 +1728,17 @@
                          turn_gen.load(Ordering::SeqCst),
                          SessionEvent::AdapterSpecific {
                              tag: "codex_unparseable".into(),
@@ -8009,7 +8171,7 @@
  
                  // A server-initiated REQUEST has BOTH `method` and `id`
                  // (reverse-RPC). A notification has `method` but no `id`. A
-@@ -1724,6 +1746,19 @@
+@@ -1724,6 +1766,19 @@
                          // server notification → SessionEvent(s)
                          let cur = turn_gen.load(Ordering::SeqCst);
                          let params = frame.get("params").unwrap_or(&Value::Null);
@@ -8029,7 +8191,7 @@
                          if m == "thread/started" {
                              // bind threadId (backend transport key, kept private).
                              if let Some(tid) = params.get("thread").and_then(|t| t.get("id")).and_then(Value::as_str) {
-@@ -1877,6 +1912,14 @@
+@@ -1877,6 +1932,14 @@
                              continue;
                          }
                          for ev in map_notification(m, params) {
@@ -8044,10 +8206,47 @@
                              emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
                          }
                      }
-@@ -2780,6 +2823,16 @@
-     }
+@@ -2207,13 +2270,33 @@
+     let exit = io.wait_for_exit().await;
+     // G2: redact the stderr tail at the backend boundary so a crash carries a
+     // user-facing reason (allowlisted, ≤240 chars) without leaking raw stderr.
+-    let redacted_summary = crate::adapter::redact_exit_stderr(io.as_ref()).await;
++    let redacted_summary = if !was_bound {
++        let reason = if codex_state_db_unavailable(&io.peek_stderr(20).await) {
++            "CODEX_STATE_DB_UNAVAILABLE"
++        } else {
++            "agent process exited before initialize handshake completed"
++        };
++        *startup_failure.lock().unwrap_or_else(|e| e.into_inner()) = Some(reason);
++        if reason == "CODEX_STATE_DB_UNAVAILABLE" {
++            Some(reason.to_string())
++        } else {
++            crate::adapter::redact_exit_stderr(io.as_ref())
++                .await
++                .or_else(|| Some(reason.to_string()))
++        }
++    } else {
++        crate::adapter::redact_exit_stderr(io.as_ref()).await
++    };
+     emit(
+         &event_tx,
+         &session_id,
+         turn_gen.load(Ordering::SeqCst),
+         SessionEvent::Detached { exit, redacted_summary },
+     );
++}
++
++fn codex_state_db_unavailable(stderr: &str) -> bool {
++    stderr.contains("failed to initialize sqlite state runtime")
  }
  
+ fn emit(tx: &broadcast::Sender<SessionEnvelope>, session_id: &str, turn_gen: u64, event: SessionEvent) {
+@@ -2778,6 +2861,16 @@
+         let _ = w.write_all(&line).await;
+         let _ = w.flush().await;
+     }
++}
++
 +fn notification_thread_id<'a>(method: &str, params: &'a Value) -> Option<&'a str> {
 +    params.get("threadId").and_then(Value::as_str).or_else(|| {
 +        if method == "thread/started" {
@@ -8056,12 +8255,10 @@
 +            None
 +        }
 +    })
-+}
-+
+ }
+ 
  /// Map a codex server notification → canonical SessionEvent(s). The A1 fix lives
- /// here: `item` payloads are matched on the `type` STRING (never deserialized
- /// into the closed 16-variant ThreadItem enum), so an unknown future variant is
-@@ -3204,7 +3257,9 @@
+@@ -3204,7 +3297,9 @@
              if completed {
                  // 009 R7/H3: a codex tool is failed when status==failed OR a command
                  // exited non-zero — carry it so a failed tool is not shown as success.
@@ -8072,7 +8269,7 @@
                      || item.get("exitCode").and_then(Value::as_i64).is_some_and(|c| c != 0);
                  // 009 R8: carry the tool OUTPUT. `aggregatedOutput` (command stdout)
                  // is fixture-confirmed (commandExecution completed). codex writes any
-@@ -3242,15 +3297,35 @@
+@@ -3242,15 +3337,35 @@
                  // aggregatedOutput (a commandExecution-only field imageGeneration lacks),
                  // so the image card was empty. Carry the path as FilePath (NOT the
                  // base64 `result` as Text — that would dump megabytes of bytes).
@@ -8117,7 +8314,7 @@
                  }
                  if let Some(text) = item.get("aggregatedOutput").and_then(Value::as_str)
                      && !text.is_empty()
-@@ -3300,7 +3375,15 @@
+@@ -3300,7 +3415,15 @@
                      // tool calls) are present while the output fields are still null,
                      // so the whole item Value is the faithful argument carrier.
                      // TIO-13: never logged at info.
@@ -8134,7 +8331,7 @@
                      // 009 H5: codex inline tool — main agent.
                      parent_tool_use_id: None,
                  });
-@@ -3767,8 +3850,8 @@
+@@ -3767,8 +3890,8 @@
  
  /// Parse a completed `dynamicToolCall` item's `contentItems[]`
  /// (`{type:"inputText",text}` / `{type:"inputImage",imageUrl}`). Previously DROPPED.
@@ -8145,7 +8342,7 @@
  fn parse_codex_dynamic_content_items(items: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
      use crate::event::ToolResultContent;
      let Some(arr) = items.and_then(Value::as_array) else {
-@@ -3776,17 +3859,64 @@
+@@ -3776,17 +3899,64 @@
      };
      arr.iter()
          .filter_map(|el| match el.get("type").and_then(Value::as_str) {
@@ -8216,7 +8413,7 @@
  }
  
  /// Completed→EndTurn (or Truncated if a stop reason says so), Interrupted→
-@@ -4778,6 +4908,90 @@
+@@ -4778,6 +4948,90 @@
          assert!(codex_capabilities().supports_midturn_delivery);
      }
  
@@ -8307,7 +8504,7 @@
      /// A retrying error must reach the user, not just tick the heartbeat.
      ///
      /// Frame captured live from codex 0.147.0, whose response stream kept
-@@ -9375,6 +9589,212 @@
+@@ -9375,6 +9629,212 @@
          assert!(backend.suspend.is_active().await, "stays Active (production parity)");
      }
  
@@ -8520,7 +8717,49 @@
      /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
      /// next dispatch(Send) wakes by re-spawning `codex app-server` through the
      /// injected spawner (then replaying the thread/resume handshake against the
-@@ -9800,3 +10220,81 @@
+@@ -9594,6 +10054,41 @@
+     /// `Transport` (which mapped to an opaque 500). Uses a tiny injected budget so the
+     /// timeout branch is exercised deterministically (no 30s wait, no global env).
+     #[tokio::test]
++    async fn sqlite_startup_failure_is_immediate_and_redacted() {
++        let fake = FakeAgentIo::never_exits(Vec::new())
++            .with_stderr("Error: failed to initialize sqlite state runtime at /private/token.db");
++        let backend = CodexSessionBackend::build_with_io("codex-db-failed", Box::new(fake)).await;
++        let error = tokio::time::timeout(
++            std::time::Duration::from_millis(250),
++            backend.bound_thread_within(std::time::Duration::from_secs(30)),
++        )
++        .await
++        .expect("recognized failure must not consume the handshake budget")
++        .unwrap_err();
++        assert_eq!(error, BackendError::Transport("CODEX_STATE_DB_UNAVAILABLE".into()));
++    }
++
++    #[tokio::test]
++    async fn confirmed_unbound_exit_fails_before_handshake_timeout() {
++        let fake = FakeAgentIo::new(Vec::new(), None).with_stderr("secret diagnostic");
++        fake.release_exit();
++        let backend = CodexSessionBackend::build_with_io("codex-exited", Box::new(fake)).await;
++        let error = tokio::time::timeout(
++            std::time::Duration::from_millis(250),
++            backend.bound_thread_within(std::time::Duration::from_secs(30)),
++        )
++        .await
++        .expect("confirmed exit must fail promptly")
++        .unwrap_err();
++        assert!(
++            error
++                .to_string()
++                .contains("exited before initialize handshake completed")
++        );
++        assert!(!error.to_string().contains("secret"));
++    }
++
++    #[tokio::test]
+     async fn bound_thread_timeout_is_handshake_timeout_not_transport() {
+         // never_exits + empty stdout → no thread/started → never binds.
+         let fake = FakeAgentIo::never_exits(Vec::new());
+@@ -9800,3 +10295,81 @@
          );
      }
  }
@@ -8602,6 +8841,27 @@
 +            if content.iter().any(|part| matches!(part, ToolResultContent::Text(code) if code == "IMAGE_OUTPUT_UNAVAILABLE")))));
 +    }
 +}
+--- a/crates/aionui-session/src/backend/suspend.rs
++++ b/crates/aionui-session/src/backend/suspend.rs
+@@ -86,6 +86,18 @@
+ }
+ 
+ impl SuspendController {
++    /// Inspect bounded startup diagnostics without holding the lifecycle lock.
++    pub async fn peek_stderr(&self, max_lines: usize) -> String {
++        let io = match &*self.slot.lock().await {
++            Slot::Active(handle) => Some(handle.io.clone()),
++            Slot::Dormant => None,
++        };
++        match io {
++            Some(io) => io.peek_stderr(max_lines).await,
++            None => String::new(),
++        }
++    }
++
+     /// Start Active with an already-spawned process pair.
+     pub fn active(handle: ProcHandle, idle_ttl_ms: Option<i64>, now_ms: i64) -> Self {
+         let abort = handle.reader.abort_handle();
 --- a/crates/aionui-team/src/provisioning.rs
 +++ b/crates/aionui-team/src/provisioning.rs
 @@ -93,6 +93,20 @@

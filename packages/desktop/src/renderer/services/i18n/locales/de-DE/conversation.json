@@ -204,6 +204,10 @@
         "title": "Agent-Handshake fehlgeschlagen",
         "body": "Der ausgewählte Agent konnte seinen Starthandshake nicht abschließen. Starten oder verbinde den Agenten neu und versuche es erneut."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Codex-Statusdatenbank nicht verfügbar",
+        "body": "Codex konnte seine lokale Statusdatenbank nicht initialisieren. Versuchen Sie es nach der Wiederherstellung erneut. Prüfen Sie bei wiederholtem Auftreten das Datenvolume und die Codex-Protokolle."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "Agent-Handshake abgelaufen",
         "body": "Der ausgewählte Agent hat seinen Starthandshake nicht rechtzeitig abgeschlossen. Überprüfe, ob er noch startet oder blockiert ist, und versuche es erneut."

@@ -204,6 +204,10 @@
         "title": "Error en el handshake del agente",
         "body": "El agente seleccionado no pudo completar su handshake de inicio. Reinicia o reconecta el agente, luego reintenta."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Base de datos de estado de Codex no disponible",
+        "body": "Codex no pudo inicializar su base de datos de estado local. Vuelva a intentarlo cuando esté disponible; si se repite, compruebe el volumen de datos y los registros de Codex."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "Tiempo de espera del handshake del agente agotado",
         "body": "El agente seleccionado no terminó su handshake de inicio a tiempo. Verifica si aún está iniciando o bloqueado, luego reintenta."

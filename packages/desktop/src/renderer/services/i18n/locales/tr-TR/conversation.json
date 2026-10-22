@@ -187,6 +187,10 @@
         "title": "Ajan el sıkışması başarısız oldu",
         "body": "Seçili ajan başlangıç el sıkışmasını tamamlayamadı. Ajanı yeniden başlatın veya yeniden bağlayın, ardından tekrar deneyin."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Codex durum veritabanı kullanılamıyor",
+        "body": "Codex yerel durum veritabanını başlatamadı. Kullanılabilir olduğunda yeniden deneyin; sorun tekrarlanırsa veri birimini ve Codex günlüklerini kontrol edin."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "Ajan el sıkışması zaman aşımına uğradı",
         "body": "Seçili ajan başlangıç el sıkışmasını zamanında tamamlamadı. Hâlâ başlıyor mu veya engellenmiş mi kontrol edip yeniden deneyin."

@@ -204,6 +204,10 @@
         "title": "Agent 握手失敗",
         "body": "所選 Agent 未能完成啟動握手。請重新啟動或重新連線該 Agent 後重試。"
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Codex 狀態資料庫無法使用",
+        "body": "Codex 無法初始化本地狀態資料庫。請待恢復後重試；若持續發生，請檢查資料磁碟區及 Codex 記錄。"
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "Agent 握手逾時",
         "body": "所選 Agent 未在預期時間內完成啟動握手。請確認它沒有卡在啟動或登入流程中，然後重試。"

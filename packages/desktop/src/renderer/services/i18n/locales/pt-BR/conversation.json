@@ -205,6 +205,10 @@
         "title": "Falha no handshake do agente",
         "body": "O agente selecionado não conseguiu concluir o handshake de inicialização. Reinicie ou reconecte o agente e tente novamente."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Banco de estado do Codex indisponível",
+        "body": "O Codex não conseguiu inicializar seu banco de estado local. Tente novamente quando estiver disponível; se o problema persistir, verifique o volume de dados e os logs do Codex."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "O handshake do agente expirou",
         "body": "O agente selecionado não terminou o handshake de inicialização a tempo. Verifique se ele ainda está iniciando ou bloqueado e tente novamente."

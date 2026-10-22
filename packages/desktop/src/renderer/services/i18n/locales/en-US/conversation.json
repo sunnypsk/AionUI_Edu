@@ -204,6 +204,10 @@
         "title": "Agent handshake failed",
         "body": "The selected agent could not complete its startup handshake. Restart or reconnect the agent, then retry."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Codex state database unavailable",
+        "body": "Codex could not initialize its local state database. Retry once it is available; if this repeats, check the data volume and Codex logs."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "Agent handshake timed out",
         "body": "The selected agent did not finish its startup handshake in time. Check whether it is still starting or blocked, then retry."

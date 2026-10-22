@@ -487,6 +487,8 @@ export type I18nKey =
   | 'conversation.agentError.codes.AIONUI_STATE_INCONSISTENT.title'
   | 'conversation.agentError.codes.AIONUI_STREAM_BROKEN.body'
   | 'conversation.agentError.codes.AIONUI_STREAM_BROKEN.title'
+  | 'conversation.agentError.codes.CODEX_STATE_DB_UNAVAILABLE.body'
+  | 'conversation.agentError.codes.CODEX_STATE_DB_UNAVAILABLE.title'
   | 'conversation.agentError.codes.MCP_HTTP_RESPONSE_READ_FAILED.body'
   | 'conversation.agentError.codes.MCP_HTTP_RESPONSE_READ_FAILED.title'
   | 'conversation.agentError.codes.MCP_TCP_READ_FAILED.body'

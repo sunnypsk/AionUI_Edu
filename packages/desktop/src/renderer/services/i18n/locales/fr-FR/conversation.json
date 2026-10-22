@@ -204,6 +204,10 @@
         "title": "Échec de la négociation avec l'agent",
         "body": "L'agent sélectionné n'a pas pu terminer sa négociation de démarrage. Redémarrez ou reconnectez l'agent, puis réessayez."
       },
+      "CODEX_STATE_DB_UNAVAILABLE": {
+        "title": "Base de données d’état Codex indisponible",
+        "body": "Codex n’a pas pu initialiser sa base de données d’état locale. Réessayez une fois rétablie ; si le problème persiste, vérifiez le volume de données et les journaux Codex."
+      },
       "USER_AGENT_HANDSHAKE_TIMEOUT": {
         "title": "La poignée de main de l'agent a expiré",
         "body": "L'agent sélectionné n'a pas terminé sa négociation de démarrage à temps. Vérifiez s'il démarre toujours ou est bloqué, puis réessayez."
