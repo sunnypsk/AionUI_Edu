@@ -46,3 +46,12 @@ Existing `/data`, proxy routing, authentication and shutdown behavior are preser
 
 This removes the two Bun processes observed aborting in production. The original
 native crash trigger is unknown; unit/build checks do not establish long-term runtime stability.
+
+## Specialist storage
+
+Specialist checkpoints write only changed tasks to atomic files under `/data/droid/tasks/`,
+plus a small `index.json` containing task IDs and parent gates. Updates queued behind a
+slow write are coalesced per task. Existing `tasks.json` is read once during migration
+and retained; the new index is published only after all initial task files are written.
+Subsequent results use the new layout. On restart, gates close and unfinished runs are
+marked interrupted before requests are accepted, including after a partial checkpoint.

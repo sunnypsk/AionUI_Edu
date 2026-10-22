@@ -178,11 +178,11 @@ describe('host-owned writing specialists', () => {
   });
   it('does not overwrite an unreadable persistent store on shutdown', async () => {
     await manager.close();
-    await writeFile(path.join(directory, 'droid', 'tasks.json'), 'broken');
+    await writeFile(path.join(directory, 'droid', 'index.json'), 'broken');
     manager = new SpecialistManager(directory, { open: vi.fn() });
     await expect(manager.list(owner)).rejects.toThrow('SPECIALIST_STORE_INVALID');
     await manager.close();
-    expect(await readFile(path.join(directory, 'droid', 'tasks.json'), 'utf8')).toBe('broken');
+    expect(await readFile(path.join(directory, 'droid', 'index.json'), 'utf8')).toBe('broken');
   });
   it('fails missing source material before launching a paid turn', async () => {
     await mkdir(path.join(directory, 'empty'));

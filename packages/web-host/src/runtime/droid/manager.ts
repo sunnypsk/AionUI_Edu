@@ -33,6 +33,7 @@ export class SpecialistManager {
   private readonly ready: Promise<void>;
   private readonly work = new Map<string, Work>();
   private readonly listeners = new Set<() => void>();
+  private readonly dirtyTasks = new Set<string>();
   private checkpoint?: ReturnType<typeof setTimeout>;
   private closed = false;
 
@@ -45,21 +46,32 @@ export class SpecialistManager {
     this.ready = this.store.load().then(async (state) => {
       this.state = state;
       for (const task of state.tasks)
-        if (task.reasoningEffort === undefined) task.reasoningEffort = LEGACY_EFFORTS[task.specialist];
+        if (task.reasoningEffort === undefined) {
+          task.reasoningEffort = LEGACY_EFFORTS[task.specialist];
+          this.dirtyTasks.add(task.id);
+        }
       for (const gate of Object.values(state.gates)) gate.open = false;
       for (const task of state.tasks)
-        if (active(task))
+        if (active(task)) {
+          this.dirtyTasks.add(task.id);
           Object.assign(task.runs.at(-1)!, {
             status: 'failed',
             error: 'SPECIALIST_HOST_RESTARTED',
             finishedAt: Date.now(),
           });
+        }
       await this.persist();
     });
     void this.ready.catch(() => {});
   }
-  private persist(): Promise<void> {
-    return this.store.save(this.state);
+  private persist(task?: StoredTask): Promise<void> {
+    if (task) this.dirtyTasks.add(task.id);
+    const dirty = [...this.dirtyTasks];
+    this.dirtyTasks.clear();
+    return this.store.save(this.state, dirty).catch((error: unknown) => {
+      for (const id of dirty) this.dirtyTasks.add(id);
+      throw error;
+    });
   }
   private changed(): void {
     for (const listener of this.listeners) listener();
@@ -158,12 +170,12 @@ export class SpecialistManager {
     task.runs.push({ id: randomUUID(), status: 'initializing', text: '', createdAt: Date.now() });
     const work: Work = { controller: new AbortController(), done: Promise.resolve() };
     this.work.set(task.id, work);
-    work.done = this.persist()
+    work.done = this.persist(task)
       .then(() => this.execute(owner, task, work, prompt, files))
       .catch(async (error: unknown) => {
         if (active(task))
           Object.assign(task.runs.at(-1)!, { status: 'failed', error: errorCode(error), finishedAt: Date.now() });
-        await this.persist().catch(() => {});
+        await this.persist(task).catch(() => {});
       })
       .finally(() => {
         this.work.delete(task.id);
@@ -193,7 +205,7 @@ export class SpecialistManager {
       check();
       task.sessionId = work.session.id;
       task.disabledToolIds = work.session.disabledToolIds;
-      await this.persist();
+      await this.persist(task);
       check();
       run.status = 'running';
       this.changed();
@@ -214,7 +226,7 @@ export class SpecialistManager {
         ) {
           run.text = [...parts.values()].join('\n\n');
           if (Buffer.byteLength(run.text) > 8 * 1024 * 1024) throw new Error('SPECIALIST_OUTPUT_LIMIT');
-          this.scheduleCheckpoint();
+          this.scheduleCheckpoint(task);
         }
         if (event.type === 'result') {
           if (Buffer.byteLength(event.text ?? '') > 8 * 1024 * 1024) throw new Error('SPECIALIST_OUTPUT_LIMIT');
@@ -242,11 +254,12 @@ export class SpecialistManager {
       clearTimeout(timeout);
       run.finishedAt ??= Date.now();
       await work.session?.close().catch(() => {});
-      await this.persist();
+      await this.persist(task);
       this.changed();
     }
   }
-  private scheduleCheckpoint(): void {
+  private scheduleCheckpoint(task: StoredTask): void {
+    this.dirtyTasks.add(task.id);
     if (this.checkpoint) return;
     this.checkpoint = setTimeout(() => {
       this.checkpoint = undefined;
@@ -299,6 +312,7 @@ export class SpecialistManager {
   }
   private cancelTask(task: StoredTask): void {
     if (!active(task)) return;
+    this.dirtyTasks.add(task.id);
     Object.assign(task.runs.at(-1)!, { status: 'canceled', finishedAt: Date.now() });
     this.work.get(task.id)?.controller.abort();
     const session = this.work.get(task.id)?.session;
@@ -348,6 +362,7 @@ export class SpecialistManager {
     }
     for (const task of this.state.tasks)
       if (active(task)) {
+        this.dirtyTasks.add(task.id);
         Object.assign(task.runs.at(-1)!, {
           status: 'failed',
           error: 'SPECIALIST_HOST_RESTARTED',
