@@ -105,13 +105,15 @@ const ChatConversationIndex: React.FC = () => {
   // browser history): show a toast and replace the route with home, so we
   // don't render an empty skeleton. Fire at most once per id.
   useEffect(() => {
-    if (!id || isLoading || data || notFoundHandledIdRef.current === id) return;
+    // Undefined also occurs when a mutation supersedes the initial fetch or a
+    // request fails. Only an explicit null confirms a missing conversation.
+    if (!id || isLoading || data !== null || notFoundHandledIdRef.current === id) return;
     notFoundHandledIdRef.current = id;
     Message.warning(t('conversation.notFound'));
     navigate('/', { replace: true });
   }, [id, isLoading, data, navigate, t]);
 
-  if (isLoading || !navigationReady) return <Spin loading></Spin>;
+  if (isLoading || data === undefined || !navigationReady) return <Spin loading></Spin>;
   return <ChatConversation conversation={data ?? undefined}></ChatConversation>;
 };
 
