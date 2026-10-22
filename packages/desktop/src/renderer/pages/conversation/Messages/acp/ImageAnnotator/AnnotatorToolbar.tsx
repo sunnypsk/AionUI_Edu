@@ -88,38 +88,34 @@ const AnnotatorToolbar: React.FC<AnnotatorToolbarProps> = ({
         ))}
       </Radio.Group>
       <Divider type='vertical' />
-      <Tooltip content={t('acp.image.edit.undo')}>
-        <Button
-          size='small'
-          type='text'
-          aria-label={t('acp.image.edit.undo')}
-          disabled={!canUndo}
-          icon={<Undo size='16' />}
-          onClick={onUndo}
-        />
-      </Tooltip>
-      <Tooltip content={t('acp.image.edit.redo')}>
-        <Button
-          size='small'
-          type='text'
-          aria-label={t('acp.image.edit.redo')}
-          disabled={!canRedo}
-          icon={<Redo size='16' />}
-          onClick={onRedo}
-        />
-      </Tooltip>
-      <Tooltip content={t('acp.image.edit.clear')}>
-        <Button
-          size='small'
-          type='text'
-          aria-label={t('acp.image.edit.clear')}
-          disabled={!canClear}
-          icon={<Clear size='16' />}
-          onClick={onClear}
-        />
-      </Tooltip>
+      <ActionButton label={t('acp.image.edit.undo')} icon={<Undo size='16' />} disabled={!canUndo} onClick={onUndo} />
+      <ActionButton label={t('acp.image.edit.redo')} icon={<Redo size='16' />} disabled={!canRedo} onClick={onRedo} />
+      <ActionButton
+        label={t('acp.image.edit.clear')}
+        icon={<Clear size='16' />}
+        disabled={!canClear}
+        onClick={onClear}
+      />
     </div>
   );
 };
+
+/**
+ * Tooltip-wrapped icon button whose disabled state toggles while the tooltip may be open.
+ * Arco swaps a disabled Button for a wrapper span, which detaches the tooltip's anchor and
+ * crashes popup positioning; a stable span keeps the anchor element constant.
+ */
+const ActionButton: React.FC<{ label: string; icon: React.ReactNode; disabled: boolean; onClick: () => void }> = ({
+  label,
+  icon,
+  disabled,
+  onClick,
+}) => (
+  <Tooltip content={label}>
+    <span className='inline-flex'>
+      <Button size='small' type='text' aria-label={label} disabled={disabled} icon={icon} onClick={onClick} />
+    </span>
+  </Tooltip>
+);
 
 export default AnnotatorToolbar;
