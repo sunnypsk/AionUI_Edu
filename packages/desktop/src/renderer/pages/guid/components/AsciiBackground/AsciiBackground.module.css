@@ -1,0 +1,51 @@
+.root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  --ascii-epic: 0;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: calc(0.22 + 0.38 * var(--ascii-epic));
+}
+
+:global([data-theme='light']) .canvas {
+  opacity: calc(0.28 + 0.37 * var(--ascii-epic));
+}
+
+/* Soft colored glow that fades in with the idle "epic" level. */
+.aura {
+  position: absolute;
+  inset: -15%;
+  opacity: var(--ascii-epic);
+  background:
+    radial-gradient(ellipse 45% 40% at 22% 28%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 35% at 78% 72%, color-mix(in srgb, var(--danger) 13%, transparent), transparent 70%),
+    radial-gradient(ellipse 38% 32% at 72% 18%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 70%),
+    radial-gradient(ellipse 36% 30% at 25% 80%, color-mix(in srgb, var(--warning) 10%, transparent), transparent 70%);
+  animation: aura-drift 36s ease-in-out infinite alternate;
+}
+
+@keyframes aura-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 3%, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(4%, -3%, 0) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura {
+    animation: none;
+  }
+}

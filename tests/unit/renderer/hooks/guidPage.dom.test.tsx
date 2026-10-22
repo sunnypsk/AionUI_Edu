@@ -137,6 +137,11 @@ vi.mock('react-i18next', () => ({
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
   useLocation: () => locationMock,
+  useNavigationType: () => 'PUSH',
+}));
+
+vi.mock('@/renderer/pages/guid/components/AsciiBackground', () => ({
+  default: () => <div data-testid='ascii-background' />,
 }));
 
 vi.mock('@/common', () => ({

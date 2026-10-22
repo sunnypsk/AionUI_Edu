@@ -16,6 +16,7 @@ import { appendPromptToDraft } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { getFuzzyMatchIndices, useSlashCommandController } from '@/renderer/hooks/chat/useSlashCommandController';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import SlashCommandMenu, { type SlashCommandMenuItem } from '@/renderer/components/chat/SlashCommandMenu';
+import AsciiBackground from './components/AsciiBackground';
 import GuidActionRow from './components/GuidActionRow';
 import GuidInputCard from './components/GuidInputCard';
 import { useGuidAssistantSelection } from './hooks/useGuidAssistantSelection';
@@ -32,7 +33,7 @@ import { useLiveTranscriptInsertion } from '@/renderer/hooks/system/useLiveTrans
 import { ConfigProvider } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import useSWR from 'swr';
 import styles from './index.module.css';
 
@@ -51,7 +52,9 @@ const GuidPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const guidContainerRef = useRef<HTMLDivElement>(null);
+  const guidLayoutRef = useRef<HTMLDivElement>(null);
   const { activeBorderColor, inactiveBorderColor, activeShadow } = useInputFocusRing();
 
   const localeKey = resolveLocaleKey(i18n.language);
@@ -400,6 +403,18 @@ const GuidPage: React.FC = () => {
     navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
   }, [resetAssistantRequested, preselectAssistantId, location.pathname, location.search, location.hash, navigate]);
 
+  // Each visit gets a fresh background. Replace navigations only strip consumed
+  // state from the current visit, so they keep the background already showing.
+  const [backgroundVisitKey, setBackgroundVisitKey] = useState(location.key);
+  const backgroundKeyRef = useRef(location.key);
+  useLayoutEffect(() => {
+    const key = location.key;
+    const isNewVisit = navigationType !== 'REPLACE' && backgroundKeyRef.current !== key;
+    backgroundKeyRef.current = key;
+    // Skip setState when nothing changed so same-route rerenders don't schedule updates.
+    if (isNewVisit) setBackgroundVisitKey(key);
+  }, [location.key, navigationType]);
+
   const handleSpeechTranscript = useCallback(
     (transcript: string) => {
       guidInput.setInput((prev) => appendSpeechTranscript(prev, transcript));
@@ -454,7 +469,8 @@ const GuidPage: React.FC = () => {
   return (
     <ConfigProvider getPopupContainer={() => guidContainerRef.current || document.body}>
       <div ref={guidContainerRef} className={styles.guidContainer}>
-        <div className={`${styles.guidLayout} ${isDesktop ? '' : styles.webLayout}`}>
+        <AsciiBackground visitKey={backgroundVisitKey} clearRef={guidLayoutRef} />
+        <div ref={guidLayoutRef} className={`${styles.guidLayout} ${isDesktop ? '' : styles.webLayout}`}>
           <div className={styles.heroHeader}>
             <p className='text-2xl font-semibold mb-0 text-t-primary text-center'>{t('conversation.welcome.title')}</p>
           </div>
