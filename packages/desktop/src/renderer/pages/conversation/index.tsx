@@ -87,7 +87,7 @@ const ChatConversationIndex: React.FC = () => {
         return;
       }
 
-      void mutate();
+      void mutate(getConversationOrNull(id, { fresh: true }), false);
     });
   }, [id, mutate]);
 

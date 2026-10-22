@@ -35,10 +35,42 @@ const mockConversation = {
 
 describe('conversationCache', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('getConversationOrNull', () => {
+    it('shares overlapping reads of the same conversation', async () => {
+      let resolve!: (conversation: TChatConversation) => void;
+      vi.mocked(ipcBridge.conversation.get.invoke).mockReturnValue(
+        new Promise((done) => {
+          resolve = done;
+        })
+      );
+
+      const reads = [getConversationOrNull('shared'), getConversationOrNull('shared')];
+      expect(ipcBridge.conversation.get.invoke).toHaveBeenCalledTimes(1);
+      resolve(mockConversation);
+      expect(await Promise.all(reads)).toEqual([mockConversation, mockConversation]);
+    });
+
+    it('keeps different conversations independent and refetches after completion', async () => {
+      vi.mocked(ipcBridge.conversation.get.invoke).mockResolvedValue(mockConversation);
+
+      await Promise.all([getConversationOrNull('first'), getConversationOrNull('second')]);
+      await getConversationOrNull('first');
+
+      expect(ipcBridge.conversation.get.invoke).toHaveBeenCalledTimes(3);
+    });
+
+    it('allows a new read after a failed request', async () => {
+      vi.mocked(ipcBridge.conversation.get.invoke)
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce(mockConversation);
+
+      await expect(getConversationOrNull('retry')).rejects.toThrow('offline');
+      await expect(getConversationOrNull('retry')).resolves.toBe(mockConversation);
+    });
+
     it('returns null when the backend reports a missing conversation', async () => {
       const error = new BackendHttpError({
         method: 'GET',
@@ -79,6 +111,27 @@ describe('conversationCache', () => {
   });
 
   describe('refreshConversationCache', () => {
+    it('refreshes after an edit without reusing an older read still in flight', async () => {
+      let resolveOld!: (conversation: TChatConversation) => void;
+      let resolveFresh!: (conversation: TChatConversation) => void;
+      vi.mocked(ipcBridge.conversation.get.invoke)
+        .mockReturnValueOnce(new Promise((done) => (resolveOld = done)))
+        .mockReturnValueOnce(new Promise((done) => (resolveFresh = done)));
+
+      const olderRead = getConversationOrNull('edited');
+      const refresh = refreshConversationCache('edited');
+      resolveOld(mockConversation);
+      await olderRead;
+      const sharedFreshRead = getConversationOrNull('edited');
+      const renamed = { ...mockConversation, name: 'Renamed' };
+      resolveFresh(renamed);
+      await refresh;
+
+      expect(await sharedFreshRead).toBe(renamed);
+      expect(ipcBridge.conversation.get.invoke).toHaveBeenCalledTimes(2);
+      expect(mutate).toHaveBeenCalledWith('conversation/edited', renamed, false);
+    });
+
     it('skips cache mutation when the conversation is missing', async () => {
       const error = new BackendHttpError({
         method: 'GET',
