@@ -5,68 +5,38 @@
  */
 
 import type { TMessage } from '@/common/chat/chatLib';
-import { loadAllConversationMessagesPaged } from '@/renderer/utils/chat/messagePagination';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { buildMessageAnchors, type MessageAnchorItem } from './anchors';
+import { useEffect, useMemo, useState } from 'react';
+import { buildMessageAnchors, mergeMessageAnchors, type MessageAnchorItem } from './anchors';
+import { loadConversationAnchors } from './loadAnchors';
 
 /**
- * Anchors for a conversation's *whole* history, not just the pages currently held
- * in memory.
- *
- * The chat area loads messages lazily, so reopening an old conversation starts
- * with only the newest page. Deriving ticks from that alone made the rail claim a
- * long conversation was short: earlier turns simply had no anchor until the user
- * scrolled up far enough to page them in — which defeats the point of a jump
- * target. So the rail reads the full turn list once, the same way the search
- * panel and conversation export do.
- *
- * The fetched list seeds the rail; the in-memory list then takes over whenever it
- * covers more turns, which is what keeps new messages appearing live without
- * re-reading history on every send.
+ * Combines lightweight historical previews with the live tail. Navigation
+ * cancels the current HTTP read and prevents requesting subsequent pages.
  */
 export const useConversationAnchors = (
   conversationId: string | undefined,
   liveMessages: TMessage[]
 ): MessageAnchorItem[] => {
-  const [historyAnchors, setHistoryAnchors] = useState<MessageAnchorItem[]>([]);
-  // Guards against a stale conversation's response landing after a switch.
-  const requestedIdRef = useRef<string | undefined>(undefined);
+  const [history, setHistory] = useState<{ id: string; anchors: MessageAnchorItem[] }>();
 
   useEffect(() => {
-    requestedIdRef.current = conversationId;
-    if (!conversationId) {
-      setHistoryAnchors([]);
-      return;
-    }
-
-    let cancelled = false;
-    // Drop the previous conversation's ticks immediately, so the rail never shows
-    // one conversation's anchors while another is open.
-    setHistoryAnchors([]);
-
-    // `compact` is enough: ticks only need the preview text, not whole message
-    // bodies, and a long history would otherwise pull a lot of unused content.
-    loadAllConversationMessagesPaged(conversationId, { contentMode: 'compact' })
-      .then((messages) => {
-        if (cancelled || requestedIdRef.current !== conversationId) return;
-        setHistoryAnchors(buildMessageAnchors(messages));
+    if (!conversationId) return;
+    const controller = new AbortController();
+    setHistory(undefined);
+    void loadConversationAnchors(conversationId, controller.signal)
+      .then((anchors) => {
+        if (!controller.signal.aborted) setHistory({ id: conversationId, anchors });
       })
       .catch(() => {
-        // Best-effort: the rail still works off the in-memory list, it just starts
-        // at whatever the chat area has paged in.
-        if (cancelled || requestedIdRef.current !== conversationId) return;
-        setHistoryAnchors([]);
+        // Navigation is best-effort when offline; the visible tail remains usable.
       });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [conversationId]);
 
   const liveAnchors = useMemo(() => buildMessageAnchors(liveMessages), [liveMessages]);
 
   return useMemo(
-    () => (liveAnchors.length >= historyAnchors.length ? liveAnchors : historyAnchors),
-    [liveAnchors, historyAnchors]
+    () => mergeMessageAnchors(history && history.id === conversationId ? history.anchors : [], liveAnchors),
+    [conversationId, liveAnchors, history]
   );
 };

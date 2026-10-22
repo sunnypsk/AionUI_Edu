@@ -5,7 +5,7 @@
  */
 
 import type { TMessage } from '@/common/chat/chatLib';
-import { buildMessageAnchors } from '@/renderer/pages/conversation/Messages/anchorRail/anchors';
+import { buildMessageAnchors, mergeMessageAnchors } from '@/renderer/pages/conversation/Messages/anchorRail/anchors';
 import { describe, expect, it } from 'vitest';
 
 const textMessage = (
@@ -115,5 +115,17 @@ describe('buildMessageAnchors', () => {
     const anchors = buildMessageAnchors(messages);
     expect(anchors.map((anchor) => anchor.index)).toEqual([1, 2, 3, 4, 5]);
     expect(anchors.map((anchor) => anchor.messageId)).toEqual(['u1', 'u2', 'u3', 'u4', 'u5']);
+  });
+
+  it('matches stable message ids when persisted and live row ids differ', () => {
+    const old = buildMessageAnchors([textMessage('u1', 'right', 'old'), textMessage('u2', 'right', 'question')]);
+    old[0].msgId = undefined;
+    const live = buildMessageAnchors([
+      textMessage('new-row-id', 'right', 'question', { msg_id: 'msg-u2' }),
+      textMessage('answer', 'left', 'streamed answer'),
+    ]);
+    const anchors = mergeMessageAnchors(old, live);
+    expect(anchors).toHaveLength(2);
+    expect(anchors[1]).toMatchObject({ index: 2, messageId: 'new-row-id', answer: 'streamed answer' });
   });
 });

@@ -26,6 +26,27 @@ export type MessageAnchorItem = {
 
 const PREVIEW_MAX_LEN = 120;
 
+/** Shared normalization for live messages and bounded server previews. */
+export const anchorPreview = (text: string): string => truncate(normalizeText(text), PREVIEW_MAX_LEN);
+
+/** Keeps historical turns while incorporating new or streaming turns from the visible tail. */
+export const mergeMessageAnchors = (history: MessageAnchorItem[], live: MessageAnchorItem[]): MessageAnchorItem[] => {
+  const merged = [...history];
+  const positions = new Map(history.map((item, index) => [item.messageId, index]));
+  const messagePositions = new Map(
+    history.flatMap((item, index) => (item.msgId ? [[item.msgId, index] as const] : []))
+  );
+  for (const item of live) {
+    const position = positions.get(item.messageId) ?? (item.msgId ? messagePositions.get(item.msgId) : undefined);
+    if (position === undefined) {
+      merged.push(item);
+    } else {
+      merged[position] = { ...item, answer: item.answer || merged[position].answer };
+    }
+  }
+  return merged.map((item, index) => ({ ...item, index: index + 1 }));
+};
+
 /**
  * Collects the user messages of a conversation into rail anchors.
  *

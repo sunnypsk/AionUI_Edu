@@ -1751,6 +1751,42 @@
      /// B5 mid-turn interjection: `true` when the message was delivered INTO the
      /// already-running turn (`turn_id` is then the ACTIVE turn's id, no new
      /// turn was opened, and the HTTP status is 200 instead of the normal 202).
+@@ -280,6 +283,13 @@
+     pub after: Option<String>,
+     pub anchor_message_id: Option<String>,
+     pub content_mode: Option<String>,
++}
++
++/// Query for lightweight conversation anchor previews.
++#[derive(Debug, Deserialize)]
++pub struct ListMessageAnchorsQuery {
++    pub after: Option<String>,
++    pub limit: Option<u32>,
+ }
+ 
+ /// Body for `PATCH /api/conversations/:id/artifacts/:artifact_id`.
+@@ -372,6 +382,21 @@
+     pub backend_turn_id: Option<String>,
+ }
+ 
++/// Bounded text previews for one user turn in the anchor rail.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct MessageAnchorResponse {
++    pub id: String,
++    pub msg_id: Option<String>,
++    pub question: String,
++    pub answer: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct MessageAnchorListResponse {
++    pub items: Vec<MessageAnchorResponse>,
++    pub next_cursor: Option<String>,
++}
++
+ /// Cursor-paginated list of messages.
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub struct MessageListResponse {
 --- a/crates/aionui-api-types/src/lib.rs
 +++ b/crates/aionui-api-types/src/lib.rs
 @@ -23,6 +23,7 @@
@@ -1761,17 +1797,31 @@
  mod project;
  mod provider;
  mod remote_agent;
-@@ -144,6 +145,10 @@
+@@ -99,9 +100,10 @@
+     ConversationAssistantIdentityResponse, ConversationListResponse, ConversationMcpStatus, ConversationMcpStatusKind,
+     ConversationNameUpdatedPayload, ConversationResponse, ConversationRuntimeStateKind, ConversationRuntimeSummary,
+     CreateConversationRequest, EnsureConversationRuntimeResponse, ForkCapabilityView, ForkConversationRequest,
+-    ListConversationsQuery, ListMessagesQuery, McpRuntimeSnapshot, MessageListResponse, MessageResponse,
+-    MessageSearchItem, MessageSearchResponse, MessageStatusChangedPayload, PromptCapabilityView, SearchMessagesQuery,
+-    SendMessageRequest, SendMessageResponse, SessionRef, UpdateConversationArtifactRequest, UpdateConversationRequest,
++    ListConversationsQuery, ListMessageAnchorsQuery, ListMessagesQuery, McpRuntimeSnapshot, MessageAnchorListResponse,
++    MessageAnchorResponse, MessageListResponse, MessageResponse, MessageSearchItem, MessageSearchResponse,
++    MessageStatusChangedPayload, PromptCapabilityView, SearchMessagesQuery, SendMessageRequest, SendMessageResponse,
++    SessionRef, UpdateConversationArtifactRequest, UpdateConversationRequest,
+ };
+ pub use conversation_tools::{
+     CONVERSATION_TOOLS_SCHEMA_VERSION, ConversationCliEnvelope, ConversationCliMeta, ConversationCreateAssistant,
+@@ -143,6 +145,10 @@
+     CellCoord, CellRange, ConversionResultDto, ConversionTarget, DocumentConversionRequest, DocumentConversionResponse,
      ExcelSheetData, ExcelSheetImage, ExcelWorkbookData, PptJsonData, PptSlideData, PreviewState, PreviewStatusEvent,
      PreviewUrlResponse, RefreshPreviewRequest, RefreshPreviewResponse, StartPreviewRequest, StopPreviewRequest,
- };
++};
 +pub use openui::{
 +    OpenUiActionContext, OpenUiCapabilities, OpenUiSendContext, OpenUiSendMessageRequest, OpenUiState,
 +    OpenUiTeamAgentMessageRequest, OpenUiTeamMessageRequest, OpenUiTool, OpenUiToolCall, OpenUiToolMode,
-+};
+ };
  pub use project::{
      AttachFolderRequest, ProjectDetailResponse, ProjectEntry, ProjectExplorer, ResolveRefRequest, ResolveRefResponse,
- };
 --- /dev/null
 +++ b/crates/aionui-api-types/src/openui.rs
 @@ -0,0 +1,87 @@
@@ -4399,16 +4449,19 @@
 +}
 --- a/crates/aionui-conversation/src/routes.rs
 +++ b/crates/aionui-conversation/src/routes.rs
-@@ -12,7 +12,7 @@
+@@ -11,8 +11,9 @@
+     CancelConversationResponse, CloneConversationRequest, ConfirmRequest, ConfirmationListResponse,
      ConversationArtifactListResponse, ConversationArtifactResponse, ConversationListResponse, ConversationResponse,
      CreateConversationRequest, EnsureConversationRuntimeResponse, ForkConversationRequest, ListConversationsQuery,
-     ListMessagesQuery, MessageListResponse, MessageResponse, MessageSearchResponse, SearchMessagesQuery,
+-    ListMessagesQuery, MessageListResponse, MessageResponse, MessageSearchResponse, SearchMessagesQuery,
 -    SendMessageRequest, SendMessageResponse, UpdateConversationArtifactRequest, UpdateConversationRequest,
-+    SendMessageResponse, UpdateConversationArtifactRequest, UpdateConversationRequest,
++    ListMessageAnchorsQuery, ListMessagesQuery, MessageAnchorListResponse, MessageListResponse, MessageResponse,
++    MessageSearchResponse, SearchMessagesQuery, SendMessageResponse, UpdateConversationArtifactRequest,
++    UpdateConversationRequest,
  };
  use aionui_auth::CurrentUser;
  use aionui_common::ApiError;
-@@ -116,6 +116,7 @@
+@@ -116,6 +117,7 @@
  /// All routes require authentication (applied by the caller).
  pub fn conversation_routes(state: ConversationRouterState) -> Router {
      Router::new()
@@ -4416,7 +4469,36 @@
          .route("/api/conversations", post(create).get(list))
          .route("/api/conversations/{id}", get(get_one).patch(update).delete(delete_one))
          .route("/api/conversations/{id}/reset", post(reset))
-@@ -305,12 +306,12 @@
+@@ -125,6 +127,7 @@
+         // MUST precede the `{messageId}` wildcard below: registered after it,
+         // "latest" would be captured as a message id and 404.
+         .route("/api/conversations/{id}/messages/latest", get(latest_msg))
++        .route("/api/conversations/{id}/messages/anchors", get(list_anchors))
+         .route("/api/conversations/{id}/messages/{messageId}", get(get_msg))
+         .route("/api/conversations/{id}/artifacts", get(list_artifacts))
+         .route("/api/conversations/{id}/artifacts/{artifactId}", patch(update_artifact))
+@@ -248,6 +251,20 @@
+     Ok(Json(ApiResponse::ok(items)))
+ }
+ 
++async fn list_anchors(
++    State(state): State<ConversationRouterState>,
++    Extension(user): Extension<CurrentUser>,
++    Path(id): Path<String>,
++    Query(query): Query<ListMessageAnchorsQuery>,
++) -> Result<Json<ApiResponse<MessageAnchorListResponse>>, ApiError> {
++    let result = state
++        .service
++        .list_message_anchors(&user.id, &id, query)
++        .await
++        .map_err(ApiError::from)?;
++    Ok(Json(ApiResponse::ok(result)))
++}
++
+ async fn list_msg(
+     State(state): State<ConversationRouterState>,
+     Extension(user): Extension<CurrentUser>,
+@@ -305,12 +322,12 @@
      State(state): State<ConversationRouterState>,
      Extension(user): Extension<CurrentUser>,
      Path(id): Path<String>,
@@ -4433,7 +4515,25 @@
      // B5: a mid-turn delivery already handed the message to the RUNNING turn —
 --- a/crates/aionui-conversation/src/service.rs
 +++ b/crates/aionui-conversation/src/service.rs
-@@ -71,6 +71,13 @@
+@@ -21,11 +21,12 @@
+     ConversationArtifactStatus, ConversationListResponse, ConversationMcpStatus, ConversationMcpStatusKind,
+     ConversationNameUpdatedPayload, ConversationResponse, ConversationRuntimeSummary, CreateConversationRequest,
+     EnsureConversationRuntimeResponse, ForkCapabilityView, ForkConversationRequest, ListConversationsQuery,
+-    ListMessagesQuery, McpRuntimeSnapshot, MessageListResponse, MessageResponse, MessageSearchResponse,
+-    PromptCapabilityView, SearchMessagesQuery, SendMessageRequest, SendMessageResponse, SessionMcpServer,
+-    SessionMcpTransport, TEAM_MCP_SERVER_NAME, TeamMcpSelection, TeamSessionBinding, UpdateConversationArtifactRequest,
+-    UpdateConversationRequest, WebSocketMessage, assistant_avatar_response_value,
+-    assistant_avatar_response_value_with_version, assistant_mcp_binding_fingerprint,
++    ListMessageAnchorsQuery, ListMessagesQuery, McpRuntimeSnapshot, MessageAnchorListResponse, MessageAnchorResponse,
++    MessageListResponse, MessageResponse, MessageSearchResponse, PromptCapabilityView, SearchMessagesQuery,
++    SendMessageRequest, SendMessageResponse, SessionMcpServer, SessionMcpTransport, TEAM_MCP_SERVER_NAME,
++    TeamMcpSelection, TeamSessionBinding, UpdateConversationArtifactRequest, UpdateConversationRequest,
++    WebSocketMessage, assistant_avatar_response_value, assistant_avatar_response_value_with_version,
++    assistant_mcp_binding_fingerprint,
+ };
+ use aionui_api_types::{ChatFileRef, SessionRef};
+ use aionui_common::{
+@@ -71,6 +72,13 @@
      "This historical conversation can no longer be continued. Please start a new conversation.";
  const DEPRECATED_AGENT_TYPE_MESSAGE: &str = "This agent type is no longer supported for new conversations.";
  
@@ -4447,7 +4547,7 @@
  #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
  pub(crate) struct AssistantConversationOverrides {
      #[serde(default)]
-@@ -312,6 +319,7 @@
+@@ -312,6 +320,7 @@
  
  #[derive(Clone)]
  pub struct ConversationService {
@@ -4455,7 +4555,7 @@
      workspace_root: PathBuf,
      broadcaster: Arc<dyn EventBroadcaster>,
      skill_resolver: Arc<dyn SkillResolver>,
-@@ -407,6 +415,7 @@
+@@ -407,6 +416,7 @@
          acp_session_repo: Arc<dyn IAcpSessionRepository>,
      ) -> Self {
          Self {
@@ -4463,7 +4563,7 @@
              workspace_root,
              broadcaster,
              skill_resolver,
-@@ -438,6 +447,119 @@
+@@ -438,6 +448,119 @@
          self
      }
  
@@ -4583,7 +4683,7 @@
      pub fn with_runtime_helper_context(mut self, helper_bin: String, base_url: String) -> Self {
          self.runtime_helper_bin = Some(helper_bin);
          self.runtime_base_url = Some(base_url);
-@@ -498,7 +620,6 @@
+@@ -498,7 +621,6 @@
                      project_id: Some(out.project.project_id),
                      folder_id: Some(out.folder.folder_id),
                      name_source: None,
@@ -4591,7 +4691,7 @@
                      ..Default::default()
                  };
                  match self.conversation_repo.update(user_id, conversation_id, &update).await {
-@@ -914,13 +1035,32 @@
+@@ -914,13 +1036,32 @@
  
      async fn send_message_response(
          &self,
@@ -4624,7 +4724,7 @@
              delivered_midturn: false,
              runtime: self.runtime_summary_for(conversation_id).await,
          }
-@@ -2478,7 +2618,6 @@
+@@ -2478,7 +2619,6 @@
                  serde_json::to_string(&merged)
                      .map_err(|e| ConversationError::internal(format!("Failed to serialize merged extra: {e}")))?,
              ),
@@ -4632,7 +4732,7 @@
              ..Default::default()
          };
          self.conversation_repo
-@@ -2615,6 +2754,9 @@
+@@ -2615,6 +2755,9 @@
          }
  
          let had_active_turn = self.runtime_state.mark_deleting(id);
@@ -4642,7 +4742,61 @@
  
          // Snapshot the hook list under the read lock, then drop the guard
          // before awaiting — `RwLockReadGuard` is not `Send`, so holding it
-@@ -3428,12 +3570,14 @@
+@@ -3135,6 +3278,53 @@
+ 
+ impl ConversationService {
+     /// List messages for a conversation with cursor-based pagination.
++    /// Loads only bounded user-turn previews for history navigation.
++    pub async fn list_message_anchors(
++        &self,
++        user_id: &str,
++        conversation_id: &str,
++        query: ListMessageAnchorsQuery,
++    ) -> Result<MessageAnchorListResponse, ConversationError> {
++        self.conversation_repo
++            .get(user_id, conversation_id)
++            .await?
++            .ok_or_else(|| ConversationError::NotFound {
++                id: conversation_id.to_owned(),
++            })?;
++        let after = query.after.as_deref().map(decode_message_cursor).transpose()?;
++        let limit = query.limit.unwrap_or(200).clamp(1, 200);
++        let mut rows = self
++            .conversation_repo
++            .list_message_anchors(user_id, conversation_id, after.as_ref(), limit + 1)
++            .await?;
++        let has_more = rows.len() > limit as usize;
++        rows.truncate(limit as usize);
++        let next_cursor = if has_more {
++            rows.last()
++                .map(|row| {
++                    encode_message_cursor(&MessagePageCursor {
++                        created_at: row.created_at,
++                        id: row.id.clone(),
++                    })
++                })
++                .transpose()?
++        } else {
++            None
++        };
++        Ok(MessageAnchorListResponse {
++            items: rows
++                .into_iter()
++                .map(|row| MessageAnchorResponse {
++                    id: row.id,
++                    msg_id: row.msg_id,
++                    question: row.question,
++                    answer: row.answer,
++                })
++                .collect(),
++            next_cursor,
++        })
++    }
++
+     pub async fn list_messages(
+         &self,
+         user_id: &str,
+@@ -3428,12 +3618,14 @@
                  id: conversation_id.to_owned(),
              })?;
  
@@ -4663,7 +4817,7 @@
      }
  
      /// Confirm a pending tool call.
-@@ -3454,6 +3598,12 @@
+@@ -3454,6 +3646,12 @@
              .ok_or_else(|| ConversationError::NotFound {
                  id: conversation_id.to_owned(),
              })?;
@@ -4676,7 +4830,7 @@
  
          let agent = task_manager
              .get_task(conversation_id)
-@@ -3680,6 +3830,7 @@
+@@ -3680,6 +3878,7 @@
          agent: AgentInstance,
          active_turn_id: String,
          inject_skills: Vec<String>,
@@ -4684,7 +4838,7 @@
      ) -> Result<MidturnOutcome, ConversationError> {
          let user_msg_id = Self::mint_msg_id();
          let persisted = self
-@@ -3721,7 +3872,7 @@
+@@ -3721,7 +3920,7 @@
              ));
          }
          let data = aionui_ai_agent::types::SendMessageData {
@@ -4693,7 +4847,7 @@
              msg_id: user_msg_id.clone(),
              turn_id: Some(active_turn_id.clone()),
              files: resolved.files.clone(),
-@@ -3737,7 +3888,7 @@
+@@ -3737,7 +3936,7 @@
                      "mid-turn message delivered into the active turn"
                  );
                  let mut response = self
@@ -4702,7 +4856,7 @@
                      .await;
                  response.delivered_midturn = true;
                  Ok(MidturnOutcome::Delivered(response))
-@@ -3794,7 +3945,7 @@
+@@ -3794,7 +3993,7 @@
                  self.persist_and_broadcast_send_failure_tip(user_id, conversation_id, &active_turn_id, &e, None)
                      .await;
                  Ok(MidturnOutcome::Delivered(
@@ -4711,7 +4865,7 @@
                          .await,
                  ))
              }
-@@ -3813,6 +3964,19 @@
+@@ -3813,6 +4012,19 @@
          user_id: &str,
          conversation_id: &str,
          req: SendMessageRequest,
@@ -4731,7 +4885,7 @@
          task_manager: &Arc<dyn IWorkerTaskManager>,
      ) -> Result<SendMessageResponse, ConversationError> {
          if req.content.trim().is_empty() {
-@@ -3877,6 +4041,9 @@
+@@ -3877,6 +4089,9 @@
          // `[[AION_FILES]]` content used for persistence, broadcast, and the turn.
          let resolved = self
              .resolve_message_attachments(user_id, &content_with_sessions, &req.files)
@@ -4741,7 +4895,7 @@
              .await?;
  
          // ── Mid-turn delivery (B5, spec §4.3) ────────────────────────────
-@@ -3923,6 +4090,7 @@
+@@ -3923,6 +4138,7 @@
                          agent,
                          active_turn_id,
                          req.inject_skills.clone(),
@@ -4749,7 +4903,7 @@
                      )
                      .await?
                  {
-@@ -3942,6 +4110,18 @@
+@@ -3942,6 +4158,18 @@
              let turn_claim = self.runtime_state.try_claim_turn(conversation_id, &turn_id)?;
              (turn_id, turn_claim)
          };
@@ -4768,7 +4922,7 @@
  
          // Store user message. `msg_id` is server-generated so the WebSocket
          // stream, DB row, and client-side message index all agree on the same
-@@ -3971,7 +4151,9 @@
+@@ -3971,7 +4199,9 @@
              let was_deleting = turn_claim.release();
              self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                  .await;
@@ -4779,7 +4933,7 @@
          }
          // The TurnEnded fallback already persisted + broadcast this message
          // (with the statusChanged flip) — doing it again would duplicate the
-@@ -4022,7 +4204,9 @@
+@@ -4022,7 +4252,9 @@
                  let was_deleting = turn_claim.release();
                  self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                      .await;
@@ -4790,7 +4944,7 @@
              }
          };
          self.apply_conversation_runtime_context(&mut build_opts, user_id, conversation_id);
-@@ -4033,7 +4217,7 @@
+@@ -4033,7 +4265,7 @@
          ConversationTurnOrchestrator::new(self.clone(), Arc::clone(task_manager)).spawn_user_turn(TurnStartInput {
              user_id: user_id.to_owned(),
              conversation: row,
@@ -4799,7 +4953,7 @@
              files: resolved.files,
              inject_skills: req.inject_skills,
              required_runtime_mode: None,
-@@ -4051,7 +4235,7 @@
+@@ -4051,7 +4283,7 @@
              "Message accepted, agent work scheduled"
          );
          Ok(self
@@ -4808,7 +4962,7 @@
              .await)
      }
  
-@@ -4081,6 +4265,16 @@
+@@ -4081,6 +4313,16 @@
  
          let turn_id = Self::mint_turn_id();
          let turn_claim = self.runtime_state.try_claim_turn(&request.conversation_id, &turn_id)?;
@@ -4825,7 +4979,7 @@
          if request.persist_user_message {
              let user_msg_id = Self::mint_msg_id();
              let user_msg = aionui_db::models::MessageRow {
-@@ -4936,7 +5130,6 @@
+@@ -4936,7 +5178,6 @@
  
          let update = ConversationRowUpdate {
              extra: Some(extra_json),
@@ -4833,7 +4987,7 @@
              ..Default::default()
          };
          self.conversation_repo.update(user_id, conversation_id, &update).await?;
-@@ -5763,7 +5956,6 @@
+@@ -5763,7 +6004,6 @@
  
      let update = ConversationRowUpdate {
          extra: Some(extra_json),
@@ -4841,7 +4995,7 @@
          ..Default::default()
      };
      if let Err(e) = repo.update(user_id, conversation_id, &update).await {
-@@ -5954,13 +6146,15 @@
+@@ -5954,13 +6194,15 @@
  /// Apply an agent-proposed session title under the `name_source` guard.
  ///
  /// Origin rules (migration 035): NULL (default/placeholder name) and "agent"
@@ -4860,7 +5014,7 @@
  ///
  /// A free function (not a `ConversationService` method) so the per-turn
  /// `StreamRelay` can call it with just the repo + broadcaster it already owns.
-@@ -5980,9 +6174,19 @@
+@@ -5980,9 +6222,19 @@
          debug!(conversation_id, consumer, "agent title dropped: conversation not found");
          return Ok(false);
      };
@@ -5940,7 +6094,18 @@
  pub use models::{
      AgentMetadataRow, AssistantDefinitionRow, AssistantOverlayRow, AssistantOverrideRow, AssistantPreferenceRow,
      AssistantRow, ConversationArtifactRow, ConversationAssistantSnapshotRow, CreateAssistantParams,
-@@ -43,6 +44,7 @@
+@@ -35,14 +36,16 @@
+ };
+ pub use repository::channel::UpdatePluginStatusParams;
+ pub use repository::conversation::{
+-    ConversationFilters, ConversationRowUpdate, MentionableCandidatesParams, MessagePageCursor, MessagePageDirection,
+-    MessagePageParams, MessagePageResult, MessageRowUpdate, MessageSearchRow, StaleRuntimeMessageRow,
++    ConversationFilters, ConversationRowUpdate, MentionableCandidatesParams, MessageAnchorRow, MessagePageCursor,
++    MessagePageDirection, MessagePageParams, MessagePageResult, MessageRowUpdate, MessageSearchRow,
++    StaleRuntimeMessageRow,
+ };
+ pub use repository::cron::{
+     ClaimCronRunParams, CronRunClaimResult, FinishCronRunParams, RecoverableCronRun, UpdateCronJobParams,
  };
  pub use repository::mcp_server::{CreateMcpServerParams, UpdateMcpServerParams};
  pub use repository::oauth_token::UpsertOAuthTokenParams;
@@ -5980,11 +6145,30 @@
 +}
 --- a/crates/aionui-db/src/repository/conversation.rs
 +++ b/crates/aionui-db/src/repository/conversation.rs
-@@ -263,6 +263,33 @@
-         msg_id: &str,
+@@ -140,6 +140,19 @@
+         conv_id: &str,
+         params: &MessagePageParams,
+     ) -> Result<MessagePageResult, DbError>;
++
++    /// Lightweight, ascending user-turn previews. Never loads tool payloads.
++    async fn list_message_anchors(
++        &self,
++        _user_id: &str,
++        _conv_id: &str,
++        _after: Option<&MessagePageCursor>,
++        _limit: u32,
++    ) -> Result<Vec<MessageAnchorRow>, DbError> {
++        Err(DbError::Query(sqlx::Error::Protocol(
++            "Message anchors are not implemented".into(),
++        )))
++    }
+ 
+     /// Returns a single message scoped to a conversation.
+     async fn get_message(
+@@ -264,6 +277,33 @@
          msg_type: &str,
      ) -> Result<Option<MessageRow>, DbError>;
-+
+ 
 +    /// Conversations whose claimed turn did not reach a persisted terminal state.
 +    async fn list_running_conversations(&self) -> Result<Vec<ConversationRow>, DbError> {
 +        Ok(Vec::new())
@@ -6011,9 +6195,26 @@
 +        )
 +        .await
 +    }
- 
++
      /// Lists stale assistant-side runtime messages that were left in a
      /// non-terminal state by a previous process.
+     async fn list_stale_runtime_messages(&self) -> Result<Vec<StaleRuntimeMessageRow>, DbError> {
+@@ -351,6 +391,15 @@
+ pub struct MessagePageCursor {
+     pub created_at: TimestampMs,
+     pub id: String,
++}
++
++#[derive(Debug, Clone, sqlx::FromRow)]
++pub struct MessageAnchorRow {
++    pub id: String,
++    pub msg_id: Option<String>,
++    pub created_at: TimestampMs,
++    pub question: String,
++    pub answer: String,
+ }
+ 
+ impl From<&MessageRow> for MessagePageCursor {
 --- a/crates/aionui-db/src/repository/mod.rs
 +++ b/crates/aionui-db/src/repository/mod.rs
 @@ -9,6 +9,7 @@
@@ -6215,7 +6416,81 @@
 +}
 --- a/crates/aionui-db/src/repository/sqlite_conversation.rs
 +++ b/crates/aionui-db/src/repository/sqlite_conversation.rs
-@@ -1089,6 +1089,7 @@
+@@ -8,10 +8,45 @@
+     UpsertConversationAssistantSnapshotParams,
+ };
+ use crate::repository::conversation::{
+-    ConversationFilters, ConversationRowUpdate, IConversationRepository, MentionableCandidatesParams,
++    ConversationFilters, ConversationRowUpdate, IConversationRepository, MentionableCandidatesParams, MessageAnchorRow,
+     MessagePageCursor, MessagePageDirection, MessagePageParams, MessagePageResult, MessageRowUpdate, MessageSearchRow,
+     StaleRuntimeMessageRow,
+ };
++
++// Both scans seek through the existing conversation/created_at index. Explicit
++// index selection avoids SQLite choosing type/created_at and scanning other
++// conversations on databases without ANALYZE statistics. A reply
++// stops at the next visible text message, so it cannot cross a subsequent user
++// turn. Only text JSON is inspected; large tool results never leave SQLite.
++const MESSAGE_ANCHORS_SQL: &str = r#"
++    SELECT m.id, m.msg_id, m.created_at,
++           substr(json_extract(m.content, '$.content'), 1, 512) AS question,
++           coalesce((
++               SELECT CASE WHEN r.position = 'left'
++                   THEN substr(json_extract(r.content, '$.content'), 1, 512) ELSE '' END
++               FROM messages r INDEXED BY idx_messages_conv_created
++               WHERE r.conversation_id = m.conversation_id
++                 AND r.created_at >= m.created_at
++                 AND (r.created_at > m.created_at OR r.id > m.id)
++                 AND r.type = 'text' AND r.hidden = 0
++                 AND r.position IN ('left', 'right')
++                 AND CASE WHEN json_valid(r.content) THEN
++                     json_type(r.content, '$.content') = 'text'
++                     AND trim(json_extract(r.content, '$.content'), char(9) || char(10) || char(13) || ' ') <> ''
++                     ELSE 0 END
++               ORDER BY r.created_at, r.id LIMIT 1
++           ), '') AS answer
++    FROM messages m INDEXED BY idx_messages_conv_created
++    INNER JOIN conversations c ON c.id = m.conversation_id AND c.user_id = ?
++    WHERE m.conversation_id = ? AND m.created_at >= ?
++      AND (m.created_at > ? OR m.id > ?)
++      AND m.type = 'text' AND m.position = 'right' AND m.hidden = 0
++      AND CASE WHEN json_valid(m.content) THEN
++          json_type(m.content, '$.content') = 'text'
++          AND trim(json_extract(m.content, '$.content'), char(9) || char(10) || char(13) || ' ') <> ''
++          ELSE 0 END
++    ORDER BY m.created_at, m.id LIMIT ?
++"#;
+ 
+ /// Bump `conversations.updated_at` so the conversation-list sort
+ /// (ORDER BY conversations.updated_at DESC) floats a conversation with fresh
+@@ -790,6 +825,26 @@
+         .fetch_optional(&self.pool)
+         .await?;
+         Ok(row)
++    }
++
++    async fn list_message_anchors(
++        &self,
++        user_id: &str,
++        conv_id: &str,
++        after: Option<&MessagePageCursor>,
++        limit: u32,
++    ) -> Result<Vec<MessageAnchorRow>, DbError> {
++        self.ensure_conversation_for_user(user_id, conv_id).await?;
++        let created_at = after.map_or(i64::MIN, |cursor| cursor.created_at);
++        Ok(sqlx::query_as::<_, MessageAnchorRow>(MESSAGE_ANCHORS_SQL)
++            .bind(user_id)
++            .bind(conv_id)
++            .bind(created_at)
++            .bind(created_at)
++            .bind(after.map_or("", |cursor| cursor.id.as_str()))
++            .bind(limit.clamp(1, 201) as i64)
++            .fetch_all(&self.pool)
++            .await?)
+     }
+ 
+     async fn list_messages_page(
+@@ -1089,6 +1144,7 @@
              let mut copied: u64 = 0;
              let mut latest_created_at: Option<TimestampMs> = None;
              for row in &rows {
@@ -6223,7 +6498,7 @@
                  // `generate_id()` is a monotonic UUIDv7, so reminting in
                  // display order keeps the `(created_at, id)` sort stable for
                  // rows sharing a timestamp.
-@@ -1098,7 +1099,7 @@
+@@ -1098,7 +1154,7 @@
                           status, hidden, created_at, backend_turn_id) \
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
                  )
@@ -6232,7 +6507,7 @@
                  .bind(target_conversation_id)
                  .bind(&row.msg_id)
                  .bind(&row.r#type)
-@@ -1107,6 +1108,21 @@
+@@ -1107,6 +1163,21 @@
                  .bind(&row.status)
                  .bind(row.hidden)
                  .bind(row.created_at)
@@ -6254,7 +6529,7 @@
                  .execute(&mut *connection)
                  .await?;
                  copied += 1;
-@@ -1207,6 +1223,37 @@
+@@ -1207,6 +1278,37 @@
          .await?;
  
          Ok(row)
@@ -6292,10 +6567,148 @@
      }
  
      async fn list_stale_runtime_messages(&self) -> Result<Vec<StaleRuntimeMessageRow>, DbError> {
-@@ -1724,6 +1771,53 @@
-     }
+@@ -1656,6 +1758,133 @@
+ 
+     const SYSTEM_USER_ID: &str = "system_default_user";
+ 
++    #[tokio::test]
++    async fn message_anchors_skip_nonvisible_rows_and_do_not_cross_user_turns() {
++        let (repo, _db) = setup().await;
++        let conv = sample_conversation(SYSTEM_USER_ID);
++        repo.create(&conv).await.unwrap();
++        let cases = [
++            ("right", "text", false, r#"{"content":"first"}"#),
++            ("left", "text", true, r#"{"content":"hidden"}"#),
++            ("left", "text", false, "malformed"),
++            ("left", "text", false, r#"{"content":"\n\t "}"#),
++            ("left", "tool_call", false, r#"{"content":"tool output"}"#),
++            ("right", "text", false, r#"{"content":"second"}"#),
++            ("left", "text", false, r#"{"content":"second reply"}"#),
++            ("left", "text", false, r#"{"content":"later reply"}"#),
++        ];
++        for (index, (position, kind, hidden, content)) in cases.iter().enumerate() {
++            let mut row = sample_message(&conv.id);
++            row.created_at = index as i64;
++            row.position = Some((*position).to_owned());
++            row.r#type = (*kind).to_owned();
++            row.hidden = *hidden;
++            row.content = (*content).to_owned();
++            repo.insert_message(SYSTEM_USER_ID, &row).await.unwrap();
++        }
++        let anchors = repo
++            .list_message_anchors(SYSTEM_USER_ID, &conv.id, None, 200)
++            .await
++            .unwrap();
++        let previews: Vec<_> = anchors
++            .iter()
++            .map(|row| (row.question.as_str(), row.answer.as_str()))
++            .collect();
++        assert_eq!(previews, [("first", ""), ("second", "second reply")]);
++        assert!(matches!(
++            repo.list_message_anchors("other-user", &conv.id, None, 200).await,
++            Err(DbError::NotFound(_))
++        ));
++    }
++
++    #[tokio::test]
++    async fn message_anchors_page_with_equal_timestamps_without_skips() {
++        let (repo, _db) = setup().await;
++        let conv = sample_conversation(SYSTEM_USER_ID);
++        repo.create(&conv).await.unwrap();
++        for id in ["anchor-c", "anchor-a", "anchor-b"] {
++            let mut row = sample_message(&conv.id);
++            row.id = id.to_owned();
++            row.created_at = 42;
++            repo.insert_message(SYSTEM_USER_ID, &row).await.unwrap();
++        }
++        let first = repo
++            .list_message_anchors(SYSTEM_USER_ID, &conv.id, None, 2)
++            .await
++            .unwrap();
++        assert_eq!(
++            first.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
++            ["anchor-a", "anchor-b"]
++        );
++        let cursor = MessagePageCursor {
++            created_at: 42,
++            id: first.last().unwrap().id.clone(),
++        };
++        let second = repo
++            .list_message_anchors(SYSTEM_USER_ID, &conv.id, Some(&cursor), 2)
++            .await
++            .unwrap();
++        assert_eq!(
++            second.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
++            ["anchor-c"]
++        );
++    }
++
++    #[tokio::test]
++    async fn message_anchors_bound_payload_and_use_conversation_indexes() {
++        let (repo, _db) = setup().await;
++        let conv = sample_conversation(SYSTEM_USER_ID);
++        repo.create(&conv).await.unwrap();
++        let mut question = sample_message(&conv.id);
++        question.created_at = 1;
++        question.content = serde_json::json!({"content": "問".repeat(20_000)}).to_string();
++        repo.insert_message(SYSTEM_USER_ID, &question).await.unwrap();
++        for index in 0..50 {
++            let mut row = sample_message(&conv.id);
++            row.created_at = index + 2;
++            row.r#type = "tool_call".to_owned();
++            row.content = serde_json::json!({"content": "large-tool-output".repeat(5_000)}).to_string();
++            repo.insert_message(SYSTEM_USER_ID, &row).await.unwrap();
++        }
++        let mut reply = sample_message(&conv.id);
++        reply.created_at = 100;
++        reply.position = Some("left".to_owned());
++        reply.content = serde_json::json!({"content": "答".repeat(20_000)}).to_string();
++        repo.insert_message(SYSTEM_USER_ID, &reply).await.unwrap();
++        let anchors = repo
++            .list_message_anchors(SYSTEM_USER_ID, &conv.id, None, 200)
++            .await
++            .unwrap();
++        assert_eq!(anchors.len(), 1);
++        assert_eq!(
++            (anchors[0].question.chars().count(), anchors[0].answer.chars().count()),
++            (512, 512)
++        );
++        let plan = sqlx::query(&format!("EXPLAIN QUERY PLAN {MESSAGE_ANCHORS_SQL}"))
++            .bind(SYSTEM_USER_ID)
++            .bind(&conv.id)
++            .bind(0i64)
++            .bind(0i64)
++            .bind("")
++            .bind(201i64)
++            .fetch_all(&repo.pool)
++            .await
++            .unwrap();
++        let details: Vec<String> = plan.iter().map(|row| row.get("detail")).collect();
++        assert!(
++            details
++                .iter()
++                .any(|detail| detail.contains("SEARCH m USING INDEX idx_messages_conv_created")),
++            "{details:?}"
++        );
++        assert!(
++            details
++                .iter()
++                .any(|detail| detail.contains("SEARCH r USING INDEX idx_messages_conv_created")),
++            "{details:?}"
++        );
++    }
++
+     // ── Conversation CRUD tests ─────────────────────────────────────
  
      #[tokio::test]
+@@ -1720,6 +1949,53 @@
+             repo.get(SYSTEM_USER_ID, &conv.id).await.unwrap().unwrap().updated_at,
+             9_000,
+             "older upsert must not move updated_at backward"
++        );
++    }
++
++    #[tokio::test]
 +    async fn startup_recovery_atomically_finishes_without_changing_recency() {
 +        let (repo, _db) = setup().await;
 +        let mut conv = sample_conversation(SYSTEM_USER_ID);
@@ -6339,13 +6752,9 @@
 +            repo.finish_startup_recovery("other-user", &conv.id, None)
 +                .await
 +                .is_err()
-+        );
-+    }
-+
-+    #[tokio::test]
-     async fn update_conversation_name() {
-         let (repo, _db) = setup().await;
-         let conv = sample_conversation(SYSTEM_USER_ID);
+         );
+     }
+ 
 --- /dev/null
 +++ b/crates/aionui-db/tests/openui_repository.rs
 @@ -0,0 +1,281 @@
