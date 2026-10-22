@@ -5,8 +5,9 @@
  */
 
 import mermaid from 'mermaid';
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { vs, vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/light-async';
+import vs from 'react-syntax-highlighter/dist/esm/styles/hljs/vs';
+import vs2015 from 'react-syntax-highlighter/dist/esm/styles/hljs/vs2015';
 
 import { copyText } from '@/renderer/utils/ui/clipboard';
 import { Message } from '@arco-design/web-react';

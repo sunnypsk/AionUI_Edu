@@ -5,7 +5,8 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import SettingsModal, { type SettingTab } from './index';
+import type { SettingTab } from './index';
+const SettingsModal = React.lazy(() => import('./index'));
 
 /**
  * 设置弹窗 Hook 返回值类型 / Settings modal hook return type
@@ -45,6 +46,7 @@ interface UseSettingsModalReturn {
 export const useSettingsModal = (): UseSettingsModalReturn => {
   // 弹窗可见状态 / Modal visibility state
   const [visible, setVisible] = useState(false);
+  const [opened, setOpened] = useState(false);
   // 默认选中的标签页 / Default selected tab
   const [defaultTab, setDefaultTab] = useState<SettingTab>('model');
 
@@ -56,6 +58,7 @@ export const useSettingsModal = (): UseSettingsModalReturn => {
     if (tab) {
       setDefaultTab(tab);
     }
+    setOpened(true);
     setVisible(true);
   }, []);
 
@@ -67,7 +70,11 @@ export const useSettingsModal = (): UseSettingsModalReturn => {
   }, []);
 
   // 渲染设置弹窗组件 / Render settings modal component
-  const settingsModal = <SettingsModal visible={visible} onCancel={closeSettings} defaultTab={defaultTab} />;
+  const settingsModal = opened ? (
+    <React.Suspense fallback={null}>
+      <SettingsModal visible={visible} onCancel={closeSettings} defaultTab={defaultTab} />
+    </React.Suspense>
+  ) : null;
 
   return {
     openSettings,

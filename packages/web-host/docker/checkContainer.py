@@ -2,12 +2,14 @@
 """Test a built Linux image, including TUN routing and fail-closed behavior."""
 
 import json
+import gzip
 from pathlib import Path
 import re
 import subprocess
 import sys
 import time
 import urllib.request
+import urllib.parse
 import uuid
 
 SCRIPT = "/app/packages/web-host/docker/smokeNetwork.py"
@@ -109,6 +111,21 @@ def check(image, revision):
             time.sleep(1)
         else:
             raise RuntimeError("WebUI did not become healthy")
+        base_url = f"http://127.0.0.1:{port}/"
+        with urllib.request.urlopen(base_url, timeout=5) as response:
+            html = response.read().decode("utf-8")
+        script = re.search(r'<script[^>]+src=["\']([^"\']+\.js)', html)
+        if not script:
+            raise RuntimeError("Built renderer entry script was not found")
+        script_url = urllib.parse.urljoin(base_url, script.group(1))
+        with urllib.request.urlopen(urllib.request.Request(script_url, headers={"Accept-Encoding": "identity"}), timeout=5) as response:
+            original = response.read()
+        with urllib.request.urlopen(urllib.request.Request(script_url, headers={"Accept-Encoding": "gzip"}), timeout=5) as response:
+            if response.headers.get("Content-Encoding") != "gzip":
+                raise RuntimeError("Renderer entry was not served precompressed")
+            if gzip.decompress(response.read()) != original:
+                raise RuntimeError("Compressed renderer differs from its final build output")
+        print("Precompressed renderer matches final build output.")
         docker("top", app, "-eo", "pid,args")
         runtime_packages = app_exec(
             app, "bun", "-e",

@@ -22,10 +22,11 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('react-syntax-highlighter', () => ({
+vi.mock('react-syntax-highlighter/dist/esm/light-async', () => ({
   default: ({ children }: { children?: React.ReactNode }) => <pre data-testid='mermaid-source'>{children}</pre>,
 }));
-vi.mock('react-syntax-highlighter/dist/esm/styles/hljs', () => ({ vs: {}, vs2015: {} }));
+vi.mock('react-syntax-highlighter/dist/esm/styles/hljs/vs', () => ({ default: {} }));
+vi.mock('react-syntax-highlighter/dist/esm/styles/hljs/vs2015', () => ({ default: {} }));
 
 vi.mock('@arco-design/web-react', () => ({
   Message: { success: vi.fn(), error: vi.fn() },

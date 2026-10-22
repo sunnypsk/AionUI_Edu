@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import net from 'node:net';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 import { startStaticServer, type StaticServerHandle } from '../src/static-server.js';
 
 // RFC 6455's public example nonce, derived instead of storing a key-shaped fixture.
@@ -91,6 +92,61 @@ describe('static-server', () => {
     const r = await fetch(`${handle.localUrl}/assets/main.js`);
     expect(r.status).toBe(200);
     expect(await r.text()).toContain('hi');
+  });
+
+  it.each([
+    ['br, gzip', 'br'],
+    ['br;q=0.2, gzip;q=0.9', 'gzip'],
+    ['br;q=0, gzip', 'gzip'],
+    ['br;q=0, gzip;q=0', null],
+  ])('negotiates precompressed assets for %s', async (acceptEncoding, expectedEncoding) => {
+    const content = 'console.log("compressed");'.repeat(200);
+    const filename = path.join(staticDir, 'assets', 'main.js');
+    await fs.writeFile(filename, content);
+    await fs.writeFile(`${filename}.br`, brotliCompressSync(content));
+    await fs.writeFile(`${filename}.gz`, gzipSync(content));
+    handle = await startStaticServer({ staticDir, backendPort: 1, port: 0 });
+    const response = await fetch(`${handle.localUrl}/assets/main.js`, {
+      headers: { 'accept-encoding': acceptEncoding },
+    });
+    expect(response.headers.get('content-encoding')).toBe(expectedEncoding);
+    expect(response.headers.get('vary')).toContain('Accept-Encoding');
+    expect(await response.text()).toBe(content);
+  });
+
+  it('supports HEAD and conditional requests for the negotiated representation', async () => {
+    const filename = path.join(staticDir, 'assets', 'main.js');
+    await fs.writeFile(`${filename}.br`, brotliCompressSync('console.log("hi")'));
+    handle = await startStaticServer({ staticDir, backendPort: 1, port: 0 });
+    const response = await fetch(`${handle.localUrl}/assets/main.js`, {
+      method: 'HEAD',
+      headers: { 'accept-encoding': 'br' },
+    });
+    expect([response.headers.get('content-encoding'), await response.text()]).toEqual(['br', '']);
+    const cached = await fetch(`${handle.localUrl}/assets/main.js`, {
+      headers: { 'accept-encoding': 'br', 'if-none-match': response.headers.get('etag')! },
+    });
+    expect(cached.status).toBe(304);
+    expect(await cached.text()).toBe('');
+  });
+
+  it('keeps byte ranges on the uncompressed asset', async () => {
+    const filename = path.join(staticDir, 'assets', 'main.js');
+    await fs.writeFile(`${filename}.br`, brotliCompressSync('console.log("hi")'));
+    handle = await startStaticServer({ staticDir, backendPort: 1, port: 0 });
+    const response = await fetch(`${handle.localUrl}/assets/main.js`, {
+      headers: { range: 'bytes=0-6', 'accept-encoding': 'br' },
+    });
+    expect(response.status).toBe(206);
+    expect(response.headers.get('content-encoding')).toBeNull();
+    expect(await response.text()).toBe('console');
+  });
+
+  it('falls back when no compressed artifact exists', async () => {
+    handle = await startStaticServer({ staticDir, backendPort: 1, port: 0 });
+    const response = await fetch(`${handle.localUrl}/assets/main.js`, { headers: { 'accept-encoding': 'br' } });
+    expect(response.headers.get('content-encoding')).toBeNull();
+    expect(await response.text()).toContain('console.log');
   });
 
   it('/api/* reverse-proxies to backend', async () => {

@@ -14,6 +14,7 @@ import http, { type IncomingMessage, type Server, type ServerResponse } from 'no
 import { networkInterfaces } from 'node:os';
 import net, { type Socket } from 'node:net';
 import serveHandler from 'serve-handler';
+import { serveCompressedAsset } from './staticAssets.js';
 
 export type StaticServerOptions = {
   staticDir: string;
@@ -205,6 +206,7 @@ export async function startStaticServer(opts: StaticServerOptions): Promise<Stat
       }
 
       // static files + SPA fallback
+      if (await serveCompressedAsset(req, res, opts.staticDir)) return;
       await serveHandler(req, res, {
         public: opts.staticDir,
         rewrites: [{ source: '**', destination: '/index.html' }],

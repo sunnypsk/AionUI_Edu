@@ -27,19 +27,19 @@ import { toLocalFileHref } from '@/renderer/components/Markdown/markdownUtils';
 import { PreviewToolbarExtrasProvider, type PreviewToolbarExtras } from '../../context/PreviewToolbarExtrasContext';
 import { usePreviewContext } from '../../context/PreviewContext';
 import { useResizableSplit } from '@/renderer/hooks/ui/useResizableSplit';
-import { Link, Message } from '@arco-design/web-react';
+import { Link, Message, Spin } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DiffPreview from '../viewers/DiffViewer';
 import ExcelPreview from '../viewers/ExcelViewer';
-import HTMLEditor from '../editors/HTMLEditor';
+const HTMLEditor = React.lazy(() => import('../editors/HTMLEditor'));
 import HTMLRenderer from '../renderers/HTMLRenderer';
 import ImagePreview from '../viewers/ImageViewer';
-import MarkdownEditor from '../editors/MarkdownEditor';
+const MarkdownEditor = React.lazy(() => import('../editors/MarkdownEditor'));
 import MarkdownPreview from '../viewers/MarkdownViewer';
 import PDFPreview from '../viewers/PDFViewer';
 import OfficeDocPreview from '../viewers/OfficeDocViewer';
 import PptViewer from '../viewers/PptViewer';
-import CodeEditor from '../editors/CodeEditor';
+const CodeEditor = React.lazy(() => import('../editors/CodeEditor'));
 import URLViewer from '../viewers/URLViewer';
 import BrowserTabLayer from '../../browser/BrowserTabLayer';
 import { MAX_BROWSER_TABS } from '../../browser/constants';
@@ -1272,7 +1272,7 @@ const PreviewPanel: React.FC = () => {
         )}
 
         {/* 预览内容 / Preview content */}
-        {renderContent()}
+        <React.Suspense fallback={<Spin className='m-auto' />}>{renderContent()}</React.Suspense>
 
         {/* 浏览器层：常驻挂载，切 tab 不重新加载页面
             Browser layer: always mounted so tab switches don't reload pages */}

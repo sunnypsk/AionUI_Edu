@@ -1,11 +1,44 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { readFileSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { promisify } from 'node:util';
+import { brotliCompress, constants, gzip } from 'node:zlib';
 import UnoCSS from 'unocss/vite';
 import unoConfig from '../../uno.config';
 
 const rootPackageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
 const rendererRoot = resolve('packages/desktop/src/renderer');
+
+function compressedAssetsPlugin(): Plugin {
+  const compressBrotli = promisify(brotliCompress);
+  const compressGzip = promisify(gzip);
+  return {
+    name: 'precompress-static-assets',
+    apply: 'build',
+    async writeBundle(options, bundle) {
+      if (!options.dir) throw new Error('Static asset compression requires an output directory');
+      const outputDir = options.dir;
+      const assets = Object.values(bundle).filter((asset) => /\.(js|css|json|svg)$/.test(asset.fileName));
+      // Bound build-time work; the server only streams these immutable files.
+      for (let start = 0; start < assets.length; start += 4) {
+        await Promise.all(
+          assets.slice(start, start + 4).map(async (asset) => {
+            // Read the final bytes after Vite rewrites preload imports and CSS.
+            const source = await readFile(resolve(outputDir, asset.fileName));
+            if (source.length < 1024) return;
+            const [br, gz] = await Promise.all([
+              compressBrotli(source, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }),
+              compressGzip(source),
+            ]);
+            if (br.length < source.length) await writeFile(resolve(outputDir, `${asset.fileName}.br`), br);
+            if (gz.length < source.length) await writeFile(resolve(outputDir, `${asset.fileName}.gz`), gz);
+          })
+        );
+      }
+    },
+  };
+}
 
 function iconParkPlugin() {
   return {
@@ -83,7 +116,7 @@ export default defineConfig(({ mode }) => {
         '@lezer/highlight',
       ],
     },
-    plugins: [UnoCSS(unoConfig), iconParkPlugin()],
+    plugins: [UnoCSS(unoConfig), iconParkPlugin(), compressedAssetsPlugin()],
     build: {
       outDir: resolve('out/renderer'),
       emptyOutDir: true,
@@ -104,6 +137,7 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           manualChunks(id: string) {
+            if (id.includes('commonjsHelpers')) return 'vendor';
             if (!id.includes('node_modules')) return undefined;
             // Keep React and every vendor tightly coupled to it in ONE chunk.
             //
@@ -133,13 +167,6 @@ export default defineConfig(({ mode }) => {
               id.includes('/mdast-') ||
               id.includes('/hast-') ||
               id.includes('/micromark') ||
-              id.includes('/react-syntax-highlighter/') ||
-              id.includes('/refractor/') ||
-              id.includes('/highlight.js/') ||
-              id.includes('/monaco-editor/') ||
-              id.includes('/@monaco-editor/') ||
-              id.includes('/codemirror/') ||
-              id.includes('/@codemirror/') ||
               id.includes('/katex/') ||
               // WaveDrom timing diagrams (markdown code blocks, CJS)
               id.includes('/wavedrom/')

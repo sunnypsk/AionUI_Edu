@@ -88,6 +88,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('@arco-design/web-react', () => ({
+  Spin: () => <div role='progressbar' />,
   Button: ({
     children,
     icon,
@@ -137,9 +138,9 @@ describe('MarkdownViewer', () => {
     expect(screen.getByText('Hello World')).toBeInTheDocument();
   });
 
-  it('renders MarkdownEditor in source mode', () => {
+  it('renders MarkdownEditor in source mode', async () => {
     render(<MarkdownViewer content='# Test' viewMode='source' />);
-    expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('markdown-editor')).toBeInTheDocument();
   });
 
   it('hides toolbar when hideToolbar is true', () => {

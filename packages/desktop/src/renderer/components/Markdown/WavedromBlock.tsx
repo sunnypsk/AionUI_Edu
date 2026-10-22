@@ -7,8 +7,9 @@
 import JSON5 from 'json5';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import SyntaxHighlighter from 'react-syntax-highlighter';
-import { vs, vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/light-async';
+import vs from 'react-syntax-highlighter/dist/esm/styles/hljs/vs';
+import vs2015 from 'react-syntax-highlighter/dist/esm/styles/hljs/vs2015';
 import WaveDrom, { type OnmlTree, type WaveSkin, type WaveSource } from 'wavedrom';
 import waveSkinDark from 'wavedrom/skins/dark.js';
 import waveSkinDefault from 'wavedrom/skins/default.js';
