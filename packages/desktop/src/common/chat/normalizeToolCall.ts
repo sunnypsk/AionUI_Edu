@@ -15,6 +15,7 @@ export interface NormalizedToolCall {
   conversationId?: string;
   imagePath?: string;
   images?: Array<{ path: string; mime_type: string }>;
+  imageRole?: 'generated' | 'observation';
 }
 
 const formatValue = (value: unknown): string => {
@@ -232,6 +233,11 @@ export function normalizeToolCall(message: IMessageToolCall): NormalizedToolCall
     description: description || extractQueryText(input) || undefined,
     input: displayInput,
     output,
+    // Only native generation results belong in chat; screenshots and unknown image tools stay in details.
+    imageRole:
+      name === 'imageGeneration' || name === 'imageGen' || input?.type === 'imageGeneration'
+        ? 'generated'
+        : 'observation',
     images:
       status === 'completed' && Array.isArray(message.content.images)
         ? message.content.images.filter(

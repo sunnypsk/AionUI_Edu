@@ -9,6 +9,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMessageAcpToolCall, IMessageToolCall } from '@/common/chat/chatLib';
 import MessageToolGroupSummary from '@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary';
+import MessageToolCall from '@/renderer/pages/conversation/Messages/components/MessageToolCall';
 
 const mockDownloadFileFromRef = vi.fn().mockResolvedValue(undefined);
 const mockDownloadFileFromPath = vi.fn().mockResolvedValue(undefined);
@@ -245,5 +246,72 @@ describe('native Codex image output', () => {
   it.each(['running', 'error', 'canceled'] as const)('hides partial images when %s', (status) => {
     render(<MessageToolGroupSummary messages={[imageMessage(status)]} />);
     expect(screen.queryByTestId('tool-image-gallery')).not.toBeInTheDocument();
+  });
+
+  it('keeps native generation results visible after expanding their tool steps without duplicating images', () => {
+    const message = imageMessage();
+    message.content.name = 'imageGeneration';
+    render(<MessageToolGroupSummary messages={[message]} />);
+    fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
+    expect(screen.getAllByRole('img', { name: 'original.png' })).toHaveLength(1);
+  });
+
+  it('reveals browser screenshots only when their individual tool details are expanded', () => {
+    const message = imageMessage();
+    message.content.name = 'mcpToolCall';
+    message.content.input = { type: 'mcpToolCall', server: 'aionui_browser', tool: 'browser' };
+    render(<MessageToolGroupSummary messages={[message]} />);
+    expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
+    expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('mcpToolCall'));
+    expect(screen.getByRole('img', { name: 'original.png' })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
+    expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
+  });
+
+  it('keeps screenshots hidden while another tool in the group is running', () => {
+    const screenshot = imageMessage();
+    screenshot.content.name = 'mcpToolCall';
+    const running = imageMessage('running');
+    running.content.call_id = 'running-tool';
+    render(<MessageToolGroupSummary messages={[screenshot, running]} />);
+    expect(screen.getByRole('button', { name: 'messages.toolSummary.viewSteps' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
+  });
+
+  it('does not hide generated results when the same group also contains screenshot observations', () => {
+    const screenshot = imageMessage();
+    screenshot.content.call_id = 'screenshot';
+    screenshot.content.name = 'imageView';
+    screenshot.content.images = [{ path: '/owned/screenshot.png', mime_type: 'image/png' }];
+    render(<MessageToolGroupSummary messages={[screenshot, imageMessage()]} />);
+    expect(screen.queryByRole('img', { name: 'screenshot.png' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'original.png' })).toBeInTheDocument();
+  });
+
+  it('preserves preview and download for an image-only observation without text output', () => {
+    const message = imageMessage();
+    message.content.name = 'imageView';
+    render(<MessageToolGroupSummary messages={[message]} />);
+    fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
+    fireEvent.click(screen.getByText('imageView'));
+    fireEvent.click(screen.getByLabelText('acp.image.download_aria'));
+    expect(mockDownloadFileFromRef).toHaveBeenCalledWith(
+      { kind: 'local', path: '/owned/original.png' },
+      'original.png'
+    );
+  });
+
+  it('also collapses read-image results when rendered as a standalone tool', () => {
+    const message = imageMessage();
+    message.content.name = 'imageView';
+    render(<MessageToolCall message={message} />);
+    expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('imageView'));
+    expect(screen.getByRole('img', { name: 'original.png' })).toBeInTheDocument();
   });
 });

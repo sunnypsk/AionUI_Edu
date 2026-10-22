@@ -23,7 +23,7 @@ import React, { useMemo, useState } from 'react';
 import type { BadgeProps } from '@arco-design/web-react';
 import './MessageToolGroupSummary.css';
 
-/** Render generated raster artifacts independently of the tool-details disclosure. */
+/** Render raster tool images with authenticated preview and download. */
 export const ToolImageGallery: React.FC<{ images?: Array<{ path: string; mime_type: string }> }> = ({ images }) => {
   const { t } = useTranslation();
   const [messageApi, context] = Message.useMessage();
@@ -115,7 +115,8 @@ const MessageToolCall: React.FC<{ message: IMessageToolCall }> = ({ message }) =
     return <div className='text-t-primary'>{name}</div>;
   }
 
-  const hasDetail = normalized.input || normalized.output;
+  const observationImages = normalized.imageRole !== 'generated' ? normalized.images : undefined;
+  const hasDetail = normalized.input || normalized.output || observationImages?.length;
 
   return (
     <div className='flex flex-col'>
@@ -158,9 +159,10 @@ const MessageToolCall: React.FC<{ message: IMessageToolCall }> = ({ message }) =
               <pre className='tool-detail-content'>{normalized.output}</pre>
             </div>
           )}
+          <ToolImageGallery images={observationImages} />
         </div>
       )}
-      {normalized.images?.length > 0 && <ToolImageGallery images={normalized.images} />}
+      {normalized.imageRole === 'generated' && <ToolImageGallery images={normalized.images} />}
     </div>
   );
 };

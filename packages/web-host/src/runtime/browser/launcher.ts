@@ -10,12 +10,16 @@ export type BrowserMcpConfig = {
   tool_timeout_sec: number;
 };
 
-/** Add a per-process MCP configuration without editing the user's Codex config or putting credentials in argv. */
+/** Isolate WebUI app-server tools without changing the user's Codex configuration or credentials. */
 export function browserCodexLaunch(
   args: string[],
   env: NodeJS.ProcessEnv
 ): { args: string[]; env: NodeJS.ProcessEnv; browser?: BrowserMcpConfig } {
   const { AIONUI_BROWSER_SIGNING_KEY: key, ...childEnv } = env;
+  // Append policy overrides so earlier CLI options cannot re-enable account integrations.
+  const scopedArgs = args.includes('app-server')
+    ? [...args, '-c', 'features.apps=false', '-c', 'features.plugins=false', '-c', 'features.remote_plugin=false']
+    : args;
   if (
     !args.includes('app-server') ||
     !key ||
@@ -24,7 +28,7 @@ export function browserCodexLaunch(
     !env.AIONUI_CONVERSATION_ID ||
     !env.AIONUI_RUNTIME_TOKEN
   )
-    return { args, env: childEnv };
+    return { args: scopedArgs, env: childEnv };
   childEnv.AIONUI_BROWSER_CAPABILITY = signBrowserCapability(key, env.AIONUI_USER_ID, env.AIONUI_CONVERSATION_ID);
   const config = {
     command: 'node',
@@ -42,7 +46,7 @@ export function browserCodexLaunch(
     '-c',
     `mcp_servers.aionui_browser.${name}=${JSON.stringify(value)}`,
   ]);
-  return { args: [...overrides, ...args], env: childEnv, browser: config };
+  return { args: [...overrides, ...scopedArgs], env: childEnv, browser: config };
 }
 
 /** Use a Node-owned pipe only for scoped app-server processes; other CLI commands retain their original stdio. */

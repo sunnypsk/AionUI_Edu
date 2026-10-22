@@ -1,6 +1,6 @@
 /** Real Chromium + MCP smoke gate. Uses synthetic auth, temporary profiles and no model inference. */
 import http from 'node:http';
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -34,6 +34,8 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
   if (!executable) return;
   const configHome = path.join(directory, 'codex');
   await mkdir(configHome);
+  const inheritedConfig = '[features]\napps = true\nplugins = true\nremote_plugin = true\n';
+  await writeFile(path.join(configHome, 'config.toml'), inheritedConfig);
   // Catalog/socket prewarming stays on the disposable fixture server, never an inference provider.
   const fixture = env.AIONUI_BROWSER_GATEWAY?.replace('/command', '/v1') ?? 'http://127.0.0.1:1/v1';
   const launch = browserCodexLaunch(
@@ -126,6 +128,13 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
       capabilities: { experimentalApi: true },
     });
     input.write(JSON.stringify({ method: 'initialized' }) + '\n');
+    const configuration = (await rpc('config/read', { includeLayers: false })).config as {
+      features: Record<string, boolean>;
+    };
+    for (const feature of ['apps', 'plugins', 'remote_plugin']) {
+      assert.equal(configuration.features[feature], false, `Account integration unexpectedly enabled: ${feature}`);
+    }
+    assert.equal(await readFile(path.join(configHome, 'config.toml'), 'utf8'), inheritedConfig);
     const started = await rpc('thread/start', {
       cwd: directory,
       approvalPolicy: 'never',
@@ -149,8 +158,9 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
     );
     // Verified: Codex 0.163.0 app-server generated v2/ListMcpServerStatus{Params,Response}.json.
     const thread = started.thread as { id: string };
-    const inventory = await rpc('mcpServerStatus/list', { threadId: thread.id, serverName: 'aionui_browser' });
+    const inventory = await rpc('mcpServerStatus/list', { threadId: thread.id });
     const servers = inventory.data as { name: string; tools: Record<string, { name: string }> }[];
+    assert(!servers.some((server) => server.name === 'codex_apps'), 'Account connector server unexpectedly available');
     const shared = servers.find((server) => server.name === 'aionui_browser');
     assert(
       shared && Object.values(shared.tools).some((tool) => tool.name === 'browser'),

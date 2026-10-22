@@ -43,7 +43,9 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
   const [loadingFull, setLoadingFull] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const displayItem = fullItem ?? item;
-  const hasDetail = displayItem.input || displayItem.output || item.truncated || item.imagePath;
+  const observationImages = displayItem.imageRole !== 'generated' ? displayItem.images : undefined;
+  const hasDetail =
+    displayItem.input || displayItem.output || item.truncated || item.imagePath || observationImages?.length;
   const [messageApi, messageContext] = Message.useMessage();
   const handleDownloadImage = useCallback(
     async (path: string) => {
@@ -124,6 +126,7 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
               <pre className='tool-detail-content'>{displayItem.output}</pre>
             </div>
           )}
+          <ToolImageGallery images={observationImages} />
         </div>
       )}
       {item.imagePath && (
@@ -160,7 +163,7 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
   }, [hasRunning]);
 
   const tools = useMemo(() => normalizeToolMessages(messages), [messages]);
-  const images = tools.flatMap((item) => item.images ?? []);
+  const images = tools.filter((item) => item.imageRole === 'generated').flatMap((item) => item.images ?? []);
 
   return (
     <div className='tool-group-summary'>

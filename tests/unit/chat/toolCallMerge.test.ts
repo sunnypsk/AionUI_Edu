@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { composeMessage, transformMessage, type IMessageToolCall, type TMessage } from '@/common/chat/chatLib';
+import { normalizeToolCall } from '@/common/chat/normalizeToolCall';
 
 const frame = (content: Partial<IMessageToolCall['content']>): IMessageToolCall =>
   ({
@@ -40,5 +41,35 @@ it('upserts a replayed native image result without final text and keeps its star
     name: 'imageGeneration',
     status: 'completed',
     images: [{ path: '/owned/image.png', mime_type: 'image/png' }],
+  });
+});
+
+describe('tool image provenance', () => {
+  it.each(['imageGeneration', 'imageGen'])('recognizes %s results as generated images', (name) => {
+    expect(normalizeToolCall(frame({ name, status: 'completed' }))?.imageRole).toBe('generated');
+  });
+
+  it('uses the native item type when the generation display name is unavailable', () => {
+    const message = frame({ name: '', input: { type: 'imageGeneration' }, status: 'completed' });
+    expect(normalizeToolCall(message)?.imageRole).toBe('generated');
+  });
+
+  it('treats unknown tools as observations even when their images use the generated-image directory', () => {
+    const message = frame({
+      name: 'mcpToolCall',
+      input: { type: 'mcpToolCall', server: 'aionui_browser', tool: 'browser' },
+      status: 'completed',
+      images: [{ path: '/workspace/.aionui-generated-images/screenshot.jpg', mime_type: 'image/jpeg' }],
+    });
+    expect(normalizeToolCall(message)).toMatchObject({ imageRole: 'observation', images: message.content.images });
+  });
+
+  it('does not promote failed generation results into image output', () => {
+    const message = frame({
+      name: 'imageGeneration',
+      status: 'error',
+      images: [{ path: '/owned/partial.png', mime_type: 'image/png' }],
+    });
+    expect(normalizeToolCall(message)?.images).toBeUndefined();
   });
 });

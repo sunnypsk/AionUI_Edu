@@ -188,8 +188,35 @@ describe('shared browser authorization and Codex integration', () => {
     expect(launch.args.join(' ')).not.toContain('runtime-secret');
     expect(launch.env.AIONUI_BROWSER_SIGNING_KEY).toBeUndefined();
   });
-  it('leaves version and login commands unmodified', () => {
-    expect(browserCodexLaunch(['--version'], runtime.env).args).toEqual(['--version']);
-    expect(browserCodexLaunch(['app-server'], {}).args).toEqual(['app-server']);
+  it.each([['--version'], ['login'], ['features', 'list']])('leaves non-server commands unmodified: %j', (...args) => {
+    expect(browserCodexLaunch(args, runtime.env).args).toEqual(args);
+  });
+  it('disables account tools even without a browser capability or a conversation context', () => {
+    const launch = browserCodexLaunch(['app-server', '--listen', 'stdio://'], {});
+    expect(launch.browser).toBeUndefined();
+    expect(launch.args).toEqual([
+      'app-server',
+      '--listen',
+      'stdio://',
+      '-c',
+      'features.apps=false',
+      '-c',
+      'features.plugins=false',
+      '-c',
+      'features.remote_plugin=false',
+    ]);
+  });
+  it('overrides attempts to enable account integrations without mutating the caller options', () => {
+    const args = ['-c', 'features.apps=true', '-c', 'features.plugins=true', 'app-server'];
+    const launch = browserCodexLaunch(args, {});
+    const effective = Object.fromEntries(
+      launch.args.filter((arg) => arg.startsWith('features.')).map((arg) => arg.split('='))
+    );
+    expect(effective).toEqual({
+      'features.apps': 'false',
+      'features.plugins': 'false',
+      'features.remote_plugin': 'false',
+    });
+    expect(args).toEqual(['-c', 'features.apps=true', '-c', 'features.plugins=true', 'app-server']);
   });
 });
