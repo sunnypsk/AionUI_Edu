@@ -4733,7 +4733,26 @@
                      )
                      .await?
                  {
-@@ -3971,7 +4141,9 @@
+@@ -3942,6 +4112,18 @@
+             let turn_claim = self.runtime_state.try_claim_turn(conversation_id, &turn_id)?;
+             (turn_id, turn_claim)
+         };
++
++        // Persist the claim before any provider/tool work; do not change sidebar recency.
++        self.conversation_repo
++            .update(
++                user_id,
++                conversation_id,
++                &ConversationRowUpdate {
++                    status: Some("running".into()),
++                    ..Default::default()
++                },
++            )
++            .await?;
+ 
+         // Store user message. `msg_id` is server-generated so the WebSocket
+         // stream, DB row, and client-side message index all agree on the same
+@@ -3971,7 +4153,9 @@
              let was_deleting = turn_claim.release();
              self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                  .await;
@@ -4744,7 +4763,7 @@
          }
          // The TurnEnded fallback already persisted + broadcast this message
          // (with the statusChanged flip) — doing it again would duplicate the
-@@ -4022,7 +4194,9 @@
+@@ -4022,7 +4206,9 @@
                  let was_deleting = turn_claim.release();
                  self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                      .await;
@@ -4755,7 +4774,7 @@
              }
          };
          self.apply_conversation_runtime_context(&mut build_opts, user_id, conversation_id);
-@@ -4033,7 +4207,7 @@
+@@ -4033,7 +4219,7 @@
          ConversationTurnOrchestrator::new(self.clone(), Arc::clone(task_manager)).spawn_user_turn(TurnStartInput {
              user_id: user_id.to_owned(),
              conversation: row,
@@ -4764,7 +4783,7 @@
              files: resolved.files,
              inject_skills: req.inject_skills,
              required_runtime_mode: None,
-@@ -4051,7 +4225,7 @@
+@@ -4051,7 +4237,7 @@
              "Message accepted, agent work scheduled"
          );
          Ok(self
@@ -4773,7 +4792,24 @@
              .await)
      }
  
-@@ -5954,13 +6128,15 @@
+@@ -4081,6 +4267,16 @@
+ 
+         let turn_id = Self::mint_turn_id();
+         let turn_claim = self.runtime_state.try_claim_turn(&request.conversation_id, &turn_id)?;
++        self.conversation_repo
++            .update(
++                &request.user_id,
++                &request.conversation_id,
++                &ConversationRowUpdate {
++                    status: Some("running".into()),
++                    ..Default::default()
++                },
++            )
++            .await?;
+         if request.persist_user_message {
+             let user_msg_id = Self::mint_msg_id();
+             let user_msg = aionui_db::models::MessageRow {
+@@ -5954,13 +6150,15 @@
  /// Apply an agent-proposed session title under the `name_source` guard.
  ///
  /// Origin rules (migration 035): NULL (default/placeholder name) and "agent"
@@ -4792,7 +4828,7 @@
  ///
  /// A free function (not a `ConversationService` method) so the per-turn
  /// `StreamRelay` can call it with just the repo + broadcaster it already owns.
-@@ -5980,9 +6156,19 @@
+@@ -5980,9 +6178,19 @@
          debug!(conversation_id, consumer, "agent title dropped: conversation not found");
          return Ok(false);
      };
@@ -4839,7 +4875,25 @@
      async fn update_message(
          &self,
          _user_id: &str,
-@@ -4023,6 +4038,12 @@
+@@ -573,6 +588,17 @@
+                     && message.r#type == msg_type
+             })
+             .cloned())
++    }
++
++    async fn list_running_conversations(&self) -> Result<Vec<ConversationRow>, aionui_db::DbError> {
++        Ok(self
++            .rows
++            .lock()
++            .unwrap()
++            .iter()
++            .filter(|row| row.status.as_deref() == Some("running"))
++            .cloned()
++            .collect())
+     }
+ 
+     async fn list_stale_runtime_messages(&self) -> Result<Vec<aionui_db::StaleRuntimeMessageRow>, aionui_db::DbError> {
+@@ -4023,6 +4049,12 @@
      assert_eq!(response.msg_id.len(), 8, "msg_id should be an 8-char short hex ID");
      assert!(response.turn_id.starts_with("turn_"), "turn_id must use turn_ prefix");
      assert_ne!(response.msg_id, response.turn_id, "turn_id must not reuse msg_id");
@@ -4852,7 +4906,104 @@
  }
  
  /// B5 test double: a mid-turn-capable agent that records `deliver_midturn`
-@@ -6804,6 +6825,7 @@
+@@ -5811,7 +5843,11 @@
+     );
+ 
+     let updated = repo.get("user_1", &conv.id).await.unwrap().unwrap();
+-    assert_ne!(updated.status.as_deref(), Some("running"));
++    assert_eq!(
++        updated.status.as_deref(),
++        Some("running"),
++        "the claimed cold-start turn is durable before provider work"
++    );
+     assert!(
+         svc.runtime_state().is_claimed(&conv.id),
+         "runtime claim must cover the cold agent build window"
+@@ -6305,7 +6341,7 @@
+ }
+ 
+ #[tokio::test]
+-async fn startup_recovery_closes_stale_runtime_messages_without_failure_tip() {
++async fn startup_recovery_preserves_output_and_adds_one_interruption_notice() {
+     let (svc, _broadcaster, repo, _task_mgr) = make_service();
+     let conv = svc.create("user_1", make_create_req()).await.unwrap();
+ 
+@@ -6366,10 +6402,70 @@
+     assert_eq!(empty.status.as_deref(), Some("finish"));
+     assert!(empty.hidden);
+ 
+-    assert!(
+-        messages.iter().all(|message| message.r#type != "tips"),
+-        "startup recovery must not write failure tips"
+-    );
++    assert_eq!(messages.iter().filter(|message| message.r#type == "tips").count(), 1);
++    let recovered = repo.get("user_1", &conv.id).await.unwrap().unwrap();
++    assert_eq!(recovered.status.as_deref(), Some("finished"));
++    assert_eq!(recovered.updated_at, conv.modified_at);
++    svc.recover_stale_runtime_state_on_startup().await;
++    assert_eq!(
++        repo.messages
++            .lock()
++            .unwrap()
++            .iter()
++            .filter(|row| row.r#type == "tips")
++            .count(),
++        1
++    );
++}
++
++#[tokio::test]
++async fn startup_recovery_notifies_a_claim_with_no_output() {
++    let (svc, _broadcaster, repo, _task_mgr) = make_service();
++    let conv = svc.create("user_1", make_create_req()).await.unwrap();
++    repo.update(
++        "user_1",
++        &conv.id,
++        &ConversationRowUpdate {
++            status: Some("running".into()),
++            ..Default::default()
++        },
++    )
++    .await
++    .unwrap();
++    svc.recover_stale_runtime_state_on_startup().await;
++    let messages = repo.messages.lock().unwrap();
++    assert_eq!(messages.len(), 1);
++    assert_eq!(
++        serde_json::from_str::<serde_json::Value>(&messages[0].content).unwrap()["code"],
++        "TURN_INTERRUPTED_BY_RESTART"
++    );
++}
++
++#[tokio::test]
++async fn startup_recovery_does_not_notify_an_empty_placeholder_without_a_claim() {
++    let (svc, _broadcaster, repo, _task_mgr) = make_service();
++    let conv = svc.create("user_1", make_create_req()).await.unwrap();
++    repo.insert_message(
++        "user_1",
++        &MessageRow {
++            id: "empty-only".into(),
++            conversation_id: conv.id.clone(),
++            msg_id: None,
++            r#type: "thinking".into(),
++            content: "{\"content\":\"\"}".into(),
++            position: Some("left".into()),
++            status: Some("work".into()),
++            hidden: false,
++            created_at: 1,
++            backend_turn_id: None,
++        },
++    )
++    .await
++    .unwrap();
++    svc.recover_stale_runtime_state_on_startup().await;
++    let messages = repo.messages.lock().unwrap();
++    assert_eq!(messages.len(), 1);
++    assert!(messages[0].hidden);
+ }
+ 
+ #[tokio::test]
+@@ -6804,6 +6900,7 @@
                  input: None,
                  output: None,
                  description: None,
@@ -4902,6 +5053,188 @@
      }
  
      #[tokio::test]
+--- a/crates/aionui-conversation/src/startup_recovery.rs
++++ b/crates/aionui-conversation/src/startup_recovery.rs
+@@ -1,6 +1,7 @@
+ use aionui_common::ErrorChain;
+-use aionui_db::MessageRowUpdate;
+ use aionui_db::models::MessageRow;
++use aionui_db::{ConversationRowUpdate, MessagePageDirection, MessagePageParams, MessageRowUpdate};
++use std::collections::{BTreeMap, HashSet};
+ use tracing::{info, warn};
+ 
+ use crate::runtime_persistence::RuntimeWriteKind;
+@@ -33,56 +34,128 @@
+             }
+         };
+ 
+-        let mut recovered = 0usize;
++        let running = match self.conversation_repo().list_running_conversations().await {
++            Ok(rows) => rows,
++            Err(error) => {
++                warn!(error = %ErrorChain(&error), "startup recovery could not query running turns");
++                return;
++            }
++        };
++        let running_ids: HashSet<_> = running.iter().map(|row| row.id.clone()).collect();
++        let mut groups: BTreeMap<(String, String), Vec<MessageRow>> = BTreeMap::new();
++        for row in running {
++            groups.entry((row.user_id, row.id)).or_default();
++        }
+         for stale in rows {
+-            let row = stale.message;
++            groups
++                .entry((stale.user_id, stale.message.conversation_id.clone()))
++                .or_default()
++                .push(stale.message);
++        }
++        for ((user_id, conversation_id), rows) in groups {
+             if !self
+                 .runtime_persistence()
+-                .allows(&row.conversation_id, RuntimeWriteKind::StartupRecovery)
++                .allows(&conversation_id, RuntimeWriteKind::StartupRecovery)
+             {
+                 continue;
+             }
+-
+-            let action = classify_recovery_action(&row);
+-            let content = match action {
+-                StartupRecoveryAction::SettleToolRow => settle_tool_row_content(&row.r#type, &row.content),
+-                _ => None,
+-            };
+-            let update = MessageRowUpdate {
+-                content,
+-                status: Some(Some("finish".to_owned())),
+-                hidden: Some(matches!(action, StartupRecoveryAction::FinishEmptyPlaceholder)),
+-            };
+-
+-            match self
+-                .conversation_repo()
+-                .update_message(&stale.user_id, &row.conversation_id, &row.id, &update)
++            let interrupted = running_ids.contains(&conversation_id)
++                || rows
++                    .iter()
++                    .any(|row| classify_recovery_action(row) != StartupRecoveryAction::FinishEmptyPlaceholder);
++            if let Err(error) = self
++                .recover_interrupted_conversation(&user_id, &conversation_id, rows, interrupted)
+                 .await
+             {
+-                Ok(()) => {
+-                    recovered += 1;
+-                    info!(
+-                        conversation_id = %row.conversation_id,
+-                        msg_id = ?row.msg_id,
+-                        message_type = %row.r#type,
+-                        recovery_action = ?action,
+-                        "startup recovery closed stale runtime message"
+-                    );
+-                }
+-                Err(error) => {
+-                    warn!(
+-                        conversation_id = %row.conversation_id,
+-                        msg_id = ?row.msg_id,
+-                        error = %ErrorChain(&error),
+-                        "startup recovery failed to close stale runtime message"
+-                    );
+-                }
+-            }
+-        }
+-
+-        if recovered > 0 {
+-            info!(recovered, "startup recovery completed for stale runtime messages");
+-        }
++                warn!(conversation_id, error = %ErrorChain(&error), "startup recovery left turn marked for retry");
++            }
++        }
++    }
++
++    async fn recover_interrupted_conversation(
++        &self,
++        user_id: &str,
++        conversation_id: &str,
++        rows: Vec<MessageRow>,
++        interrupted: bool,
++    ) -> Result<(), aionui_db::DbError> {
++        let Some(conversation) = self.conversation_repo().get(user_id, conversation_id).await? else {
++            return Ok(());
++        };
++        if interrupted {
++            // Claim legacy residue before settling it. A second crash can then still
++            // recover even if all message rows have already been closed.
++            self.conversation_repo()
++                .update(
++                    user_id,
++                    conversation_id,
++                    &ConversationRowUpdate {
++                        status: Some("running".into()),
++                        ..Default::default()
++                    },
++                )
++                .await?;
++        }
++        for row in rows {
++            let action = classify_recovery_action(&row);
++            let update = MessageRowUpdate {
++                content: if action == StartupRecoveryAction::SettleToolRow {
++                    settle_tool_row_content(&row.r#type, &row.content)
++                } else {
++                    None
++                },
++                status: Some(Some("finish".to_owned())),
++                hidden: Some(action == StartupRecoveryAction::FinishEmptyPlaceholder),
++            };
++            self.conversation_repo()
++                .update_message(user_id, conversation_id, &row.id, &update)
++                .await?;
++        }
++        if interrupted {
++            let page = self
++                .conversation_repo()
++                .list_messages_page(
++                    user_id,
++                    conversation_id,
++                    &MessagePageParams {
++                        limit: 1,
++                        direction: MessagePageDirection::InitialLatest,
++                    },
++                )
++                .await?;
++            let latest = page.items.last();
++            let already_notified = latest.is_some_and(|row| {
++                row.r#type == "tips"
++                    && serde_json::from_str::<serde_json::Value>(&row.content)
++                        .ok()
++                        .is_some_and(|value| value["code"] == "TURN_INTERRUPTED_BY_RESTART")
++            });
++            let tip = if !already_notified {
++                let id = format!(
++                    "restart-{}-{}",
++                    conversation_id,
++                    latest.map(|row| row.id.as_str()).unwrap_or("empty")
++                );
++                Some(MessageRow {
++                    id: id.clone(), conversation_id: conversation_id.into(), msg_id: Some(id),
++                    r#type: "tips".into(),
++                    content: serde_json::json!({
++                        "type": "warning", "code": "TURN_INTERRUPTED_BY_RESTART",
++                        "content": "The server restarted before this task finished. Existing results were preserved. Review them before continuing."
++                    }).to_string(),
++                    position: Some("left".into()), status: Some("finish".into()), hidden: false,
++                    created_at: latest.map_or(conversation.updated_at, |row| row.created_at.max(conversation.updated_at)).saturating_add(1),
++                    backend_turn_id: None,
++                })
++            } else {
++                None
++            };
++            self.conversation_repo()
++                .finish_startup_recovery(user_id, conversation_id, tip.as_ref())
++                .await?;
++            info!(conversation_id, "startup recovery preserved interrupted turn results");
++        }
++        Ok(())
+     }
+ }
+ 
 --- a/crates/aionui-conversation/src/stream_persistence.rs
 +++ b/crates/aionui-conversation/src/stream_persistence.rs
 @@ -353,7 +353,7 @@
@@ -5560,6 +5893,42 @@
 +    pub state_json: String,
 +    pub revision: i64,
 +}
+--- a/crates/aionui-db/src/repository/conversation.rs
++++ b/crates/aionui-db/src/repository/conversation.rs
+@@ -263,6 +263,33 @@
+         msg_id: &str,
+         msg_type: &str,
+     ) -> Result<Option<MessageRow>, DbError>;
++
++    /// Conversations whose claimed turn did not reach a persisted terminal state.
++    async fn list_running_conversations(&self) -> Result<Vec<ConversationRow>, DbError> {
++        Ok(Vec::new())
++    }
++
++    /// Atomically publish a restart notice and finish the durable claim without
++    /// changing conversation recency. The default supports non-SQL test stores.
++    async fn finish_startup_recovery(&self, user_id: &str, id: &str, tip: Option<&MessageRow>) -> Result<(), DbError> {
++        let row = self
++            .get(user_id, id)
++            .await?
++            .ok_or_else(|| DbError::NotFound(id.into()))?;
++        if let Some(tip) = tip {
++            self.insert_message(user_id, tip).await?;
++        }
++        self.update(
++            user_id,
++            id,
++            &ConversationRowUpdate {
++                status: Some("finished".into()),
++                updated_at: Some(row.updated_at),
++                ..Default::default()
++            },
++        )
++        .await
++    }
+ 
+     /// Lists stale assistant-side runtime messages that were left in a
+     /// non-terminal state by a previous process.
 --- a/crates/aionui-db/src/repository/mod.rs
 +++ b/crates/aionui-db/src/repository/mod.rs
 @@ -9,6 +9,7 @@
@@ -5800,6 +6169,98 @@
                  .execute(&mut *connection)
                  .await?;
                  copied += 1;
+@@ -1207,6 +1223,37 @@
+         .await?;
+ 
+         Ok(row)
++    }
++
++    async fn list_running_conversations(&self) -> Result<Vec<ConversationRow>, DbError> {
++        Ok(
++            sqlx::query_as::<_, ConversationRow>("SELECT * FROM conversations WHERE status = 'running'")
++                .fetch_all(&self.pool)
++                .await?,
++        )
++    }
++
++    async fn finish_startup_recovery(&self, user_id: &str, id: &str, tip: Option<&MessageRow>) -> Result<(), DbError> {
++        let mut tx = self.pool.begin().await?;
++        let updated = sqlx::query("UPDATE conversations SET status = 'finished' WHERE user_id = ? AND id = ?")
++            .bind(user_id)
++            .bind(id)
++            .execute(&mut *tx)
++            .await?;
++        if updated.rows_affected() == 0 {
++            return Err(DbError::NotFound(id.into()));
++        }
++        if let Some(tip) = tip {
++            if tip.conversation_id != id {
++                return Err(DbError::NotFound(tip.conversation_id.clone()));
++            }
++            sqlx::query("INSERT INTO messages (id, conversation_id, msg_id, type, content, position, status, hidden, created_at, backend_turn_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
++                .bind(&tip.id).bind(id).bind(&tip.msg_id).bind(&tip.r#type).bind(&tip.content)
++                .bind(&tip.position).bind(&tip.status).bind(tip.hidden).bind(tip.created_at).bind(&tip.backend_turn_id)
++                .execute(&mut *tx).await?;
++        }
++        tx.commit().await?;
++        Ok(())
+     }
+ 
+     async fn list_stale_runtime_messages(&self) -> Result<Vec<StaleRuntimeMessageRow>, DbError> {
+@@ -1724,6 +1771,53 @@
+     }
+ 
+     #[tokio::test]
++    async fn startup_recovery_atomically_finishes_without_changing_recency() {
++        let (repo, _db) = setup().await;
++        let mut conv = sample_conversation(SYSTEM_USER_ID);
++        conv.status = Some("running".into());
++        conv.updated_at = 100;
++        repo.create(&conv).await.unwrap();
++        assert_eq!(repo.list_running_conversations().await.unwrap().len(), 1);
++        let mut tip = sample_message(&conv.id);
++        tip.created_at = 200;
++        repo.finish_startup_recovery(SYSTEM_USER_ID, &conv.id, Some(&tip))
++            .await
++            .unwrap();
++        let row = repo.get(SYSTEM_USER_ID, &conv.id).await.unwrap().unwrap();
++        assert_eq!(row.status.as_deref(), Some("finished"));
++        assert_eq!(row.updated_at, 100);
++    }
++
++    #[tokio::test]
++    async fn startup_recovery_insert_failure_retains_the_running_claim() {
++        let (repo, _db) = setup().await;
++        let mut conv = sample_conversation(SYSTEM_USER_ID);
++        conv.status = Some("running".into());
++        repo.create(&conv).await.unwrap();
++        let tip = sample_message(&conv.id);
++        repo.insert_message(SYSTEM_USER_ID, &tip).await.unwrap();
++        assert!(
++            repo.finish_startup_recovery(SYSTEM_USER_ID, &conv.id, Some(&tip))
++                .await
++                .is_err()
++        );
++        assert_eq!(
++            repo.get(SYSTEM_USER_ID, &conv.id)
++                .await
++                .unwrap()
++                .unwrap()
++                .status
++                .as_deref(),
++            Some("running")
++        );
++        assert!(
++            repo.finish_startup_recovery("other-user", &conv.id, None)
++                .await
++                .is_err()
++        );
++    }
++
++    #[tokio::test]
+     async fn update_conversation_name() {
+         let (repo, _db) = setup().await;
+         let conv = sample_conversation(SYSTEM_USER_ID);
 --- /dev/null
 +++ b/crates/aionui-db/tests/openui_repository.rs
 @@ -0,0 +1,281 @@

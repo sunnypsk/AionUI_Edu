@@ -5,7 +5,7 @@
  */
 
 import type { IMessageTips } from '@/common/chat/chatLib';
-import { Collapse, Tag } from '@arco-design/web-react';
+import { Button, Collapse, Tag } from '@arco-design/web-react';
 import { Attention, CheckOne, Info } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useMemo } from 'react';
@@ -15,6 +15,7 @@ import ButlerDiagnoseButton from '@renderer/components/base/ButlerDiagnoseButton
 import CollapsibleContent from '@renderer/components/chat/CollapsibleContent';
 import { iconColors } from '@/renderer/styles/colors';
 import { isHiddenVersionTip } from '@/renderer/utils/chat/hiddenTips';
+import { emitter } from '@/renderer/utils/emitter';
 
 // One entry per `IMessageTips['type']`. `info` was missing, and the render
 // falls back to `warning`, so every informational tip was drawn with the alarm
@@ -208,6 +209,16 @@ const MessageTips: React.FC<{ message: IMessageTips }> = ({ message }) => {
           <div className='flex justify-end'>
             <ButlerDiagnoseButton errorText={displayContent} />
           </div>
+        )}
+        {code === 'TURN_INTERRUPTED_BY_RESTART' && (
+          <Button
+            size='small'
+            onClick={() =>
+              emitter.emit('sendbox.fill', t('conversation.agentTip.codes.TURN_INTERRUPTED_BY_RESTART.continuePrompt'))
+            }
+          >
+            {t('conversation.agentTip.codes.TURN_INTERRUPTED_BY_RESTART.continueAction')}
+          </Button>
         )}
       </div>
     </div>

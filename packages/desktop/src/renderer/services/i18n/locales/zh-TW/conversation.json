@@ -601,6 +601,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "伺服器在任務完成前重新啟動。已有結果已保留，請先檢查再繼續。",
+        "continueAction": "準備繼續任務",
+        "continuePrompt": "請先檢查中斷任務已有的結果及檔案，再繼續尚未完成的工作。重複任何有副作用的操作前，先確認之前是否已成功執行。"
+      },
       "ACP_EMPTY_TURN": {
         "body": "這次請求沒有產生任何可見回覆。"
       },

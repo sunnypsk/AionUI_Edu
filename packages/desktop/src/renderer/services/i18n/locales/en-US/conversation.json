@@ -601,6 +601,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "The server restarted before this task finished. Existing results were preserved. Review them before continuing.",
+        "continueAction": "Prepare continuation",
+        "continuePrompt": "Review the existing results and files from the interrupted task, then continue only the unfinished work. Check whether earlier actions succeeded before repeating any action with side effects."
+      },
       "ACP_EMPTY_TURN": {
         "body": "This request produced no visible reply."
       },

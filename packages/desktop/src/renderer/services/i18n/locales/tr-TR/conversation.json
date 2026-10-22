@@ -603,6 +603,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "Görev bitmeden sunucu yeniden başladı. Mevcut sonuçlar korundu. Devam etmeden önce inceleyin.",
+        "continueAction": "Devamı hazırla",
+        "continuePrompt": "Kesilen görevin mevcut sonuçlarını ve dosyalarını inceleyin, sonra yalnızca bitmemiş işe devam edin. Yan etkisi olan bir işlemi tekrarlamadan önce önceki işlemin başarılı olup olmadığını kontrol edin."
+      },
       "ACP_EMPTY_TURN": {
         "body": "Bu istek görünür bir yanıt üretmedi."
       },

@@ -607,6 +607,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "O servidor reiniciou antes de concluir a tarefa. Os resultados existentes foram preservados. Revise-os antes de continuar.",
+        "continueAction": "Preparar continuação",
+        "continuePrompt": "Revise os resultados e arquivos da tarefa interrompida e continue apenas o trabalho inacabado. Antes de repetir qualquer ação com efeitos colaterais, verifique se ela já foi concluída com sucesso."
+      },
       "ACP_EMPTY_TURN": {
         "body": "Esta solicitação não gerou nenhuma resposta visível."
       },

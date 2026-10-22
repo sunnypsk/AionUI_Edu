@@ -602,6 +602,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "El servidor se reinició antes de finalizar la tarea. Los resultados existentes se conservaron. Revíselos antes de continuar.",
+        "continueAction": "Preparar continuación",
+        "continuePrompt": "Revisa los resultados y archivos de la tarea interrumpida y continúa solo el trabajo pendiente. Antes de repetir una acción con efectos secundarios, comprueba si ya se realizó correctamente."
+      },
       "ACP_EMPTY_TURN": {
         "body": "Esta solicitud no produjo ninguna respuesta visible."
       },

@@ -601,6 +601,11 @@
   },
   "agentTip": {
     "codes": {
+      "TURN_INTERRUPTED_BY_RESTART": {
+        "body": "Le serveur a redémarré avant la fin de la tâche. Les résultats existants ont été conservés. Vérifiez-les avant de continuer.",
+        "continueAction": "Préparer la suite",
+        "continuePrompt": "Examine les résultats et fichiers de la tâche interrompue, puis poursuis uniquement le travail inachevé. Avant de répéter une action ayant des effets de bord, vérifie si elle a déjà réussi."
+      },
       "ACP_EMPTY_TURN": {
         "body": "Cette demande n'a produit aucune réponse visible."
       },
