@@ -246,5 +246,36 @@
     "refresh": "Actualiser les versions",
     "cleanup": "Nettoyer les anciennes versions sélectionnées",
     "bundled": "Intégrée"
+  },
+  "specialists": {
+    "accountTitle": "Spécialistes de rédaction Factory",
+    "accountDescription": "Codex collabore avec Gemini pour les textes et Opus pour les récits. Les spécialistes reçoivent uniquement les documents fournis pour la tâche.",
+    "unavailable": "Indisponible",
+    "available": "Disponible",
+    "signedIn": "Connecté à Factory",
+    "signedOut": "Non connecté",
+    "loginInstructions": "Ouvrez le lien et terminez la connexion. Cette page sera actualisée automatiquement.",
+    "openLogin": "Ouvrir la connexion Factory",
+    "loginFailed": "La connexion a échoué ou a expiré. Veuillez réessayer.",
+    "signIn": "Se connecter à Factory",
+    "signOut": "Se déconnecter de Factory",
+    "actionFailed": "La demande a échoué. Actualisez puis réessayez.",
+    "tasksTitle": "Spécialistes de rédaction",
+    "revision": "Version du brouillon",
+    "readDraft": "Lire le brouillon",
+    "noDraft": "Aucun texte de brouillon pour le moment.",
+    "authRequired": "Connectez-vous à Factory dans les paramètres, puis demandez à Codex de réessayer.",
+    "taskFailed": "La tâche n’a pas pu être terminée. Le brouillon partiel reste disponible.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Démarrage",
+      "running": "Rédaction",
+      "completed": "Terminé",
+      "failed": "Échec",
+      "canceled": "Annulé"
+    }
   }
 }

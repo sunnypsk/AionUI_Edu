@@ -246,5 +246,36 @@
     "refresh": "Atualizar versões",
     "cleanup": "Limpar versões antigas selecionadas",
     "bundled": "Integrada"
+  },
+  "specialists": {
+    "accountTitle": "Especialistas em escrita Factory",
+    "accountDescription": "O Codex colabora com o Gemini em textos e com o Opus em histórias. Os especialistas recebem apenas o material fornecido para a tarefa.",
+    "unavailable": "Indisponível",
+    "available": "Disponível",
+    "signedIn": "Conectado à Factory",
+    "signedOut": "Não conectado",
+    "loginInstructions": "Abra o link e conclua o login. Esta página será atualizada automaticamente.",
+    "openLogin": "Abrir login da Factory",
+    "loginFailed": "O login falhou ou expirou. Tente novamente.",
+    "signIn": "Entrar na Factory",
+    "signOut": "Sair da Factory",
+    "actionFailed": "A solicitação falhou. Atualize e tente novamente.",
+    "tasksTitle": "Especialistas em escrita",
+    "revision": "Versão do rascunho",
+    "readDraft": "Ler rascunho",
+    "noDraft": "Ainda não há texto no rascunho.",
+    "authRequired": "Entre na Factory nas configurações e peça ao Codex para tentar novamente.",
+    "taskFailed": "A tarefa não foi concluída. O rascunho parcial continua disponível.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Iniciando",
+      "running": "Escrevendo",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "canceled": "Cancelado"
+    }
   }
 }

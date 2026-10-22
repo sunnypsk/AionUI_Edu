@@ -32,6 +32,16 @@ RUN apt-get update \
 WORKDIR /app
 ARG SOURCE_COMMIT=development
 ARG RELEASE_SEQUENCE=0.0
+ARG TARGETARCH
+# Pinned Factory CLI. Baseline x64 also runs on NAS CPUs without AVX2.
+RUN case "$TARGETARCH" in \
+      amd64) droid_arch=x64-baseline; droid_sha=44b9ac7f2b87c5f4e364b7a08d8963432df1a71f4793bc14ec15a52f48ff3964 ;; \
+      arm64) droid_arch=arm64; droid_sha=7a26c17e17d5822cdeb5cf5f0fa35688fe5260747bd4b5331d293e4fcac93518 ;; \
+      *) exit 1 ;; \
+    esac \
+    && curl --fail --silent --show-error --location --retry 3 "https://downloads.factory.ai/factory-cli/releases/0.245.1/linux/$droid_arch/droid" -o /usr/local/bin/droid \
+    && printf '%s  /usr/local/bin/droid\n' "$droid_sha" | sha256sum --check - \
+    && chmod 0755 /usr/local/bin/droid
 LABEL org.opencontainers.image.source="https://github.com/sunnypsk/AionUI_Edu" \
     org.opencontainers.image.revision="$SOURCE_COMMIT" \
     org.opencontainers.image.licenses="Apache-2.0" \
@@ -60,6 +70,7 @@ ENV NODE_ENV=production \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \
     AIONUI_BROWSER_EXECUTABLE=/usr/bin/chromium \
+    AIONUI_DROID_BIN=/usr/local/bin/droid \
     AIONUI_LOG_LEVEL=info \
     AIONUI_PORT=25808 \
     CODEX_HOME=/data/codex \

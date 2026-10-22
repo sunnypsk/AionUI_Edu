@@ -246,5 +246,36 @@
     "refresh": "重新整理版本",
     "cleanup": "清理已選舊版本",
     "bundled": "系統內置"
+  },
+  "specialists": {
+    "accountTitle": "Factory 寫作專家",
+    "accountDescription": "讓 Codex 與 Gemini 協作撰寫文字，並交由 Opus 創作故事。專家只會取得這項任務提供的資料。",
+    "unavailable": "無法使用",
+    "available": "可使用",
+    "signedIn": "已登入 Factory",
+    "signedOut": "尚未登入",
+    "loginInstructions": "開啟連結並完成登入，此頁會自動更新。",
+    "openLogin": "開啟 Factory 登入",
+    "loginFailed": "登入失敗或已逾時，請再試一次。",
+    "signIn": "登入 Factory",
+    "signOut": "登出 Factory",
+    "actionFailed": "操作失敗，請重新整理後再試。",
+    "tasksTitle": "寫作專家",
+    "revision": "草稿版本",
+    "readDraft": "閱讀草稿",
+    "noDraft": "尚未產生草稿文字。",
+    "authRequired": "請在設定中登入 Factory，再請 Codex 重試。",
+    "taskFailed": "任務未能完成，已產生的部分草稿仍可讀取。",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "啟動中",
+      "running": "撰寫中",
+      "completed": "已完成",
+      "failed": "失敗",
+      "canceled": "已取消"
+    }
   }
 }

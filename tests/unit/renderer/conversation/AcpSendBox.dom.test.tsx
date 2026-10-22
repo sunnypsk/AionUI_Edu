@@ -35,6 +35,7 @@ const {
   draftContentRef,
   messageWarningMock,
   stopInvokeMock,
+  specialistState,
 } = vi.hoisted(() => ({
   sendMessageInvokeMock: vi.fn(),
   addOrUpdateMessageMock: vi.fn(),
@@ -78,6 +79,11 @@ const {
   draftContentRef: { current: '' },
   messageWarningMock: vi.fn(),
   stopInvokeMock: vi.fn().mockResolvedValue(undefined),
+  specialistState: { running: false, tasks: [], cancel: vi.fn().mockResolvedValue(undefined) },
+}));
+
+vi.mock('@/renderer/pages/conversation/platforms/acp/SpecialistTasks/useSpecialists', () => ({
+  useSpecialists: () => specialistState,
 }));
 
 vi.mock('@/common', () => ({
@@ -112,6 +118,8 @@ vi.mock('@/renderer/components/chat/SendBox', () => ({
     onSelectedSessionsChange,
     crossSessionEnabled,
     isTeamConversation,
+    loading,
+    onStop,
   }: {
     onSend: (message: string) => Promise<void>;
     onChange?: (value: string) => void;
@@ -128,6 +136,8 @@ vi.mock('@/renderer/components/chat/SendBox', () => ({
     onSelectedSessionsChange?: (sessions: Array<{ id: string }>) => void;
     crossSessionEnabled?: boolean;
     isTeamConversation?: boolean;
+    loading?: boolean;
+    onStop?: () => Promise<void>;
   }) => {
     sendBoxPropsSpy({
       active,
@@ -139,6 +149,8 @@ vi.mock('@/renderer/components/chat/SendBox', () => ({
       selectedSessions,
       crossSessionEnabled,
       isTeamConversation,
+      loading,
+      onStop,
     });
     return (
       <div>
@@ -355,6 +367,7 @@ describe('AcpSendBox', () => {
     runtimeViewMock.activeTurnId = null;
     runtimeViewMock.supportsMidturnDelivery = false;
     draftContentRef.current = '';
+    specialistState.running = false;
     useTeamPermissionMock.mockReturnValue(null);
     useAcpConfigOptionsMock.mockReturnValue({
       setStatus: { state: 'idle' },
@@ -364,6 +377,18 @@ describe('AcpSendBox', () => {
       reload: vi.fn(),
       setConfigOption: vi.fn(),
     });
+  });
+
+  it('keeps Stop available for a background specialist without inventing a parent turn ID', async () => {
+    specialistState.running = true;
+    render(<AcpSendBox conversation_id='conv-1' backend='codex' messageState={makeMessageState()} />);
+    const props = sendBoxPropsSpy.mock.calls.at(-1)![0];
+    expect(props.loading).toBe(true);
+    await act(async () => {
+      await props.onStop();
+    });
+    expect(specialistState.cancel).toHaveBeenCalledOnce();
+    expect(stopInvokeMock).not.toHaveBeenCalled();
   });
 
   it('resets ACP loading state when sendMessage fails before any stream error arrives', async () => {

@@ -6,13 +6,14 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 
 /** @typedef {import('../../browser/launcher.js').BrowserMcpConfig} BrowserMcpConfig */
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-/** @param {string} line @param {BrowserMcpConfig} browser @returns {string} */
-function mergeBrowserConfig(line, browser) {
+/** @param {string} line @param {Record<string, BrowserMcpConfig>} scoped @returns {string} */
+function mergeScopedConfig(line, scoped) {
   if (!/"method"\s*:\s*"thread\/(?:start|resume|fork)"/.test(line)) return line;
   try {
     const message = /** @type {unknown} */ (JSON.parse(line));
@@ -26,7 +27,7 @@ function mergeBrowserConfig(line, browser) {
     if (servers !== undefined && servers !== null && !record(servers)) return line;
     message.params.config = {
       ...base,
-      mcp_servers: { ...(record(servers) ? servers : {}), aionui_browser: browser },
+      mcp_servers: { ...(record(servers) ? servers : {}), ...scoped },
     };
     return JSON.stringify(message);
   } catch {
@@ -38,22 +39,42 @@ function mergeBrowserConfig(line, browser) {
  * @param {BrowserMcpConfig} browser @returns {Transform}
  */
 export function createBrowserMcpInput(browser) {
+  return createScopedMcpInput({ aionui_browser: browser });
+}
+
+/** @param {Record<string, BrowserMcpConfig>} servers
+ * @param {(frame: Record<string, unknown>) => Promise<void>} observe
+ * @returns {Transform} */
+export function createScopedMcpInput(servers, observe = async () => {}) {
   const decoder = new StringDecoder('utf8');
   let pending = '';
+  /** @param {string} line */
+  const processLine = async (line) => {
+    let frame;
+    try {
+      frame = JSON.parse(line);
+    } catch {
+      return line;
+    }
+    if (record(frame)) await observe(frame);
+    return mergeScopedConfig(line, servers);
+  };
   return new Transform({
     transform(chunk, _encoding, callback) {
       pending += decoder.write(chunk);
-      let newline;
-      while ((newline = pending.indexOf('\n')) >= 0) {
-        this.push(mergeBrowserConfig(pending.slice(0, newline), browser) + '\n');
-        pending = pending.slice(newline + 1);
-      }
-      callback();
+      void (async () => {
+        let newline;
+        while ((newline = pending.indexOf('\n')) >= 0) {
+          this.push((await processLine(pending.slice(0, newline))) + '\n');
+          pending = pending.slice(newline + 1);
+        }
+      })().then(() => callback(), callback);
     },
     flush(callback) {
       pending += decoder.end();
-      if (pending) this.push(mergeBrowserConfig(pending, browser));
-      callback();
+      void (async () => {
+        if (pending) this.push(await processLine(pending));
+      })().then(() => callback(), callback);
     },
   });
 }
@@ -63,29 +84,93 @@ export function createBrowserMcpInput(browser) {
  * @returns {Transform}
  */
 export function createBrowserMcpOutput(report) {
+  return createScopedMcpOutput(['aionui_browser'], (_name, status) => report(status));
+}
+
+/** @param {string[]} names @param {(name: string, status: string) => void} report
+ * @param {(frame: Record<string, unknown>) => Promise<void>} observe @returns {Transform} */
+export function createScopedMcpOutput(names, report, observe = async () => {}) {
   const decoder = new StringDecoder('utf8');
   let pending = '';
   return new Transform({
     transform(chunk, _encoding, callback) {
-      this.push(chunk);
       pending += decoder.write(chunk);
-      let newline;
-      while ((newline = pending.indexOf('\n')) >= 0) {
-        const line = pending.slice(0, newline);
-        pending = pending.slice(newline + 1);
-        try {
-          const frame = JSON.parse(line);
-          if (frame.method === 'mcpServer/startupStatus/updated' && frame.params?.name === 'aionui_browser') {
-            const status = frame.params.status;
-            if (['starting', 'ready', 'failed', 'cancelled'].includes(status)) report(status);
+      void (async () => {
+        let newline;
+        while ((newline = pending.indexOf('\n')) >= 0) {
+          const line = pending.slice(0, newline);
+          pending = pending.slice(newline + 1);
+          let frame;
+          try {
+            frame = JSON.parse(line);
+          } catch {
+            continue;
           }
-        } catch {
-          // The native protocol reader owns validation. Never echo untrusted frame contents.
+          if (!record(frame)) continue;
+          if (
+            frame.method === 'mcpServer/startupStatus/updated' &&
+            record(frame.params) &&
+            names.includes(String(frame.params.name))
+          ) {
+            const status = String(frame.params.status);
+            if (['starting', 'ready', 'failed', 'cancelled'].includes(status))
+              report(String(frame.params.name), status);
+          }
+          await observe(frame);
         }
-      }
-      callback();
+        this.push(chunk);
+      })().then(() => callback(), callback);
     },
   });
+}
+
+/** Track only the Core-bound parent thread. Child-agent notifications cannot reopen admission.
+ * @param {(event: Record<string, string>) => Promise<void>} notify
+ */
+export function createSpecialistLifecycle(notify) {
+  let threadId = '';
+  const prefix = randomUUID();
+  /** @type {Map<string, {method: string, eventId: string, threadId: string}>} */
+  const requests = new Map();
+  return {
+    /** @param {Record<string, unknown>} frame */
+    async input(frame) {
+      const params = record(frame.params) ? frame.params : {};
+      const method = String(frame.method);
+      const id = String(frame.id);
+      if (['thread/start', 'thread/resume', 'thread/fork'].includes(method))
+        requests.set(id, { method, eventId: '', threadId: '' });
+      else if (
+        method === 'turn/start' &&
+        typeof params.threadId === 'string' &&
+        (!threadId || threadId === params.threadId)
+      ) {
+        threadId = params.threadId;
+        const eventId = `${prefix}:${id}`;
+        requests.set(id, { method, eventId, threadId });
+        await notify({ event: 'start', event_id: eventId, thread_id: threadId });
+      } else if (method === 'turn/interrupt' && params.threadId === threadId && typeof params.turnId === 'string') {
+        await notify({ event: 'stop', thread_id: threadId, turn_id: params.turnId });
+      }
+    },
+    /** @param {Record<string, unknown>} frame */
+    async output(frame) {
+      if (frame.id === undefined || frame.method) return;
+      const request = requests.get(String(frame.id));
+      if (!request) return;
+      requests.delete(String(frame.id));
+      const result = record(frame.result) ? frame.result : {};
+      if (request.method.startsWith('thread/') && record(result.thread) && typeof result.thread.id === 'string')
+        threadId = result.thread.id;
+      if (request.method === 'turn/start' && record(result.turn) && typeof result.turn.id === 'string')
+        await notify({
+          event: 'bound',
+          event_id: request.eventId,
+          thread_id: request.threadId,
+          turn_id: result.turn.id,
+        });
+    },
+  };
 }
 
 /** Node owns the protocol pipe so Bun never has to consume the native app-server's stdin.
@@ -95,7 +180,28 @@ export function createBrowserMcpOutput(report) {
 async function main() {
   const [, , configuration, command, ...args] = process.argv;
   if (!configuration || !command) return 1;
-  const browser = /** @type {BrowserMcpConfig} */ (JSON.parse(configuration));
+  const parsed = JSON.parse(configuration);
+  const servers = /** @type {Record<string, BrowserMcpConfig>} */ (
+    parsed.command ? { aionui_browser: parsed } : parsed
+  );
+  const lifecycle = createSpecialistLifecycle(async (event) => {
+    if (!servers.aionui_specialists) return;
+    const gateway = process.env.AIONUI_SPECIALISTS_GATEWAY;
+    const capability = process.env.AIONUI_SPECIALISTS_CAPABILITY;
+    const token = process.env.AIONUI_RUNTIME_TOKEN;
+    if (!gateway || !capability || !token) throw new Error('SPECIALIST_UNAVAILABLE');
+    const response = await fetch(`${gateway}/lifecycle`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-aionui-specialist-capability': capability,
+        'x-aionui-runtime-token': token,
+      },
+      body: JSON.stringify(event),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error('SPECIALIST_UNAVAILABLE');
+  });
   const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'inherit'] });
   const result = new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -103,12 +209,19 @@ async function main() {
   });
   void result.catch(() => {});
   if (!child.stdin || !child.stdout) throw new Error('CODEX_STDIO_PROXY_UNAVAILABLE');
-  const input = createBrowserMcpInput(browser);
-  const output = createBrowserMcpOutput((status) => {
-    process.stderr.write(JSON.stringify({ event: 'browser.mcpStartup', status }) + '\n');
-  });
+  const input = createScopedMcpInput(servers, lifecycle.input);
+  const output = createScopedMcpOutput(
+    Object.keys(servers),
+    (name, status) => {
+      process.stderr.write(
+        JSON.stringify({ event: name === 'aionui_browser' ? 'browser.mcpStartup' : 'specialist.mcpStartup', status }) +
+          '\n'
+      );
+    },
+    lifecycle.output
+  );
   const outputDone = pipeline(child.stdout, output, process.stdout);
-  void outputDone.catch(() => {});
+  void outputDone.catch(() => child.kill('SIGTERM'));
   input.on('error', () => child.kill('SIGTERM'));
   child.stdin.on('error', () => input.destroy());
   process.stdin.pipe(input).pipe(child.stdin);

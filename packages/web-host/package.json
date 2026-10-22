@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@factory/droid-sdk": "0.9.1",
     "@modelcontextprotocol/sdk": "^1.20.0",
     "playwright-core": "1.59.1",
     "semver": "^7.7.2",

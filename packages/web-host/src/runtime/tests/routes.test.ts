@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRuntimeControls } from './routes.js';
-import { NetworkProxyStore } from './proxy.js';
+import { createRuntimeControls } from '../routes.js';
+import { NetworkProxyStore } from '../proxy.js';
 
 const signedOut = { authenticated: false, login: { state: 'idle' as const } };
 const versionStatus = {

@@ -1,6 +1,11 @@
 import { once } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { createBrowserMcpInput, createBrowserMcpOutput } from './stdioProxy.mjs';
+import {
+  createBrowserMcpInput,
+  createBrowserMcpOutput,
+  createScopedMcpInput,
+  createSpecialistLifecycle,
+} from './stdioProxy.mjs';
 
 const browser = {
   command: 'node',
@@ -68,5 +73,79 @@ describe('Codex browser MCP protocol compatibility', () => {
   it('leaves malformed or unsupported input for the native protocol validator', async () => {
     const frame = '{"id":5,"method":"thread/start","params":{"config":{"mcp_servers":[]}}}\nnot-json\n';
     expect(await transform([Buffer.from(frame)])).toBe(frame);
+  });
+});
+
+describe('multiple scoped MCP servers and parent lifecycle', () => {
+  it('merges both reserved servers while retaining user MCPs', async () => {
+    const specialist = { ...browser, args: ['/app/droid/mcp.ts'] };
+    const stream = createScopedMcpInput({ aionui_browser: browser, aionui_specialists: specialist });
+    let output = '';
+    stream.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    const ended = once(stream, 'end');
+    stream.end(
+      JSON.stringify({
+        id: 1,
+        method: 'thread/resume',
+        params: {
+          config: { mcp_servers: { custom: { command: 'custom' }, aionui_specialists: { command: 'override' } } },
+        },
+      }) + '\n'
+    );
+    await ended;
+    expect(JSON.parse(output).params.config.mcp_servers).toEqual({
+      custom: { command: 'custom' },
+      aionui_browser: browser,
+      aionui_specialists: specialist,
+    });
+  });
+  it('waits for host acknowledgement before forwarding a new turn', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const lifecycle = createSpecialistLifecycle(async () => pending);
+    const stream = createScopedMcpInput({}, lifecycle.input);
+    let output = '';
+    stream.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    const ended = once(stream, 'end');
+    const frame = JSON.stringify({ id: 1, method: 'turn/start', params: { threadId: 'parent' } }) + '\n';
+    stream.end(frame);
+    await Promise.resolve();
+    expect(output).toBe('');
+    release();
+    await ended;
+    expect(output).toBe(frame);
+  });
+  it('ignores child turns and binds native turn IDs before cancellation', async () => {
+    const events: Record<string, string>[] = [];
+    const lifecycle = createSpecialistLifecycle(async (event) => {
+      events.push(event);
+    });
+    await lifecycle.input({ id: 1, method: 'thread/start', params: {} });
+    await lifecycle.output({ id: 1, result: { thread: { id: 'parent' } } });
+    await lifecycle.input({ id: 2, method: 'turn/start', params: { threadId: 'child' } });
+    await lifecycle.input({ id: 3, method: 'turn/start', params: { threadId: 'parent' } });
+    await lifecycle.output({ id: 3, result: { turn: { id: 'turn' } } });
+    await lifecycle.input({ id: 4, method: 'turn/interrupt', params: { threadId: 'parent', turnId: 'turn' } });
+    expect(events.map((event) => event.event)).toEqual(['start', 'bound', 'stop']);
+    expect(events[2].turn_id).toBe('turn');
+  });
+  it('does not forward turn/start if the scoped host acknowledgement fails', async () => {
+    const stream = createScopedMcpInput({}, async () => {
+      throw new Error('unavailable');
+    });
+    let output = '';
+    stream.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    const error = once(stream, 'error');
+    stream.end('{"method":"turn/start","params":{"threadId":"parent"}}\n');
+    await error;
+    expect(output).toBe('');
   });
 });

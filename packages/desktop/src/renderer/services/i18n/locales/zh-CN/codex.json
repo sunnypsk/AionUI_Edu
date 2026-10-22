@@ -236,5 +236,36 @@
     "refresh": "刷新版本",
     "cleanup": "清理所选旧版本",
     "bundled": "系统内置"
+  },
+  "specialists": {
+    "accountTitle": "Factory 写作专家",
+    "accountDescription": "让 Codex 与 Gemini 协作撰写文字，并交由 Opus 创作故事。专家只会获取为该任务提供的资料。",
+    "unavailable": "不可用",
+    "available": "可用",
+    "signedIn": "已登录 Factory",
+    "signedOut": "尚未登录",
+    "loginInstructions": "打开链接并完成登录，此页会自动更新。",
+    "openLogin": "打开 Factory 登录",
+    "loginFailed": "登录失败或已超时，请重试。",
+    "signIn": "登录 Factory",
+    "signOut": "退出 Factory",
+    "actionFailed": "操作失败，请刷新后重试。",
+    "tasksTitle": "写作专家",
+    "revision": "草稿版本",
+    "readDraft": "阅读草稿",
+    "noDraft": "尚未生成草稿文字。",
+    "authRequired": "请在设置中登录 Factory，再让 Codex 重试。",
+    "taskFailed": "任务未能完成，已生成的部分草稿仍可读取。",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "启动中",
+      "running": "撰写中",
+      "completed": "已完成",
+      "failed": "失败",
+      "canceled": "已取消"
+    }
   }
 }

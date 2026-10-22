@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CodexAuthService } from './codexAuth.js';
+import { CodexAuthService } from '../codexAuth.js';
 
 const services: CodexAuthService[] = [];
 afterEach(() => {

@@ -246,5 +246,36 @@
     "refresh": "Sürümleri yenile",
     "cleanup": "Seçilen eski sürümleri temizle",
     "bundled": "Yerleşik"
+  },
+  "specialists": {
+    "accountTitle": "Factory yazı uzmanları",
+    "accountDescription": "Codex, metinler için Gemini ve hikâyeler için Opus ile çalışır. Uzmanlar yalnızca görev için sağlanan materyali alır.",
+    "unavailable": "Kullanılamıyor",
+    "available": "Kullanılabilir",
+    "signedIn": "Factory oturumu açık",
+    "signedOut": "Oturum açık değil",
+    "loginInstructions": "Bağlantıyı açıp oturum açmayı tamamlayın. Bu sayfa otomatik güncellenir.",
+    "openLogin": "Factory girişini aç",
+    "loginFailed": "Giriş başarısız oldu veya süresi doldu. Tekrar deneyin.",
+    "signIn": "Factory oturumu aç",
+    "signOut": "Factory oturumunu kapat",
+    "actionFailed": "İstek başarısız oldu. Yenileyip tekrar deneyin.",
+    "tasksTitle": "Yazı uzmanları",
+    "revision": "Taslak sürümü",
+    "readDraft": "Taslağı oku",
+    "noDraft": "Henüz taslak metni yok.",
+    "authRequired": "Ayarlarda Factory oturumu açın, ardından Codex’ten tekrar denemesini isteyin.",
+    "taskFailed": "Görev tamamlanamadı. Kısmi taslak hâlâ kullanılabilir.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Başlatılıyor",
+      "running": "Yazılıyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "canceled": "İptal edildi"
+    }
   }
 }

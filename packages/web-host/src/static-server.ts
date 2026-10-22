@@ -21,6 +21,7 @@ export type StaticServerOptions = {
   port?: number;
   allowRemote?: boolean;
   handleRequest?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
+  onBackendResponse?: (req: IncomingMessage, status: number) => Promise<void>;
 };
 
 export type StaticServerHandle = {
@@ -77,7 +78,12 @@ function getLanIP(): string | null {
   return pickLanIP(networkInterfaces());
 }
 
-function forwardToBackend(req: IncomingMessage, res: ServerResponse, backendPort: number): void {
+function forwardToBackend(
+  req: IncomingMessage,
+  res: ServerResponse,
+  backendPort: number,
+  onResponse?: StaticServerOptions['onBackendResponse']
+): void {
   const options: http.RequestOptions = {
     hostname: '127.0.0.1',
     port: backendPort,
@@ -86,8 +92,15 @@ function forwardToBackend(req: IncomingMessage, res: ServerResponse, backendPort
     headers: { ...req.headers, host: `127.0.0.1:${backendPort}` },
   };
   const proxy = http.request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
-    proxyRes.pipe(res);
+    void (async () => {
+      try {
+        await onResponse?.(req, proxyRes.statusCode ?? 502);
+      } catch {
+        console.warn('SPECIALIST_LIFECYCLE_UPDATE_FAILED');
+      }
+      res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+      proxyRes.pipe(res);
+    })();
   });
   proxy.on('error', () => {
     if (!res.headersSent) {
@@ -187,7 +200,7 @@ export async function startStaticServer(opts: StaticServerOptions): Promise<Stat
       // /login and /logout are aionui-auth's top-level auth endpoints: proxy them too
       // so WebUI browser clients reach the backend without a path-rewrite.
       if (req.url.startsWith('/api/') || req.url.startsWith('/api?') || req.url === '/login' || req.url === '/logout') {
-        forwardToBackend(req, res, opts.backendPort);
+        forwardToBackend(req, res, opts.backendPort, opts.onBackendResponse);
         return;
       }
 

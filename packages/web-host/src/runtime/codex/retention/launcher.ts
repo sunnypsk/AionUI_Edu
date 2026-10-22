@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createLease } from './leases.js';
 import { isInstallId } from './store.js';
 import { browserCodexLaunch, browserCodexSpawn } from '../../browser/launcher.js';
+import { specialistCodexLaunch } from '../../droid/launcher.js';
 
 /** Keeps a per-process lease until the selected CLI exits; stdio remains the app-server transport. */
 export async function launchCodex(args = process.argv.slice(2), env = process.env): Promise<number> {
@@ -30,8 +31,9 @@ export async function launchCodex(args = process.argv.slice(2), env = process.en
     }
     if (!command) throw new Error('CODEX_BUNDLED_PATH_REQUIRED');
     const browser = browserCodexLaunch(args, { ...env, TOKIO_WORKER_THREADS: env.TOKIO_WORKER_THREADS || '4' });
-    const executable = browserCodexSpawn(command, browser);
-    const child = spawn(executable.command, executable.args, { env: browser.env, stdio: 'inherit' });
+    const specialists = specialistCodexLaunch(browser.args, browser.env);
+    const executable = browserCodexSpawn(command, { ...browser, ...specialists });
+    const child = spawn(executable.command, executable.args, { env: specialists.env, stdio: 'inherit' });
     const handlers = (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map((signal) => {
       const handler = (): void => {
         child.kill(signal);

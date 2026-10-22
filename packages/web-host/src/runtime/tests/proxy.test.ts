@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NetworkProxyProbeResult } from '../types.js';
+import type { NetworkProxyProbeResult } from '../../types.js';
 import {
   buildEgressRules,
   buildTunConfig,
@@ -17,7 +17,7 @@ import {
   proxyFingerprint,
   PROXY_FILE_NAME,
   probeProxyConnection,
-} from './proxy.js';
+} from '../proxy.js';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));

@@ -246,5 +246,36 @@
     "refresh": "Обновить список версий",
     "cleanup": "Удалить выбранные старые версии",
     "bundled": "Встроенная"
+  },
+  "specialists": {
+    "accountTitle": "Авторы Factory",
+    "accountDescription": "Codex работает с Gemini над текстами, а с Opus — над историями. Специалисты получают только материалы задания.",
+    "unavailable": "Недоступно",
+    "available": "Доступно",
+    "signedIn": "Вход в Factory выполнен",
+    "signedOut": "Вход не выполнен",
+    "loginInstructions": "Откройте ссылку и завершите вход. Страница обновится автоматически.",
+    "openLogin": "Открыть вход в Factory",
+    "loginFailed": "Не удалось войти или время истекло. Повторите попытку.",
+    "signIn": "Войти в Factory",
+    "signOut": "Выйти из Factory",
+    "actionFailed": "Запрос не выполнен. Обновите страницу и повторите попытку.",
+    "tasksTitle": "Авторы",
+    "revision": "Версия черновика",
+    "readDraft": "Прочитать черновик",
+    "noDraft": "Текста черновика пока нет.",
+    "authRequired": "Войдите в Factory в настройках и попросите Codex повторить попытку.",
+    "taskFailed": "Задание не завершено. Частичный черновик остаётся доступным.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Запуск",
+      "running": "Написание",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "canceled": "Отменено"
+    }
   }
 }

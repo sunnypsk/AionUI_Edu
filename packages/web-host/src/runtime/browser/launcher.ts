@@ -52,16 +52,19 @@ export function browserCodexLaunch(
 /** Use a Node-owned pipe only for scoped app-server processes; other CLI commands retain their original stdio. */
 export function browserCodexSpawn(
   command: string,
-  launch: ReturnType<typeof browserCodexLaunch>
+  launch: ReturnType<typeof browserCodexLaunch> & { specialists?: BrowserMcpConfig }
 ): { command: string; args: string[] } {
-  if (!launch.browser) return { command, args: launch.args };
+  if (!launch.browser && !launch.specialists) return { command, args: launch.args };
   return {
     command: 'node',
     args: [
       launch.env.AIONUI_CODEX_RUNTIME_DIR
         ? path.join(launch.env.AIONUI_CODEX_RUNTIME_DIR, 'retention/stdioProxy.mjs')
         : fileURLToPath(new URL('../codex/retention/stdioProxy.mjs', import.meta.url)),
-      JSON.stringify(launch.browser),
+      JSON.stringify({
+        ...(launch.browser ? { aionui_browser: launch.browser } : {}),
+        ...(launch.specialists ? { aionui_specialists: launch.specialists } : {}),
+      }),
       command,
       ...launch.args,
     ],

@@ -12,6 +12,8 @@ import { chromium, type BrowserContext } from 'playwright-core';
 import { SharedBrowserManager } from './manager.js';
 import { createBrowserRuntime, signBrowserCapability } from './routes.js';
 import { browserCodexLaunch, browserCodexSpawn } from './launcher.js';
+import { specialistCodexLaunch } from '../droid/launcher.js';
+import { createSpecialistRuntime } from '../droid/routes.js';
 import type { BrowserAction, BrowserResult, BrowserState } from './types.js';
 
 const listen = async (server: http.Server): Promise<number> => {
@@ -52,12 +54,15 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
     ],
     { ...process.env, ...env, CODEX_HOME: configHome }
   );
-  const program = browserCodexSpawn(executable, launch);
-  const child = spawn(program.command, program.args, { env: launch.env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const specialistLaunch = specialistCodexLaunch(launch.args, launch.env);
+  const scopedLaunch = { ...launch, ...specialistLaunch };
+  const program = browserCodexSpawn(executable, scopedLaunch);
+  const child = spawn(program.command, program.args, { env: scopedLaunch.env, stdio: ['pipe', 'pipe', 'pipe'] });
   const input = child.stdin;
   let sequence = 0;
   let buffer = '';
   let browserStatus = '';
+  let specialistStatus = '';
   let browserFailure = '';
   const notifications = new Set<string>();
   const pending = new Map<
@@ -78,6 +83,8 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
           params?: { name?: string; status?: string; error?: string };
         };
         if (frame.method) notifications.add(frame.method);
+        if (frame.method === 'mcpServer/startupStatus/updated' && frame.params?.name === 'aionui_specialists')
+          specialistStatus = frame.params.status ?? '';
         if (frame.method === 'mcpServer/startupStatus/updated' && frame.params?.name === 'aionui_browser') {
           browserStatus = frame.params.status ?? '';
           // This runner uses only synthetic credentials and a disposable CODEX_HOME.
@@ -149,13 +156,21 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
         },
       },
     });
-    for (let attempt = 0; attempt < 150 && browserStatus !== 'ready' && browserStatus !== 'failed'; attempt++)
+    for (
+      let attempt = 0;
+      attempt < 150 &&
+      (browserStatus !== 'ready' || specialistStatus !== 'ready') &&
+      browserStatus !== 'failed' &&
+      specialistStatus !== 'failed';
+      attempt++
+    )
       await delay();
     assert.equal(
       browserStatus,
       'ready',
       'Codex MCP startup did not finish: ' + [...notifications].join(', ') + ' ' + diagnostic + ' ' + browserFailure
     );
+    assert.equal(specialistStatus, 'ready', 'Specialist MCP startup failed');
     // Verified: Codex 0.163.0 app-server generated v2/ListMcpServerStatus{Params,Response}.json.
     const thread = started.thread as { id: string };
     const inventory = await rpc('mcpServerStatus/list', { threadId: thread.id });
@@ -167,6 +182,19 @@ async function codexInventory(env: NodeJS.ProcessEnv, directory: string): Promis
       'Browser tool missing from native inventory'
     );
     console.log('Codex app-server discovered aionui_browser (no inference).');
+    const specialists = servers.find((server) => server.name === 'aionui_specialists');
+    assert(specialists, 'Specialist MCP missing from native inventory');
+    assert.deepEqual(
+      Object.values(specialists.tools)
+        .map((tool) => tool.name)
+        .sort(),
+      ['specialist_start', 'specialist_reply', 'specialist_wait', 'specialist_get', 'specialist_cancel'].sort()
+    );
+    assert(
+      servers.some((server) => server.name === 'qa_sidecar'),
+      'User MCP configuration was lost'
+    );
+    console.log('Codex discovered all five specialist tools and preserved the user MCP.');
   } finally {
     input.destroy();
     child.kill('SIGTERM');
@@ -308,6 +336,8 @@ export async function runBrowserSmoke(): Promise<void> {
       }),
     });
   let runtime = await newRuntime();
+  const specialists = await createSpecialistRuntime({ dataDir: directory });
+  specialists.setBackendPort(backendPort);
   runtime.setBackendPort(backendPort);
   const server = http.createServer((req, res) => {
     void runtime.handleRequest(req, res).then((handled) => {
@@ -524,6 +554,7 @@ export async function runBrowserSmoke(): Promise<void> {
     await codexInventory(
       {
         ...runtime.env,
+        ...specialists.env,
         AIONUI_USER_ID: 'teacher',
         AIONUI_CONVERSATION_ID: 'task-one',
         AIONUI_RUNTIME_TOKEN: 'synthetic-browser-fixture',
@@ -547,6 +578,7 @@ export async function runBrowserSmoke(): Promise<void> {
     await Promise.allSettled(clients.map((client) => client.close()));
     await runtime.close();
     await Promise.all([close(server), close(backend)]);
+    await specialists.close();
     await rm(directory, { recursive: true, force: true });
   }
 }

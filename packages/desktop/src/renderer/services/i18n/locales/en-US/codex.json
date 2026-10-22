@@ -246,5 +246,36 @@
     "refresh": "Refresh versions",
     "cleanup": "Clean up selected versions",
     "bundled": "Built in"
+  },
+  "specialists": {
+    "accountTitle": "Factory writing specialists",
+    "accountDescription": "Let Codex collaborate with Gemini on prose and Opus on stories. Specialists receive only the material supplied for their task.",
+    "unavailable": "Unavailable",
+    "available": "Available",
+    "signedIn": "Signed in to Factory",
+    "signedOut": "Not signed in",
+    "loginInstructions": "Open the link and finish signing in. This page will update automatically.",
+    "openLogin": "Open Factory sign-in",
+    "loginFailed": "Sign-in failed or expired. Please try again.",
+    "signIn": "Sign in to Factory",
+    "signOut": "Sign out of Factory",
+    "actionFailed": "The request failed. Please refresh and try again.",
+    "tasksTitle": "Writing specialists",
+    "revision": "Draft revision",
+    "readDraft": "Read draft",
+    "noDraft": "No draft text yet.",
+    "authRequired": "Sign in to Factory in settings, then ask Codex to retry.",
+    "taskFailed": "This task could not finish. Any partial draft remains available.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Starting",
+      "running": "Writing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "canceled": "Cancelled"
+    }
   }
 }

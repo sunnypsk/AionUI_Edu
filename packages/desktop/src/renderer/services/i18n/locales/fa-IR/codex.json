@@ -246,5 +246,36 @@
     "refresh": "تازه‌سازی نسخه‌ها",
     "cleanup": "پاک‌سازی نسخه‌های قدیمی انتخاب‌شده",
     "bundled": "داخلی"
+  },
+  "specialists": {
+    "accountTitle": "متخصصان نویسندگی Factory",
+    "accountDescription": "Codex برای متن با Gemini و برای داستان با Opus همکاری می‌کند. متخصصان فقط مطالب ارائه‌شده برای همان کار را دریافت می‌کنند.",
+    "unavailable": "در دسترس نیست",
+    "available": "در دسترس",
+    "signedIn": "وارد Factory شده‌اید",
+    "signedOut": "وارد نشده‌اید",
+    "loginInstructions": "پیوند را باز کنید و ورود را کامل کنید. این صفحه خودکار به‌روز می‌شود.",
+    "openLogin": "باز کردن ورود Factory",
+    "loginFailed": "ورود ناموفق بود یا زمان آن تمام شد. دوباره تلاش کنید.",
+    "signIn": "ورود به Factory",
+    "signOut": "خروج از Factory",
+    "actionFailed": "درخواست ناموفق بود. صفحه را تازه کنید و دوباره تلاش کنید.",
+    "tasksTitle": "متخصصان نویسندگی",
+    "revision": "نسخه پیش‌نویس",
+    "readDraft": "خواندن پیش‌نویس",
+    "noDraft": "هنوز متنی برای پیش‌نویس وجود ندارد.",
+    "authRequired": "در تنظیمات وارد Factory شوید و از Codex بخواهید دوباره تلاش کند.",
+    "taskFailed": "کار کامل نشد. پیش‌نویس ناقص همچنان در دسترس است.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "در حال شروع",
+      "running": "در حال نوشتن",
+      "completed": "کامل شد",
+      "failed": "ناموفق",
+      "canceled": "لغو شد"
+    }
   }
 }

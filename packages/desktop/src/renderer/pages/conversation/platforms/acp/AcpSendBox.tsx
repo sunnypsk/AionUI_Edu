@@ -54,6 +54,8 @@ import { classifyConversationBusyError } from '../conversationBusyError';
 import { buildSendFailureError } from './buildSendFailureError';
 import { useAcpInitialMessage } from './useAcpInitialMessage';
 import type { UseAcpMessageReturn } from './useAcpMessage';
+import SpecialistTasks from './SpecialistTasks';
+import { useSpecialists } from './SpecialistTasks/useSpecialists';
 
 const configErrorMessageKey = (error: unknown) => {
   const errorKind = classifyConfigSetError(error);
@@ -129,6 +131,7 @@ const AcpSendBox: React.FC<{
     context_limit,
   } = messageState;
   const { t } = useTranslation();
+  const specialists = useSpecialists(conversation_id, backend === 'codex');
   const teamPermission = useTeamPermission();
   // In team mode, all agents show the permission mode selector (members don't propagate)
   const showModeSelector = true;
@@ -673,7 +676,14 @@ Please check your local CLI tool authentication status`,
       resetActiveExecution('stop');
     }
   };
-  const effectiveHandleStop = teamRuntime?.onStop ?? handleStop;
+  const effectiveHandleStop = async (): Promise<void> => {
+    await Promise.all([
+      (teamRuntime?.onStop ?? handleStop)(),
+      backend === 'codex'
+        ? specialists.cancel().catch(() => Message.error(t('codex.specialists.actionFailed')))
+        : Promise.resolve(),
+    ]);
+  };
   const handleSendNowQueued = useCallback(
     async (item: ConversationCommandQueueItem) => {
       if (supportsMidturnDelivery) {
@@ -724,6 +734,7 @@ Please check your local CLI tool authentication status`,
 
   return (
     <div className={`${sendBoxWidthClass} flex flex-col mt-auto mb-16px`}>
+      <SpecialistTasks conversationId={conversation_id} state={specialists} />
       <CommandQueuePanel
         items={queuedCommands}
         mode={queueMode}
@@ -760,7 +771,7 @@ Please check your local CLI tool authentication status`,
         onSelectedSessionsChange={setSelectedSessions}
         crossSessionEnabled={crossSessionEnabled}
         isTeamConversation={Boolean(teamRuntime)}
-        loading={teamRuntime?.loading ?? isBusy}
+        loading={(teamRuntime?.loading ?? isBusy) || specialists.running}
         active={teamRuntime?.isActive}
         onFocused={teamRuntime?.onFocus}
         disabled={false}

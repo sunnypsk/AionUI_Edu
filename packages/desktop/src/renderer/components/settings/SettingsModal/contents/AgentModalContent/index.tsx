@@ -19,6 +19,7 @@ import AionScrollArea from '@/renderer/components/base/AionScrollArea';
 import { useSettingsViewMode } from '../../settingsViewContext';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import CodexAccountPanel from './CodexAccountPanel';
+import FactoryAccountPanel from './FactoryAccountPanel';
 import CodexUpdatePanel from './CodexUpdatePanel';
 import NetworkProxyPanel from './NetworkProxyPanel';
 import SettingsSection from './SettingsSection';
@@ -56,6 +57,7 @@ const AgentModalContent: React.FC = () => {
       <AionScrollArea className='flex-1 min-h-0 pb-16px scrollbar-hide' disableOverflow={isPageMode}>
         <div className='space-y-16px'>
           {!isElectronDesktop() && <CodexAccountPanel />}
+          {!isElectronDesktop() && <FactoryAccountPanel />}
           {!isElectronDesktop() && <CodexUpdatePanel />}
           <SettingsSection
             id='codex-settings-title'

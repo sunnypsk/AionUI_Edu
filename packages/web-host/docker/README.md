@@ -2,6 +2,8 @@
 
 This image includes AionCore, Codex CLI, Chromium, and sing-box. Each chat remains a separate Codex session. The Codex account and proxy settings are shared by this container's WebUI users. Use separate containers and data directories if separate accounts are needed.
 
+Factory Droid `0.245.1` is also included for Codex writing specialists. Factory device login is available in Settings → Agents and is isolated per WebUI user under `/data/droid/users/`. Draft history and native sessions use the existing `/data` volume. See [Factory writing specialists](../../../docs/guides/webui.md#factory-writing-specialists) for models, limits and cancellation behavior.
+
 ## GitHub Actions and GHCR releases
 
 The existing **Build and Release** workflow now also runs on pushes to `main` and manual dispatch. Its WebUI jobs use standard GitHub-hosted Linux runners. They scan the Git-visible source with a checksum-pinned Gitleaks, run the project's quality/unit checks and deployment tests, build `linux/amd64`, and exercise a disposable SOCKS5 network before publication. The network gate checks TCP to a separate test network and DNS through SOCKS5, bound-interface and attached-subnet bypass attempts, proxy outage, and tunnel crash.

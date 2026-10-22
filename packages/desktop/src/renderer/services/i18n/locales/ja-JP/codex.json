@@ -246,5 +246,36 @@
     "refresh": "一覧を更新",
     "cleanup": "選択した旧バージョンを削除",
     "bundled": "システム内蔵"
+  },
+  "specialists": {
+    "accountTitle": "Factory 執筆スペシャリスト",
+    "accountDescription": "Codex が文章は Gemini、物語は Opus と共同制作します。専門家にはタスクに提供された資料のみが渡されます。",
+    "unavailable": "利用不可",
+    "available": "利用可能",
+    "signedIn": "Factory にログイン済み",
+    "signedOut": "未ログイン",
+    "loginInstructions": "リンクを開いてログインを完了してください。このページは自動更新されます。",
+    "openLogin": "Factory のログインを開く",
+    "loginFailed": "ログインに失敗したか期限が切れました。再試行してください。",
+    "signIn": "Factory にログイン",
+    "signOut": "Factory からログアウト",
+    "actionFailed": "操作に失敗しました。更新して再試行してください。",
+    "tasksTitle": "執筆スペシャリスト",
+    "revision": "草稿の版",
+    "readDraft": "草稿を読む",
+    "noDraft": "草稿はまだありません。",
+    "authRequired": "設定で Factory にログインしてから Codex に再試行を依頼してください。",
+    "taskFailed": "タスクを完了できませんでした。途中の草稿は引き続き閲覧できます。",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "起動中",
+      "running": "執筆中",
+      "completed": "完了",
+      "failed": "失敗",
+      "canceled": "キャンセル済み"
+    }
   }
 }

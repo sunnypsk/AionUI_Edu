@@ -246,5 +246,36 @@
     "refresh": "Versionen aktualisieren",
     "cleanup": "Ausgewählte alte Versionen bereinigen",
     "bundled": "Integriert"
+  },
+  "specialists": {
+    "accountTitle": "Factory-Schreibexperten",
+    "accountDescription": "Codex arbeitet für Texte mit Gemini und für Geschichten mit Opus zusammen. Die Experten erhalten nur das für die Aufgabe bereitgestellte Material.",
+    "unavailable": "Nicht verfügbar",
+    "available": "Verfügbar",
+    "signedIn": "Bei Factory angemeldet",
+    "signedOut": "Nicht angemeldet",
+    "loginInstructions": "Öffnen Sie den Link und schließen Sie die Anmeldung ab. Diese Seite wird automatisch aktualisiert.",
+    "openLogin": "Factory-Anmeldung öffnen",
+    "loginFailed": "Die Anmeldung ist fehlgeschlagen oder abgelaufen. Bitte erneut versuchen.",
+    "signIn": "Bei Factory anmelden",
+    "signOut": "Von Factory abmelden",
+    "actionFailed": "Die Anfrage ist fehlgeschlagen. Bitte aktualisieren und erneut versuchen.",
+    "tasksTitle": "Schreibexperten",
+    "revision": "Entwurfsversion",
+    "readDraft": "Entwurf lesen",
+    "noDraft": "Noch kein Entwurfstext vorhanden.",
+    "authRequired": "Melden Sie sich in den Einstellungen bei Factory an und bitten Sie Codex, es erneut zu versuchen.",
+    "taskFailed": "Die Aufgabe konnte nicht abgeschlossen werden. Der Teilentwurf bleibt verfügbar.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Startet",
+      "running": "Schreibt",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "canceled": "Abgebrochen"
+    }
   }
 }

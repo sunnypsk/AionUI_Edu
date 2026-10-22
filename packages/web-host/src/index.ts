@@ -32,6 +32,16 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     opts.enableRuntimeControls && opts.dataDir
       ? await (await import('./runtime/browser/index.js')).createBrowserRuntime({ dataDir: opts.dataDir })
       : undefined;
+  let specialists;
+  try {
+    specialists =
+      opts.enableRuntimeControls && opts.dataDir
+        ? await (await import('./runtime/droid/index.js')).createSpecialistRuntime({ dataDir: opts.dataDir })
+        : undefined;
+  } catch (error) {
+    await browser?.close();
+    throw error;
+  }
 
   // 1. Start backend (M4)
   let backendHandle;
@@ -43,10 +53,10 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
         dataDir: opts.dataDir,
         logDir: opts.logDir,
         dirs: opts.dirs,
-        runtimeEnv: browser?.env,
+        runtimeEnv: { ...browser?.env, ...specialists?.env },
       });
     } catch (error) {
-      await browser?.close();
+      await Promise.allSettled([browser?.close(), specialists?.close()]);
       throw error;
     }
   } else {
@@ -59,6 +69,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     };
   }
   browser?.setBackendPort(backendHandle.port);
+  specialists?.setBackendPort(backendHandle.port);
 
   const controls =
     opts.enableRuntimeControls && opts.dataDir
@@ -76,15 +87,17 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       port: opts.port,
       allowRemote: opts.allowRemote ?? false,
       handleRequest: async (req, res) => {
+        if (await specialists?.handleRequest(req, res)) return true;
         if (await browser?.handleRequest(req, res)) return true;
         return (await controls?.handleRequest(req, res)) ?? false;
       },
+      onBackendResponse: (req, status) => specialists?.onBackendResponse(req, status) ?? Promise.resolve(),
     });
   } catch (err) {
     // If static-server fails, clean up backend
     await backendHandle.stop();
     controls?.close();
-    await browser?.close();
+    await Promise.allSettled([browser?.close(), specialists?.close()]);
     throw err;
   }
 
@@ -98,7 +111,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     lanIP: staticHandle.lanIP,
     async stop() {
       controls?.close();
-      await browser?.close();
+      await Promise.all([browser?.close(), specialists?.close()]);
       await staticHandle.stop();
       await backendHandle.stop();
     },

@@ -246,5 +246,36 @@
     "refresh": "Actualizar versiones",
     "cleanup": "Limpiar versiones antiguas seleccionadas",
     "bundled": "Integrada"
+  },
+  "specialists": {
+    "accountTitle": "Especialistas de escritura Factory",
+    "accountDescription": "Codex colabora con Gemini en textos y con Opus en historias. Los especialistas solo reciben el material proporcionado para la tarea.",
+    "unavailable": "No disponible",
+    "available": "Disponible",
+    "signedIn": "Sesión de Factory iniciada",
+    "signedOut": "Sin sesión iniciada",
+    "loginInstructions": "Abre el enlace y completa el inicio de sesión. Esta página se actualizará automáticamente.",
+    "openLogin": "Abrir inicio de sesión de Factory",
+    "loginFailed": "El inicio de sesión falló o caducó. Inténtalo de nuevo.",
+    "signIn": "Iniciar sesión en Factory",
+    "signOut": "Cerrar sesión en Factory",
+    "actionFailed": "La solicitud falló. Actualiza e inténtalo de nuevo.",
+    "tasksTitle": "Especialistas de escritura",
+    "revision": "Versión del borrador",
+    "readDraft": "Leer borrador",
+    "noDraft": "Todavía no hay texto en el borrador.",
+    "authRequired": "Inicia sesión en Factory desde los ajustes y pide a Codex que lo intente de nuevo.",
+    "taskFailed": "La tarea no pudo completarse. El borrador parcial sigue disponible.",
+    "models": {
+      "argon": "Gemini 4 Argon · low",
+      "opus": "Claude Opus 5.5 · low"
+    },
+    "status": {
+      "initializing": "Iniciando",
+      "running": "Escribiendo",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "canceled": "Cancelado"
+    }
   }
 }

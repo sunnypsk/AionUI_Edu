@@ -4,10 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const fixtures = vi.hoisted(() => ({
+  'edu.factory.account': {
+    available: true,
+    version: '0.245.1',
+    authenticated: true,
+    models: { argon: true, opus: true },
+    login: { state: 'idle' as string, url: undefined as string | undefined },
+  },
   'edu.codex.account': {
     authenticated: true,
     email: 'teacher@example.com',
@@ -97,17 +104,42 @@ vi.mock('swr', async () => {
 });
 
 import AgentModalContent from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent';
+import FactoryAccountPanel from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent/FactoryAccountPanel';
+import { specialistApi } from '@/renderer/services/runtime/specialists';
 
 describe('Codex settings layout', () => {
+  it('shows the official Factory pairing link and cancels a pending login', async () => {
+    const account = fixtures['edu.factory.account'];
+    account.login = { state: 'pending', url: 'https://app.factory.ai/device?code=fixture' };
+    const cancel = vi
+      .spyOn(specialistApi, 'cancelLogin')
+      .mockResolvedValue({ ...account, login: { state: 'cancelled' } });
+    try {
+      render(<FactoryAccountPanel />);
+      expect(screen.getByRole('link', { name: 'codex.specialists.openLogin' }).getAttribute('href')).toBe(
+        account.login.url
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
+      await waitFor(() => expect(cancel).toHaveBeenCalledOnce());
+      expect(screen.queryByText('codex.specialists.signIn')).toBeNull();
+    } finally {
+      account.login = { state: 'idle', url: undefined };
+      cancel.mockRestore();
+    }
+  });
   it('renders every section as a System-settings style card', async () => {
     const { container } = render(<AgentModalContent />);
     await waitFor(() => expect(screen.getByText('codex.settings.title')).toBeTruthy());
     const sections = Array.from(container.querySelectorAll('section[aria-labelledby]')).filter((el) =>
-      ['codex-account-title', 'codex-updates-title', 'codex-settings-title', 'network-proxy-title'].includes(
-        el.getAttribute('aria-labelledby') ?? ''
-      )
+      [
+        'codex-account-title',
+        'factory-account-title',
+        'codex-updates-title',
+        'codex-settings-title',
+        'network-proxy-title',
+      ].includes(el.getAttribute('aria-labelledby') ?? '')
     );
-    expect(sections).toHaveLength(4);
+    expect(sections).toHaveLength(5);
     for (const section of sections) {
       expect(section.className).toContain('bg-2');
       expect(section.className).toContain('rd-16px');

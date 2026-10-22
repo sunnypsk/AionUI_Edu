@@ -63,6 +63,9 @@ vi.mock('@/renderer/hooks/chat/useSendBoxFiles', () => ({
   createSetUploadFile: () => vi.fn(),
 }));
 vi.mock('@/renderer/hooks/chat/useAutoTitle', () => ({ useAutoTitle: () => ({ checkAndUpdateTitle: vi.fn() }) }));
+vi.mock('@/renderer/pages/conversation/platforms/acp/SpecialistTasks/useSpecialists', () => ({
+  useSpecialists: () => ({ tasks: [], running: false, cancel: vi.fn() }),
+}));
 vi.mock('@/renderer/hooks/context/ConversationContext', () => ({ useConversationContextSafe: () => null }));
 vi.mock('@/renderer/hooks/context/LayoutContext', () => ({ useLayoutContext: () => ({ isMobile: false }) }));
 vi.mock('@/renderer/hooks/file/useOpenFileSelector', () => ({
