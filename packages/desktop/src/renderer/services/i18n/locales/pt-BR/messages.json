@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} arquivos",
     "showAll": "Mostrar todos os {{count}} arquivos",
-    "showLess": "Mostrar menos arquivos"
+    "showLess": "Recolher lista",
+    "title": "Arquivos enviados",
+    "showRemaining": "Mostrar mais {{count}} arquivos"
   }
 }

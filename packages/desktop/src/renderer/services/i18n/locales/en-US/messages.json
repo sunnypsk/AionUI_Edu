@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} files",
     "showAll": "Show all {{count}} files",
-    "showLess": "Show fewer files"
+    "showLess": "Collapse list",
+    "title": "Uploaded files",
+    "showRemaining": "Show {{count}} more files"
   }
 }

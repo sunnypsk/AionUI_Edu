@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} 個檔案",
     "showAll": "顯示全部 {{count}} 個檔案",
-    "showLess": "收起檔案"
+    "showLess": "收起清單",
+    "title": "上傳檔案",
+    "showRemaining": "查看其餘 {{count}} 個檔案"
   }
 }

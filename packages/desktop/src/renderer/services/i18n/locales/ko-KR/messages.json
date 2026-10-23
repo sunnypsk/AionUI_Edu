@@ -158,6 +158,8 @@
   "attachments": {
     "count": "파일 {{count}}개",
     "showAll": "파일 {{count}}개 모두 표시",
-    "showLess": "파일 접기"
+    "showLess": "목록 접기",
+    "title": "업로드한 파일",
+    "showRemaining": "나머지 파일 {{count}}개 보기"
   }
 }

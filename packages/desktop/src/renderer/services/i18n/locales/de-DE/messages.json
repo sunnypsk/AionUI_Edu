@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} Dateien",
     "showAll": "Alle {{count}} Dateien anzeigen",
-    "showLess": "Weniger Dateien anzeigen"
+    "showLess": "Liste einklappen",
+    "title": "Hochgeladene Dateien",
+    "showRemaining": "{{count}} weitere Dateien anzeigen"
   }
 }

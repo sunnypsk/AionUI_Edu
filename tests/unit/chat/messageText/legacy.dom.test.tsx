@@ -153,6 +153,9 @@ vi.mock('@arco-design/web-react', async (original) => ({
 vi.mock('@icon-park/react', () => ({
   Copy: () => <span data-testid='copy-icon' />,
   Close: () => null,
+  Paperclip: () => null,
+  Up: () => null,
+  Down: () => null,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -211,6 +214,33 @@ describe('attachment file metadata', () => {
     await screen.findByText('PDF · 128 B');
     await act(async () => finish({ ...fileMetadata('/ws/old.pdf'), size: 2048 }));
     expect(screen.getByText('PDF · 128 B')).toBeVisible();
+  });
+
+  it('keeps document rows informational and hides removal for sent attachments', async () => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockResolvedValue(fileMetadata('/ws/report.pdf'));
+    render(<ActualFilePreview path='/ws/report.pdf' onRemove={vi.fn()} readonly layout='list' />);
+    expect(await screen.findByText('PDF · 128 B')).toBeVisible();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('keeps the existing draft attachment removal control', async () => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockResolvedValue(fileMetadata('/ws/report.pdf'));
+    const remove = vi.fn();
+    render(<ActualFilePreview path='/ws/report.pdf' onRemove={remove} />);
+    await screen.findByText('PDF · 128 B');
+    fireEvent.click(screen.getByRole('button', { name: 'common.remove' }));
+    expect(remove).toHaveBeenCalledOnce();
+  });
+
+  it('still opens the existing image viewer from a list thumbnail', async () => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockResolvedValue(fileMetadata('/ws/photo.png'));
+    vi.mocked(ipcBridge.fs.getImageBase64.invoke).mockResolvedValue('data:image/png;base64,aGVsbG8=');
+    render(<ActualFilePreview path='/ws/photo.png' onRemove={vi.fn()} readonly layout='list' />);
+    const thumbnail = await screen.findByAltText('photo.png');
+    fireEvent.load(thumbnail);
+    fireEvent.click(thumbnail);
+    await waitFor(() => expect(document.querySelector('.arco-image-preview')).toBeInTheDocument());
   });
 });
 
@@ -307,14 +337,40 @@ describe('MessageText attachment paths', () => {
     expect(bubble?.className).toContain('userBubble');
   });
 
-  it('shows six attachments initially and lets the user expand and collapse all nineteen', () => {
+  it('shows three attachments initially and lets the user expand and collapse all nineteen', () => {
     const files = Array.from({ length: 19 }, (_, index) => `uploads/${index}.pdf`);
     renderMessageText('[[AION_FILES]]\n' + files.join('\n'), { position: 'right' });
-    expect(screen.getAllByTestId('file-preview')).toHaveLength(6);
-    fireEvent.click(screen.getByRole('button', { name: 'messages.attachments.showAll' }));
+    expect(screen.getAllByTestId('file-preview')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.attachments.showRemaining' }));
     expect(screen.getAllByTestId('file-preview')).toHaveLength(19);
     fireEvent.click(screen.getByRole('button', { name: 'messages.attachments.showLess' }));
-    expect(screen.getAllByTestId('file-preview')).toHaveLength(6);
+    expect(screen.getAllByTestId('file-preview')).toHaveLength(3);
+  });
+
+  it('puts the instruction before the attachment list', () => {
+    renderMessageText('Read this first\n\n[[AION_FILES]]\nnotes.pdf', { position: 'right' });
+    const text = screen.getByTestId('message-text-content');
+    expect(text.compareDocumentPosition(screen.getByRole('list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([1, 3])('does not offer expansion for %i attachments', (count) => {
+    renderMessageText('[[AION_FILES]]\n' + Array.from({ length: count }, (_, i) => `${i}.pdf`).join('\n'), {
+      position: 'right',
+    });
+    expect(screen.getAllByRole('listitem')).toHaveLength(count);
+    expect(screen.queryByRole('button', { name: 'messages.attachments.showRemaining' })).toBeNull();
+  });
+
+  it('exposes expansion to assistive technology and resets scrolling when collapsed', () => {
+    renderMessageText('[[AION_FILES]]\n1.pdf\n2.pdf\n3.pdf\n4.pdf', { position: 'right' });
+    const toggle = screen.getByRole('button', { name: 'messages.attachments.showRemaining' });
+    const list = screen.getByRole('list');
+    expect(toggle).toHaveAttribute('aria-controls', list.id);
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    list.scrollTop = 200;
+    fireEvent.click(toggle);
+    expect(list.scrollTop).toBe(0);
   });
 
   it('keeps a turn timestamp visible on touch screens without hover', () => {

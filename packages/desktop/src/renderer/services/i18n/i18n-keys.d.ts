@@ -1327,6 +1327,8 @@ export type I18nKey =
   | 'messages.attachments.count'
   | 'messages.attachments.showAll'
   | 'messages.attachments.showLess'
+  | 'messages.attachments.showRemaining'
+  | 'messages.attachments.title'
   | 'messages.auto_handling_permissions'
   | 'messages.availableCommands'
   | 'messages.availableCommands_one'

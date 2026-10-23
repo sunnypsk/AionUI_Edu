@@ -30,11 +30,12 @@ type FilePreviewProps = {
   path: string;
   onRemove: () => void;
   readonly?: boolean;
+  layout?: 'chip' | 'list';
   /** Optional tooltip shown on the chip (e.g. "sent as a file path"). */
   hint?: string;
 };
 
-const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = false, hint }) => {
+const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = false, layout = 'chip', hint }) => {
   // Defensive check: ensure path is a string
   if (typeof path !== 'string') {
     console.error('[FilePreview] Invalid path type:', typeof path, path);
@@ -113,6 +114,38 @@ const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = fa
   };
 
   const withHint = (chip: React.ReactElement) => (hint ? <Tooltip content={hint}>{chip}</Tooltip> : chip);
+
+  if (layout === 'list') {
+    return withHint(
+      <div className='flex items-center gap-12px px-14px py-12px min-w-0'>
+        <div className='w-36px h-36px flex-shrink-0 flex items-center justify-center'>
+          {isImage && imageUrl ? (
+            <Image src={imageUrl} alt={file_name} width={36} height={36} className='object-cover rd-4px' preview />
+          ) : (
+            <img className='w-28px h-32px object-contain' src={fileIcon} alt='' />
+          )}
+        </div>
+        <div className='flex-1 min-w-0 flex flex-col gap-4px'>
+          <span className='text-14px text-t-primary [overflow-wrap:anywhere]' title={file_name}>
+            {file_name}
+          </span>
+          <span className='text-12px text-t-secondary'>
+            {[fileExt, fileSize === null ? '' : formatByteSize(fileSize, i18n.language)].filter(Boolean).join(' · ')}
+          </span>
+        </div>
+        {!readonly && (
+          <Button
+            type='text'
+            size='small'
+            shape='circle'
+            aria-label={t('common.remove')}
+            onClick={handleRemove}
+            icon={<Close size={14} />}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (isImage) {
     return withHint(

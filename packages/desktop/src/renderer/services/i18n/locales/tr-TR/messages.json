@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} dosya",
     "showAll": "{{count}} dosyanın tümünü göster",
-    "showLess": "Daha az dosya göster"
+    "showLess": "Listeyi daralt",
+    "title": "Yüklenen dosyalar",
+    "showRemaining": "{{count}} dosya daha göster"
   }
 }

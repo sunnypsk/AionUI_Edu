@@ -4,28 +4,95 @@
   align-self: flex-end;
 }
 
+.userBubble.uploadBubble {
+  width: 620px;
+  padding: 16px;
+}
+
 .attachments {
+  overflow: hidden;
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  background: var(--bg-1);
+  text-align: start;
+}
+
+:not(:empty) + .attachments {
+  margin-top: 14px;
+}
+
+.attachmentHeader {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-base);
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.attachments > :not(.attachmentToggle) {
-  width: min(240px, 100%);
-  margin-bottom: 0;
+.attachmentCount {
+  padding: 1px 8px;
+  border-radius: 12px;
+  background: var(--bg-3);
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
-.attachments + :not(:empty) {
-  margin-top: 8px;
+.attachmentList > :not(:first-child) {
+  border-top: 1px solid var(--border-base);
+}
+
+.attachmentListExpanded {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+.attachmentListExpanded:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.attachmentFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border-base);
+  background: var(--bg-2);
+}
+
+.attachmentTotal {
+  margin-inline-end: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .attachmentToggle {
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  white-space: normal;
+  height: auto;
 }
 
 @media (max-width: 767px) {
   .userBubble {
     max-width: 92%;
+  }
+
+  .userBubble.uploadBubble {
+    padding: 12px;
+  }
+
+  .attachmentListExpanded {
+    max-height: min(360px, 50dvh);
   }
 }

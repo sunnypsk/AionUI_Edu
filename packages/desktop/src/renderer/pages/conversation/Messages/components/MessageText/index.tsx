@@ -13,9 +13,9 @@ import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useLocalFilePreview } from '@/renderer/pages/conversation/Preview/hooks/useLocalFilePreview';
 import { iconColors } from '@/renderer/styles/colors';
 import { Alert, Button, Message, Tooltip } from '@arco-design/web-react';
-import { Copy } from '@icon-park/react';
+import { Copy, Down, Paperclip, Up } from '@icon-park/react';
 import classNames from 'classnames';
-import React, { lazy, Suspense, useMemo, useState, useSyncExternalStore } from 'react';
+import React, { lazy, Suspense, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import {
   getConversationRuntimeViewSnapshot,
@@ -132,6 +132,8 @@ const MessageText: React.FC<{
   const { t } = useTranslation();
   const [showCopyAlert, setShowCopyAlert] = useState(false);
   const [showAllFiles, setShowAllFiles] = useState(false);
+  const attachmentListId = useId();
+  const attachmentListRef = useRef<HTMLDivElement>(null);
   const isUserMessage = message.position === 'right';
   // Delivered-but-not-yet-consumed marker for messages sent mid-turn to a
   // supporting backend (claude/codex). The message already reached the
@@ -312,13 +314,14 @@ const MessageText: React.FC<{
         <div
           className={classNames('min-w-0 [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px', {
             [styles.userBubble]: isUserMessage,
+            [styles.uploadBubble]: isUserMessage && resolvedFiles.length > 0,
             'bg-aou-2 p-6px md:p-8px': isUserMessage || cronMeta,
             'bg-3 p-6px md:p-8px': isTeammateMessage,
             'w-full': !(isUserMessage || cronMeta || isTeammateMessage),
           })}
           style={{
             ...(isUserMessage || cronMeta
-              ? { borderRadius: '8px 0 8px 8px', color: 'var(--text-primary)' }
+              ? { borderRadius: resolvedFiles.length ? '16px' : '8px 0 8px 8px', color: 'var(--text-primary)' }
               : isTeammateMessage
                 ? {
                     borderRadius: '0 8px 8px 8px',
@@ -327,30 +330,6 @@ const MessageText: React.FC<{
                 : undefined),
           }}
         >
-          {resolvedFiles.length > 0 && (
-            <div
-              className={styles.attachments}
-              role='group'
-              aria-label={t('messages.attachments.count', { count: files.length })}
-            >
-              {resolvedFiles.slice(0, showAllFiles ? undefined : 6).map((path, index) => (
-                <FilePreview key={`${path}-${index}`} path={path} onRemove={() => undefined} readonly />
-              ))}
-              {resolvedFiles.length > 6 && (
-                <Button
-                  type='text'
-                  size='small'
-                  className={styles.attachmentToggle}
-                  aria-expanded={showAllFiles}
-                  onClick={() => setShowAllFiles((value) => !value)}
-                >
-                  {t(showAllFiles ? 'messages.attachments.showLess' : 'messages.attachments.showAll', {
-                    count: files.length,
-                  })}
-                </Button>
-              )}
-            </div>
-          )}
           {/* JSON 内容使用折叠组件 Use CollapsibleContent for JSON content */}
           {shouldRenderPlainText ? (
             <div className='whitespace-pre-wrap [overflow-wrap:anywhere]' data-testid='message-text-content'>
@@ -382,6 +361,58 @@ const MessageText: React.FC<{
                 <MarkdownView codeStyle={CODE_STYLE} onLocalFileLink={handleLocalFileLink}>
                   {data}
                 </MarkdownView>
+              )}
+            </div>
+          )}
+          {resolvedFiles.length > 0 && (
+            <div
+              className={styles.attachments}
+              role='group'
+              aria-label={t('messages.attachments.count', { count: files.length })}
+            >
+              <div className={styles.attachmentHeader}>
+                <Paperclip size={18} aria-hidden />
+                <span>{t('messages.attachments.title')}</span>
+                <span className={styles.attachmentCount}>{files.length}</span>
+              </div>
+              <div
+                id={attachmentListId}
+                ref={attachmentListRef}
+                className={classNames(styles.attachmentList, { [styles.attachmentListExpanded]: showAllFiles })}
+                role='list'
+                aria-label={t('messages.attachments.title')}
+                tabIndex={showAllFiles ? 0 : undefined}
+              >
+                {resolvedFiles.slice(0, showAllFiles ? undefined : 3).map((path, index) => (
+                  <div role='listitem' key={`${path}-${index}`}>
+                    <FilePreview path={path} onRemove={() => undefined} readonly layout='list' />
+                  </div>
+                ))}
+              </div>
+              {resolvedFiles.length > 3 && (
+                <div className={styles.attachmentFooter}>
+                  {showAllFiles && (
+                    <span className={styles.attachmentTotal}>
+                      {t('messages.attachments.count', { count: files.length })}
+                    </span>
+                  )}
+                  <Button
+                    type='text'
+                    size='small'
+                    className={styles.attachmentToggle}
+                    aria-expanded={showAllFiles}
+                    aria-controls={attachmentListId}
+                    onClick={() => {
+                      if (attachmentListRef.current) attachmentListRef.current.scrollTop = 0;
+                      setShowAllFiles((value) => !value);
+                    }}
+                  >
+                    {t(showAllFiles ? 'messages.attachments.showLess' : 'messages.attachments.showRemaining', {
+                      count: files.length - 3,
+                    })}
+                    {showAllFiles ? <Up size={14} aria-hidden /> : <Down size={14} aria-hidden />}
+                  </Button>
+                </div>
               )}
             </div>
           )}

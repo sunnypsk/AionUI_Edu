@@ -158,6 +158,8 @@
   "attachments": {
     "count": "{{count}} فایل",
     "showAll": "نمایش همهٔ {{count}} فایل",
-    "showLess": "نمایش فایل‌های کمتر"
+    "showLess": "جمع کردن فهرست",
+    "title": "فایل‌های بارگذاری‌شده",
+    "showRemaining": "نمایش {{count}} فایل دیگر"
   }
 }

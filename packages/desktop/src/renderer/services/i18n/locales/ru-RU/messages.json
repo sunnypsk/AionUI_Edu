@@ -162,6 +162,8 @@
   "attachments": {
     "count": "Файлов: {{count}}",
     "showAll": "Показать все файлы ({{count}})",
-    "showLess": "Свернуть список файлов"
+    "showLess": "Свернуть список",
+    "title": "Загруженные файлы",
+    "showRemaining": "Показать ещё {{count}} файлов"
   }
 }
