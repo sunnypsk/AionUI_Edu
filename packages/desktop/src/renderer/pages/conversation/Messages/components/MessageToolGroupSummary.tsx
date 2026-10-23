@@ -34,6 +34,54 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   shell: 'messages.toolSummary.names.shell',
   readFile: 'messages.toolSummary.names.readFile',
   browser: 'messages.toolSummary.names.browser',
+  imageGeneration: 'messages.toolSummary.names.generateImage',
+  imageGen: 'messages.toolSummary.names.generateImage',
+  imageView: 'messages.toolSummary.names.viewImage',
+};
+
+const INSPECT_COMMANDS = new Set([
+  'cat',
+  'sed',
+  'head',
+  'tail',
+  'less',
+  'rg',
+  'grep',
+  'ls',
+  'find',
+  'wc',
+  'nl',
+  'file',
+]);
+const SCRIPT_COMMANDS = new Set(['python', 'python3', 'node', 'bun', 'deno', 'uv', 'bash', 'sh']);
+const DOCUMENT_COMMANDS = new Set(['officecli', 'soffice', 'libreoffice', 'pandoc']);
+
+/** Name a shell command by what it does for the teacher, not by its command line. */
+const classifyCommand = (command: string): string => {
+  // Look past `cd dir &&` prefixes and environment assignments to the program that runs.
+  const segment = command.split(/&&|;/).find((part) => !/^\s*cd\s/.test(part)) ?? command;
+  const program = segment
+    .trim()
+    .split(/\s+/)
+    .find((token) => !/^\w+=/.test(token));
+  const name = program?.split('/').pop() ?? '';
+  if (DOCUMENT_COMMANDS.has(name)) return 'messages.toolSummary.names.editDocument';
+  // pdftotext, pdfinfo and similar only read documents.
+  if (INSPECT_COMMANDS.has(name) || name.startsWith('pdf')) return 'messages.toolSummary.names.inspectFiles';
+  if (SCRIPT_COMMANDS.has(name)) return 'messages.toolSummary.names.runScript';
+  return 'messages.toolSummary.names.shell';
+};
+
+/** A plain-language step label; raw commands and tool payloads stay in the expandable detail. */
+export const describeStep = (item: NormalizedToolCall): { labelKey?: string; label?: string; detail?: string } => {
+  if (item.command) return { labelKey: classifyCommand(item.command) };
+  if (item.mcp) {
+    if (item.mcp.server === 'aionui_browser') return { labelKey: 'messages.toolSummary.names.browser' };
+    return { labelKey: 'messages.toolSummary.names.useTool', detail: item.mcp.tool };
+  }
+  const detail = item.description && item.description !== item.name ? item.description : undefined;
+  if (TOOL_DISPLAY_NAMES[item.name]) return { labelKey: TOOL_DISPLAY_NAMES[item.name], detail };
+  return { label: item.name, detail };
 };
 
 const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
@@ -46,6 +94,7 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
   const observationImages = displayItem.imageRole !== 'generated' ? displayItem.images : undefined;
   const hasDetail =
     displayItem.input || displayItem.output || item.truncated || item.imagePath || observationImages?.length;
+  const step = describeStep(displayItem);
   const [messageApi, messageContext] = Message.useMessage();
   const handleDownloadImage = useCallback(
     async (path: string) => {
@@ -98,11 +147,9 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
           onClick={hasDetail ? toggleExpanded : undefined}
         >
           <span className='font-medium text-13px'>
-            {TOOL_DISPLAY_NAMES[displayItem.name] ? t(TOOL_DISPLAY_NAMES[displayItem.name]) : displayItem.name}
+            {step.labelKey ? t(step.labelKey as 'messages.toolSummary.names.shell') : step.label}
           </span>
-          {displayItem.description && displayItem.description !== displayItem.name && (
-            <span className='m-l-4px opacity-80 text-13px'>{displayItem.description}</span>
-          )}
+          {step.detail && <span className='m-l-4px opacity-80 text-13px'>{step.detail}</span>}
         </span>
         {hasDetail && (
           <span className='flex-shrink-0 cursor-pointer hover:color-#4E5969 transition-colors' onClick={toggleExpanded}>

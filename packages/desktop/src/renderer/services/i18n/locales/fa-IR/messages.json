@@ -143,7 +143,13 @@
       "webSearch": "جستجوی وب",
       "shell": "اجرای فرمان",
       "readFile": "خواندن فایل",
-      "browser": "مرور وب"
+      "browser": "مرور وب",
+      "useTool": "استفاده از ابزار",
+      "inspectFiles": "بررسی فایل‌ها",
+      "runScript": "اجرای اسکریپت",
+      "editDocument": "ویرایش سند",
+      "generateImage": "ساخت تصویر",
+      "viewImage": "مشاهده تصویر"
     }
   }
 }

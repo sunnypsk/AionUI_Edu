@@ -8,7 +8,10 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMessageAcpToolCall, IMessageToolCall } from '@/common/chat/chatLib';
-import MessageToolGroupSummary from '@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary';
+import type { NormalizedToolCall } from '@/common/chat/normalizeToolCall';
+import MessageToolGroupSummary, {
+  describeStep,
+} from '@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary';
 import MessageToolCall from '@/renderer/pages/conversation/Messages/components/MessageToolCall';
 
 const mockDownloadFileFromRef = vi.fn().mockResolvedValue(undefined);
@@ -264,7 +267,7 @@ describe('native Codex image output', () => {
     expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
     expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('mcpToolCall'));
+    fireEvent.click(screen.getByText('messages.toolSummary.names.browser'));
     expect(screen.getByRole('img', { name: 'original.png' })).toBeInTheDocument();
     fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
     expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
@@ -298,7 +301,7 @@ describe('native Codex image output', () => {
     message.content.name = 'imageView';
     render(<MessageToolGroupSummary messages={[message]} />);
     fireEvent.click(screen.getByText('messages.toolSummary.viewSteps'));
-    fireEvent.click(screen.getByText('imageView'));
+    fireEvent.click(screen.getByText('messages.toolSummary.names.viewImage'));
     fireEvent.click(screen.getByLabelText('acp.image.download_aria'));
     expect(mockDownloadFileFromRef).toHaveBeenCalledWith(
       { kind: 'local', path: '/owned/original.png' },
@@ -313,5 +316,42 @@ describe('native Codex image output', () => {
     expect(screen.queryByRole('img', { name: 'original.png' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('imageView'));
     expect(screen.getByRole('img', { name: 'original.png' })).toBeInTheDocument();
+  });
+});
+
+const step = (item: Partial<NormalizedToolCall>): NormalizedToolCall => ({
+  key: 'k',
+  name: 'tool',
+  status: 'completed',
+  ...item,
+});
+
+describe('describeStep', () => {
+  it.each([
+    ['cat /data/skills/teaching-design/SKILL.md', 'inspectFiles'],
+    ['pdftotext paper.pdf -', 'inspectFiles'],
+    ['cd /work && python3 build_quiz.py', 'runScript'],
+    ['officecli help docx paragraph | rg -A 4 pageBreak', 'editDocument'],
+    ['LANG=C make docs', 'shell'],
+  ])('labels the command %j by what it does', (command, label) => {
+    expect(describeStep(step({ command }))).toEqual({ labelKey: `messages.toolSummary.names.${label}` });
+  });
+
+  it('names MCP tools without exposing the raw call type', () => {
+    expect(describeStep(step({ name: 'mcpToolCall', mcp: { server: 'docs', tool: 'read_text' } }))).toEqual({
+      labelKey: 'messages.toolSummary.names.useTool',
+      detail: 'read_text',
+    });
+    expect(describeStep(step({ name: 'mcpToolCall', mcp: { server: 'aionui_browser' } }))).toEqual({
+      labelKey: 'messages.toolSummary.names.browser',
+    });
+  });
+
+  it('keeps known tool names with their description and falls back to the raw name', () => {
+    expect(describeStep(step({ name: 'webSearch', description: 'hk weather' }))).toEqual({
+      labelKey: 'messages.toolSummary.names.webSearch',
+      detail: 'hk weather',
+    });
+    expect(describeStep(step({ name: 'custom', description: 'custom' }))).toEqual({ label: 'custom' });
   });
 });

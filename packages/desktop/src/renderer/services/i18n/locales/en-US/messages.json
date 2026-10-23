@@ -143,7 +143,13 @@
       "webSearch": "Web search",
       "shell": "Run command",
       "readFile": "Read file",
-      "browser": "Browse web"
+      "browser": "Browse web",
+      "useTool": "Use tool",
+      "inspectFiles": "Check files",
+      "runScript": "Run script",
+      "editDocument": "Edit document",
+      "generateImage": "Generate image",
+      "viewImage": "View image"
     }
   }
 }

@@ -143,7 +143,13 @@
       "webSearch": "ウェブ検索",
       "shell": "コマンド実行",
       "readFile": "ファイル読み込み",
-      "browser": "ウェブ閲覧"
+      "browser": "ウェブ閲覧",
+      "useTool": "ツールを使用",
+      "inspectFiles": "ファイルを確認",
+      "runScript": "スクリプトを実行",
+      "editDocument": "文書を編集",
+      "generateImage": "画像を生成",
+      "viewImage": "画像を表示"
     }
   }
 }

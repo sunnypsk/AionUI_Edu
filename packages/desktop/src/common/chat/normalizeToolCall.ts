@@ -16,7 +16,14 @@ export interface NormalizedToolCall {
   imagePath?: string;
   images?: Array<{ path: string; mime_type: string }>;
   imageRole?: 'generated' | 'observation';
+  /** Shell command line when the step ran a command, for a plain-language label. */
+  command?: string;
+  /** MCP server and tool when the step called an MCP tool. */
+  mcp?: { server?: string; tool?: string };
 }
+
+const COMMAND_TOOL_NAMES = new Set(['shell', 'Run', 'commandExecution', 'exec_command', 'execute']);
+const asText = (value: unknown): string | undefined => (typeof value === 'string' && value ? value : undefined);
 
 const formatValue = (value: unknown): string => {
   if (typeof value === 'string') return value;
@@ -192,6 +199,7 @@ export function normalizeAcpToolCall(message: IMessageAcpToolCall): NormalizedTo
     description: keyParam || (rawInput?.command as string) || update.kind,
     input,
     output,
+    command: update.kind === 'execute' ? asText(rawInput?.command) : undefined,
     truncated: content?._compact?.truncated === true,
     messageId: message.id,
     conversationId: message.conversation_id,
@@ -219,6 +227,9 @@ function normalizeToolCallStatus(status?: string): NormalizedToolStatus {
 export function normalizeToolCall(message: IMessageToolCall): NormalizedToolCall | undefined {
   const { call_id, name, status, input, output, args, description } = message.content;
   if (!call_id) return undefined;
+  const isCommand = COMMAND_TOOL_NAMES.has(name) || call_id.startsWith('exec-') || input?.type === 'commandExecution';
+  const command = asText(input?.command) ?? (isCommand ? description?.replace(/^Run\s+/, '') : undefined);
+  const isMcp = name === 'mcpToolCall' || input?.type === 'mcpToolCall';
 
   const displayInput = input
     ? formatValue(input)
@@ -233,6 +244,8 @@ export function normalizeToolCall(message: IMessageToolCall): NormalizedToolCall
     description: description || extractQueryText(input) || undefined,
     input: displayInput,
     output,
+    command,
+    mcp: isMcp ? { server: asText(input?.server), tool: asText(input?.tool) } : undefined,
     // Only native generation results belong in chat; screenshots and unknown image tools stay in details.
     imageRole:
       name === 'imageGeneration' || name === 'imageGen' || input?.type === 'imageGeneration'

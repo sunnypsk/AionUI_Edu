@@ -143,7 +143,13 @@
       "webSearch": "웹 검색",
       "shell": "명령 실행",
       "readFile": "파일 읽기",
-      "browser": "웹 탐색"
+      "browser": "웹 탐색",
+      "useTool": "도구 사용",
+      "inspectFiles": "파일 확인",
+      "runScript": "스크립트 실행",
+      "editDocument": "문서 편집",
+      "generateImage": "이미지 생성",
+      "viewImage": "이미지 보기"
     }
   }
 }

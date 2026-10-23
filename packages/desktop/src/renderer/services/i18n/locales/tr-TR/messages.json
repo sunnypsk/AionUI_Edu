@@ -143,7 +143,13 @@
       "webSearch": "Web araması",
       "shell": "Komut çalıştır",
       "readFile": "Dosya oku",
-      "browser": "Web'de gezin"
+      "browser": "Web'de gezin",
+      "useTool": "Araç kullan",
+      "inspectFiles": "Dosyaları kontrol et",
+      "runScript": "Betik çalıştır",
+      "editDocument": "Belgeyi düzenle",
+      "generateImage": "Görsel oluştur",
+      "viewImage": "Görseli görüntüle"
     }
   }
 }

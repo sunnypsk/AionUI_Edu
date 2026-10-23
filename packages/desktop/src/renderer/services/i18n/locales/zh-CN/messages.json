@@ -143,7 +143,13 @@
       "webSearch": "网络搜索",
       "shell": "执行命令",
       "readFile": "读取文件",
-      "browser": "浏览网页"
+      "browser": "浏览网页",
+      "useTool": "使用工具",
+      "inspectFiles": "检查文件",
+      "runScript": "执行脚本",
+      "editDocument": "编辑文档",
+      "generateImage": "生成图片",
+      "viewImage": "查看图片"
     }
   }
 }

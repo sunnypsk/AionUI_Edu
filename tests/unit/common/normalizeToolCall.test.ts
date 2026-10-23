@@ -82,3 +82,36 @@ describe('generated image metadata', () => {
     ).toBeUndefined();
   });
 });
+
+describe('step label metadata', () => {
+  const toolCall = (content: Partial<IMessageToolCall['content']>) =>
+    normalizeToolCall({
+      id: 'message-1',
+      conversation_id: 'conversation-1',
+      type: 'tool_call',
+      content: { call_id: 'call-1', name: 'tool', args: {}, ...content },
+    } as IMessageToolCall);
+
+  it('recovers the command line of a Codex command step from its description', () => {
+    expect(toolCall({ call_id: 'exec-1', name: 'Run', description: 'Run cat notes.md' })?.command).toBe('cat notes.md');
+  });
+
+  it('prefers the structured command input when present', () => {
+    expect(toolCall({ name: 'commandExecution', input: { command: 'python3 build.py' } })?.command).toBe(
+      'python3 build.py'
+    );
+  });
+
+  it('records the server and tool of an MCP call', () => {
+    expect(
+      toolCall({ name: 'mcpToolCall', input: { type: 'mcpToolCall', server: 'docs', tool: 'read_text' } })
+    ).toMatchObject({ command: undefined, mcp: { server: 'docs', tool: 'read_text' } });
+  });
+
+  it('leaves other tools without command or MCP metadata', () => {
+    expect(toolCall({ name: 'webSearch', description: 'weather' })).toMatchObject({
+      command: undefined,
+      mcp: undefined,
+    });
+  });
+});

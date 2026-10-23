@@ -143,7 +143,13 @@
       "webSearch": "網上搜尋",
       "shell": "執行指令",
       "readFile": "讀取檔案",
-      "browser": "瀏覽網頁"
+      "browser": "瀏覽網頁",
+      "useTool": "使用工具",
+      "inspectFiles": "檢查檔案",
+      "runScript": "執行腳本",
+      "editDocument": "編輯文件",
+      "generateImage": "生成圖片",
+      "viewImage": "查看圖片"
     }
   }
 }

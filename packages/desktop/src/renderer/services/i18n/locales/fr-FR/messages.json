@@ -143,7 +143,13 @@
       "webSearch": "Recherche web",
       "shell": "Exécuter une commande",
       "readFile": "Lire un fichier",
-      "browser": "Naviguer sur le web"
+      "browser": "Naviguer sur le web",
+      "useTool": "Utiliser un outil",
+      "inspectFiles": "Vérifier les fichiers",
+      "runScript": "Exécuter un script",
+      "editDocument": "Modifier le document",
+      "generateImage": "Générer une image",
+      "viewImage": "Afficher l’image"
     }
   }
 }
