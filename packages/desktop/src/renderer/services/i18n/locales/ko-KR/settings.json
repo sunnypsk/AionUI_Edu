@@ -1370,5 +1370,22 @@
   "crossSessionMessageResume": "다시 켜기",
   "crossSessionMessageUpdateFailed": "대화 간 메시지 설정 업데이트에 실패했습니다",
   "openuiTitle": "대화형 화면 자동 사용",
-  "openuiDescription": "필요에 따라 AI가 OpenUI 차트, 양식 및 대화형 콘텐츠를 사용합니다."
+  "openuiDescription": "필요에 따라 AI가 OpenUI 차트, 양식 및 대화형 콘텐츠를 사용합니다.",
+  "audioTools": {
+    "title": "오디오 도구",
+    "description": "에이전트가 녹음을 전사하고 내레이션을 만듭니다.",
+    "model": "전사 모델",
+    "modelHelp": "오디오를 지원하는 Vercel 멀티모달 모델을 선택하거나 전체 모델 ID를 입력하세요. 전용 STT 및 스트리밍 모델은 지원하지 않습니다.",
+    "apiKey": "Vercel AI Gateway API 키",
+    "keyConfigured": "키가 저장되어 있습니다. 비워 두면 기존 키를 유지합니다.",
+    "keyMissing": "전사에는 키가 필요합니다. Edge TTS에는 필요하지 않습니다.",
+    "keyPlaceholder": "새 키 입력",
+    "newTasks": "변경 사항은 새 작업에 적용됩니다. 진행 중인 작업 설정은 유지됩니다.",
+    "refresh": "모델 새로고침",
+    "clearKey": "키 삭제",
+    "ttsDescription": "Edge TTS: HiuMaan(여성), WanLung(남성). 속도, 음량, 음높이 및 자막을 지정할 수 있습니다.",
+    "loadFailed": "오디오 설정을 불러올 수 없습니다.",
+    "catalogFailed": "모델을 새로고침할 수 없습니다. 저장된 선택은 유지됩니다.",
+    "saveFailed": "저장할 수 없습니다. 모델 ID를 확인하세요."
+  }
 }

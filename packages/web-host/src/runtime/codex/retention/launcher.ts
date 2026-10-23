@@ -6,6 +6,7 @@ import { createLease } from './leases.js';
 import { isInstallId } from './store.js';
 import { browserCodexLaunch, browserCodexSpawn } from '../../browser/launcher.js';
 import { specialistCodexLaunch } from '../../droid/launcher.js';
+import { audioCodexLaunch } from '../../../audio/launcher.js';
 import { assertStartupHeadroom, readCgroupTasks, startupTaskReserve } from './resources.js';
 export { readCgroupTasks } from './resources.js';
 
@@ -35,8 +36,9 @@ export async function launchCodex(args = process.argv.slice(2), env = process.en
     if (!command) throw new Error('CODEX_BUNDLED_PATH_REQUIRED');
     const browser = browserCodexLaunch(args, { ...env, TOKIO_WORKER_THREADS: env.TOKIO_WORKER_THREADS || '4' });
     const specialists = specialistCodexLaunch(browser.args, browser.env);
-    const executable = browserCodexSpawn(command, { ...browser, ...specialists });
-    const child = spawn(executable.command, executable.args, { env: specialists.env, stdio: 'inherit' });
+    const audio = audioCodexLaunch(specialists.args, specialists.env);
+    const executable = browserCodexSpawn(command, { ...browser, ...specialists, ...audio });
+    const child = spawn(executable.command, executable.args, { env: audio.env, stdio: 'inherit' });
     const handlers = (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map((signal) => {
       const handler = (): void => {
         child.kill(signal);

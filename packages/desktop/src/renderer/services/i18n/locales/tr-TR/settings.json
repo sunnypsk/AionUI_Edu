@@ -1368,5 +1368,22 @@
   "crossSessionMessageResume": "Yeniden aç",
   "crossSessionMessageUpdateFailed": "Sohbetler arası mesaj ayarı güncellenemedi",
   "openuiTitle": "Etkileşimli içeriği otomatik kullan",
-  "openuiDescription": "Yapay zekânın gerektiğinde OpenUI grafikleri, formları ve etkileşimli içerik kullanmasını sağlar."
+  "openuiDescription": "Yapay zekânın gerektiğinde OpenUI grafikleri, formları ve etkileşimli içerik kullanmasını sağlar.",
+  "audioTools": {
+    "title": "Ses araçları",
+    "description": "Aracı kayıtları yazıya dökebilir ve seslendirme oluşturabilir.",
+    "model": "Deşifre modeli",
+    "modelHelp": "Sesi destekleyen çok modlu bir Vercel modeli seçin veya tam model kimliğini girin. Özel STT ve akış modelleri desteklenmez.",
+    "apiKey": "Vercel AI Gateway API anahtarı",
+    "keyConfigured": "Bir anahtar kayıtlı. Korumak için boş bırakın.",
+    "keyMissing": "Deşifre için anahtar gerekir. Edge TTS için gerekmez.",
+    "keyPlaceholder": "Yeni anahtar girin",
+    "newTasks": "Değişiklikler yeni görevlere uygulanır. Etkin görevlerin ayarları korunur.",
+    "refresh": "Modelleri yenile",
+    "clearKey": "Anahtarı sil",
+    "ttsDescription": "Edge TTS: HiuMaan (kadın), WanLung (erkek). Hız, ses seviyesi, perde ve altyazılar ayarlanabilir.",
+    "loadFailed": "Ses ayarları yüklenemedi.",
+    "catalogFailed": "Modeller yenilenemedi. Kayıtlı seçim korundu.",
+    "saveFailed": "Kaydedilemedi. Model kimliğini kontrol edin."
+  }
 }

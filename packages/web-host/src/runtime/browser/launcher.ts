@@ -52,9 +52,9 @@ export function browserCodexLaunch(
 /** Use a Node-owned pipe only for scoped app-server processes; other CLI commands retain their original stdio. */
 export function browserCodexSpawn(
   command: string,
-  launch: ReturnType<typeof browserCodexLaunch> & { specialists?: BrowserMcpConfig }
+  launch: ReturnType<typeof browserCodexLaunch> & { specialists?: BrowserMcpConfig; audio?: BrowserMcpConfig }
 ): { command: string; args: string[] } {
-  if (!launch.browser && !launch.specialists) return { command, args: launch.args };
+  if (!launch.browser && !launch.specialists && !launch.audio) return { command, args: launch.args };
   return {
     command: 'node',
     args: [
@@ -64,6 +64,7 @@ export function browserCodexSpawn(
       JSON.stringify({
         ...(launch.browser ? { aionui_browser: launch.browser } : {}),
         ...(launch.specialists ? { aionui_specialists: launch.specialists } : {}),
+        ...(launch.audio ? { aionui_audio: launch.audio } : {}),
       }),
       command,
       ...launch.args,

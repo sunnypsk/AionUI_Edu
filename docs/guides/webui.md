@@ -47,6 +47,25 @@ Back up the entire data directory, including `droid/tasks.json` and `droid/users
 
 The isolated, no-inference compatibility gate is `bun packages/web-host/src/runtime/droid/smoke.ts`. The shared-browser smoke also checks that native Codex discovers all five specialist tools while preserving other MCP configuration. An actual Factory browser sign-in and small writing requests are still needed to verify account-specific connectors, credential persistence and writing quality after CLI upgrades.
 
+## Audio tools
+
+The conversation-scoped `aionui_audio` MCP server exposes `transcribe_audio` and `synthesize_speech` to Codex. Configure the Vercel API key and multimodal transcription model under **Settings → Tools → Audio tools**. The default is `google/gemini-3.8-flash`. Model candidates come from Vercel's live catalog; audio-capable models are suggested and a full multimodal model ID can be entered manually. Dedicated STT and streaming models are excluded. Unsupported models fail explicitly instead of silently switching models.
+
+Transcription returns SRT unless TXT, VTT or JSON is requested. It preserves spoken Cantonese in Traditional Chinese by default. Long recordings are converted to 24 kHz mono MP3 and processed in five-minute chunks with two-second overlap, at most two requests at once. The host merges chunk offsets and overlapping text. Subtitle times are approximate sentence times, repaired to stay within the recording. Each task snapshots its model and key; later settings changes apply to new tasks only. Usage and costs are recorded when returned by the provider; a failed task may have incurred charges for requests already sent.
+
+Speech uses Edge TTS with HiuMaan (female) or WanLung (male), one voice per MP3. Rate and volume use signed percentages, and pitch uses signed Hz. Optional subtitles come from the same Edge stream, without a transcription request. The client is pinned to `edge-tts==7.3.1`; this is Microsoft's Edge online service accessed through a community client, not the Azure Speech API. No Azure or Vercel key is needed for synthesis.
+
+Both tools accept `action=start|status|wait|cancel`. Start returns a task ID; wait lasts at most 50 seconds and can be repeated without starting another paid request. The agent waits for completion before delivering workspace-relative files through FileCard. Stop and conversation deletion cancel active work. Closing a wait alone does not cancel a task. A host restart marks unfinished tasks as interrupted and never reruns inference automatically. Task metadata and private per-user settings live under `audio/` in the data directory. API keys are not returned by settings reads, included in task records, or supplied to MCP children.
+
+Docker installs FFmpeg/FFprobe and the locked Python dependencies into `/opt/aionui-audio`. For local development, install FFmpeg and create the isolated environment from the repository root:
+
+```bash
+python3 -m venv .cache/audio-tools/venv
+.cache/audio-tools/venv/bin/python -m pip install -r packages/web-host/src/audio/providers/requirements.txt
+```
+
+On Windows use `python` and `.cache/audio-tools/venv/Scripts/python.exe`. `AIONUI_AUDIO_PYTHON`, `AIONUI_FFMPEG` and `AIONUI_FFPROBE` may point to local executables. The Python helper inherits only basic OS, certificate and HTTP proxy variables, not provider credentials. Missing dependencies produce a tool error without preventing the WebUI from starting.
+
 ## Troubleshooting
 
 Check `/healthz`, the host/Core logs and browser DevTools. Startup failures retain their error details in the browser console. Issue reports and diagnostics are no longer uploaded upstream.

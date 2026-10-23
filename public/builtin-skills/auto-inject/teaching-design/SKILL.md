@@ -28,6 +28,9 @@ metadata:
    - 簡報（.pptx）：用 `officecli-pptx` 或 `morph-ppt`
    - 測驗、試卷、工作紙（.docx）：用 `officecli-docx`；需要填寫欄位的表格用 `officecli-word-form`
    - 插圖：用內置的圖像生成
+   - 錄音轉文字／字幕：有 `aionui_audio.transcribe_audio` 時使用；預設交 SRT，老師指定其他格式時照做，保留粵語口語，不改成書面語。模型由「設定 → Tools」選擇。
+   - 旁白／配音／聆聽材料：有 `aionui_audio.synthesize_speech` 時使用；HiuMaan 是女聲，WanLung 是男聲，每檔一個聲音，可調聲速、音量及音高。要同步字幕時用同一次配音的 subtitles，不再做轉錄。
+   - 音訊工具先 `start`，取得 task_id 後用 `wait` 等完成；不要因等候結束而重複 start。完成才用 FileCard 交付工具回傳的檔案。字幕時間為句子級近似值，不承諾精確逐字對齊。
 5. **交付。** 每個檔案用一張 `FileCard` 顯示，路徑用工作區內的相對路徑。答案及評分參考預設另存一個檔案；老師指定合併時照做。
 6. **修改。** 老師要求修改（「改深啲」「第三張改短啲」）時，只改需要改的部分，完成後再顯示新的 `FileCard`。專家寫的內容用 `specialist_reply` 交回原本的任務修改，不要另開新任務，也不要自己改寫。
 

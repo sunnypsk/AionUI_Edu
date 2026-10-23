@@ -1371,5 +1371,22 @@
   "crossSessionMessageResume": "Ativar novamente",
   "crossSessionMessageUpdateFailed": "Falha ao atualizar a configuração de mensagens entre conversas",
   "openuiTitle": "Usar conteúdo interativo automaticamente",
-  "openuiDescription": "Permitir que a IA use gráficos, formulários e conteúdo interativo do OpenUI quando útil."
+  "openuiDescription": "Permitir que a IA use gráficos, formulários e conteúdo interativo do OpenUI quando útil.",
+  "audioTools": {
+    "title": "Ferramentas de áudio",
+    "description": "O agente pode transcrever gravações e criar narrações.",
+    "model": "Modelo de transcrição",
+    "modelHelp": "Escolha um modelo multimodal Vercel compatível com áudio ou digite seu ID completo. Modelos STT dedicados e de streaming não são compatíveis.",
+    "apiKey": "Chave de API do Vercel AI Gateway",
+    "keyConfigured": "Há uma chave salva. Deixe em branco para mantê-la.",
+    "keyMissing": "A transcrição exige uma chave. O Edge TTS não exige.",
+    "keyPlaceholder": "Digite uma nova chave",
+    "newTasks": "As alterações valem para novas tarefas. As tarefas em andamento mantêm suas configurações.",
+    "refresh": "Atualizar modelos",
+    "clearKey": "Limpar chave",
+    "ttsDescription": "Edge TTS: HiuMaan (feminina) e WanLung (masculina). Permite ajustar velocidade, volume, tom e legendas.",
+    "loadFailed": "Não foi possível carregar as configurações de áudio.",
+    "catalogFailed": "Não foi possível atualizar os modelos. A seleção foi mantida.",
+    "saveFailed": "Não foi possível salvar. Verifique o ID do modelo."
+  }
 }

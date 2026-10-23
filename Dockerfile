@@ -27,9 +27,12 @@ FROM node:24-bookworm-slim AS runtime
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=proxy /usr/local/bin/sing-box /usr/local/bin/sing-box
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git bash python3 libicu-dev iproute2 iptables nftables util-linux tini chromium fonts-noto-cjk fonts-noto-color-emoji tzdata \
+    && apt-get install -y --no-install-recommends ca-certificates curl git bash python3 python3-venv ffmpeg libicu-dev iproute2 iptables nftables util-linux tini chromium fonts-noto-cjk fonts-noto-color-emoji tzdata \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+COPY packages/web-host/src/audio/providers/requirements.txt /opt/aionui-audio-requirements.txt
+RUN python3 -m venv /opt/aionui-audio \
+    && /opt/aionui-audio/bin/python -m pip install --no-cache-dir --disable-pip-version-check -r /opt/aionui-audio-requirements.txt
 ARG SOURCE_COMMIT=development
 ARG RELEASE_SEQUENCE=0.0
 ARG TARGETARCH
@@ -52,6 +55,7 @@ COPY --from=builder /app/packages/web-host/package.json ./packages/web-host/pack
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY --from=builder /app/packages/web-host/src ./packages/web-host/src
 COPY --from=builder /app/packages/desktop/src/common/types/platform/cliModels.ts ./packages/desktop/src/common/types/platform/cliModels.ts
+COPY --from=builder /app/packages/desktop/src/common/types/platform/audioTools.ts ./packages/desktop/src/common/types/platform/audioTools.ts
 COPY --from=builder /app/packages/web-host/openui ./packages/web-host/openui
 COPY --from=builder /app/packages/web-host/docker ./packages/web-host/docker
 COPY --from=builder /app/scripts/webui.ts /app/scripts/resetpass.ts ./scripts/

@@ -33,13 +33,18 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       ? await (await import('./runtime/browser/index.js')).createBrowserRuntime({ dataDir: opts.dataDir })
       : undefined;
   let specialists;
+  let audio;
   try {
     specialists =
       opts.enableRuntimeControls && opts.dataDir
         ? await (await import('./runtime/droid/index.js')).createSpecialistRuntime({ dataDir: opts.dataDir })
         : undefined;
+    audio =
+      opts.enableRuntimeControls && opts.dataDir
+        ? await (await import('./audio/index.js')).createAudioRuntime({ dataDir: opts.dataDir })
+        : undefined;
   } catch (error) {
-    await browser?.close();
+    await Promise.allSettled([browser?.close(), specialists?.close(), audio?.close()]);
     throw error;
   }
 
@@ -53,10 +58,10 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
         dataDir: opts.dataDir,
         logDir: opts.logDir,
         dirs: opts.dirs,
-        runtimeEnv: { ...browser?.env, ...specialists?.env },
+        runtimeEnv: { ...browser?.env, ...specialists?.env, ...audio?.env },
       });
     } catch (error) {
-      await Promise.allSettled([browser?.close(), specialists?.close()]);
+      await Promise.allSettled([browser?.close(), specialists?.close(), audio?.close()]);
       throw error;
     }
   } else {
@@ -70,6 +75,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
   }
   browser?.setBackendPort(backendHandle.port);
   specialists?.setBackendPort(backendHandle.port);
+  audio?.setBackendPort(backendHandle.port);
 
   const controls =
     opts.enableRuntimeControls && opts.dataDir
@@ -87,17 +93,20 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       port: opts.port,
       allowRemote: opts.allowRemote ?? false,
       handleRequest: async (req, res) => {
+        if (await audio?.handleRequest(req, res)) return true;
         if (await specialists?.handleRequest(req, res)) return true;
         if (await browser?.handleRequest(req, res)) return true;
         return (await controls?.handleRequest(req, res)) ?? false;
       },
-      onBackendResponse: (req, status) => specialists?.onBackendResponse(req, status) ?? Promise.resolve(),
+      onBackendResponse: async (req, status) => {
+        await Promise.all([specialists?.onBackendResponse(req, status), audio?.onBackendResponse(req, status)]);
+      },
     });
   } catch (err) {
     // If static-server fails, clean up backend
     await backendHandle.stop();
     controls?.close();
-    await Promise.allSettled([browser?.close(), specialists?.close()]);
+    await Promise.allSettled([browser?.close(), specialists?.close(), audio?.close()]);
     throw err;
   }
 
@@ -111,7 +120,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     lanIP: staticHandle.lanIP,
     async stop() {
       controls?.close();
-      await Promise.all([browser?.close(), specialists?.close()]);
+      await Promise.all([browser?.close(), specialists?.close(), audio?.close()]);
       await staticHandle.stop();
       await backendHandle.stop();
     },

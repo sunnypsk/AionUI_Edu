@@ -1370,5 +1370,22 @@
   "crossSessionMessageResume": "重新開啟",
   "crossSessionMessageUpdateFailed": "跨對話訊息設定更新失敗",
   "openuiTitle": "自動使用互動介面",
-  "openuiDescription": "讓 AI 按需要以圖表、表單等互動介面顯示內容。"
+  "openuiDescription": "讓 AI 按需要以圖表、表單等互動介面顯示內容。",
+  "audioTools": {
+    "title": "音訊工具",
+    "description": "讓 agent 轉錄錄音及製作旁白配音。",
+    "model": "轉錄模型",
+    "modelHelp": "選擇支援音訊的 Vercel 多模態模型，或輸入完整 model ID。不支援專用 STT 或串流模型。",
+    "apiKey": "Vercel AI Gateway API key",
+    "keyConfigured": "已儲存 key；留空可保留原有設定。",
+    "keyMissing": "設定 key 後可使用轉錄；Edge TTS 不需要 key。",
+    "keyPlaceholder": "輸入新的 key",
+    "newTasks": "設定只影響新任務；進行中的任務保留原模型及設定。",
+    "refresh": "重新整理模型",
+    "clearKey": "清除 key",
+    "ttsDescription": "Edge TTS 提供 HiuMaan 女聲及 WanLung 男聲；agent 可調整聲速、音量、音高及附加字幕。",
+    "loadFailed": "無法載入音訊設定。",
+    "catalogFailed": "無法更新模型清單，已保留原有選擇。",
+    "saveFailed": "無法儲存，請確認 model ID 後重試。"
+  }
 }

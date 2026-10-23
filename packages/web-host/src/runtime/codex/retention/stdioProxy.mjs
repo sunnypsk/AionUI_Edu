@@ -185,22 +185,25 @@ async function main() {
     parsed.command ? { aionui_browser: parsed } : parsed
   );
   const lifecycle = createSpecialistLifecycle(async (event) => {
-    if (!servers.aionui_specialists) return;
-    const gateway = process.env.AIONUI_SPECIALISTS_GATEWAY;
-    const capability = process.env.AIONUI_SPECIALISTS_CAPABILITY;
-    const token = process.env.AIONUI_RUNTIME_TOKEN;
-    if (!gateway || !capability || !token) throw new Error('SPECIALIST_UNAVAILABLE');
-    const response = await fetch(`${gateway}/lifecycle`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-aionui-specialist-capability': capability,
-        'x-aionui-runtime-token': token,
-      },
-      body: JSON.stringify(event),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) throw new Error('SPECIALIST_UNAVAILABLE');
+    await Promise.all(
+      [
+        ['aionui_specialists', 'AIONUI_SPECIALISTS', 'x-aionui-specialist-capability'],
+        ['aionui_audio', 'AIONUI_AUDIO', 'x-aionui-audio-capability'],
+      ].map(async ([name, prefix, header]) => {
+        if (!servers[name]) return;
+        const gateway = process.env[`${prefix}_GATEWAY`];
+        const capability = process.env[`${prefix}_CAPABILITY`];
+        const token = process.env.AIONUI_RUNTIME_TOKEN;
+        if (!gateway || !capability || !token) throw new Error('SCOPED_TOOL_UNAVAILABLE');
+        const response = await fetch(`${gateway}/lifecycle`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', [header]: capability, 'x-aionui-runtime-token': token },
+          body: JSON.stringify(event),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) throw new Error('SCOPED_TOOL_UNAVAILABLE');
+      })
+    );
   });
   const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'inherit'] });
   const result = new Promise((resolve, reject) => {
@@ -214,8 +217,15 @@ async function main() {
     Object.keys(servers),
     (name, status) => {
       process.stderr.write(
-        JSON.stringify({ event: name === 'aionui_browser' ? 'browser.mcpStartup' : 'specialist.mcpStartup', status }) +
-          '\n'
+        JSON.stringify({
+          event:
+            name === 'aionui_browser'
+              ? 'browser.mcpStartup'
+              : name === 'aionui_audio'
+                ? 'audio.mcpStartup'
+                : 'specialist.mcpStartup',
+          status,
+        }) + '\n'
       );
     },
     lifecycle.output

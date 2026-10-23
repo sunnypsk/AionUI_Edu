@@ -1370,5 +1370,22 @@
   "crossSessionMessageResume": "再度オンにする",
   "crossSessionMessageUpdateFailed": "会話間メッセージ設定の更新に失敗しました",
   "openuiTitle": "対話型コンテンツを自動的に使用",
-  "openuiDescription": "AI が必要に応じて OpenUI のグラフ、フォーム、対話型コンテンツを使用します。"
+  "openuiDescription": "AI が必要に応じて OpenUI のグラフ、フォーム、対話型コンテンツを使用します。",
+  "audioTools": {
+    "title": "音声ツール",
+    "description": "エージェントが録音の文字起こしとナレーションの作成を行います。",
+    "model": "文字起こしモデル",
+    "modelHelp": "音声対応の Vercel マルチモーダルモデルを選ぶか、完全なモデル ID を入力します。専用 STT とストリーミングモデルは対象外です。",
+    "apiKey": "Vercel AI Gateway API キー",
+    "keyConfigured": "キーは保存済みです。空欄で現在のキーを保持します。",
+    "keyMissing": "文字起こしにはキーが必要です。Edge TTS は不要です。",
+    "keyPlaceholder": "新しいキーを入力",
+    "newTasks": "変更は新しいタスクに適用されます。実行中の設定は変わりません。",
+    "refresh": "モデルを更新",
+    "clearKey": "キーを削除",
+    "ttsDescription": "Edge TTS：HiuMaan（女性）と WanLung（男性）。速度、音量、音程、字幕を指定できます。",
+    "loadFailed": "音声設定を読み込めませんでした。",
+    "catalogFailed": "モデルを更新できません。保存済みの選択は保持されます。",
+    "saveFailed": "保存できません。モデル ID を確認してください。"
+  }
 }

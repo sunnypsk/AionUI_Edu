@@ -95,6 +95,8 @@ vi.mock('@/common/adapter/ipcBridge', () => ({
 
 import ToolsModalContent from '@/renderer/components/settings/SettingsModal/contents/ToolsModalContent';
 
+vi.mock('@/renderer/components/settings/SettingsModal/contents/AudioToolsSettings', () => ({ default: () => null }));
+
 describe('ToolsModalContent image model guide', () => {
   beforeEach(() => {
     hooks.modelListWithImage = [];
