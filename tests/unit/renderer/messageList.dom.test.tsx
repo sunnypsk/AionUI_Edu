@@ -84,7 +84,11 @@ vi.mock('@/renderer/pages/conversation/Messages/components/MessageText', () => (
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/components/MessageTips', () => ({
-  default: () => <div>tips</div>,
+  default: ({ message, recovered }: { message: { id: string }; recovered?: boolean }) => (
+    <div data-testid={`tips-${message.id}`} data-recovered={String(Boolean(recovered))}>
+      tips
+    </div>
+  ),
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/components/MessageToolCall', () => ({
@@ -533,6 +537,23 @@ describe('MessageList', () => {
       [artifact('late', 40), artifact('early', 20)]
     );
     expect(ordered.map((item) => item.id)).toEqual(['a', 'early', 'user', 'live', 'late']);
+  });
+
+  it('marks a tip as recovered only when real output follows it', () => {
+    const messages = [
+      { id: 'retry', type: 'tips', position: 'center', content: { content: 'r', type: 'warning' }, created_at: 1 },
+      { id: 'text-a', type: 'text', position: 'left', content: { content: 'a' }, created_at: 2 },
+      { id: 'late-retry', type: 'tips', position: 'center', content: { content: 'r', type: 'warning' }, created_at: 3 },
+      { id: 'failed', type: 'tips', position: 'center', content: { content: 'f', type: 'error' }, created_at: 4 },
+    ] as unknown as IMessageText[];
+
+    render(<MessageList />, {
+      wrapper: ({ children }) => <Wrapper messages={messages}>{children}</Wrapper>,
+    });
+
+    expect(screen.getByTestId('tips-retry')).toHaveAttribute('data-recovered', 'true');
+    expect(screen.getByTestId('tips-late-retry')).toHaveAttribute('data-recovered', 'false');
+    expect(screen.getByTestId('tips-failed')).toHaveAttribute('data-recovered', 'false');
   });
 
   it('renders the empty slot when there are no messages', () => {

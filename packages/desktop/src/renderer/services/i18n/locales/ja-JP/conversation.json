@@ -605,6 +605,11 @@
     "hintWithSessions": "/ でコマンド、@ でファイル、@@ で会話を参照、↑/↓ で履歴"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "接続が不安定です。自動で再試行しています（{{attempts}} 回目）…",
+      "recovered": "接続が一時的に切れましたが、自動で復旧しました。",
+      "fallback": "予備の接続方式に切り替えました。"
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "タスクの完了前にサーバーが再起動しました。既存の結果は保持されています。確認してから続行してください。",

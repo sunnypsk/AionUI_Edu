@@ -606,6 +606,11 @@
     "hintWithSessions": "/ für Befehle, @ für Dateien, @@ für Unterhaltungen, ↑/↓ für Verlauf"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "Die Verbindung ist instabil – automatischer neuer Versuch ({{attempts}}. Versuch)…",
+      "recovered": "Die Verbindung war kurz unterbrochen und wurde automatisch wiederhergestellt.",
+      "fallback": "Auf eine Ersatzverbindung umgeschaltet."
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "Der Server wurde vor Abschluss der Aufgabe neu gestartet. Vorhandene Ergebnisse wurden erhalten. Prüfen Sie diese vor dem Fortsetzen.",

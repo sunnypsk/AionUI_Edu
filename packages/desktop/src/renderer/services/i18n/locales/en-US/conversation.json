@@ -605,6 +605,11 @@
     "hintWithSessions": "Type / for commands, @ for files, @@ for conversations, ↑/↓ for history"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "Connection is unstable — retrying automatically (attempt {{attempts}})…",
+      "recovered": "The connection dropped briefly and recovered automatically.",
+      "fallback": "Switched to a backup connection."
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "The server restarted before this task finished. Existing results were preserved. Review them before continuing.",

@@ -248,6 +248,7 @@ const MessageItem: React.FC<{
   isLastMessage?: boolean;
   hasForkAnchor?: boolean;
   turnTexts?: string[];
+  outputFollows?: boolean;
 }> = React.memo(
   HOC((props) => {
     const { message, highlighted, rowWidthClass } = props as {
@@ -282,6 +283,7 @@ const MessageItem: React.FC<{
       isLastMessage,
       hasForkAnchor,
       turnTexts,
+      outputFollows,
     }: {
       message: TMessage;
       highlighted?: boolean;
@@ -290,6 +292,7 @@ const MessageItem: React.FC<{
       isLastMessage?: boolean;
       hasForkAnchor?: boolean;
       turnTexts?: string[];
+      outputFollows?: boolean;
     }) => {
       const { t } = useTranslation();
       switch (message.type) {
@@ -304,7 +307,7 @@ const MessageItem: React.FC<{
             ></MessageText>
           );
         case 'tips':
-          return <MessageTips message={message}></MessageTips>;
+          return <MessageTips message={message} recovered={outputFollows}></MessageTips>;
         case 'tool_call':
           return <MessageToolCall message={message}></MessageToolCall>;
         case 'tool_group':
@@ -492,6 +495,21 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     });
     return interleaveArtifacts(stableResult, visibleArtifacts);
   }, [artifacts, list]);
+
+  // Tips followed by real output: a connection retry tip there has recovered rather than failed.
+  const tipsWithOutputAfter = useMemo(() => {
+    const ids = new Set<string>();
+    let outputAfter = false;
+    for (let index = processedList.length - 1; index >= 0; index--) {
+      const item = processedList[index];
+      if (item.type === 'tips') {
+        if (outputAfter) ids.add(item.id);
+      } else if (item.type !== 'artifact') {
+        outputAfter = true;
+      }
+    }
+    return ids;
+  }, [processedList]);
 
   useLayoutEffect(() => {
     // Retain only the committed, visible groups; removed conversations/pages
@@ -763,6 +781,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         isLastMessage={message.id === lastMessageId}
         hasForkAnchor={forkAnchoredIds.has(message.id)}
         turnTexts={aiTurnTextsById.get(message.id)}
+        outputFollows={tipsWithOutputAfter.has(message.id)}
       ></MessageItem>
     );
   };

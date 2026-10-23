@@ -606,6 +606,11 @@
     "hintWithSessions": "/ para comandos, @ para archivos, @@ para conversaciones, ↑/↓ para el historial"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "La conexión es inestable: reintentando automáticamente (intento {{attempts}})…",
+      "recovered": "La conexión se interrumpió brevemente y se recuperó automáticamente.",
+      "fallback": "Se cambió a una conexión alternativa."
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "El servidor se reinició antes de finalizar la tarea. Los resultados existentes se conservaron. Revíselos antes de continuar.",

@@ -605,6 +605,11 @@
     "hintWithSessions": "输入 / 唤起命令，@ 引用文件，@@ 引用会话，↑/↓ 切换历史消息"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "连接不稳定，正在自动重试（第 {{attempts}} 次）…",
+      "recovered": "连接曾短暂中断，已自动恢复。",
+      "fallback": "已切换到备用连接方式。"
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "服务器在任务完成前重新启动。已有结果已保留，请先检查再继续。",

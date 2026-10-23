@@ -605,6 +605,11 @@
     "hintWithSessions": "/ pour les commandes, @ pour les fichiers, @@ pour les conversations, ↑/↓ pour l’historique"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "La connexion est instable — nouvelle tentative automatique (tentative {{attempts}})…",
+      "recovered": "La connexion a été brièvement interrompue puis rétablie automatiquement.",
+      "fallback": "Passage à une connexion de secours."
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "Le serveur a redémarré avant la fin de la tâche. Les résultats existants ont été conservés. Vérifiez-les avant de continuer.",

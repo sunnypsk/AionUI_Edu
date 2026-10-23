@@ -62,7 +62,11 @@ const resolveAgentTipBody = (
   });
 };
 
-const MessageTips: React.FC<{ message: IMessageTips }> = ({ message }) => {
+/** Transport retries and fallbacks the agent recovers from on its own. */
+const isConnectionTip = (code: IMessageTips['content']['code'], content: string): boolean =>
+  code === 'CODEX_RETRYING' || /^Falling back from WebSockets/i.test(content);
+
+const MessageTips: React.FC<{ message: IMessageTips; recovered?: boolean }> = ({ message, recovered }) => {
   const { t } = useTranslation();
   const { content, type, code, params } = message.content;
   const structuredError = type === 'error' ? message.content.error : undefined;
@@ -76,6 +80,33 @@ const MessageTips: React.FC<{ message: IMessageTips }> = ({ message }) => {
   const shouldShowButler = type === 'error';
 
   if (hideVersionDrift) return null;
+
+  // Teachers get one plain line; the provider's raw transport text stays under technical details.
+  if (type !== 'error' && isConnectionTip(code, content)) {
+    const summary = recovered
+      ? t('conversation.agentTip.connection.recovered')
+      : code === 'CODEX_RETRYING'
+        ? t('conversation.agentTip.connection.retrying', { attempts: params?.attempts ?? '' })
+        : t('conversation.agentTip.connection.fallback');
+    return (
+      <div className='w-full' data-connection-tip={recovered ? 'recovered' : 'active'}>
+        <div className='flex items-start justify-center gap-4px p-x-12px p-y-4px text-13px text-t-secondary'>
+          {recovered ? icon.info : icon.warning}
+          <div className='min-w-0'>
+            <div>{summary}</div>
+            <Collapse bordered={false} className='bg-transparent'>
+              <Collapse.Item
+                name='technical-details'
+                header={<span className='text-12px text-t-tertiary'>{t('common.technical_details')}</span>}
+              >
+                <div className='whitespace-break-spaces text-12px [word-break:break-word]'>{localizedTipBody}</div>
+              </Collapse.Item>
+            </Collapse>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (structuredError) {
     const errorCode = structuredError.code;

@@ -607,6 +607,11 @@
     "hintWithSessions": "Komutlar için /, dosyalar için @, sohbetler için @@, geçmiş için ↑/↓"
   },
   "agentTip": {
+    "connection": {
+      "retrying": "Bağlantı kararsız — otomatik olarak yeniden deneniyor ({{attempts}}. deneme)…",
+      "recovered": "Bağlantı kısa bir süre koptu ve otomatik olarak düzeldi.",
+      "fallback": "Yedek bağlantıya geçildi."
+    },
     "codes": {
       "TURN_INTERRUPTED_BY_RESTART": {
         "body": "Görev bitmeden sunucu yeniden başladı. Mevcut sonuçlar korundu. Devam etmeden önce inceleyin.",
