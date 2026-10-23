@@ -296,6 +296,43 @@ describe('useAutoScroll', () => {
     expect(result.current.showScrollButton).toBe(true);
   });
 
+  it.each([
+    ['keeps following after a click inside a message shifts the layout', false],
+    ['stops following after a press on the scrollbar moves the view', true],
+  ])('%s', (_name, onScroller) => {
+    const scroller = createScroller({ scrollTop: 600 });
+    const content = createContent();
+    scroller.appendChild(content);
+    const { result } = renderHook(() =>
+      useAutoScroll({
+        messages: [createLeftMessage('hello')],
+        itemCount: 1,
+      })
+    );
+
+    attachElements(result, scroller, content);
+    act(() => {
+      vi.runAllTimers();
+    });
+    vi.mocked(scroller.scrollTo).mockClear();
+
+    act(() => {
+      result.current.handlePointerDown({
+        target: onScroller ? scroller : content,
+        currentTarget: scroller,
+      } as unknown as React.PointerEvent<HTMLDivElement>);
+    });
+    // Inside the programmatic guard window, only real user input marks a manual scroll.
+    fireScroll(result.current.handleScroll, scroller, 560);
+    act(() => {
+      resizeObserverCallback?.([], {} as ResizeObserver);
+      vi.runAllTimers();
+    });
+
+    if (onScroller) expect(scroller.scrollTo).not.toHaveBeenCalled();
+    else expect(scroller.scrollTo).toHaveBeenCalledWith({ top: 600, behavior: 'auto' });
+  });
+
   it('treats wheel-driven user scroll as manual intervention even inside the programmatic guard window', () => {
     const scroller = createScroller({ scrollTop: 600 });
     const content = createContent();

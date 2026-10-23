@@ -13,7 +13,7 @@ import { iconColors } from '@/renderer/styles/colors';
 import { CHAT_MESSAGE_JUMP_EVENT, type ChatMessageJumpDetail } from '@/renderer/utils/chat/chatMinimapEvents';
 import { isHiddenTipMessage } from '@/renderer/utils/chat/hiddenTips';
 import { collectAiCopyRows, type TurnCopyItem } from '@/renderer/utils/chat/turnCopy';
-import { Image } from '@arco-design/web-react';
+import { Button, Image } from '@arco-design/web-react';
 import { Down } from '@icon-park/react';
 import MessageAcpPermission from '@renderer/pages/conversation/Messages/acp/MessageAcpPermission';
 import MessageQuestion from './MessageQuestion';
@@ -814,16 +814,17 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         <>
           {/* Gradient mask */}
           <div className='absolute bottom-0 start-0 end-0 h-100px pointer-events-none' />
-          {/* Scroll button */}
-          <div className='absolute bottom-20px left-50% transform -translate-x-50% z-100'>
-            <div
-              className='flex items-center justify-center w-40px h-40px rd-full bg-base shadow-lg cursor-pointer hover:bg-1 transition-all hover:scale-110 border-1 border-solid border-3'
-              onClick={handleScrollButtonClick}
+          {/* Scroll button: kept at the end edge so it never covers the reading column. */}
+          <div className='absolute bottom-20px end-24px z-100'>
+            <Button
+              shape='circle'
+              size='large'
+              className='!bg-base shadow-lg border-1 border-solid border-3'
+              aria-label={t('messages.scrollToBottom')}
               title={t('messages.scrollToBottom')}
-              style={{ lineHeight: 0 }}
-            >
-              <Down theme='filled' size='20' fill={iconColors.secondary} style={{ display: 'block' }} />
-            </div>
+              onClick={handleScrollButtonClick}
+              icon={<Down theme='filled' size='20' fill={iconColors.secondary} />}
+            />
           </div>
         </>
       )}

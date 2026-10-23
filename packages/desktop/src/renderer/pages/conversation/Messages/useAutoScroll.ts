@@ -35,7 +35,7 @@ interface UseAutoScrollReturn {
   handleContentRef: (ref: HTMLDivElement | null) => void;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   handleWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
-  handlePointerDown: () => void;
+  handlePointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   showScrollButton: boolean;
   scrollToBottom: (behavior?: ScrollBehavior) => void;
   scrollElementIntoView: (element: HTMLElement | null, options?: ScrollElementIntoViewOptions) => void;
@@ -171,8 +171,10 @@ export function useAutoScroll({ messages, itemCount }: UseAutoScrollOptions): Us
     }
   }, []);
 
-  const handlePointerDown = useCallback(() => {
-    userInputActiveRef.current = true;
+  // Only a press on the scroller itself (its scrollbar) signals a manual scroll. A click on a
+  // button inside a message must not, or the layout change it causes would stop auto-follow.
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) userInputActiveRef.current = true;
   }, []);
 
   useEffect(() => {
