@@ -161,5 +161,119 @@
     "showLess": "Réduire la liste",
     "title": "Fichiers importés",
     "showRemaining": "Afficher {{count}} autres fichiers"
+  },
+  "listening": {
+    "edit": "Modifier",
+    "title": "Audio de compréhension orale",
+    "saved": "Enregistré",
+    "loadFailed": "Le projet n'a pas pu être ouvert.",
+    "invalid": "Ce fichier de projet comporte des problèmes à corriger d’abord :",
+    "actions": {
+      "addSection": "Ajouter une section",
+      "addSegment": "Ajouter un élément",
+      "close": "Fermer",
+      "delete": "Supprimer",
+      "deleteSection": "Supprimer la section",
+      "moveDown": "Descendre",
+      "moveUp": "Monter",
+      "previewSection": "Écouter la section",
+      "render": "Créer l'audio",
+      "retry": "Réessayer",
+      "save": "Enregistrer",
+      "stop": "Arrêter"
+    },
+    "conflict": {
+      "content": "Ce projet a été modifié ailleurs (par exemple par l'assistant) après son ouverture.",
+      "overwrite": "Garder mes modifications",
+      "reload": "Charger la dernière version"
+    },
+    "errors": {
+      "blankFields": "Remplissez les répliques vides et les corrections de prononciation avant d'enregistrer.",
+      "dependency": "Les outils audio ne sont pas installés sur le serveur.",
+      "fileNotFound": "Un fichier utilisé par ce projet est introuvable.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer.",
+      "invalid": "Certains champs ne sont pas valides.",
+      "limit": "Trop de tâches audio sont en cours. Attendez qu'une se termine.",
+      "media": "L'audio n'a pas pu être traité.",
+      "model": "Le modèle de transcription de Paramètres → Tools ne prend pas en charge l'audio.",
+      "projectMissing": "Le fichier du projet n'existe plus.",
+      "restarted": "Le serveur a redémarré pendant la création de l'audio. Recréez-le.",
+      "tooLong": "L'audio dépasserait 90 minutes."
+    },
+    "fields": {
+      "chimeEnd": "Signal de fin",
+      "chimeStart": "Signal de début",
+      "clipStart": "De (s)",
+      "clipEnd": "À (s)",
+      "defaultRate": "Vitesse",
+      "defaultVoice": "Voix par défaut",
+      "gapAfter": "Pause après (s)",
+      "gapBetweenPlays": "Pause entre les écoutes (s)",
+      "note": "Note",
+      "plays": "Écoutes",
+      "projectTitle": "Titre",
+      "rateNormal": "Normale",
+      "seconds": "Durée",
+      "secondsSuffix": "s",
+      "sectionLabel": "Nom de la section",
+      "sectionLabelPlaceholder": "Section {{index}}",
+      "speaker": "Locuteur",
+      "text": "Texte prononcé",
+      "voice": "Voix",
+      "voiceDefault": "Voix par défaut"
+    },
+    "lexicon": {
+      "add": "Ajouter une correction",
+      "help": "Le texte de gauche est lu comme celui de droite. Les sous-titres et le script gardent le texte original.",
+      "match": "Écrit",
+      "speak": "Lu comme",
+      "title": "Corrections de prononciation ({{count}})"
+    },
+    "player": {
+      "loadFailed": "L'audio n'a pas pu être chargé.",
+      "pause": "Pause",
+      "play": "Lire"
+    },
+    "qa": {
+      "accept": "Correct",
+      "accepted": "Vérifié",
+      "addLexicon": "Corriger la prononciation",
+      "clean": "Toutes les répliques ont passé la vérification de prononciation.",
+      "heard": "Peut-être mal lu. Entendu : {{text}}",
+      "issues": "{{count}} répliques peut-être mal lues",
+      "issues_one": "{{count}} réplique peut-être mal lue",
+      "issues_other": "{{count}} répliques peut-être mal lues",
+      "skipped": "Vérification de prononciation ignorée. Ajoutez une clé Vercel dans Paramètres → Tools pour l’activer.",
+      "unaccept": "Annuler"
+    },
+    "segment": {
+      "notRendered": "Nouveau",
+      "notRenderedTooltip": "Modifié depuis la dernière création audio"
+    },
+    "status": {
+      "byAssistant": "lancé par l'assistant",
+      "cancelled": "La création de l'audio a été arrêtée.",
+      "completed": "Dernier audio · {{duration}}",
+      "interrupted": "La création de l'audio a été interrompue.",
+      "never": "Aucun audio créé pour l'instant. Modifiez le script, puis choisissez Créer l'audio.",
+      "preview": "Aperçu de la section · {{duration}}",
+      "queued": "En attente de démarrage…",
+      "running": "Création de l'audio… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "Signal sonore",
+      "clip": "Extrait d'enregistrement",
+      "pause": "Pause",
+      "speech": "Parole"
+    },
+    "unsaved": {
+      "content": "Vos modifications n'ont pas été enregistrées.",
+      "discard": "Abandonner les modifications",
+      "title": "Fermer sans enregistrer ?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (féminine)",
+      "WanLung": "WanLung (masculine)"
+    }
   }
 }

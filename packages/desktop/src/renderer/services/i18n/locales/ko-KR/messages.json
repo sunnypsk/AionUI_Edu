@@ -161,5 +161,119 @@
     "showLess": "목록 접기",
     "title": "업로드한 파일",
     "showRemaining": "나머지 파일 {{count}}개 보기"
+  },
+  "listening": {
+    "edit": "편집",
+    "title": "듣기 음원",
+    "saved": "저장됨",
+    "loadFailed": "프로젝트를 열 수 없습니다.",
+    "invalid": "이 프로젝트 파일에 먼저 고쳐야 할 문제가 있습니다:",
+    "actions": {
+      "addSection": "구간 추가",
+      "addSegment": "항목 추가",
+      "close": "닫기",
+      "delete": "삭제",
+      "deleteSection": "구간 삭제",
+      "moveDown": "아래로",
+      "moveUp": "위로",
+      "previewSection": "구간 미리 듣기",
+      "render": "음원 만들기",
+      "retry": "다시 시도",
+      "save": "저장",
+      "stop": "중지"
+    },
+    "conflict": {
+      "content": "프로젝트를 연 뒤 다른 곳(예: 어시스턴트)에서 변경되었습니다.",
+      "overwrite": "내 변경 유지",
+      "reload": "최신 버전 불러오기"
+    },
+    "errors": {
+      "blankFields": "저장하기 전에 빈 문장과 발음 수정을 채워 주세요.",
+      "dependency": "서버에 오디오 도구가 설치되어 있지 않습니다.",
+      "fileNotFound": "이 프로젝트에서 사용하는 파일을 찾을 수 없습니다.",
+      "generic": "문제가 발생했습니다. 다시 시도해 주세요.",
+      "invalid": "일부 항목이 올바르지 않습니다.",
+      "limit": "실행 중인 오디오 작업이 너무 많습니다. 하나가 끝날 때까지 기다려 주세요.",
+      "media": "오디오를 처리할 수 없습니다.",
+      "model": "설정 → Tools의 전사 모델이 오디오를 지원하지 않습니다.",
+      "projectMissing": "프로젝트 파일이 더 이상 없습니다.",
+      "restarted": "음원을 만드는 중 서버가 다시 시작되었습니다. 다시 만들어 주세요.",
+      "tooLong": "음원이 90분을 넘습니다."
+    },
+    "fields": {
+      "chimeEnd": "종료 알림음",
+      "chimeStart": "시작 알림음",
+      "clipStart": "시작(초)",
+      "clipEnd": "끝(초)",
+      "defaultRate": "속도",
+      "defaultVoice": "기본 음성",
+      "gapAfter": "구간 후 쉼(초)",
+      "gapBetweenPlays": "재생 사이 쉼(초)",
+      "note": "메모",
+      "plays": "재생 횟수",
+      "projectTitle": "제목",
+      "rateNormal": "보통",
+      "seconds": "길이",
+      "secondsSuffix": "초",
+      "sectionLabel": "구간 이름",
+      "sectionLabelPlaceholder": "구간 {{index}}",
+      "speaker": "화자",
+      "text": "내용",
+      "voice": "음성",
+      "voiceDefault": "기본 음성"
+    },
+    "lexicon": {
+      "add": "수정 추가",
+      "help": "왼쪽 글자는 오른쪽처럼 읽습니다. 자막과 대본은 원래 글자를 유지합니다.",
+      "match": "표기",
+      "speak": "읽기",
+      "title": "발음 수정 ({{count}})"
+    },
+    "player": {
+      "loadFailed": "오디오를 불러올 수 없습니다.",
+      "pause": "일시 정지",
+      "play": "재생"
+    },
+    "qa": {
+      "accept": "맞음",
+      "accepted": "확인됨",
+      "addLexicon": "발음 수정",
+      "clean": "모든 문장이 발음 검사를 통과했습니다.",
+      "heard": "잘못 읽었을 수 있음. 들린 내용: {{text}}",
+      "issues": "{{count}}개 문장을 잘못 읽었을 수 있음",
+      "issues_one": "{{count}}개 문장을 잘못 읽었을 수 있음",
+      "issues_other": "{{count}}개 문장을 잘못 읽었을 수 있음",
+      "skipped": "발음 검사를 건너뛰었습니다. 설정 → Tools에서 Vercel 키를 추가하면 사용할 수 있습니다.",
+      "unaccept": "되돌리기"
+    },
+    "segment": {
+      "notRendered": "새 항목",
+      "notRenderedTooltip": "마지막으로 음원을 만든 뒤 변경됨"
+    },
+    "status": {
+      "byAssistant": "어시스턴트가 시작함",
+      "cancelled": "음원 만들기를 중지했습니다.",
+      "completed": "최신 음원 · {{duration}}",
+      "interrupted": "음원 만들기가 중단되었습니다.",
+      "never": "아직 만든 음원이 없습니다. 대본을 편집한 뒤 음원 만들기를 선택하세요.",
+      "preview": "구간 미리 듣기 · {{duration}}",
+      "queued": "시작 대기 중…",
+      "running": "음원 만드는 중… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "알림음",
+      "clip": "녹음 구간",
+      "pause": "쉼",
+      "speech": "말하기"
+    },
+    "unsaved": {
+      "content": "변경 사항이 저장되지 않았습니다.",
+      "discard": "변경 취소",
+      "title": "저장하지 않고 닫을까요?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (여성)",
+      "WanLung": "WanLung (남성)"
+    }
   }
 }

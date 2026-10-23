@@ -161,5 +161,119 @@
     "showLess": "Listeyi daralt",
     "title": "Yüklenen dosyalar",
     "showRemaining": "{{count}} dosya daha göster"
+  },
+  "listening": {
+    "edit": "Düzenle",
+    "title": "Dinleme ses kaydı",
+    "saved": "Kaydedildi",
+    "loadFailed": "Proje açılamadı.",
+    "invalid": "Bu proje dosyasında önce düzeltilmesi gereken sorunlar var:",
+    "actions": {
+      "addSection": "Bölüm ekle",
+      "addSegment": "Öğe ekle",
+      "close": "Kapat",
+      "delete": "Sil",
+      "deleteSection": "Bölümü sil",
+      "moveDown": "Aşağı taşı",
+      "moveUp": "Yukarı taşı",
+      "previewSection": "Bölümü dinle",
+      "render": "Ses oluştur",
+      "retry": "Yeniden dene",
+      "save": "Kaydet",
+      "stop": "Durdur"
+    },
+    "conflict": {
+      "content": "Bu proje siz açtıktan sonra başka bir yerde (örneğin asistan tarafından) değiştirildi.",
+      "overwrite": "Değişikliklerimi koru",
+      "reload": "En son sürümü yükle"
+    },
+    "errors": {
+      "blankFields": "Kaydetmeden önce boş satırları ve telaffuz düzeltmelerini doldurun.",
+      "dependency": "Sunucuda ses araçları kurulu değil.",
+      "fileNotFound": "Bu projenin kullandığı bir dosya bulunamadı.",
+      "generic": "Bir sorun oluştu. Lütfen tekrar deneyin.",
+      "invalid": "Bazı alanlar geçerli değil.",
+      "limit": "Çok fazla ses görevi çalışıyor. Birinin bitmesini bekleyin.",
+      "media": "Ses işlenemedi.",
+      "model": "Ayarlar → Tools içindeki döküm modeli sesi desteklemiyor.",
+      "projectMissing": "Proje dosyası artık yok.",
+      "restarted": "Ses oluşturulurken sunucu yeniden başlatıldı. Yeniden oluşturun.",
+      "tooLong": "Ses 90 dakikadan uzun olur."
+    },
+    "fields": {
+      "chimeEnd": "Bitiş sinyali",
+      "chimeStart": "Başlangıç sinyali",
+      "clipStart": "Başlangıç (sn)",
+      "clipEnd": "Bitiş (sn)",
+      "defaultRate": "Hız",
+      "defaultVoice": "Varsayılan ses",
+      "gapAfter": "Sonraki duraklama (sn)",
+      "gapBetweenPlays": "Tekrarlar arası duraklama (sn)",
+      "note": "Not",
+      "plays": "Tekrar sayısı",
+      "projectTitle": "Başlık",
+      "rateNormal": "Normal",
+      "seconds": "Süre",
+      "secondsSuffix": "sn",
+      "sectionLabel": "Bölüm adı",
+      "sectionLabelPlaceholder": "Bölüm {{index}}",
+      "speaker": "Konuşmacı",
+      "text": "Söylenen",
+      "voice": "Ses",
+      "voiceDefault": "Varsayılan ses"
+    },
+    "lexicon": {
+      "add": "Düzeltme ekle",
+      "help": "Soldaki metin sağdaki gibi okunur. Altyazılar ve metin özgün yazımı korur.",
+      "match": "Yazılan",
+      "speak": "Okunuşu",
+      "title": "Telaffuz düzeltmeleri ({{count}})"
+    },
+    "player": {
+      "loadFailed": "Ses yüklenemedi.",
+      "pause": "Duraklat",
+      "play": "Oynat"
+    },
+    "qa": {
+      "accept": "Doğru",
+      "accepted": "Kontrol edildi",
+      "addLexicon": "Telaffuzu düzelt",
+      "clean": "Tüm satırlar telaffuz kontrolünü geçti.",
+      "heard": "Yanlış okunmuş olabilir. Duyulan: {{text}}",
+      "issues": "{{count}} satır yanlış okunmuş olabilir",
+      "issues_one": "{{count}} satır yanlış okunmuş olabilir",
+      "issues_other": "{{count}} satır yanlış okunmuş olabilir",
+      "skipped": "Telaffuz kontrolü atlandı. Etkinleştirmek için Ayarlar → Tools içinde bir Vercel anahtarı ekleyin.",
+      "unaccept": "Geri al"
+    },
+    "segment": {
+      "notRendered": "Yeni",
+      "notRenderedTooltip": "Son ses oluşturulduktan sonra değişti"
+    },
+    "status": {
+      "byAssistant": "asistan başlattı",
+      "cancelled": "Ses oluşturma durduruldu.",
+      "completed": "Son ses · {{duration}}",
+      "interrupted": "Ses oluşturma kesintiye uğradı.",
+      "never": "Henüz ses oluşturulmadı. Metni düzenleyin, ardından Ses oluştur’u seçin.",
+      "preview": "Bölüm önizlemesi · {{duration}}",
+      "queued": "Başlaması bekleniyor…",
+      "running": "Ses oluşturuluyor… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "Sinyal",
+      "clip": "Kayıt parçası",
+      "pause": "Duraklama",
+      "speech": "Konuşma"
+    },
+    "unsaved": {
+      "content": "Değişiklikleriniz kaydedilmedi.",
+      "discard": "Değişiklikleri at",
+      "title": "Kaydetmeden kapatılsın mı?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (kadın)",
+      "WanLung": "WanLung (erkek)"
+    }
   }
 }

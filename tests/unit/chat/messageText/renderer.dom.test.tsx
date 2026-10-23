@@ -9,6 +9,11 @@ import OpenUIMessage, {
 } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI';
 import { SUBMITTED_AT_KEY } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/useSavedState';
 import { emitter } from '@/renderer/utils/emitter';
+import {
+  draft as listeningDraft,
+  formatDuration,
+} from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/draft';
+import type { ListeningProject } from '@/common/types/platform/listeningProject';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
   ...(await original<object>()),
@@ -48,7 +53,8 @@ vi.mock('@/renderer/utils/file/download', () => ({
 }));
 vi.mock('@/renderer/hooks/context/ConversationContext', async (original) => ({
   ...(await original<object>()),
-  useConversationContextSafe: () => (host.workspace ? { workspace: host.workspace } : null),
+  useConversationContextSafe: () =>
+    host.workspace ? { workspace: host.workspace, conversation_id: 'conversation' } : null,
 }));
 vi.mock('@/renderer/hooks/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'teacher' } }) }));
 vi.mock('@/renderer/components/Markdown', () => ({
@@ -586,5 +592,198 @@ describe('SlideOutline', () => {
     display('root = Stack([SlideOutline("outline", [{title: "引入"}])])', true);
     expect(await screen.findByDisplayValue('引入')).toBeDisabled();
     for (const button of within(slides()[0]).getAllByRole('button')) expect(button).toBeDisabled();
+  });
+});
+
+describe('listening draft edits', () => {
+  const base = (): ListeningProject => ({
+    version: 1,
+    title: 't',
+    defaults: { voice: 'HiuMaan', rate: '+0%', volume: '+0%', pitch: '+0Hz' },
+    lexicon: [],
+    sections: [
+      {
+        id: 's1',
+        plays: 1,
+        gapBetweenPlays: 5,
+        gapAfter: 3,
+        segments: [
+          { id: 'a', type: 'speech', text: '一' },
+          { id: 'b', type: 'pause', seconds: 2 },
+        ],
+      },
+    ],
+  });
+  it('adds, reorders and removes segments and sections with unique ids', () => {
+    let project = listeningDraft.addSegment(base(), 's1', 'chime');
+    const added = project.sections[0].segments[2];
+    expect(added).toMatchObject({ type: 'chime', preset: 'start' });
+    expect(added.id).toMatch(/^chime-[\w-]+$/);
+    project = listeningDraft.moveSegment(project, 's1', added.id, -1);
+    expect(project.sections[0].segments.map((item) => item.id)).toEqual(['a', added.id, 'b']);
+    project = listeningDraft.moveSegment(project, 's1', 'a', -1);
+    expect(project.sections[0].segments[0].id).toBe('a');
+    project = listeningDraft.removeSegment(project, 's1', 'b');
+    project = listeningDraft.addSection(project);
+    expect(project.sections).toHaveLength(2);
+    const ids = project.sections.flatMap((section) => [section.id, ...section.segments.map((item) => item.id)]);
+    expect(new Set(ids).size).toBe(ids.length);
+    project = listeningDraft.moveSection(project, project.sections[1].id, -1);
+    expect(project.sections[1].id).toBe('s1');
+    project = listeningDraft.updateSection(project, 's1', { plays: 3 });
+    expect(project.sections[1].plays).toBe(3);
+    expect(listeningDraft.removeSection(project, 's1').sections).toHaveLength(1);
+  });
+  it('formats durations as m:ss', () => {
+    expect(formatDuration(0)).toBe('0:00');
+    expect(formatDuration(75.4)).toBe('1:15');
+    expect(formatDuration(3600)).toBe('60:00');
+  });
+});
+
+describe('listening track files', () => {
+  const project = {
+    version: 1,
+    title: '中三聆聽',
+    defaults: { voice: 'HiuMaan', rate: '+0%', volume: '+0%', pitch: '+0Hz' },
+    lexicon: [],
+    sections: [
+      {
+        id: 'part1',
+        label: '第一段',
+        plays: 2,
+        gapBetweenPlays: 5,
+        gapAfter: 3,
+        segments: [
+          { id: 'a1', type: 'speech', speaker: '男', voice: 'WanLung', text: '請問銀行在哪裏？' },
+          { id: 'p1', type: 'pause', seconds: 10 },
+        ],
+      },
+    ],
+  };
+  const completed = {
+    id: 't1',
+    kind: 'track',
+    status: 'completed',
+    createdAt: 1,
+    updatedAt: 2,
+    completedChunks: 3,
+    totalChunks: 3,
+    durationSeconds: 75,
+    projectPath: 'listening/unit.listening.json',
+    files: [{ path: 'audio/t1/track.mp3', format: 'mp3' }],
+    qaIssues: 1,
+    warnings: [],
+  };
+  const state = (overrides: Record<string, unknown> = {}) => ({
+    path: 'listening/unit.listening.json',
+    revision: 'r1',
+    project,
+    qaThreshold: 0.9,
+    segments: { a1: { key: 'k1', cached: true, qa: { heard: '請問銀航在哪裏', similarity: 0.83, accepted: false } } },
+    tasks: [completed],
+    ...overrides,
+  });
+  const calls = (method: string, route = '') =>
+    transport.request.mock.calls.filter(
+      ([verb, path]) => verb === method && String(path).startsWith('/api/edu/audio/listening' + route)
+    );
+  const open = async () => {
+    display('root = Stack([FileCard("listening/unit.listening.json", "聆聽項目")])');
+    fireEvent.click(
+      await waitFor(() => {
+        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
+        expect(button).not.toBeDisabled();
+        return button;
+      })
+    );
+    return screen.findByDisplayValue('請問銀行在哪裏？');
+  };
+  beforeEach(() => {
+    host.preview = { openBrowserTab: vi.fn() };
+    host.workspace = '/ws';
+    transport.request
+      .mockReset()
+      .mockImplementation(async (method: string, path: string, body?: { project?: unknown }) => {
+        if (!String(path).startsWith('/api/edu/audio/listening')) return {};
+        if (method === 'PUT') return state({ revision: 'r2', project: body?.project });
+        return state();
+      });
+  });
+
+  it('plays audio files inline instead of offering a text preview', async () => {
+    display('root = Stack([FileCard("audio/t1/track.mp3", "聆聽音檔")])');
+    expect(await screen.findByRole('button', { name: 'messages.listening.player.play' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'messages.openui.file.preview' })).toBeNull();
+  });
+
+  it('opens the project editor with sections, segment preview, latest track and QA hints', async () => {
+    await open();
+    expect(calls('GET')[0][1]).toBe(
+      '/api/edu/audio/listening?conversation_id=conversation&path=listening%2Funit.listening.json'
+    );
+    expect(screen.getByDisplayValue('第一段')).toBeTruthy();
+    expect(screen.getByDisplayValue('男')).toBeTruthy();
+    expect(screen.getByText('messages.listening.qa.heard')).toBeTruthy();
+    expect(screen.getByText('messages.listening.status.completed')).toBeTruthy();
+    expect(screen.getByText('messages.listening.qa.issues')).toBeTruthy();
+    // One player for the latest track and one for the cached line.
+    expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(2);
+  });
+
+  it('saves edits against the loaded revision', async () => {
+    const line = await open();
+    fireEvent.change(line, { target: { value: '請問郵局在哪裏？' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    await waitFor(() => expect(calls('PUT')).toHaveLength(1));
+    const [, , body] = calls('PUT')[0] as [string, string, { revision: string; project: typeof project }];
+    expect(body.revision).toBe('r1');
+    expect(body.project.sections[0].segments[0]).toMatchObject({ id: 'a1', text: '請問郵局在哪裏？' });
+    expect(body.project.sections[0].segments[1]).toEqual({ id: 'p1', type: 'pause', seconds: 10 });
+  });
+
+  it('blocks saving blank lines and reports a conflicting save', async () => {
+    const line = await open();
+    fireEvent.change(line, { target: { value: ' ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    expect(calls('PUT')).toHaveLength(0);
+    fireEvent.change(line, { target: { value: '改好了。' } });
+    const { BackendHttpError } = await import('@/common/adapter/httpBridge');
+    transport.request.mockImplementationOnce(async (method: string, path: string) => {
+      throw new BackendHttpError({ method, path, status: 409, body: { error: { code: 'AUDIO_PROJECT_CONFLICT' } } });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    expect(await screen.findByText('messages.listening.conflict.content')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.conflict.overwrite' }));
+    await waitFor(() => expect(calls('PUT')).toHaveLength(2));
+    expect((calls('PUT')[1][2] as { revision: string }).revision).toBe('r1');
+  });
+
+  it('accepts a QA reading and starts a render from the editor', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.qa.accept' }));
+    await waitFor(() => expect(calls('POST', '/qa')).toHaveLength(1));
+    expect(calls('POST', '/qa')[0][2]).toMatchObject({ segment_id: 'a1', accepted: true });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.render' }));
+    await waitFor(() => expect(calls('POST', '/render')).toHaveLength(1));
+    expect(calls('PUT')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.previewSection' }));
+    await waitFor(() => expect(calls('POST', '/render')).toHaveLength(2));
+    expect(calls('POST', '/render')[1][2]).toMatchObject({ only_sections: ['part1'] });
+  });
+
+  it('shows render progress with a stop control, including renders started by the assistant', async () => {
+    const running = { ...completed, id: 't2', status: 'running', completedChunks: 1, totalChunks: 4 };
+    transport.request.mockImplementation(async (_method: string, path: string) =>
+      String(path).startsWith('/api/edu/audio/listening') ? state({ tasks: [running, completed] }) : {}
+    );
+    await open();
+    expect(screen.getByText(/messages\.listening\.status\.running/)).toHaveTextContent(
+      'messages.listening.status.byAssistant'
+    );
+    expect(screen.getByRole('button', { name: 'messages.listening.actions.render' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.stop' }));
+    await waitFor(() => expect(calls('POST', '/cancel')).toHaveLength(1));
+    expect(calls('POST', '/cancel')[0][2]).toMatchObject({ task_id: 't2' });
   });
 });

@@ -161,5 +161,119 @@
     "showLess": "Collapse list",
     "title": "Uploaded files",
     "showRemaining": "Show {{count}} more files"
+  },
+  "listening": {
+    "edit": "Edit",
+    "title": "Listening track",
+    "saved": "Saved",
+    "loadFailed": "The project could not be opened.",
+    "invalid": "This project file has problems that need fixing first:",
+    "actions": {
+      "addSection": "Add section",
+      "addSegment": "Add item",
+      "close": "Close",
+      "delete": "Delete",
+      "deleteSection": "Delete section",
+      "moveDown": "Move down",
+      "moveUp": "Move up",
+      "previewSection": "Preview section",
+      "render": "Create audio",
+      "retry": "Retry",
+      "save": "Save",
+      "stop": "Stop"
+    },
+    "conflict": {
+      "content": "This project was changed elsewhere (for example by the assistant) after you opened it.",
+      "overwrite": "Keep my changes",
+      "reload": "Load latest"
+    },
+    "errors": {
+      "blankFields": "Fill in the empty lines and pronunciation fixes before saving.",
+      "dependency": "Audio tools are not installed on the server.",
+      "fileNotFound": "A file used by this project was not found.",
+      "generic": "Something went wrong. Please try again.",
+      "invalid": "Some fields are not valid.",
+      "limit": "Too many audio tasks are running. Wait for one to finish.",
+      "media": "The audio could not be processed.",
+      "model": "The transcription model in Settings → Tools does not support audio.",
+      "projectMissing": "The project file no longer exists.",
+      "restarted": "The server restarted while creating the audio. Create it again.",
+      "tooLong": "The track would be longer than 90 minutes."
+    },
+    "fields": {
+      "chimeEnd": "End chime",
+      "chimeStart": "Start chime",
+      "clipStart": "From (s)",
+      "clipEnd": "To (s)",
+      "defaultRate": "Speed",
+      "defaultVoice": "Default voice",
+      "gapAfter": "Pause after (s)",
+      "gapBetweenPlays": "Pause between plays (s)",
+      "note": "Note",
+      "plays": "Plays",
+      "projectTitle": "Title",
+      "rateNormal": "Normal",
+      "seconds": "Duration",
+      "secondsSuffix": "s",
+      "sectionLabel": "Section name",
+      "sectionLabelPlaceholder": "Section {{index}}",
+      "speaker": "Speaker",
+      "text": "What is said",
+      "voice": "Voice",
+      "voiceDefault": "Default voice"
+    },
+    "lexicon": {
+      "add": "Add fix",
+      "help": "Text on the left is read aloud as the text on the right. Subtitles and the script keep the original text.",
+      "match": "Written",
+      "speak": "Read as",
+      "title": "Pronunciation fixes ({{count}})"
+    },
+    "player": {
+      "loadFailed": "Audio could not be loaded.",
+      "pause": "Pause",
+      "play": "Play"
+    },
+    "qa": {
+      "accept": "Sounds right",
+      "accepted": "Checked",
+      "addLexicon": "Fix pronunciation",
+      "clean": "All lines passed the pronunciation check.",
+      "heard": "May be misread. Heard: {{text}}",
+      "issues": "{{count}} lines may be misread",
+      "issues_one": "{{count}} line may be misread",
+      "issues_other": "{{count}} lines may be misread",
+      "skipped": "Pronunciation check skipped. Add a Vercel key under Settings → Tools to enable it.",
+      "unaccept": "Undo"
+    },
+    "segment": {
+      "notRendered": "New",
+      "notRenderedTooltip": "Changed since the last audio was created"
+    },
+    "status": {
+      "byAssistant": "started by the assistant",
+      "cancelled": "Audio creation was stopped.",
+      "completed": "Latest audio · {{duration}}",
+      "interrupted": "Audio creation was interrupted.",
+      "never": "No audio has been created yet. Edit the script, then select Create audio.",
+      "preview": "Section preview · {{duration}}",
+      "queued": "Waiting to start…",
+      "running": "Creating audio… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "Chime",
+      "clip": "Recording clip",
+      "pause": "Pause",
+      "speech": "Speech"
+    },
+    "unsaved": {
+      "content": "Your changes have not been saved.",
+      "discard": "Discard changes",
+      "title": "Close without saving?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (female)",
+      "WanLung": "WanLung (male)"
+    }
   }
 }

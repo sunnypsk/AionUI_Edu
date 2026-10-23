@@ -134,6 +134,21 @@ describe('listening track rendering', () => {
     expect(transcribe).toHaveBeenCalledTimes(2);
   });
 
+  it('omits QA readings the teacher accepted', async () => {
+    const transcribe = vi.fn<NonNullable<TrackServices['transcribe']>>(async (source) =>
+      (await readFile(source, 'utf8')).includes('好的') ? '好嘅' : '請重新排隊'
+    );
+    await render(dialogue, { transcribe });
+    const directory = path.join(workspace, ...SEGMENT_CACHE.split('/'));
+    for (const name of (await readdir(directory)).filter((item) => item.endsWith('.qa.json'))) {
+      const record = JSON.parse(await readFile(path.join(directory, name), 'utf8'));
+      await writeFile(path.join(directory, name), JSON.stringify({ ...record, accepted: true }));
+    }
+    const { result, read } = await render(dialogue, { transcribe });
+    expect(result.qaIssues).toBe(0);
+    expect(JSON.parse(await read('qa.json'))).toEqual([]);
+  });
+
   it('keeps rendering when one QA transcription fails', async () => {
     const transcribe = vi.fn<NonNullable<TrackServices['transcribe']>>(async () => {
       throw new Error('AUDIO_PROVIDER_FAILED');

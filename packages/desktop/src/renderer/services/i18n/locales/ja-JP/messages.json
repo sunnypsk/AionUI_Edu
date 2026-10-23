@@ -161,5 +161,119 @@
     "showLess": "リストを折りたたむ",
     "title": "アップロードしたファイル",
     "showRemaining": "残り {{count}} 件を表示"
+  },
+  "listening": {
+    "edit": "編集",
+    "title": "リスニング音声",
+    "saved": "保存しました",
+    "loadFailed": "プロジェクトを開けませんでした。",
+    "invalid": "このプロジェクトファイルには先に修正が必要な問題があります：",
+    "actions": {
+      "addSection": "セクションを追加",
+      "addSegment": "項目を追加",
+      "close": "閉じる",
+      "delete": "削除",
+      "deleteSection": "セクションを削除",
+      "moveDown": "下へ移動",
+      "moveUp": "上へ移動",
+      "previewSection": "セクションを試聴",
+      "render": "音声を作成",
+      "retry": "再試行",
+      "save": "保存",
+      "stop": "停止"
+    },
+    "conflict": {
+      "content": "開いた後に、このプロジェクトが別の場所（アシスタントなど）で変更されました。",
+      "overwrite": "自分の変更を残す",
+      "reload": "最新版を読み込む"
+    },
+    "errors": {
+      "blankFields": "保存する前に空欄のセリフと読み方の修正を入力してください。",
+      "dependency": "サーバーに音声ツールがインストールされていません。",
+      "fileNotFound": "このプロジェクトで使うファイルが見つかりません。",
+      "generic": "エラーが発生しました。もう一度お試しください。",
+      "invalid": "一部の項目が無効です。",
+      "limit": "実行中の音声タスクが多すぎます。いずれかの完了を待ってください。",
+      "media": "音声を処理できませんでした。",
+      "model": "「設定 → Tools」の文字起こしモデルは音声に対応していません。",
+      "projectMissing": "プロジェクトファイルが存在しません。",
+      "restarted": "音声の作成中にサーバーが再起動しました。もう一度作成してください。",
+      "tooLong": "音声が90分を超えます。"
+    },
+    "fields": {
+      "chimeEnd": "終了チャイム",
+      "chimeStart": "開始チャイム",
+      "clipStart": "開始（秒）",
+      "clipEnd": "終了（秒）",
+      "defaultRate": "速さ",
+      "defaultVoice": "既定の声",
+      "gapAfter": "セクション後の間（秒）",
+      "gapBetweenPlays": "再生間の間（秒）",
+      "note": "メモ",
+      "plays": "再生回数",
+      "projectTitle": "タイトル",
+      "rateNormal": "標準",
+      "seconds": "長さ",
+      "secondsSuffix": "秒",
+      "sectionLabel": "セクション名",
+      "sectionLabelPlaceholder": "セクション {{index}}",
+      "speaker": "話者",
+      "text": "内容",
+      "voice": "声",
+      "voiceDefault": "既定の声"
+    },
+    "lexicon": {
+      "add": "修正を追加",
+      "help": "左の文字は右の読み方で読み上げられます。字幕と台本は元の文字のままです。",
+      "match": "表記",
+      "speak": "読み方",
+      "title": "読み方の修正（{{count}}）"
+    },
+    "player": {
+      "loadFailed": "音声を読み込めませんでした。",
+      "pause": "一時停止",
+      "play": "再生"
+    },
+    "qa": {
+      "accept": "正しい",
+      "accepted": "確認済み",
+      "addLexicon": "読み方を修正",
+      "clean": "すべてのセリフが読み方チェックに合格しました。",
+      "heard": "読み間違いの可能性：{{text}} と聞こえます",
+      "issues": "{{count}} 件のセリフが読み間違いの可能性あり",
+      "issues_one": "{{count}} 件のセリフが読み間違いの可能性あり",
+      "issues_other": "{{count}} 件のセリフが読み間違いの可能性あり",
+      "skipped": "読み方チェックは行われていません。「設定 → Tools」で Vercel キーを追加すると有効になります。",
+      "unaccept": "元に戻す"
+    },
+    "segment": {
+      "notRendered": "未作成",
+      "notRenderedTooltip": "前回の音声作成後に変更されました"
+    },
+    "status": {
+      "byAssistant": "アシスタントが開始",
+      "cancelled": "音声の作成を停止しました。",
+      "completed": "最新の音声 · {{duration}}",
+      "interrupted": "音声の作成が中断されました。",
+      "never": "まだ音声はありません。台本を編集して「音声を作成」を選んでください。",
+      "preview": "セクション試聴 · {{duration}}",
+      "queued": "開始待ち…",
+      "running": "音声を作成中… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "チャイム",
+      "clip": "録音クリップ",
+      "pause": "間",
+      "speech": "セリフ"
+    },
+    "unsaved": {
+      "content": "変更は保存されていません。",
+      "discard": "変更を破棄",
+      "title": "保存せずに閉じますか？"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan（女性）",
+      "WanLung": "WanLung（男性）"
+    }
   }
 }

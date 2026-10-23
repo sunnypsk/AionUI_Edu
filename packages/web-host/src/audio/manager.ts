@@ -164,10 +164,43 @@ export class AudioManager {
     }
     return publicTask(task);
   }
+  /** Teacher-started render from the editor: no agent turn is needed, and agent Stop does not cancel it. */
+  async startUserTrack(
+    owner: AudioOwner,
+    input: { project_path: string; only_sections?: string[] }
+  ): Promise<AudioTask> {
+    await this.ready;
+    return this.start(owner, 'render_listening_track', toolSchemas.render_listening_track.parse(input), 'user');
+  }
+  /** Recent track tasks for one project, newest first, for the editor's progress view. */
+  async listTracks(owner: AudioOwner, projectPath: string): Promise<AudioTask[]> {
+    await this.ready;
+    return this.tasks
+      .filter(
+        (task) =>
+          task.kind === 'track' &&
+          task.projectPath === projectPath &&
+          task.owner.userId === owner.userId &&
+          task.owner.conversationId === owner.conversationId &&
+          task.owner.workspace === owner.workspace
+      )
+      .toSorted((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 10)
+      .map(publicTask);
+  }
+  /** Cancel a track task from the editor, whoever started it. */
+  async cancelTrack(owner: AudioOwner, id: string): Promise<AudioTask> {
+    await this.ready;
+    const task = this.find(owner, id);
+    if (task.kind !== 'track') throw new Error('AUDIO_TASK_NOT_FOUND');
+    await this.stop(task, 'cancelled');
+    return publicTask(task);
+  }
   private async start(
     owner: AudioOwner,
     name: AudioToolName,
-    input: TranscribeInput | SpeechInput | TrackInput
+    input: TranscribeInput | SpeechInput | TrackInput,
+    initiator?: 'user'
   ): Promise<AudioTask> {
     if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
     let selection: Awaited<ReturnType<AudioStore['selection']>> | undefined;
@@ -212,7 +245,8 @@ export class AudioManager {
       if (Buffer.byteLength(text) > 600000) throw new Error('AUDIO_TEXT_TOO_LARGE');
     }
     const gate = this.gate(owner);
-    if (!gate.open || this.closed) throw new Error('AUDIO_PARENT_STOPPED');
+    if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
+    if (!initiator && !gate.open) throw new Error('AUDIO_PARENT_STOPPED');
     if (
       this.tasks.filter((task) => task.owner.userId === owner.userId && active(task)).length >= 4 ||
       this.tasks.filter(
@@ -231,7 +265,16 @@ export class AudioManager {
       updatedAt: Date.now(),
       model: selection?.model,
       ...(name === 'synthesize_speech' ? { voice: (input as SpeechInput).voice } : {}),
-      ...(project ? { summary: project.title } : {}),
+      ...(project
+        ? {
+            summary: project.title,
+            projectPath: (input as TrackInput).project_path,
+            ...((input as TrackInput).only_sections?.length
+              ? { previewSections: (input as TrackInput).only_sections }
+              : {}),
+          }
+        : {}),
+      ...(initiator ? { initiator } : {}),
       completedChunks: 0,
       totalChunks: 0,
       files: [],
@@ -421,6 +464,7 @@ export class AudioManager {
     this.work.get(task.id)?.controller.abort();
     await this.persist(task);
   }
+  /** Agent Stop (bounded epoch) spares teacher-started renders; deleting the conversation (no epoch) cancels all. */
   async cancelConversation(conversationId: string, epoch = Number.MAX_SAFE_INTEGER, userId?: string): Promise<void> {
     await this.ready;
     for (const [key, gate] of this.gates)
@@ -436,7 +480,8 @@ export class AudioManager {
           (task) =>
             task.owner.conversationId === conversationId &&
             (!userId || task.owner.userId === userId) &&
-            task.epoch <= epoch
+            task.epoch <= epoch &&
+            (task.initiator !== 'user' || epoch === Number.MAX_SAFE_INTEGER)
         )
         .map((task) => this.stop(task, 'cancelled'))
     );

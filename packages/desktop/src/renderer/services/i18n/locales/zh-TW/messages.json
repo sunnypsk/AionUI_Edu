@@ -161,5 +161,119 @@
     "showLess": "收起清單",
     "title": "上傳檔案",
     "showRemaining": "查看其餘 {{count}} 個檔案"
+  },
+  "listening": {
+    "edit": "編輯",
+    "title": "聆聽音檔",
+    "saved": "已儲存",
+    "loadFailed": "無法開啟此項目。",
+    "invalid": "此項目檔案有以下問題，需要先修正：",
+    "actions": {
+      "addSection": "新增段落",
+      "addSegment": "新增項目",
+      "close": "關閉",
+      "delete": "刪除",
+      "deleteSection": "刪除段落",
+      "moveDown": "下移",
+      "moveUp": "上移",
+      "previewSection": "試聽此段",
+      "render": "製作音檔",
+      "retry": "重試",
+      "save": "儲存",
+      "stop": "停止"
+    },
+    "conflict": {
+      "content": "你開啟此項目後，它在其他地方（例如助手）被修改了。",
+      "overwrite": "保留我的修改",
+      "reload": "載入最新版本"
+    },
+    "errors": {
+      "blankFields": "儲存前請填寫空白的句子及讀音修正。",
+      "dependency": "伺服器未安裝音訊工具。",
+      "fileNotFound": "找不到此項目使用的檔案。",
+      "generic": "發生錯誤，請再試一次。",
+      "invalid": "部分欄位無效。",
+      "limit": "同時進行的音訊工作太多，請等其中一項完成。",
+      "media": "無法處理音訊。",
+      "model": "「設定 → Tools」中的轉錄模型不支援音訊。",
+      "projectMissing": "項目檔案已不存在。",
+      "restarted": "製作音檔期間伺服器重新啟動，請再製作一次。",
+      "tooLong": "音檔會超過 90 分鐘。"
+    },
+    "fields": {
+      "chimeEnd": "結束提示音",
+      "chimeStart": "開始提示音",
+      "clipStart": "由（秒）",
+      "clipEnd": "至（秒）",
+      "defaultRate": "語速",
+      "defaultVoice": "預設聲線",
+      "gapAfter": "段後停頓（秒）",
+      "gapBetweenPlays": "重播前停頓（秒）",
+      "note": "備註",
+      "plays": "播放次數",
+      "projectTitle": "標題",
+      "rateNormal": "正常",
+      "seconds": "長度",
+      "secondsSuffix": "秒",
+      "sectionLabel": "段落名稱",
+      "sectionLabelPlaceholder": "第 {{index}} 段",
+      "speaker": "講者",
+      "text": "內容",
+      "voice": "聲線",
+      "voiceDefault": "預設聲線"
+    },
+    "lexicon": {
+      "add": "新增修正",
+      "help": "左邊的文字會讀成右邊的讀法。字幕及稿件保留原文。",
+      "match": "原文",
+      "speak": "讀成",
+      "title": "讀音修正（{{count}}）"
+    },
+    "player": {
+      "loadFailed": "無法載入音訊。",
+      "pause": "暫停",
+      "play": "播放"
+    },
+    "qa": {
+      "accept": "讀音正確",
+      "accepted": "已確認",
+      "addLexicon": "修正讀音",
+      "clean": "所有句子均通過讀音檢查。",
+      "heard": "可能讀錯，聽到：{{text}}",
+      "issues": "{{count}} 句可能讀錯",
+      "issues_one": "{{count}} 句可能讀錯",
+      "issues_other": "{{count}} 句可能讀錯",
+      "skipped": "未做讀音檢查。在「設定 → Tools」加入 Vercel key 即可啟用。",
+      "unaccept": "復原"
+    },
+    "segment": {
+      "notRendered": "未製作",
+      "notRenderedTooltip": "上次製作音檔後有修改"
+    },
+    "status": {
+      "byAssistant": "由助手開始",
+      "cancelled": "已停止製作音檔。",
+      "completed": "最新音檔 · {{duration}}",
+      "interrupted": "製作音檔被中斷。",
+      "never": "尚未製作音檔。修改稿件後按「製作音檔」。",
+      "preview": "段落試聽 · {{duration}}",
+      "queued": "等待開始…",
+      "running": "製作音檔中… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "提示音",
+      "clip": "錄音片段",
+      "pause": "停頓",
+      "speech": "說話"
+    },
+    "unsaved": {
+      "content": "你的修改尚未儲存。",
+      "discard": "放棄修改",
+      "title": "不儲存就關閉？"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan（女聲）",
+      "WanLung": "WanLung（男聲）"
+    }
   }
 }

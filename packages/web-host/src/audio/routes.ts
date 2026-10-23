@@ -2,6 +2,7 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
+import type { ListeningState } from '../../../desktop/src/common/types/platform/listeningProject.ts';
 import { verifyBrowserCapability } from '../runtime/browser/types.js';
 import { AudioManager } from './manager.js';
 import {
@@ -13,8 +14,9 @@ import {
   type AudioOwner,
   type AudioToolName,
 } from './types.js';
-import { AudioProjectError } from './track/index.js';
+import { AudioProjectError, readProjectState, saveProject, setQaAccepted } from './track/index.js';
 
+const listeningTarget = z.object({ conversation_id: z.string(), path: z.string().min(1).max(4096) });
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 const send = (res: ServerResponse, status: number, value: unknown): void => {
@@ -93,14 +95,50 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
     headers: Record<string, string>
   ): Promise<AudioOwner> => {
     ownerId.parse(userId);
-    ownerId.parse(conversationId);
     const identity = await backend('/api/system/current-user', headers);
     if (identity.id !== userId) throw new Error('UNAUTHORIZED');
+    return conversationOwner(userId, conversationId, headers);
+  };
+  /** Core only returns conversations visible to the authenticated caller, so this also checks ownership. */
+  const conversationOwner = async (
+    userId: string,
+    conversationId: string,
+    headers: Record<string, string>
+  ): Promise<AudioOwner> => {
+    ownerId.parse(conversationId);
     const conversation = await backend(`/api/conversations/${encodeURIComponent(conversationId)}`, headers);
     const workspace = record(conversation.extra).workspace;
     if (conversation.id !== conversationId || typeof workspace !== 'string' || !path.isAbsolute(workspace))
       throw new Error('AUDIO_FILE_FORBIDDEN');
     return { userId, conversationId, workspace };
+  };
+  /** Teacher-facing listening editor API; every response carries the refreshed project state. */
+  const listening = async (
+    req: IncomingMessage,
+    url: URL,
+    userId: string,
+    headers: Record<string, string>
+  ): Promise<ListeningState> => {
+    const route = url.pathname.slice('/api/edu/audio/listening'.length);
+    const input = req.method === 'GET' ? Object.fromEntries(url.searchParams) : record(await body(req));
+    const target = listeningTarget.parse({ conversation_id: input.conversation_id, path: input.path });
+    const context = await conversationOwner(userId, target.conversation_id, headers);
+    if (route === '' && req.method === 'PUT') {
+      const p = z.object({ project: z.unknown(), revision: z.string().max(64) }).parse(input);
+      await saveProject(context.workspace, target.path, p.project, p.revision);
+    } else if (route === '/render' && req.method === 'POST') {
+      const p = z.object({ only_sections: z.array(z.string()).max(100).optional() }).parse(input);
+      await manager.startUserTrack(context, { project_path: target.path, only_sections: p.only_sections });
+    } else if (route === '/cancel' && req.method === 'POST')
+      await manager.cancelTrack(context, z.object({ task_id: z.string().uuid() }).parse(input).task_id);
+    else if (route === '/qa' && req.method === 'POST') {
+      const p = z.object({ segment_id: z.string().max(64), accepted: z.boolean() }).parse(input);
+      await setQaAccepted(context.workspace, target.path, p.segment_id, p.accepted);
+    } else if (route !== '' || req.method !== 'GET') throw new Error('INVALID_REQUEST');
+    return {
+      ...(await readProjectState(context.workspace, target.path)),
+      tasks: (await manager.listTracks(context, target.path)).map(agentTask),
+    };
   };
   const failure = (res: ServerResponse, error: unknown): void => {
     const code = error instanceof z.ZodError ? 'INVALID_REQUEST' : audioError(error);
@@ -211,6 +249,8 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
           send(res, 200, { data: await manager.store.saveSettings(userId, value) });
         } else if (url.pathname === '/api/edu/audio/models' && req.method === 'GET')
           send(res, 200, { data: await manager.catalog.get(url.searchParams.get('refresh') === '1') });
+        else if (url.pathname.startsWith('/api/edu/audio/listening'))
+          send(res, 200, { data: await listening(req, url, userId, headers) });
         else throw new Error('INVALID_REQUEST');
       } catch (error) {
         failure(res, error);

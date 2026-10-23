@@ -323,6 +323,46 @@ describe('listening track tasks', () => {
     expect(transcribe.mock.calls[0][0].source).not.toContain(owner.workspace);
   });
 
+  it('lets the teacher render without an agent turn and keeps it through agent Stop', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const slow = new AudioManager(directory, {
+      catalog: { resolve: async (id) => ({ id, name: id, audioInput: true, parameters: [], reasoning: [] }) },
+      media: { probe: async () => 2, chunk: vi.fn() },
+      speak: async (options) => {
+        await Promise.race([held, new Promise((_, reject) => options.signal.addEventListener('abort', reject))]);
+        await writeFile(options.output, options.text!);
+        return { segments: [] };
+      },
+      trackMedia: {
+        probe: async () => 2,
+        silence: async (file) => writeFile(file, 'silence'),
+        tone: async (file) => writeFile(file, 'tone'),
+        decode: async (_source, file) => writeFile(file, 'pcm'),
+        assemble: async (_pieces, file) => writeFile(file, 'track'),
+      },
+    });
+    await slow.ready;
+    const project = 'listening/unit.listening.json';
+    try {
+      await writeProject([{ id: 'a', segments: [{ id: 's', type: 'speech', text: '請排隊。' }] }]);
+      const started = await slow.startUserTrack(owner, { project_path: project });
+      expect(started).toMatchObject({ initiator: 'user', projectPath: project });
+      // Agent Stop passes a bounded epoch; the teacher's render keeps running.
+      await slow.cancelConversation(owner.conversationId, await slow.epoch(owner.conversationId));
+      expect((await slow.listTracks(owner, project))[0]).toMatchObject({ id: started.id, status: 'running' });
+      // Deleting the conversation cancels everything.
+      await slow.cancelConversation(owner.conversationId);
+      expect((await slow.listTracks(owner, project))[0]).toMatchObject({ id: started.id, status: 'cancelled' });
+      expect(await slow.listTracks({ ...owner, userId: 'bob' }, project)).toEqual([]);
+    } finally {
+      release();
+      await slow.close();
+    }
+  });
+
   it('rejects invalid projects with actionable details', async () => {
     await expect(manager.command(owner, 'render_listening_track', {}, new AbortController().signal)).rejects.toThrow(
       'INVALID_REQUEST'

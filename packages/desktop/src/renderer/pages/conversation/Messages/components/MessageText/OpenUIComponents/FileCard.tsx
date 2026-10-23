@@ -1,6 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from '@arco-design/web-react';
-import { Download, FileExcel, FilePdf, FilePpt, FileText, FileWord, Pic, PreviewOpen } from '@icon-park/react';
+import {
+  Download,
+  Edit,
+  FileExcel,
+  FileMusic,
+  FilePdf,
+  FilePpt,
+  FileText,
+  FileWord,
+  Pic,
+  PreviewOpen,
+} from '@icon-park/react';
 import { useIsStreaming, type ComponentRenderer } from '@openuidev/react-lang';
 import { useTranslation } from 'react-i18next';
 import { joinPath } from '@/common/chat/chatLib';
@@ -12,9 +23,15 @@ import { usePreviewLauncher } from '@/renderer/hooks/file/usePreviewLauncher';
 import { useOptionalPreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { getContentTypeByExtension } from '@/renderer/pages/conversation/Preview/fileUtils';
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
+import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
 import { previewErrorToI18nKey, type PreviewErrorKind } from '@/renderer/utils/previewError';
 import styles from './OpenUIComponents.module.css';
 import { useFileDownload } from './FileDownloads';
+import { AudioPlayer } from './AudioPlayer';
+import { ListeningEditorDrawer } from './ListeningEditor';
+
+const AUDIO_EXTENSIONS = /\.(?:mp3|wav|m4a|ogg)$/i;
+const LISTENING_PROJECT = /\.listening\.json$/i;
 
 /**
  * Return a `/`-separated workspace-relative path, or null for anything that could leave the
@@ -76,7 +93,10 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
   const [problem, setProblem] = useState<string | null>(null);
   const path = normalizeWorkspacePath(props.path ?? '');
   const name = path?.split('/').pop() ?? props.path;
-  const Icon = (path && ICONS[getContentTypeByExtension(path)]) || FileText;
+  const audio = !!path && AUDIO_EXTENSIONS.test(path);
+  const listening = !!path && LISTENING_PROJECT.test(path);
+  const [editing, setEditing] = useState(false);
+  const Icon = audio ? FileMusic : (path && ICONS[getContentTypeByExtension(path)]) || FileText;
   const disabled = streaming || !workspace;
   useFileDownload(path, !disabled);
   const status = !path ? 'messages.openui.file.invalidPath' : !workspace ? 'messages.openui.file.unavailable' : problem;
@@ -105,12 +125,23 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
       </div>
       {path && (
         <div className={styles.fileActions}>
-          {preview && <PreviewButton path={path} disabled={disabled} onError={reportPreview} />}
+          {listening && (
+            <Button size='small' type='primary' icon={<Edit />} disabled={disabled} onClick={() => setEditing(true)}>
+              {t('messages.listening.edit')}
+            </Button>
+          )}
+          {preview && !audio && !listening && <PreviewButton path={path} disabled={disabled} onError={reportPreview} />}
           <Button size='small' icon={<Download />} disabled={disabled} onClick={() => void download()}>
             {t('messages.openui.file.download')}
           </Button>
         </div>
       )}
+      {audio && workspace && !streaming && (
+        <div className={styles.fileAudio}>
+          <AudioPlayer url={buildFileStreamUrl(localFileRef(joinPath(workspace, path!)))} />
+        </div>
+      )}
+      {listening && path && <ListeningEditorDrawer path={path} visible={editing} onClose={() => setEditing(false)} />}
     </div>
   );
 };

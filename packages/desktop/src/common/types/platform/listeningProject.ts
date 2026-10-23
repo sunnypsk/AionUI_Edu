@@ -1,6 +1,6 @@
 /** Browser-safe listening track project contract shared by the host renderer and future editors. */
 import { z } from 'zod';
-import { AUDIO_VOICES, HERTZ_OFFSET, PERCENT_OFFSET } from './audioTools.ts';
+import { AUDIO_VOICES, HERTZ_OFFSET, PERCENT_OFFSET, type AudioTaskView } from './audioTools.ts';
 
 export const LISTENING_LIMITS = {
   SEGMENTS: 500,
@@ -120,3 +120,20 @@ export type ListeningTimelineEntry = {
 export type ListeningTimeline = { durationSeconds: number; entries: ListeningTimelineEntry[] };
 /** A speech segment whose re-transcription does not closely match its script text. */
 export type ListeningQaIssue = { segmentId: string; expected: string; heard: string; similarity: number };
+/** Editor view of one speech segment's cache and QA state; keys change whenever text or voice settings change. */
+export type ListeningSegmentState = {
+  key: string;
+  cached: boolean;
+  qa?: { heard: string; similarity: number; accepted: boolean };
+};
+/** Everything the listening editor needs for one project file. `revision` guards concurrent saves. */
+export type ListeningState = {
+  path: string;
+  revision: string;
+  project?: ListeningProject;
+  /** Validation messages when the file on disk is not a valid project. */
+  details?: string[];
+  segments: Record<string, ListeningSegmentState>;
+  qaThreshold: number;
+  tasks: AudioTaskView[];
+};

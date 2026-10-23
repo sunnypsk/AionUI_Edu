@@ -35,6 +35,30 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.audioPlayer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.audioPlayerCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.audioSlider {
+  flex: 1;
+  min-width: 80px;
+}
+.audioTime {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.fileAudio {
+  grid-column: 1 / -1;
+}
 .fileDownloads {
   display: flex;
   flex-wrap: wrap;

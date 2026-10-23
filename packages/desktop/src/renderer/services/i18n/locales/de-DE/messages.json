@@ -161,5 +161,119 @@
     "showLess": "Liste einklappen",
     "title": "Hochgeladene Dateien",
     "showRemaining": "{{count}} weitere Dateien anzeigen"
+  },
+  "listening": {
+    "edit": "Bearbeiten",
+    "title": "Hörverstehen-Audio",
+    "saved": "Gespeichert",
+    "loadFailed": "Das Projekt konnte nicht geöffnet werden.",
+    "invalid": "Diese Projektdatei hat Probleme, die zuerst behoben werden müssen:",
+    "actions": {
+      "addSection": "Abschnitt hinzufügen",
+      "addSegment": "Element hinzufügen",
+      "close": "Schließen",
+      "delete": "Löschen",
+      "deleteSection": "Abschnitt löschen",
+      "moveDown": "Nach unten",
+      "moveUp": "Nach oben",
+      "previewSection": "Abschnitt anhören",
+      "render": "Audio erstellen",
+      "retry": "Erneut versuchen",
+      "save": "Speichern",
+      "stop": "Stoppen"
+    },
+    "conflict": {
+      "content": "Dieses Projekt wurde nach dem Öffnen an anderer Stelle geändert (zum Beispiel vom Assistenten).",
+      "overwrite": "Meine Änderungen behalten",
+      "reload": "Neueste Version laden"
+    },
+    "errors": {
+      "blankFields": "Fülle vor dem Speichern leere Zeilen und Aussprachekorrekturen aus.",
+      "dependency": "Die Audio-Werkzeuge sind auf dem Server nicht installiert.",
+      "fileNotFound": "Eine Datei dieses Projekts wurde nicht gefunden.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "invalid": "Einige Felder sind ungültig.",
+      "limit": "Es laufen zu viele Audioaufgaben. Warte, bis eine fertig ist.",
+      "media": "Das Audio konnte nicht verarbeitet werden.",
+      "model": "Das Transkriptionsmodell unter Einstellungen → Tools unterstützt kein Audio.",
+      "projectMissing": "Die Projektdatei existiert nicht mehr.",
+      "restarted": "Der Server wurde beim Erstellen neu gestartet. Erstelle das Audio erneut.",
+      "tooLong": "Das Audio wäre länger als 90 Minuten."
+    },
+    "fields": {
+      "chimeEnd": "Schlusston",
+      "chimeStart": "Startton",
+      "clipStart": "Von (s)",
+      "clipEnd": "Bis (s)",
+      "defaultRate": "Tempo",
+      "defaultVoice": "Standardstimme",
+      "gapAfter": "Pause danach (s)",
+      "gapBetweenPlays": "Pause zwischen Wiedergaben (s)",
+      "note": "Notiz",
+      "plays": "Wiedergaben",
+      "projectTitle": "Titel",
+      "rateNormal": "Normal",
+      "seconds": "Dauer",
+      "secondsSuffix": "s",
+      "sectionLabel": "Abschnittsname",
+      "sectionLabelPlaceholder": "Abschnitt {{index}}",
+      "speaker": "Sprecher",
+      "text": "Gesprochener Text",
+      "voice": "Stimme",
+      "voiceDefault": "Standardstimme"
+    },
+    "lexicon": {
+      "add": "Korrektur hinzufügen",
+      "help": "Text links wird wie der Text rechts vorgelesen. Untertitel und Skript behalten den Originaltext.",
+      "match": "Geschrieben",
+      "speak": "Gesprochen als",
+      "title": "Aussprachekorrekturen ({{count}})"
+    },
+    "player": {
+      "loadFailed": "Audio konnte nicht geladen werden.",
+      "pause": "Pause",
+      "play": "Abspielen"
+    },
+    "qa": {
+      "accept": "Klingt richtig",
+      "accepted": "Geprüft",
+      "addLexicon": "Aussprache korrigieren",
+      "clean": "Alle Zeilen haben die Ausspracheprüfung bestanden.",
+      "heard": "Möglicherweise falsch gelesen. Gehört: {{text}}",
+      "issues": "{{count}} Zeilen möglicherweise falsch gelesen",
+      "issues_one": "{{count}} Zeile möglicherweise falsch gelesen",
+      "issues_other": "{{count}} Zeilen möglicherweise falsch gelesen",
+      "skipped": "Ausspracheprüfung übersprungen. Füge unter Einstellungen → Tools einen Vercel-Schlüssel hinzu.",
+      "unaccept": "Rückgängig"
+    },
+    "segment": {
+      "notRendered": "Neu",
+      "notRenderedTooltip": "Seit dem letzten Audio geändert"
+    },
+    "status": {
+      "byAssistant": "vom Assistenten gestartet",
+      "cancelled": "Die Audioerstellung wurde gestoppt.",
+      "completed": "Neuestes Audio · {{duration}}",
+      "interrupted": "Die Audioerstellung wurde unterbrochen.",
+      "never": "Noch kein Audio erstellt. Bearbeite das Skript und wähle dann „Audio erstellen“.",
+      "preview": "Abschnittsvorschau · {{duration}}",
+      "queued": "Wartet auf Start…",
+      "running": "Audio wird erstellt… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "Signalton",
+      "clip": "Aufnahmeausschnitt",
+      "pause": "Pause",
+      "speech": "Sprache"
+    },
+    "unsaved": {
+      "content": "Deine Änderungen wurden nicht gespeichert.",
+      "discard": "Änderungen verwerfen",
+      "title": "Ohne Speichern schließen?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (weiblich)",
+      "WanLung": "WanLung (männlich)"
+    }
   }
 }

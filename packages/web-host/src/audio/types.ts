@@ -9,9 +9,10 @@ export type {
   AudioSegment,
   AudioUsage,
   AudioTask,
+  AudioTaskView,
   AudioVoice,
 } from '../../../desktop/src/common/types/platform/audioTools.js';
-import type { AudioTask } from '../../../desktop/src/common/types/platform/audioTools.js';
+import type { AudioTask, AudioTaskView } from '../../../desktop/src/common/types/platform/audioTools.js';
 import { AUDIO_VOICES, HERTZ_OFFSET, PERCENT_OFFSET } from '../../../desktop/src/common/types/platform/audioTools.ts';
 
 export const ownerId = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/);
@@ -89,7 +90,7 @@ export function publicTask(task: StoredAudioTask): AudioTask {
   return structuredClone(value);
 }
 /** Agent-facing task view: usage and cost stay host-side so they never reach teachers through chat. */
-export function agentTask(task: AudioTask): Omit<AudioTask, 'usage' | 'costUsd'> {
+export function agentTask(task: AudioTask): AudioTaskView {
   const { usage: _usage, costUsd: _costUsd, ...value } = task;
   return { ...value, warnings: value.warnings.filter((warning) => warning !== 'AUDIO_COST_INCOMPLETE') };
 }

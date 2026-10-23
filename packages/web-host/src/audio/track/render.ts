@@ -21,7 +21,7 @@ import {
   type PlanItem,
   type SpeechRequest,
 } from './project.js';
-import { QA_THRESHOLD, speechSimilarity } from './verify.js';
+import { QA_THRESHOLD, qaRecordSchema, speechSimilarity } from './verify.js';
 
 export const SEGMENT_CACHE = 'listening/.segments';
 export type TrackServices = {
@@ -44,7 +44,6 @@ export type TrackResult = { files: string[]; durationSeconds: number; qaIssues: 
 const boundariesSchema = z
   .array(z.object({ text: z.string(), startSecond: z.number().finite(), endSecond: z.number().finite() }))
   .max(20000);
-const qaSchema = z.object({ heard: z.string() });
 
 /** Run `task` over `items` with at most `limit` in flight, failing fast on the first error. */
 async function pool<T>(
@@ -96,7 +95,7 @@ class SegmentCache {
   }
 }
 
-type Speech = { request: SpeechRequest; file: string; boundaries: AudioSegment[]; heard?: string };
+type Speech = { request: SpeechRequest; file: string; boundaries: AudioSegment[]; heard?: string; accepted?: boolean };
 
 async function synthesizeAll(
   options: TrackOptions,
@@ -149,8 +148,8 @@ async function verifyAll(
     return;
   }
   await pool([...speeches.values()], 2, options.signal, async (speech) => {
-    const cached = await cache.json(`${speech.request.key}.qa.json`, qaSchema);
-    if (cached) speech.heard = cached.heard;
+    const cached = await cache.json(`${speech.request.key}.qa.json`, qaRecordSchema);
+    if (cached) Object.assign(speech, { heard: cached.heard, accepted: cached.accepted });
     else
       try {
         const directory = path.join(options.directory, `qa-${speech.request.key}`);
@@ -277,8 +276,9 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
     for (const item of plan) {
       if (item.kind !== 'speech' || checked.has(item.segmentId)) continue;
       checked.add(item.segmentId);
-      const heard = speeches.get(item.request.key)!.heard;
-      if (heard === undefined) continue;
+      const { heard, accepted } = speeches.get(item.request.key)!;
+      // A teacher-accepted reading stays accepted until the spoken text or voice changes the cache key.
+      if (heard === undefined || accepted) continue;
       const score = speechSimilarity(item.original, item.request.text, heard);
       if (score < QA_THRESHOLD)
         issues.push({ segmentId: item.segmentId, expected: item.original, heard, similarity: score });

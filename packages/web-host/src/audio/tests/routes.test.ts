@@ -111,6 +111,41 @@ describe('audio settings authentication and CSRF', () => {
       error: { code: 'AUDIO_TASK_NOT_FOUND' },
     });
   });
+  it('serves the listening editor with CSRF-protected saves and revision checks', async () => {
+    await mkdir(path.join(directory, 'workspace', 'listening'));
+    const project = { version: 1, title: '單元二', sections: [{ id: 'a', segments: [{ id: 'p', type: 'chime' }] }] };
+    await writeFile(path.join(directory, 'workspace', 'listening', 'unit.listening.json'), JSON.stringify(project));
+    const target = { conversation_id: 'lesson', path: 'listening/unit.listening.json' };
+    const loaded = await fetch(`${url}/api/edu/audio/listening?${new URLSearchParams(target)}`, {
+      headers: { cookie: 'session=alice' },
+    });
+    const state = ((await loaded.json()) as { data: { revision: string; project: { title: string }; tasks: [] } }).data;
+    expect(state).toMatchObject({ project: { title: '單元二' }, tasks: [] });
+    const put = (csrf: string, revision: string) =>
+      fetch(`${url}/api/edu/audio/listening`, {
+        method: 'PUT',
+        headers: {
+          cookie: 'session=alice; aionui-csrf-token=token',
+          'x-csrf-token': csrf,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ ...target, revision, project: { ...project, title: '單元三' } }),
+      });
+    expect((await put('stale', state.revision)).status).toBe(403);
+    const saved = await put('token', state.revision);
+    expect(await saved.json()).toMatchObject({ data: { project: { title: '單元三' } } });
+    expect(await (await put('token', state.revision)).json()).toEqual({ error: { code: 'AUDIO_PROJECT_CONFLICT' } });
+    expect(
+      (
+        await fetch(
+          `${url}/api/edu/audio/listening?${new URLSearchParams({ ...target, path: '../x.listening.json' })}`,
+          {
+            headers: { cookie: 'session=alice' },
+          }
+        )
+      ).status
+    ).toBe(403);
+  });
   it('returns listening project validation details to the agent', async () => {
     await writeFile(path.join(directory, 'workspace', 'unit.listening.json'), JSON.stringify({ version: 1 }));
     const response = await fetch(`${runtime.env.AIONUI_AUDIO_GATEWAY}/command`, {

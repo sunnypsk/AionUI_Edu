@@ -17,32 +17,45 @@ export class AudioProjectError extends Error {
   }
 }
 
-/** Read and validate a workspace project file without following symlinks out of the workspace. */
-export async function loadProject(workspace: string, projectPath: string): Promise<ListeningProject> {
+/** Read a workspace project file as UTF-8 without following symlinks out of the workspace. */
+export async function readProjectText(workspace: string, projectPath: string): Promise<{ file: string; text: string }> {
   const file = await workspaceFile(workspace, projectPath);
   const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  let text: string;
   try {
     if ((await handle.stat()).size > LISTENING_LIMITS.PROJECT_BYTES) throw new Error('AUDIO_PROJECT_TOO_LARGE');
-    text = new TextDecoder('utf-8', { fatal: true }).decode(await handle.readFile());
+    return { file, text: new TextDecoder('utf-8', { fatal: true }).decode(await handle.readFile()) };
   } catch (error) {
     if (error instanceof Error && error.message === 'AUDIO_PROJECT_TOO_LARGE') throw error;
     throw new AudioProjectError(['file is not UTF-8 text']);
   } finally {
     await handle.close();
   }
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch (error) {
-    throw new AudioProjectError([`invalid JSON: ${(error as Error).message.slice(0, 200)}`]);
-  }
+}
+
+/** Validate an already-decoded project value, reporting up to 20 field-level problems. */
+export function parseProject(value: unknown): ListeningProject {
   const parsed = listeningProjectSchema.safeParse(value);
   if (!parsed.success)
     throw new AudioProjectError(
       parsed.error.issues.slice(0, 20).map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
     );
   return parsed.data;
+}
+
+/** Parse project JSON text. */
+export function parseProjectText(text: string): ListeningProject {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    throw new AudioProjectError([`invalid JSON: ${(error as Error).message.slice(0, 200)}`]);
+  }
+  return parseProject(value);
+}
+
+/** Read and validate a workspace project file. */
+export async function loadProject(workspace: string, projectPath: string): Promise<ListeningProject> {
+  return parseProjectText((await readProjectText(workspace, projectPath)).text);
 }
 
 /** Apply pronunciation fixes, longest match first so overlapping entries stay predictable. */
@@ -82,7 +95,11 @@ export function speechKey(request: Omit<SpeechRequest, 'key'>): string {
     .slice(0, 32);
 }
 
-function speech(project: ListeningProject, segment: Extract<ListeningSegment, { type: 'speech' }>): SpeechRequest {
+/** Resolve a speech segment's effective voice settings and lexicon-applied text. */
+export function speechRequest(
+  project: ListeningProject,
+  segment: Extract<ListeningSegment, { type: 'speech' }>
+): SpeechRequest {
   const value = {
     text: applyLexicon(segment.text, project.lexicon),
     voice: segment.voice ?? project.defaults.voice,
@@ -112,7 +129,7 @@ export function planTrack(project: ListeningProject, onlySections?: string[]): P
       for (const segment of section.segments) {
         const base = { sectionId: section.id, segmentId: segment.id, play };
         if (segment.type === 'speech')
-          items.push({ kind: 'speech', ...base, original: segment.text, request: speech(project, segment) });
+          items.push({ kind: 'speech', ...base, original: segment.text, request: speechRequest(project, segment) });
         else if (segment.type === 'pause') items.push({ kind: 'silence', ...base, seconds: segment.seconds });
         else if (segment.type === 'chime') items.push({ kind: 'tone', ...base, preset: segment.preset });
         else items.push({ kind: 'clip', ...base, path: segment.path, start: segment.start, end: segment.end });

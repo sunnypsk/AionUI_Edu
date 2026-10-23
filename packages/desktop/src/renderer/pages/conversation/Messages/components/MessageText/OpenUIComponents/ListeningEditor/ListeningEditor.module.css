@@ -1,0 +1,162 @@
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.details {
+  margin-top: 4px;
+  white-space: pre-line;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.renderPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.renderProgress {
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.renderResult {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.resultTitle {
+  font-weight: 600;
+}
+.qaWarning {
+  color: var(--warning);
+}
+.qaClean {
+  color: var(--success);
+}
+.qaMuted {
+  color: var(--text-secondary);
+}
+.projectSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.defaultSelect {
+  min-width: 200px;
+}
+.lexicon {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lexiconRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.lexiconArrow {
+  color: var(--text-secondary);
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sectionLabel {
+  flex: 1;
+  font-weight: 600;
+}
+.sectionSettings {
+  color: var(--text-secondary);
+}
+.sectionNumber {
+  width: 200px;
+}
+.segment {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-base);
+}
+.segmentType {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-top: 2px;
+}
+.segmentBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.segmentActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.speechFields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.speakerInput {
+  width: 140px;
+}
+.voiceSelect {
+  min-width: 160px;
+}
+.secondsInput {
+  width: 140px;
+}
+.clipPath {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.qaIssue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color-warning-light-1);
+  color: var(--warning);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .segment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .segmentType {
+    flex-direction: row;
+  }
+  .renderProgress {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

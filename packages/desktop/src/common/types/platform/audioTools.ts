@@ -24,6 +24,8 @@ export type AudioUsage = {
   costUsd?: number;
   generationId?: string;
 };
+/** Task as shown to agents and teachers: usage and cost stay host-side. */
+export type AudioTaskView = Omit<AudioTask, 'usage' | 'costUsd'>;
 export type AudioTask = {
   id: string;
   kind: 'transcription' | 'speech' | 'track';
@@ -36,6 +38,12 @@ export type AudioTask = {
   totalChunks: number;
   durationSeconds?: number;
   summary?: string;
+  /** Workspace-relative listening project rendered by a track task. */
+  projectPath?: string;
+  /** Section ids when a track task rendered only part of the project as a preview. */
+  previewSections?: string[];
+  /** `user` when the teacher started the task from the editor rather than the agent. */
+  initiator?: 'user';
   files: { path: string; format: string }[];
   usage: AudioUsage[];
   costUsd?: number;

@@ -1,3 +1,9 @@
+import { z } from 'zod';
+
+/** Cached QA transcript of one synthesized segment; `accepted` records a teacher's sign-off. */
+export const qaRecordSchema = z.object({ heard: z.string(), accepted: z.boolean().optional() });
+export type QaRecord = z.infer<typeof qaRecordSchema>;
+
 /** Compare what the TTS output sounds like against the script, ignoring punctuation, spacing and width. */
 export const QA_THRESHOLD = 0.9;
 const compact = (text: string): string[] => [...text.normalize('NFKC').replace(/[\p{P}\p{S}\p{Z}\s]/gu, '')];

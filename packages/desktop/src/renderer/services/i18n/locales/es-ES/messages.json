@@ -161,5 +161,119 @@
     "showLess": "Contraer lista",
     "title": "Archivos subidos",
     "showRemaining": "Ver {{count}} archivos más"
+  },
+  "listening": {
+    "edit": "Editar",
+    "title": "Audio de comprensión auditiva",
+    "saved": "Guardado",
+    "loadFailed": "No se pudo abrir el proyecto.",
+    "invalid": "Este archivo de proyecto tiene problemas que hay que corregir primero:",
+    "actions": {
+      "addSection": "Añadir sección",
+      "addSegment": "Añadir elemento",
+      "close": "Cerrar",
+      "delete": "Eliminar",
+      "deleteSection": "Eliminar sección",
+      "moveDown": "Bajar",
+      "moveUp": "Subir",
+      "previewSection": "Escuchar sección",
+      "render": "Crear audio",
+      "retry": "Reintentar",
+      "save": "Guardar",
+      "stop": "Detener"
+    },
+    "conflict": {
+      "content": "Este proyecto se modificó en otro lugar (por ejemplo, el asistente) después de abrirlo.",
+      "overwrite": "Conservar mis cambios",
+      "reload": "Cargar la última versión"
+    },
+    "errors": {
+      "blankFields": "Rellena las frases vacías y las correcciones de pronunciación antes de guardar.",
+      "dependency": "Las herramientas de audio no están instaladas en el servidor.",
+      "fileNotFound": "No se encontró un archivo usado por este proyecto.",
+      "generic": "Algo salió mal. Inténtalo de nuevo.",
+      "invalid": "Algunos campos no son válidos.",
+      "limit": "Hay demasiadas tareas de audio en curso. Espera a que termine una.",
+      "media": "No se pudo procesar el audio.",
+      "model": "El modelo de transcripción de Ajustes → Tools no admite audio.",
+      "projectMissing": "El archivo del proyecto ya no existe.",
+      "restarted": "El servidor se reinició mientras se creaba el audio. Créalo de nuevo.",
+      "tooLong": "El audio superaría los 90 minutos."
+    },
+    "fields": {
+      "chimeEnd": "Tono final",
+      "chimeStart": "Tono inicial",
+      "clipStart": "Desde (s)",
+      "clipEnd": "Hasta (s)",
+      "defaultRate": "Velocidad",
+      "defaultVoice": "Voz predeterminada",
+      "gapAfter": "Pausa después (s)",
+      "gapBetweenPlays": "Pausa entre reproducciones (s)",
+      "note": "Nota",
+      "plays": "Reproducciones",
+      "projectTitle": "Título",
+      "rateNormal": "Normal",
+      "seconds": "Duración",
+      "secondsSuffix": "s",
+      "sectionLabel": "Nombre de la sección",
+      "sectionLabelPlaceholder": "Sección {{index}}",
+      "speaker": "Hablante",
+      "text": "Lo que se dice",
+      "voice": "Voz",
+      "voiceDefault": "Voz predeterminada"
+    },
+    "lexicon": {
+      "add": "Añadir corrección",
+      "help": "El texto de la izquierda se lee como el de la derecha. Los subtítulos y el guion conservan el texto original.",
+      "match": "Escrito",
+      "speak": "Se lee",
+      "title": "Correcciones de pronunciación ({{count}})"
+    },
+    "player": {
+      "loadFailed": "No se pudo cargar el audio.",
+      "pause": "Pausa",
+      "play": "Reproducir"
+    },
+    "qa": {
+      "accept": "Suena bien",
+      "accepted": "Revisado",
+      "addLexicon": "Corregir pronunciación",
+      "clean": "Todas las frases superaron la revisión de pronunciación.",
+      "heard": "Puede estar mal leído. Se oye: {{text}}",
+      "issues": "{{count}} frases pueden estar mal leídas",
+      "issues_one": "{{count}} frase puede estar mal leída",
+      "issues_other": "{{count}} frases pueden estar mal leídas",
+      "skipped": "Revisión de pronunciación omitida. Añade una clave de Vercel en Ajustes → Tools para activarla.",
+      "unaccept": "Deshacer"
+    },
+    "segment": {
+      "notRendered": "Nuevo",
+      "notRenderedTooltip": "Cambiado desde el último audio creado"
+    },
+    "status": {
+      "byAssistant": "iniciado por el asistente",
+      "cancelled": "Se detuvo la creación del audio.",
+      "completed": "Último audio · {{duration}}",
+      "interrupted": "La creación del audio se interrumpió.",
+      "never": "Aún no se ha creado audio. Edita el guion y elige Crear audio.",
+      "preview": "Vista previa de sección · {{duration}}",
+      "queued": "Esperando para empezar…",
+      "running": "Creando audio… {{completed}}/{{total}}"
+    },
+    "types": {
+      "chime": "Tono",
+      "clip": "Fragmento de grabación",
+      "pause": "Pausa",
+      "speech": "Habla"
+    },
+    "unsaved": {
+      "content": "Tus cambios no se han guardado.",
+      "discard": "Descartar cambios",
+      "title": "¿Cerrar sin guardar?"
+    },
+    "voices": {
+      "HiuMaan": "HiuMaan (femenina)",
+      "WanLung": "WanLung (masculina)"
+    }
   }
 }
