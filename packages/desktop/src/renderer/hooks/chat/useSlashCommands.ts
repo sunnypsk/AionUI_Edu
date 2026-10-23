@@ -2,7 +2,10 @@ import { mapAcpCommandsToSlashCommands } from '@/common/chat/slash/acpMapping';
 import { isSlashCommandListEnabled } from '@/common/chat/slash/availability';
 import type { SlashCommandItem } from '@/common/chat/slash/types';
 import { ipcBridge } from '@/common';
-import { ensureConversationRuntime } from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
+import {
+  ensureConversationRuntime,
+  getConversationRuntimeSnapshot,
+} from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
 import { useEffect, useRef, useState } from 'react';
 
 interface CacheEntry {
@@ -15,7 +18,7 @@ const MAX_CACHE_SIZE = 50;
 
 const slashCommandCache = new Map<string, CacheEntry>();
 
-function getCachedCommands(conversation_id: string): SlashCommandItem[] | null {
+export function getCachedCommands(conversation_id: string): SlashCommandItem[] | null {
   const entry = slashCommandCache.get(conversation_id);
   if (!entry) return null;
   if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
@@ -25,7 +28,7 @@ function getCachedCommands(conversation_id: string): SlashCommandItem[] | null {
   return entry.commands;
 }
 
-function setCachedCommands(conversation_id: string, commands: SlashCommandItem[]): void {
+export function setCachedCommands(conversation_id: string, commands: SlashCommandItem[]): void {
   // LRU eviction if cache is full
   if (slashCommandCache.size >= MAX_CACHE_SIZE) {
     const oldestKey = slashCommandCache.keys().next().value;
@@ -37,6 +40,8 @@ function setCachedCommands(conversation_id: string, commands: SlashCommandItem[]
 }
 
 interface UseSlashCommandsOptions {
+  /** Start a cold runtime only after an explicit slash interaction. */
+  interactive?: boolean;
   conversation_type?: string;
   codexStatus?: string | null;
   /** When provided, changes to this value trigger a re-fetch. Used by ACP to
@@ -47,7 +52,7 @@ interface UseSlashCommandsOptions {
 }
 
 export function useSlashCommands(conversation_id: string, options: UseSlashCommandsOptions = {}) {
-  const { conversation_type, codexStatus, agentStatus, prepareRuntime } = options;
+  const { conversation_type, codexStatus, agentStatus, prepareRuntime, interactive = false } = options;
   const canUseCachedCommands = isSlashCommandListEnabled({ conversation_type, codexStatus });
   const requestIdRef = useRef(0);
   const [commands, setCommands] = useState<SlashCommandItem[]>(() => {
@@ -71,8 +76,8 @@ export function useSlashCommands(conversation_id: string, options: UseSlashComma
       return;
     }
 
-    // Skip fetch until agent is ready (agentStatus becomes non-null)
-    if (agentStatus === null || agentStatus === undefined) {
+    setCommands(getCachedCommands(conversation_id) ?? []);
+    if (!interactive && (agentStatus === null || agentStatus === undefined)) {
       return;
     }
 
@@ -81,10 +86,14 @@ export function useSlashCommands(conversation_id: string, options: UseSlashComma
       setCommands(cached);
     }
 
-    const runtimeReady = prepareRuntime ? prepareRuntime() : ensureConversationRuntime(conversation_id);
+    const runtimeReady = interactive
+      ? prepareRuntime
+        ? prepareRuntime().then(() => true)
+        : ensureConversationRuntime(conversation_id).then(() => true)
+      : getConversationRuntimeSnapshot(conversation_id).then((snapshot) => snapshot.runtime.has_task);
 
     void runtimeReady
-      .then(() => ipcBridge.conversation.getSlashCommands.invoke({ conversation_id: conversation_id }))
+      .then((ready) => (ready ? ipcBridge.conversation.getSlashCommands.invoke({ conversation_id }) : null))
       .then((result) => {
         if (isCancelled || requestId !== requestIdRef.current) {
           return;
@@ -108,7 +117,7 @@ export function useSlashCommands(conversation_id: string, options: UseSlashComma
     return () => {
       isCancelled = true;
     };
-  }, [conversation_id, canUseCachedCommands, codexStatus, conversation_type, agentStatus, prepareRuntime]);
+  }, [conversation_id, canUseCachedCommands, codexStatus, conversation_type, agentStatus, prepareRuntime, interactive]);
 
   return commands;
 }

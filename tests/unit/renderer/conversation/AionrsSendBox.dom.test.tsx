@@ -9,6 +9,7 @@ import type { TeamSendBoxRuntime } from '@/renderer/pages/team/components/teamSe
 
 const {
   ensureConversationRuntimeMock,
+  getRuntimeSnapshotMock,
   sendMessageInvokeMock,
   translateMock,
   useTeamPermissionMock,
@@ -23,6 +24,7 @@ const {
   draftContentRef,
   runtimeViewIsProcessingRef,
 } = vi.hoisted(() => ({
+  getRuntimeSnapshotMock: vi.fn().mockResolvedValue({ config_options: null, runtime: { has_task: false } }),
   ensureConversationRuntimeMock: vi.fn().mockResolvedValue({ recovered: false, config_options: [], runtime: null }),
   sendMessageInvokeMock: vi.fn().mockResolvedValue(undefined),
   translateMock: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
@@ -230,6 +232,7 @@ vi.mock('@/renderer/pages/conversation/utils/conversationCreateError', () => ({
 }));
 vi.mock('@/renderer/pages/conversation/utils/ensureConversationRuntime', () => ({
   ensureConversationRuntime: ensureConversationRuntimeMock,
+  getConversationRuntimeSnapshot: getRuntimeSnapshotMock,
 }));
 vi.mock('@/renderer/pages/conversation/Preview', () => ({
   usePreviewContext: () => ({
@@ -324,7 +327,8 @@ describe('AionrsSendBox', () => {
 
     render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
     await waitFor(() => {
-      expect(warmupSession).toHaveBeenCalled();
+      expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1');
+      expect(warmupSession).not.toHaveBeenCalled();
     });
     warmupSession.mockClear();
 
@@ -348,7 +352,8 @@ describe('AionrsSendBox', () => {
 
     render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
     await waitFor(() => {
-      expect(warmupSession).toHaveBeenCalled();
+      expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1');
+      expect(warmupSession).not.toHaveBeenCalled();
     });
     warmupSession.mockClear();
 
@@ -375,16 +380,17 @@ describe('AionrsSendBox', () => {
     render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
 
     await waitFor(() => {
-      expect(warmupSession).toHaveBeenCalled();
+      expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1');
+      expect(warmupSession).not.toHaveBeenCalled();
     });
     expect(ensureConversationRuntimeMock).not.toHaveBeenCalled();
   });
 
-  it('uses runtime ensure instead of legacy warmup for standalone runtime preparation', async () => {
+  it('reads standalone runtime state without warming it on mount', async () => {
     render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
 
     await waitFor(() => {
-      expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1');
+      expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1');
     });
   });
 
@@ -399,7 +405,7 @@ describe('AionrsSendBox', () => {
     );
 
     render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-    await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+    await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
     await act(async () => {
       screen.getByRole('button', { name: 'send' }).click();
@@ -435,7 +441,7 @@ describe('AionrsSendBox', () => {
       draftContentRef.current = 'hello world';
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       const props = sendBoxPropsSpy.mock.calls.at(-1)?.[0] as { sendDisabled?: boolean };
       expect(props.sendDisabled).toBe(true);
@@ -456,7 +462,7 @@ describe('AionrsSendBox', () => {
       runtimeViewIsProcessingRef.current = false;
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       const props = sendBoxPropsSpy.mock.calls.at(-1)?.[0] as { sendDisabled?: boolean };
       expect(props.sendDisabled).toBe(false);
@@ -477,7 +483,7 @@ describe('AionrsSendBox', () => {
       draftContentRef.current = 'hello world';
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       const props = sendBoxPropsSpy.mock.calls.at(-1)?.[0] as { onAddToDraft?: () => void };
       expect(props.onAddToDraft).toBeDefined();
@@ -500,7 +506,7 @@ describe('AionrsSendBox', () => {
       draftContentRef.current = 'hello world';
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       type SessionProps = {
         onAddToDraft?: () => void;
@@ -529,7 +535,7 @@ describe('AionrsSendBox', () => {
       draftContentRef.current = 'hello world';
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       const props = sendBoxPropsSpy.mock.calls.at(-1)?.[0] as { onAddToDraft?: () => void };
       expect(props.onAddToDraft).toBeDefined();
@@ -540,7 +546,7 @@ describe('AionrsSendBox', () => {
       draftContentRef.current = '';
 
       render(<AionrsSendBox conversation_id='conv-1' modelSelection={modelSelection} />);
-      await waitFor(() => expect(ensureConversationRuntimeMock).toHaveBeenCalledWith('conv-1'));
+      await waitFor(() => expect(getRuntimeSnapshotMock).toHaveBeenCalledWith('conv-1'));
 
       const props = sendBoxPropsSpy.mock.calls.at(-1)?.[0] as {
         onAddToDraft?: () => void;

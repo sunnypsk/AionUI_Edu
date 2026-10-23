@@ -101,6 +101,31 @@ const runtimeMode = () => ({
 });
 
 describe('AgentModeSelector', () => {
+  it('shows saved permissions and loads a cold runtime only when the picker opens', async () => {
+    let ready = false;
+    const ensure = vi.fn(async () => {
+      ready = true;
+      return [];
+    });
+    useAcpConfigOptionsMock.mockImplementation(() => ({
+      setStatus: { state: 'idle' },
+      isLoading: false,
+      mode: ready ? runtimeMode() : null,
+      model: null,
+      thoughtLevel: null,
+      reload: vi.fn(),
+      ensure,
+      setConfigOption: vi.fn(),
+    }));
+    render(
+      <AgentModeSelector backend='claude' conversation_id='cold-picker' compact initialMode='bypassPermissions' />
+    );
+    expect(screen.getByTestId('mode-selector')).toHaveAttribute('data-current-mode', 'bypassPermissions');
+    expect(ensure).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('agent-mode-selector-claude'));
+    await waitFor(() => expect(ensure).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('mode-selector')).toHaveAttribute('data-current-mode', 'default'));
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     useAcpConfigOptionsMock.mockImplementation(() => ({
@@ -110,6 +135,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption: vi.fn(),
     }));
   });
@@ -157,6 +183,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption: vi.fn(),
       pendingValues: { mode: 'bypassPermissions' },
     }));
@@ -191,6 +218,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption,
       pendingValues: {},
     }));
@@ -214,7 +242,7 @@ describe('AgentModeSelector', () => {
     expect(screen.getByTestId('mode-selector')).toHaveAttribute('data-current-mode', 'default');
   });
 
-  it('keeps compact mode selector hidden while runtime mode is initializing', () => {
+  it('keeps the permission picker accessible while its passive snapshot loads', () => {
     useAcpConfigOptionsMock.mockImplementation(() => ({
       setStatus: { state: 'idle' },
       isLoading: true,
@@ -222,6 +250,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption: vi.fn(),
     }));
 
@@ -235,7 +264,7 @@ describe('AgentModeSelector', () => {
       />
     );
 
-    expect(screen.queryByTestId('agent-mode-selector-claude')).not.toBeInTheDocument();
+    expect(screen.getByTestId('agent-mode-selector-claude')).toBeInTheDocument();
     expect(screen.queryByTestId('runtime-selector-loading-indicator')).not.toBeInTheDocument();
   });
 
@@ -247,6 +276,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption: vi.fn(),
     }));
 
@@ -277,6 +307,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption,
     }));
 
@@ -319,6 +350,7 @@ describe('AgentModeSelector', () => {
       model: null,
       thoughtLevel: null,
       reload: vi.fn(),
+      ensure: vi.fn().mockResolvedValue([]),
       setConfigOption: vi.fn(),
     }));
 

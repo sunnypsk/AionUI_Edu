@@ -10,6 +10,10 @@ import { parseError } from '@/common/utils';
 import { revalidateAcpConfigOptions } from '@/renderer/hooks/agent/useAcpConfigOptions';
 import { useConversationRuntimeView } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
+import {
+  ensureConversationRuntime,
+  getConversationRuntimeSnapshot,
+} from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
 import { iconColors } from '@/renderer/styles/colors';
 import { Button, Message, Popconfirm, Tooltip } from '@arco-design/web-react';
 import { Refresh } from '@icon-park/react';
@@ -39,7 +43,10 @@ export const useAcpRuntimeRestart = ({
       if (team) {
         await ipcBridge.team.restartAgentRuntime.invoke({ team_id: team.team_id, slot_id: team.slot_id });
       } else {
-        const response = await ipcBridge.conversation.restartRuntime.invoke({ conversation_id });
+        const snapshot = await getConversationRuntimeSnapshot(conversation_id);
+        const response = snapshot.runtime.has_task
+          ? await ipcBridge.conversation.restartRuntime.invoke({ conversation_id })
+          : await ensureConversationRuntime(conversation_id);
         runtimeView.markRestartSucceeded(response.runtime);
       }
       await revalidateAcpConfigOptions(conversation_id);

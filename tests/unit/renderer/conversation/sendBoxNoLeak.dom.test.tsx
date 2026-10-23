@@ -119,6 +119,7 @@ vi.mock('@/renderer/pages/conversation/runtime/useConversationRuntimeView', () =
 }));
 vi.mock('@/renderer/pages/conversation/utils/ensureConversationRuntime', () => ({
   ensureConversationRuntime: vi.fn(),
+  getConversationRuntimeSnapshot: vi.fn().mockResolvedValue({ config_options: null, runtime: { has_task: false } }),
 }));
 vi.mock('@/renderer/services/FileService', () => ({ allSupportedExts: [] }));
 // NOTE: emitter + useAddEventListener are NOT mocked — the real bus drives the guards.

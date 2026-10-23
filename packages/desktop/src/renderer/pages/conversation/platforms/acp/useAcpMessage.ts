@@ -16,7 +16,11 @@ import { logStreamTerminalObserved } from '@/renderer/pages/conversation/runtime
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { isConversationProcessing } from '@/renderer/pages/conversation/utils/conversationRuntime';
 import { beginConversationTurn, endConversationTurn } from '@/renderer/pages/conversation/utils/conversationTurnClock';
-import { ensureConversationRuntime } from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
+import {
+  ensureConversationRuntime,
+  getConversationRuntimeSnapshot,
+} from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
+import { getCachedCommands, setCachedCommands } from '@/renderer/hooks/chat/useSlashCommands';
 import type { ThoughtData } from '@/renderer/components/chat/ThoughtDisplay';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -88,8 +92,10 @@ function fetchAcpSlashCommands(conversation_id: string): Promise<SlashCommandIte
   const promise = ipcBridge.conversation.getSlashCommands
     .invoke({ conversation_id })
     .then((result) => {
-      if (!result || !Array.isArray(result) || result.length === 0) return [];
-      return mapAcpCommandsToSlashCommands(result);
+      if (!Array.isArray(result)) return [];
+      const commands = mapAcpCommandsToSlashCommands(result);
+      setCachedCommands(conversation_id, commands);
+      return commands;
     })
     .finally(() => {
       if (slashCommandsInFlight.get(conversation_id) === promise) {
@@ -105,6 +111,8 @@ export const useAcpMessage = (
   options?: { skipWarmup?: boolean; prepareRuntime?: () => Promise<void> }
 ): UseAcpMessageReturn => {
   const mergeLiveMessage = useMergeLiveMessage();
+  const activeConversationRef = useRef(conversation_id);
+  activeConversationRef.current = conversation_id;
   const [running, setRunning] = useState(false);
   const [hasHydratedRunningState, setHasHydratedRunningState] = useState(false);
   const [thought, setThought] = useState<ThoughtData>({
@@ -602,7 +610,7 @@ export const useAcpMessage = (
     setAcpStatus(null);
     setTokenUsage(null);
     setContextLimit(0);
-    setSlashCommands([]);
+    setSlashCommands(getCachedCommands(conversation_id) ?? []);
     hasContentInTurnRef.current = false;
     turnFinishedRef.current = false;
     hasThinkingMessageRef.current = false;
@@ -687,30 +695,27 @@ export const useAcpMessage = (
     };
   }, [conversation_id]);
 
-  // Fetch slash commands via HTTP after runtime ensure completes.
-  // WebSocket push of available_commands arrives during warmup when no
-  // StreamRelay is listening, so the initial load must come from HTTP.
-  // In team mode, runtime preparation is coordinated by the team send box.
+  // Passive hydration reads existing state only, including durable usage.
   useEffect(() => {
-    if (options?.skipWarmup && !options.prepareRuntime) return;
     let cancelled = false;
-    const runtimeReady = options?.prepareRuntime?.() ?? ensureConversationRuntime(conversation_id);
+    const runtimeReady = getConversationRuntimeSnapshot(conversation_id);
     void runtimeReady
-      .then(() => {
+      .then((snapshot) => {
         if (cancelled) return;
+        if (!snapshot.runtime.has_task) return;
         return fetchAcpSlashCommands(conversation_id);
       })
       .then((commands) => {
         if (cancelled) return;
-        if (!commands?.length) return;
+        if (!commands) return;
         setSlashCommands(commands);
       })
       .catch(() => {});
     // Hydrate the context-usage indicator from the backend snapshot. Live
     // acp_context_usage stream events may land first, so never overwrite a
     // value that is already set.
-    void runtimeReady
-      .then(() => ipcBridge.conversation.getUsage.invoke({ conversation_id }))
+    void ipcBridge.conversation.getUsage
+      .invoke({ conversation_id })
       .then((usage) => {
         if (cancelled || !usage || typeof usage.used !== 'number' || usage.used <= 0) return;
         setTokenUsage((prev) => prev ?? tokenUsageFromAcpUsage(usage));
@@ -722,7 +727,7 @@ export const useAcpMessage = (
     return () => {
       cancelled = true;
     };
-  }, [conversation_id, options?.prepareRuntime, options?.skipWarmup]);
+  }, [conversation_id]);
 
   const resetState = useCallback(() => {
     turnFinishedRef.current = true;
@@ -743,7 +748,7 @@ export const useAcpMessage = (
     void runtimeReady
       .then(() => fetchAcpSlashCommands(conversation_id))
       .then((commands) => {
-        if (!commands.length) return;
+        if (activeConversationRef.current !== conversation_id) return;
         setSlashCommands(commands);
       })
       .catch(() => {});

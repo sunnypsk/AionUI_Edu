@@ -35,7 +35,10 @@ import {
 import { useConversationRuntimeView } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
 import { getConversationRuntimeWorkspaceErrorMessage } from '@/renderer/pages/conversation/utils/conversationCreateError';
 import { getChatSurfaceWidthClass } from '@/renderer/pages/conversation/utils/chatSurfaceWidth';
-import { ensureConversationRuntime } from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
+import {
+  ensureConversationRuntime,
+  getConversationRuntimeSnapshot,
+} from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
 import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
 import { useTeamPermission } from '@/renderer/pages/team/hooks/TeamPermissionContext';
 import type { TeamSendBoxRuntime } from '@/renderer/pages/team/components/teamSendRuntime';
@@ -201,16 +204,21 @@ const AionrsSendBox: React.FC<{
   useEffect(() => {
     if (!conversation_id) return;
     setAgentWarmed(false);
-    void prepareRuntimeSync()
-      .then(() => {
-        setAgentWarmed(true);
+    let cancelled = false;
+    void getConversationRuntimeSnapshot(conversation_id)
+      .then((snapshot) => {
+        if (!cancelled) setAgentWarmed(snapshot.runtime.has_task);
       })
       .catch((error) => {
-        Message.error(getConversationRuntimeWorkspaceErrorMessage(error, t));
+        if (!cancelled) Message.error(getConversationRuntimeWorkspaceErrorMessage(error, t));
       });
-  }, [conversation_id, prepareRuntimeSync, t]);
+    return () => {
+      cancelled = true;
+    };
+  }, [conversation_id, t]);
 
   const slash_commands = useSlashCommands(conversation_id, {
+    interactive: content.trimStart().startsWith('/'),
     conversation_type: 'aionrs',
     agentStatus: agentWarmed ? 'active' : null,
     prepareRuntime: teamPermission ? prepareRuntimeSync : undefined,

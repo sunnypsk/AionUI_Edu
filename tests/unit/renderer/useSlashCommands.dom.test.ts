@@ -8,7 +8,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSlashCommands } from '@/renderer/hooks/chat/useSlashCommands';
 
-const { ensureRuntimeInvokeMock, getSlashCommandsInvokeMock } = vi.hoisted(() => ({
+const { getRuntimeInvokeMock, ensureRuntimeInvokeMock, getSlashCommandsInvokeMock } = vi.hoisted(() => ({
+  getRuntimeInvokeMock: vi.fn(),
   ensureRuntimeInvokeMock: vi.fn(),
   getSlashCommandsInvokeMock: vi.fn(),
 }));
@@ -16,6 +17,7 @@ const { ensureRuntimeInvokeMock, getSlashCommandsInvokeMock } = vi.hoisted(() =>
 vi.mock('@/common', () => ({
   ipcBridge: {
     conversation: {
+      getRuntime: { invoke: getRuntimeInvokeMock },
       ensureRuntime: {
         invoke: ensureRuntimeInvokeMock,
       },
@@ -29,6 +31,7 @@ vi.mock('@/common', () => ({
 describe('useSlashCommands', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getRuntimeInvokeMock.mockResolvedValue({ config_options: [], runtime: { has_task: true } });
     ensureRuntimeInvokeMock.mockResolvedValue({ recovered: false, config_options: [], runtime: null });
     getSlashCommandsInvokeMock.mockResolvedValue([]);
   });
@@ -111,7 +114,7 @@ describe('useSlashCommands', () => {
     });
   });
 
-  it('ensures the conversation runtime before loading slash commands', async () => {
+  it('reads an existing runtime before loading cached slash commands without ensuring', async () => {
     getSlashCommandsInvokeMock.mockResolvedValue([
       {
         command: 'review',
@@ -127,15 +130,16 @@ describe('useSlashCommands', () => {
     );
 
     await waitFor(() => {
-      expect(ensureRuntimeInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
+      expect(getRuntimeInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
+      expect(ensureRuntimeInvokeMock).not.toHaveBeenCalled();
       expect(getSlashCommandsInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
     });
-    expect(ensureRuntimeInvokeMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(getRuntimeInvokeMock.mock.invocationCallOrder[0]).toBeLessThan(
       getSlashCommandsInvokeMock.mock.invocationCallOrder[0]
     );
   });
 
-  it('uses injected runtime preparation instead of standalone ensure', async () => {
+  it('uses injected runtime preparation for an explicit slash interaction', async () => {
     const prepareRuntime = vi.fn().mockResolvedValue(undefined);
     getSlashCommandsInvokeMock.mockResolvedValue([
       {
@@ -149,6 +153,7 @@ describe('useSlashCommands', () => {
         conversation_type: 'acp',
         agentStatus: 'session_active',
         prepareRuntime,
+        interactive: true,
       })
     );
 

@@ -15,6 +15,7 @@ import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 const {
   addOrUpdateMessageMock,
   ensureRuntimeInvokeMock,
+  getRuntimeInvokeMock,
   getSlashCommandsInvokeMock,
   getUsageInvokeMock,
   responseStreamOnMock,
@@ -22,6 +23,7 @@ const {
 } = vi.hoisted(() => ({
   addOrUpdateMessageMock: vi.fn(),
   ensureRuntimeInvokeMock: vi.fn(),
+  getRuntimeInvokeMock: vi.fn(),
   getSlashCommandsInvokeMock: vi.fn(),
   getUsageInvokeMock: vi.fn(),
   responseStreamOnMock: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock('@/common', () => ({
       },
     },
     conversation: {
+      getRuntime: { invoke: getRuntimeInvokeMock },
       ensureRuntime: {
         invoke: ensureRuntimeInvokeMock,
       },
@@ -74,6 +77,17 @@ function deferred<T>() {
 }
 
 describe('useAcpMessage', () => {
+  it('keeps a cold history view passive and starts only for an explicit slash request', async () => {
+    vi.mocked(getConversationOrNull).mockResolvedValue(null);
+    getRuntimeInvokeMock.mockResolvedValue({ config_options: null, runtime: { has_task: false } });
+    const { result } = renderHook(() => useAcpMessage('cold-history'));
+    await waitFor(() => expect(getUsageInvokeMock).toHaveBeenCalledWith({ conversation_id: 'cold-history' }));
+    expect(ensureRuntimeInvokeMock).not.toHaveBeenCalled();
+    expect(getSlashCommandsInvokeMock).not.toHaveBeenCalled();
+    act(() => result.current.fetchSlashCommands());
+    await waitFor(() => expect(ensureRuntimeInvokeMock).toHaveBeenCalledWith({ conversation_id: 'cold-history' }));
+    await waitFor(() => expect(getSlashCommandsInvokeMock).toHaveBeenCalledWith({ conversation_id: 'cold-history' }));
+  });
   it('merges a durable runtime notice without settling a newer running turn', async () => {
     vi.mocked(getConversationOrNull).mockResolvedValue(null);
     const { result } = renderHook(() => useAcpMessage('notice-conversation'));
@@ -130,6 +144,7 @@ describe('useAcpMessage', () => {
     vi.clearAllMocks();
     resetConversationTurnClockForTests();
     resetEnsureConversationRuntimeStateForTests();
+    getRuntimeInvokeMock.mockResolvedValue({ config_options: [], runtime: { has_task: true } });
     ensureRuntimeInvokeMock.mockResolvedValue({ recovered: false, config_options: [], runtime: null });
     getSlashCommandsInvokeMock.mockResolvedValue([]);
     getUsageInvokeMock.mockResolvedValue(null);
@@ -302,7 +317,7 @@ describe('useAcpMessage', () => {
     });
   });
 
-  it('loads initial slash commands after runtime ensure without legacy warmup', async () => {
+  it('loads initial commands from an existing runtime without ensuring', async () => {
     vi.mocked(getConversationOrNull).mockResolvedValue(null);
     getSlashCommandsInvokeMock.mockResolvedValue([
       {
@@ -315,7 +330,8 @@ describe('useAcpMessage', () => {
     const { result } = renderHook(() => useAcpMessage('conv-1'));
 
     await waitFor(() => {
-      expect(ensureRuntimeInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
+      expect(getRuntimeInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
+      expect(ensureRuntimeInvokeMock).not.toHaveBeenCalled();
       expect(getSlashCommandsInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
     });
     await waitFor(() => {
@@ -332,7 +348,7 @@ describe('useAcpMessage', () => {
     });
   });
 
-  it('uses injected runtime preparation for initial slash commands in team mode', async () => {
+  it('uses injected team preparation only for an explicit slash interaction', async () => {
     vi.mocked(getConversationOrNull).mockResolvedValue(null);
     const prepareRuntime = vi.fn().mockResolvedValue(undefined);
     getSlashCommandsInvokeMock.mockResolvedValue([
@@ -345,7 +361,7 @@ describe('useAcpMessage', () => {
     const { result } = renderHook(() => useAcpMessage('conv-1', { prepareRuntime }));
 
     await waitFor(() => {
-      expect(prepareRuntime).toHaveBeenCalled();
+      expect(prepareRuntime).not.toHaveBeenCalled();
       expect(getSlashCommandsInvokeMock).toHaveBeenCalledWith({ conversation_id: 'conv-1' });
     });
     expect(ensureRuntimeInvokeMock).not.toHaveBeenCalled();
@@ -355,7 +371,7 @@ describe('useAcpMessage', () => {
     });
 
     await waitFor(() => {
-      expect(prepareRuntime).toHaveBeenCalledTimes(2);
+      expect(prepareRuntime).toHaveBeenCalledTimes(1);
     });
     expect(ensureRuntimeInvokeMock).not.toHaveBeenCalled();
   });
@@ -491,7 +507,7 @@ describe('useAcpMessage', () => {
     expect(result.current.running).toBe(false);
   });
 
-  it('hydrates the context-usage indicator from the backend snapshot after runtime ensure', async () => {
+  it('hydrates usage directly from the durable snapshot without ensuring', async () => {
     vi.mocked(getConversationOrNull).mockResolvedValue(null);
     getUsageInvokeMock.mockResolvedValue({ used: 52_000, size: 1_048_576 });
 

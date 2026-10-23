@@ -14,7 +14,7 @@ import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { AgentLogoIcon } from './AgentBadge';
 import { Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
 import { Down } from '@icon-park/react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import RuntimeSelectorPill from './RuntimeSelectorPill';
 
@@ -150,10 +150,39 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
     return option ? getDisplayModeLabel(option) : pendingMode;
   }, [pendingMode, current_mode, modes, getDisplayModeLabel]);
 
-  const can_switchMode = modes.length > 0 && Boolean(conversation_id || onModeSelect);
+  const can_switchMode = Boolean(
+    (modes.length > 0 || (conversation_id && !runtimeConfig.configOptions)) && (conversation_id || onModeSelect)
+  );
   const runtimeModeBlocked = Boolean(runtimeMode && runtimeConfig.isConfigOptionBlocked?.(runtimeMode.id));
   // Mobile conversation header agent pill is display-only by design.
   const canInteract = can_switchMode && !runtimeModeBlocked && !(compact && compactLabelType === 'agent');
+  const activeConversationRef = useRef(conversation_id);
+  activeConversationRef.current = conversation_id;
+  useEffect(() => {
+    setDropdownVisible(false);
+    setIsLoading(false);
+  }, [conversation_id]);
+
+  const handleDropdownVisibleChange = useCallback(
+    async (visible: boolean) => {
+      if (!visible) {
+        setDropdownVisible(false);
+        return;
+      }
+      if (isLoading || runtimeConfig.setStatus.state === 'setting') return;
+      const requestedConversation = conversation_id;
+      setIsLoading(true);
+      try {
+        if (conversation_id) await runtimeConfig.ensure();
+        if (activeConversationRef.current === requestedConversation) setDropdownVisible(true);
+      } catch (error) {
+        if (activeConversationRef.current === requestedConversation) Message.error(t(configErrorMessageKey(error)));
+      } finally {
+        if (activeConversationRef.current === requestedConversation) setIsLoading(false);
+      }
+    },
+    [conversation_id, isLoading, runtimeConfig, t]
+  );
 
   // When initialMode prop changes (e.g. agent switch on Guid page), update local state.
   // Validate against available modes to handle backends with non-standard default
@@ -235,7 +264,9 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
   // string so the compact pill never renders a bare "prefix · " with nothing after it.
   const getCurrentModeLabel = () => {
     const modeOption = modes.find((m) => m.value === current_mode);
-    return modeOption ? getDisplayModeLabel(modeOption) : current_mode;
+    return getDisplayModeLabel(
+      modeOption ?? { value: current_mode, label: t(`agentMode.${current_mode}`, { defaultValue: current_mode }) }
+    );
   };
 
   // Dropdown menu (shared between compact and full mode)
@@ -313,7 +344,7 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
           trailing={canInteract ? <Down size={12} className='text-t-tertiary shrink-0' /> : null}
           loading={isSetting}
           disabled={isSetting}
-          onClick={canInteract ? () => !isSetting && setDropdownVisible((visible) => !visible) : undefined}
+          onClick={canInteract ? () => void handleDropdownVisibleChange(!dropdownVisible) : undefined}
           style={{
             opacity: isSetting ? 0.6 : 1,
             transition: 'opacity 0.2s',
@@ -331,7 +362,7 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
       <Dropdown
         trigger='click'
         popupVisible={dropdownVisible}
-        onVisibleChange={(visible) => !isSetting && setDropdownVisible(visible)}
+        onVisibleChange={(visible) => void handleDropdownVisibleChange(visible)}
         droplist={dropdownMenu}
       >
         {compactContent}
@@ -370,9 +401,7 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
       <Dropdown
         trigger='click'
         popupVisible={dropdownVisible}
-        onVisibleChange={(visible) =>
-          !isLoading && runtimeConfig.setStatus.state !== 'setting' && setDropdownVisible(visible)
-        }
+        onVisibleChange={(visible) => void handleDropdownVisibleChange(visible)}
         droplist={dropdownMenu}
       >
         {content}

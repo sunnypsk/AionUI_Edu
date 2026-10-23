@@ -1902,7 +1902,21 @@
      /// B5 mid-turn interjection: `true` when the message was delivered INTO the
      /// already-running turn (`turn_id` is then the ACTIVE turn's id, no new
      /// turn was opened, and the HTTP status is 200 instead of the normal 202).
-@@ -280,6 +283,13 @@
+@@ -251,6 +254,13 @@
+     pub runtime: ConversationRuntimeSummary,
+ }
+ 
++/// A read of the current runtime only. No task means no live config catalog.
++#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
++pub struct GetConversationRuntimeResponse {
++    pub config_options: Option<Vec<AcpConfigOptionDto>>,
++    pub runtime: ConversationRuntimeSummary,
++}
++
+ #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+ pub struct ConversationAssistantIdentityResponse {
+     pub id: String,
+@@ -280,6 +290,13 @@
      pub after: Option<String>,
      pub anchor_message_id: Option<String>,
      pub content_mode: Option<String>,
@@ -1916,7 +1930,7 @@
  }
  
  /// Body for `PATCH /api/conversations/:id/artifacts/:artifact_id`.
-@@ -372,6 +382,21 @@
+@@ -372,6 +389,21 @@
      pub backend_turn_id: Option<String>,
  }
  
@@ -1948,20 +1962,16 @@
  mod project;
  mod provider;
  mod remote_agent;
-@@ -99,9 +100,10 @@
+@@ -99,7 +100,8 @@
      ConversationAssistantIdentityResponse, ConversationListResponse, ConversationMcpStatus, ConversationMcpStatusKind,
      ConversationNameUpdatedPayload, ConversationResponse, ConversationRuntimeStateKind, ConversationRuntimeSummary,
      CreateConversationRequest, EnsureConversationRuntimeResponse, ForkCapabilityView, ForkConversationRequest,
 -    ListConversationsQuery, ListMessagesQuery, McpRuntimeSnapshot, MessageListResponse, MessageResponse,
--    MessageSearchItem, MessageSearchResponse, MessageStatusChangedPayload, PromptCapabilityView, SearchMessagesQuery,
--    SendMessageRequest, SendMessageResponse, SessionRef, UpdateConversationArtifactRequest, UpdateConversationRequest,
-+    ListConversationsQuery, ListMessageAnchorsQuery, ListMessagesQuery, McpRuntimeSnapshot, MessageAnchorListResponse,
-+    MessageAnchorResponse, MessageListResponse, MessageResponse, MessageSearchItem, MessageSearchResponse,
-+    MessageStatusChangedPayload, PromptCapabilityView, SearchMessagesQuery, SendMessageRequest, SendMessageResponse,
-+    SessionRef, UpdateConversationArtifactRequest, UpdateConversationRequest,
++    GetConversationRuntimeResponse, ListConversationsQuery, ListMessageAnchorsQuery, ListMessagesQuery,
++    McpRuntimeSnapshot, MessageAnchorListResponse, MessageAnchorResponse, MessageListResponse, MessageResponse,
+     MessageSearchItem, MessageSearchResponse, MessageStatusChangedPayload, PromptCapabilityView, SearchMessagesQuery,
+     SendMessageRequest, SendMessageResponse, SessionRef, UpdateConversationArtifactRequest, UpdateConversationRequest,
  };
- pub use conversation_tools::{
-     CONVERSATION_TOOLS_SCHEMA_VERSION, ConversationCliEnvelope, ConversationCliMeta, ConversationCreateAssistant,
 @@ -143,6 +145,10 @@
      CellCoord, CellRange, ConversionResultDto, ConversionTarget, DocumentConversionRequest, DocumentConversionResponse,
      ExcelSheetData, ExcelSheetImage, ExcelWorkbookData, PptJsonData, PptSlideData, PreviewState, PreviewStatusEvent,
@@ -3117,6 +3127,70 @@
  
  use aionui_db::{
      IAssistantDefinitionRepository, IAssistantOverlayRepository, IAssistantPreferenceRepository,
+@@ -36,6 +445,63 @@
+ }
+ 
+ // ── T1: Create ────────────────────────────────────────────────────────
++
++#[tokio::test]
++async fn runtime_snapshot_get_is_read_only_and_authenticated() {
++    let (mut app, services) = build_app_with_mock_agents().await;
++    let unauthorized = app
++        .clone()
++        .oneshot(get_request("/api/conversations/missing/runtime"))
++        .await
++        .unwrap();
++    assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
++    assert_eq!(body_json(unauthorized).await["code"], "UNAUTHORIZED");
++    let (token, _) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
++    let root = tempfile::tempdir().unwrap();
++    let id = "runtime-snapshot-cold";
++    sqlx::query("INSERT INTO conversations (id,user_id,name,type,extra,created_at,updated_at) VALUES (?,'system_default_user','Cold runtime','acp',?,1,1)")
++        .bind(id).bind(json!({"backend":"codex","workspace":root.path(),"skills":[]}).to_string())
++        .execute(services.database.pool()).await.unwrap();
++    let path = format!("/api/conversations/{id}/runtime");
++    for _ in 0..20 {
++        let response = app.clone().oneshot(get_with_token(&path, &token)).await.unwrap();
++        assert_eq!(response.status(), StatusCode::OK);
++        let snapshot = body_json(response).await;
++        assert_eq!(snapshot["data"]["runtime"]["has_task"], false);
++        assert!(snapshot["data"]["config_options"].is_null());
++    }
++    sqlx::query("INSERT INTO acp_session (conversation_id,agent_source,agent_id,session_status,session_config) VALUES (?,'builtin','codex','idle',?)")
++        .bind(id).bind(json!({"runtime":{"current_model_id":"saved-model","current_mode_id":"full-access"}}).to_string())
++        .execute(services.database.pool()).await.unwrap();
++    let response = app
++        .clone()
++        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
++        .await
++        .unwrap();
++    assert_eq!(response.status(), StatusCode::OK);
++    let detail = body_json(response).await;
++    assert_eq!(detail["data"]["extra"]["current_model_id"], "saved-model");
++    assert_eq!(detail["data"]["extra"]["session_mode"], "full-access");
++    assert_eq!(detail["data"]["modified_at"], 1);
++}
++
++#[tokio::test]
++async fn runtime_snapshot_get_rejects_missing_and_foreign_conversations() {
++    let (mut app, services) = build_app_with_mock_agents().await;
++    let (token, _) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
++    let id = "private-runtime";
++    sqlx::query("INSERT INTO conversations (id,user_id,name,type,extra,created_at,updated_at) VALUES (?,'system_default_user','Private runtime','acp','{}',1,1)")
++        .bind(id).execute(services.database.pool()).await.unwrap();
++    let (other_token, _) = setup_and_login(&mut app, &services, "other-account", "StrongP@ss2").await;
++    for (path, auth) in [
++        (format!("/api/conversations/{id}/runtime"), &other_token),
++        ("/api/conversations/missing/runtime".into(), &token),
++    ] {
++        let response = app.clone().oneshot(get_with_token(&path, auth)).await.unwrap();
++        assert_eq!(response.status(), StatusCode::NOT_FOUND);
++        assert_eq!(body_json(response).await["code"], "NOT_FOUND");
++    }
++}
+ 
+ #[tokio::test]
+ async fn t1_1_create_conversation_success() {
 --- a/crates/aionui-channel/src/message_service.rs
 +++ b/crates/aionui-channel/src/message_service.rs
 @@ -566,6 +566,7 @@
@@ -4826,7 +4900,15 @@
          .route("/api/conversations/{id}/messages/{messageId}", get(get_msg))
          .route("/api/conversations/{id}/artifacts", get(list_artifacts))
          .route("/api/conversations/{id}/artifacts/{artifactId}", patch(update_artifact))
-@@ -248,6 +251,20 @@
+@@ -133,6 +136,7 @@
+             "/api/conversations/{id}/terminals/{terminalId}/kill",
+             post(kill_terminal),
+         )
++        .route("/api/conversations/{id}/runtime", get(get_runtime))
+         .route("/api/conversations/{id}/runtime/ensure", post(ensure_runtime))
+         .route("/api/conversations/{id}/runtime/restart", post(restart_runtime))
+         .route("/api/conversations/{id}/active-lease", post(active_lease))
+@@ -248,6 +252,20 @@
      Ok(Json(ApiResponse::ok(items)))
  }
  
@@ -4847,7 +4929,7 @@
  async fn list_msg(
      State(state): State<ConversationRouterState>,
      Extension(user): Extension<CurrentUser>,
-@@ -305,12 +322,12 @@
+@@ -305,12 +323,12 @@
      State(state): State<ConversationRouterState>,
      Extension(user): Extension<CurrentUser>,
      Path(id): Path<String>,
@@ -4862,6 +4944,23 @@
          .await
          .map_err(ApiError::from)?;
      // B5: a mid-turn delivery already handed the message to the RUNNING turn —
+@@ -384,6 +402,16 @@
+         .await
+         .map_err(ApiError::from)?;
+     Ok(Json(ApiResponse::ok(response)))
++}
++
++async fn get_runtime(
++    State(state): State<ConversationRouterState>,
++    Extension(user): Extension<CurrentUser>,
++    Path(id): Path<String>,
++) -> Result<Json<ApiResponse<aionui_api_types::GetConversationRuntimeResponse>>, ApiError> {
++    Ok(Json(ApiResponse::ok(
++        state.service.get_runtime(&user.id, &id).await.map_err(ApiError::from)?,
++    )))
+ }
+ 
+ async fn ensure_runtime(
 --- a/crates/aionui-conversation/src/service.rs
 +++ b/crates/aionui-conversation/src/service.rs
 @@ -21,11 +21,12 @@
@@ -5073,7 +5172,35 @@
              delivered_midturn: false,
              runtime: self.runtime_summary_for(conversation_id).await,
          }
-@@ -2478,7 +2619,6 @@
+@@ -2188,7 +2329,26 @@
+         // identity comes from the assistant snapshot (same fallback fork()
+         // uses).
+         let capability_agent_id = match self.acp_session_repo.get_for_user(user_id, id).await {
+-            Ok(Some(acp_row)) => Some(acp_row.agent_id),
++            Ok(Some(acp_row)) => {
++                // Cold views use the last persisted selection, rather than
++                // requiring a live agent to replace the original startup seed.
++                // Project into this response only: reading must not rewrite it.
++                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&acp_row.session_config)
++                    && let Some(extra) = response.extra.as_object_mut()
++                {
++                    for (source, targets) in [
++                        ("current_model_id", &["current_model_id"][..]),
++                        ("current_mode_id", &["current_mode_id", "session_mode"][..]),
++                    ] {
++                        if let Some(value) = config["runtime"][source].as_str().filter(|value| !value.is_empty()) {
++                            for target in targets {
++                                extra.insert((*target).into(), serde_json::Value::String(value.to_owned()));
++                            }
++                        }
++                    }
++                }
++                Some(acp_row.agent_id)
++            }
+             Ok(None) if row_agent_type == Some(AgentType::Aionrs) => {
+                 self.aionrs_capability_agent_id(user_id, id).await.ok()
+             }
+@@ -2478,7 +2638,6 @@
                  serde_json::to_string(&merged)
                      .map_err(|e| ConversationError::internal(format!("Failed to serialize merged extra: {e}")))?,
              ),
@@ -5081,7 +5208,7 @@
              ..Default::default()
          };
          self.conversation_repo
-@@ -2615,6 +2755,9 @@
+@@ -2615,6 +2774,9 @@
          }
  
          let had_active_turn = self.runtime_state.mark_deleting(id);
@@ -5091,7 +5218,7 @@
  
          // Snapshot the hook list under the read lock, then drop the guard
          // before awaiting — `RwLockReadGuard` is not `Send`, so holding it
-@@ -3135,6 +3278,53 @@
+@@ -3135,6 +3297,53 @@
  
  impl ConversationService {
      /// List messages for a conversation with cursor-based pagination.
@@ -5145,7 +5272,7 @@
      pub async fn list_messages(
          &self,
          user_id: &str,
-@@ -3428,12 +3618,14 @@
+@@ -3428,12 +3637,14 @@
                  id: conversation_id.to_owned(),
              })?;
  
@@ -5166,7 +5293,7 @@
      }
  
      /// Confirm a pending tool call.
-@@ -3454,6 +3646,12 @@
+@@ -3454,6 +3665,12 @@
              .ok_or_else(|| ConversationError::NotFound {
                  id: conversation_id.to_owned(),
              })?;
@@ -5179,7 +5306,7 @@
  
          let agent = task_manager
              .get_task(conversation_id)
-@@ -3680,6 +3878,7 @@
+@@ -3680,6 +3897,7 @@
          agent: AgentInstance,
          active_turn_id: String,
          inject_skills: Vec<String>,
@@ -5187,7 +5314,7 @@
      ) -> Result<MidturnOutcome, ConversationError> {
          let user_msg_id = Self::mint_msg_id();
          let persisted = self
-@@ -3721,7 +3920,7 @@
+@@ -3721,7 +3939,7 @@
              ));
          }
          let data = aionui_ai_agent::types::SendMessageData {
@@ -5196,7 +5323,7 @@
              msg_id: user_msg_id.clone(),
              turn_id: Some(active_turn_id.clone()),
              files: resolved.files.clone(),
-@@ -3737,7 +3936,7 @@
+@@ -3737,7 +3955,7 @@
                      "mid-turn message delivered into the active turn"
                  );
                  let mut response = self
@@ -5205,7 +5332,7 @@
                      .await;
                  response.delivered_midturn = true;
                  Ok(MidturnOutcome::Delivered(response))
-@@ -3794,7 +3993,7 @@
+@@ -3794,7 +4012,7 @@
                  self.persist_and_broadcast_send_failure_tip(user_id, conversation_id, &active_turn_id, &e, None)
                      .await;
                  Ok(MidturnOutcome::Delivered(
@@ -5214,7 +5341,7 @@
                          .await,
                  ))
              }
-@@ -3813,6 +4012,19 @@
+@@ -3813,6 +4031,19 @@
          user_id: &str,
          conversation_id: &str,
          req: SendMessageRequest,
@@ -5234,7 +5361,7 @@
          task_manager: &Arc<dyn IWorkerTaskManager>,
      ) -> Result<SendMessageResponse, ConversationError> {
          if req.content.trim().is_empty() {
-@@ -3877,6 +4089,9 @@
+@@ -3877,6 +4108,9 @@
          // `[[AION_FILES]]` content used for persistence, broadcast, and the turn.
          let resolved = self
              .resolve_message_attachments(user_id, &content_with_sessions, &req.files)
@@ -5244,7 +5371,7 @@
              .await?;
  
          // ── Mid-turn delivery (B5, spec §4.3) ────────────────────────────
-@@ -3923,6 +4138,7 @@
+@@ -3923,6 +4157,7 @@
                          agent,
                          active_turn_id,
                          req.inject_skills.clone(),
@@ -5252,7 +5379,7 @@
                      )
                      .await?
                  {
-@@ -3942,6 +4158,18 @@
+@@ -3942,6 +4177,18 @@
              let turn_claim = self.runtime_state.try_claim_turn(conversation_id, &turn_id)?;
              (turn_id, turn_claim)
          };
@@ -5271,7 +5398,7 @@
  
          // Store user message. `msg_id` is server-generated so the WebSocket
          // stream, DB row, and client-side message index all agree on the same
-@@ -3971,7 +4199,9 @@
+@@ -3971,7 +4218,9 @@
              let was_deleting = turn_claim.release();
              self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                  .await;
@@ -5282,7 +5409,7 @@
          }
          // The TurnEnded fallback already persisted + broadcast this message
          // (with the statusChanged flip) — doing it again would duplicate the
-@@ -4022,7 +4252,9 @@
+@@ -4022,7 +4271,9 @@
                  let was_deleting = turn_claim.release();
                  self.complete_released_turn(user_id, conversation_id, &turn_id, was_deleting)
                      .await;
@@ -5293,7 +5420,7 @@
              }
          };
          self.apply_conversation_runtime_context(&mut build_opts, user_id, conversation_id);
-@@ -4033,7 +4265,7 @@
+@@ -4033,7 +4284,7 @@
          ConversationTurnOrchestrator::new(self.clone(), Arc::clone(task_manager)).spawn_user_turn(TurnStartInput {
              user_id: user_id.to_owned(),
              conversation: row,
@@ -5302,7 +5429,7 @@
              files: resolved.files,
              inject_skills: req.inject_skills,
              required_runtime_mode: None,
-@@ -4051,7 +4283,7 @@
+@@ -4051,7 +4302,7 @@
              "Message accepted, agent work scheduled"
          );
          Ok(self
@@ -5311,7 +5438,7 @@
              .await)
      }
  
-@@ -4081,6 +4313,16 @@
+@@ -4081,6 +4332,16 @@
  
          let turn_id = Self::mint_turn_id();
          let turn_claim = self.runtime_state.try_claim_turn(&request.conversation_id, &turn_id)?;
@@ -5328,7 +5455,42 @@
          if request.persist_user_message {
              let user_msg_id = Self::mint_msg_id();
              let user_msg = aionui_db::models::MessageRow {
-@@ -4936,7 +5178,6 @@
+@@ -4511,6 +4772,34 @@
+     }
+ 
+     #[tracing::instrument(skip_all, fields(user_id = %user_id, conversation_id = %conversation_id))]
++    pub async fn get_runtime(
++        &self,
++        user_id: &str,
++        conversation_id: &str,
++    ) -> Result<aionui_api_types::GetConversationRuntimeResponse, ConversationError> {
++        self.conversation_repo
++            .get(user_id, conversation_id)
++            .await?
++            .ok_or_else(|| ConversationError::NotFound {
++                id: conversation_id.to_owned(),
++            })?;
++        let config_options = match self.task_manager.get_task(conversation_id) {
++            Some(agent) => Some(
++                agent
++                    .get_config_options()
++                    .await
++                    .map_err(ConversationError::from)?
++                    .config_options,
++            ),
++            None => None,
++        };
++        Ok(aionui_api_types::GetConversationRuntimeResponse {
++            config_options,
++            runtime: self.runtime_summary_for(conversation_id).await,
++        })
++    }
++
++    #[tracing::instrument(skip_all, fields(user_id = %user_id, conversation_id = %conversation_id))]
+     pub async fn ensure_runtime(
+         &self,
+         user_id: &str,
+@@ -4936,7 +5225,6 @@
  
          let update = ConversationRowUpdate {
              extra: Some(extra_json),
@@ -5336,7 +5498,7 @@
              ..Default::default()
          };
          self.conversation_repo.update(user_id, conversation_id, &update).await?;
-@@ -5763,7 +6004,6 @@
+@@ -5763,7 +6051,6 @@
  
      let update = ConversationRowUpdate {
          extra: Some(extra_json),
@@ -5344,7 +5506,7 @@
          ..Default::default()
      };
      if let Err(e) = repo.update(user_id, conversation_id, &update).await {
-@@ -5954,13 +6194,15 @@
+@@ -5954,13 +6241,15 @@
  /// Apply an agent-proposed session title under the `name_source` guard.
  ///
  /// Origin rules (migration 035): NULL (default/placeholder name) and "agent"
@@ -5363,7 +5525,7 @@
  ///
  /// A free function (not a `ConversationService` method) so the per-turn
  /// `StreamRelay` can call it with just the repo + broadcaster it already owns.
-@@ -5980,9 +6222,19 @@
+@@ -5980,9 +6269,19 @@
          debug!(conversation_id, consumer, "agent title dropped: conversation not found");
          return Ok(false);
      };
@@ -5506,7 +5668,47 @@
  }
  
  /// B5 test double: a mid-turn-capable agent that records `deliver_midturn`
-@@ -5811,7 +5892,11 @@
+@@ -4569,6 +4650,39 @@
+     assert!(!runtime_state.is_cancelling(&user_1_conv.id));
+     assert_eq!(task_mgr.active_count(), 1);
+     assert!(task_mgr.get_task(&user_2_conv.id).is_some());
++}
++
++#[tokio::test]
++async fn get_runtime_never_builds_missing_tasks_or_changes_recency() {
++    let task_mgr = Arc::new(MockTaskManager::new());
++    let (svc, _broadcaster, repo) = make_service_with_mock_task_manager(task_mgr.clone());
++    let conv = svc.create("user_1", make_create_req()).await.unwrap();
++    let before = repo.get("user_1", &conv.id).await.unwrap().unwrap();
++    for _ in 0..20 {
++        let snapshot = svc.get_runtime("user_1", &conv.id).await.unwrap();
++        assert!(snapshot.config_options.is_none());
++        assert!(!snapshot.runtime.has_task);
++    }
++    assert!(task_mgr.get_task(&conv.id).is_none());
++    assert_eq!(
++        repo.get("user_1", &conv.id).await.unwrap().unwrap().updated_at,
++        before.updated_at
++    );
++}
++
++#[tokio::test]
++async fn get_runtime_reads_existing_task_catalog() {
++    let task_mgr = Arc::new(MockTaskManager::new());
++    let (svc, _broadcaster, _repo) = make_service_with_mock_task_manager(task_mgr.clone());
++    let conv = svc.create("user_1", make_create_req()).await.unwrap();
++    task_mgr.insert_agent(&conv.id, AgentInstance::Mock(Arc::new(MockAgent::new(&conv.id))));
++    let snapshot = svc.get_runtime("user_1", &conv.id).await.unwrap();
++    assert!(snapshot.runtime.has_task);
++    assert_eq!(snapshot.config_options, Some(Vec::new()));
++    assert!(matches!(
++        svc.get_runtime("user_1", "missing").await,
++        Err(ConversationError::NotFound { .. })
++    ));
+ }
+ 
+ #[tokio::test]
+@@ -5811,7 +5925,11 @@
      );
  
      let updated = repo.get("user_1", &conv.id).await.unwrap().unwrap();
@@ -5519,7 +5721,7 @@
      assert!(
          svc.runtime_state().is_claimed(&conv.id),
          "runtime claim must cover the cold agent build window"
-@@ -6305,7 +6390,7 @@
+@@ -6305,7 +6423,7 @@
  }
  
  #[tokio::test]
@@ -5528,7 +5730,7 @@
      let (svc, _broadcaster, repo, _task_mgr) = make_service();
      let conv = svc.create("user_1", make_create_req()).await.unwrap();
  
-@@ -6366,10 +6451,70 @@
+@@ -6366,10 +6484,70 @@
      assert_eq!(empty.status.as_deref(), Some("finish"));
      assert!(empty.hidden);
  
@@ -5603,7 +5805,7 @@
  }
  
  #[tokio::test]
-@@ -6804,6 +6949,7 @@
+@@ -6804,6 +6982,7 @@
                  input: None,
                  output: None,
                  description: None,

@@ -61,6 +61,7 @@ import type {
 } from '../types/platform/webRuntime';
 import type {
   EnsureConversationRuntimeResponse,
+  GetConversationRuntimeResponse,
   GetConfigOptionsResponse,
   SetConfigOptionRequest,
   SetConfigOptionResponse,
@@ -368,6 +369,9 @@ export const conversation = {
       (p) => ({ message_id: p.message_id })
     ),
     fromApiConversation
+  ),
+  getRuntime: httpGet<GetConversationRuntimeResponse, { conversation_id: string }>(
+    (p) => `/api/conversations/${p.conversation_id}/runtime`
   ),
   ensureRuntime: httpPost<EnsureConversationRuntimeResponse, { conversation_id: string }>(
     (p) => `/api/conversations/${p.conversation_id}/runtime/ensure`,

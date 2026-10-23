@@ -226,6 +226,11 @@ export type EnsureConversationRuntimeResponse = {
   runtime: TConversationRuntimeSummary;
 };
 
+export type GetConversationRuntimeResponse = {
+  config_options: AcpConfigOptionDto[] | null;
+  runtime: TConversationRuntimeSummary;
+};
+
 export type GetConfigOptionsResponse = {
   config_options: AcpConfigOptionDto[];
 };

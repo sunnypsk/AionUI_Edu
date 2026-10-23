@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   restartConversation: vi.fn(),
+  readRuntime: vi.fn(),
+  ensureRuntime: vi.fn(),
   restartTeamMember: vi.fn(),
   revalidateConfig: vi.fn(),
   messageSuccess: vi.fn(),
@@ -33,7 +35,11 @@ const idleRuntime = {
 
 vi.mock('@/common', () => ({
   ipcBridge: {
-    conversation: { restartRuntime: { invoke: mocks.restartConversation } },
+    conversation: {
+      restartRuntime: { invoke: mocks.restartConversation },
+      getRuntime: { invoke: mocks.readRuntime },
+      ensureRuntime: { invoke: mocks.ensureRuntime },
+    },
     team: { restartAgentRuntime: { invoke: mocks.restartTeamMember } },
   },
 }));
@@ -115,6 +121,8 @@ import AcpRuntimeRestartButton from '@/renderer/components/agent/AcpRuntimeResta
 describe('AcpRuntimeRestartButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.readRuntime.mockResolvedValue({ config_options: [], runtime: idleRuntime });
+    mocks.ensureRuntime.mockResolvedValue({ recovered: true, config_options: [], runtime: idleRuntime });
     mocks.restartConversation.mockResolvedValue({ runtime: idleRuntime });
     mocks.restartTeamMember.mockResolvedValue(undefined);
     mocks.revalidateConfig.mockResolvedValue(undefined);
@@ -123,6 +131,16 @@ describe('AcpRuntimeRestartButton', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('explicitly connects a cold runtime without calling the live-task restart endpoint', async () => {
+    mocks.readRuntime.mockResolvedValueOnce({ config_options: null, runtime: { ...idleRuntime, has_task: false } });
+    const user = userEvent.setup();
+    render(<AcpRuntimeRestartButton conversation_id='cold-reconnect' />);
+    await user.click(screen.getByRole('button', { name: 'confirm restart' }));
+    await waitFor(() => expect(mocks.ensureRuntime).toHaveBeenCalledWith({ conversation_id: 'cold-reconnect' }));
+    expect(mocks.restartConversation).not.toHaveBeenCalled();
+    expect(mocks.markRestartSucceeded).toHaveBeenCalledWith(idleRuntime);
   });
 
   it('restarts a standalone runtime and refreshes its config options', async () => {

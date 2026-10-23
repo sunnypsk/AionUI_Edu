@@ -127,6 +127,7 @@ const AcpSendBox: React.FC<{
     resetState,
     hasThinkingMessage,
     slashCommands,
+    fetchSlashCommands,
     tokenUsage,
     context_limit,
   } = messageState;
@@ -203,9 +204,10 @@ const AcpSendBox: React.FC<{
 
   const handleContentChange = useCallback(
     (val: string) => {
+      if (val.trimStart().startsWith('/') && !content.trimStart().startsWith('/')) fetchSlashCommands();
       setContent(val);
     },
-    [setContent]
+    [content, fetchSlashCommands, setContent]
   );
   const { setSendBoxHandler } = usePreviewContext();
 
@@ -759,7 +761,14 @@ Please check your local CLI tool authentication status`,
       />
       <CrossSessionDisabledBanner />
       <SendBox
-        onMobilePlusClick={isMobile ? () => setIsMobileSheetOpen(true) : undefined}
+        onMobilePlusClick={
+          isMobile
+            ? () => {
+                setIsMobileSheetOpen(true);
+                void runtimeConfig.ensure().catch(() => Message.error(t('agent.config.failed')));
+              }
+            : undefined
+        }
         value={content}
         onChange={handleContentChange}
         selectedWorkspaceItems={atPath}

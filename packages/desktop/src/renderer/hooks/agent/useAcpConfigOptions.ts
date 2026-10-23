@@ -12,7 +12,10 @@ import type {
   AcpConfigSelectOptionDto,
   SetConfigOptionResponse,
 } from '@/common/types/platform/acpTypes';
-import { ensureConversationRuntime } from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
+import {
+  ensureConversationRuntime,
+  getConversationRuntimeSnapshot,
+} from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
 import {
   getConversationRuntimeViewSnapshot,
   subscribeConversationRuntimeView,
@@ -142,6 +145,8 @@ export type AcpConfigOptionBlocker = (conversation_id: string, option_id: string
  * the team API instead of the per-conversation one.
  */
 export type AcpConfigOptionsPort = {
+  /** Explicit interaction only; passive loads must not start an agent. */
+  ensure?: (conversation_id: string) => Promise<AcpConfigOptionDto[] | null>;
   load: AcpConfigOptionLoad;
   /** Overrides the per-conversation setter. Team members route through the team API. */
   setConfigOption?: AcpConfigOptionSetter;
@@ -235,7 +240,8 @@ function subscribeConversationPending(
 
 /** Default port: talks to the conversation's own runtime. */
 const conversationConfigOptionsPort: AcpConfigOptionsPort = {
-  load: async (conversation_id: string) => (await ensureConversationRuntime(conversation_id)).config_options,
+  load: async (conversation_id: string) => (await getConversationRuntimeSnapshot(conversation_id)).config_options,
+  ensure: async (conversation_id: string) => (await ensureConversationRuntime(conversation_id)).config_options,
 };
 
 const configOptionsInFlight = new Map<string, Promise<AcpConfigOptionDto[] | null>>();
@@ -340,21 +346,39 @@ export function useAcpConfigOptions({
     const runtimeGeneration = runtimeGenerationRef.current;
     setIsReloading(true);
     try {
-      await prepareRuntime?.();
       const next = await fetchConfigOptionsOnce(key, configOptionsPort);
+      if (runtimeGenerationRef.current !== runtimeGeneration) return next;
       if (next) {
         replaceSnapshot(next);
-        if (runtimeGenerationRef.current === runtimeGeneration) {
-          setLoadedRuntimeGeneration(runtimeGeneration);
-        }
       }
-      setIsReloading(false);
+      // A cold runtime is a valid hydrated snapshot. Interactions can ensure
+      // it explicitly; header controls must not wait forever for a process.
+      setLoadedRuntimeGeneration(runtimeGeneration);
       return next;
-    } catch (error) {
-      setIsReloading(false);
-      throw error;
+    } finally {
+      if (runtimeGenerationRef.current === runtimeGeneration) setIsReloading(false);
     }
-  }, [key, configOptionsPort, prepareRuntime, replaceSnapshot]);
+  }, [key, configOptionsPort, replaceSnapshot]);
+
+  const ensure = useCallback(async () => {
+    const generation = runtimeGenerationRef.current;
+    setIsReloading(true);
+    try {
+      await configOptionsInFlight.get(conversation_id)?.catch(() => {});
+      await (prepareSetRuntime ?? prepareRuntime)?.();
+      const next = configOptionsPort.ensure
+        ? await configOptionsPort.ensure(conversation_id)
+        : await configOptionsPort.load(conversation_id);
+      if (runtimeGenerationRef.current !== generation) return next;
+      if (next) {
+        replaceSnapshot(next);
+        setLoadedRuntimeGeneration(generation);
+      }
+      return next;
+    } finally {
+      if (runtimeGenerationRef.current === generation) setIsReloading(false);
+    }
+  }, [conversation_id, configOptionsPort, prepareRuntime, prepareSetRuntime, replaceSnapshot]);
 
   const setConfigOption = useCallback(
     async (optionId: string, value: string) => {
@@ -365,7 +389,9 @@ export function useAcpConfigOptions({
       try {
         await (prepareSetRuntime ?? prepareRuntime)?.();
         if (isConfigOptionBlocked(optionId)) throw new Error('config_update_in_progress');
-        const beforeSet = await fetchConfigOptionsOnce(key, configOptionsPort);
+        const beforeSet = configOptionsPort.ensure
+          ? await configOptionsPort.ensure(conversation_id)
+          : await fetchConfigOptionsOnce(key, configOptionsPort);
         if (beforeSet) replaceSnapshot(beforeSet);
         if (isConfigOptionBlocked(optionId)) throw new Error('config_update_in_progress');
         const response = configOptionsPort.setConfigOption
@@ -437,6 +463,7 @@ export function useAcpConfigOptions({
     model: deriveSelectOption(configOptions, 'model', ['model']),
     thoughtLevel: deriveSelectOption(configOptions, 'thought_level', ['thought_level', 'reasoning_effort']),
     reload,
+    ensure,
     setConfigOption,
     isConfigOptionBlocked,
   };
