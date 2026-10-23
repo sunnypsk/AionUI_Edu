@@ -261,6 +261,8 @@
     "signOut": "Cerrar sesión en Factory",
     "actionFailed": "La solicitud falló. Actualiza e inténtalo de nuevo.",
     "tasksTitle": "Especialistas de escritura",
+    "summaryRunning": "{{running}} de {{count}} en curso",
+    "summaryDone": "{{count}} finalizadas",
     "revision": "Versión del borrador",
     "readDraft": "Leer borrador",
     "noDraft": "Todavía no hay texto en el borrador.",

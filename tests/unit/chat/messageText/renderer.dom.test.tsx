@@ -7,6 +7,7 @@ import OpenUIMessage, {
   OPENUI_DARK_THEME,
   OPENUI_LIGHT_THEME,
 } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI';
+import { SUBMITTED_AT_KEY } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/useSavedState';
 import { emitter } from '@/renderer/utils/emitter';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
@@ -181,6 +182,46 @@ describe('official OpenUI renderer integration', () => {
         form_name: 'lesson',
         form_state: { $grade: 'F2', $topic: 'Tang poetry', lesson: { date: '2026-10-20' } },
       });
+    } finally {
+      emitter.off('openui.followUp', receive);
+    }
+  });
+  it('locks a form after it is submitted and records the submission in saved state', async () => {
+    const receive = vi.fn((request) => request.resolve());
+    emitter.on('openui.followUp', receive);
+    try {
+      const { container } = display(program);
+      await waitFor(() => expect(screen.getByPlaceholderText('Enter topic')).not.toBeDisabled());
+      fireEvent.click(screen.getByText('Continue'));
+      await waitFor(() => expect(container.querySelector('[data-openui-submitted]')).not.toBeNull());
+      expect(receive.mock.calls[0][0].ui_action.form_state).not.toHaveProperty(SUBMITTED_AT_KEY);
+      await waitFor(() =>
+        expect(api.saveState.mock.calls.at(-1)?.[2]).toMatchObject({ [SUBMITTED_AT_KEY]: expect.any(Number) })
+      );
+      expect(screen.getByText('Continue').closest('[inert]')).not.toBeNull();
+      fireEvent.click(screen.getByText('Continue'));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(receive).toHaveBeenCalledTimes(1);
+    } finally {
+      emitter.off('openui.followUp', receive);
+    }
+  });
+  it('keeps a submitted form locked after reload without exposing the marker to the program', async () => {
+    api.loadState.mockResolvedValueOnce({ ...initial, state: { $topic: 'Saved topic', [SUBMITTED_AT_KEY]: 1 } });
+    const receive = vi.fn((request) => request.resolve());
+    emitter.on('openui.followUp', receive);
+    try {
+      const { container } = display(program);
+      await waitFor(() => expect(screen.getByPlaceholderText('Enter topic')).toHaveValue('Saved topic'));
+      expect(container.querySelector('[data-openui-submitted]')).not.toBeNull();
+      expect(screen.getByText('Continue').closest('[inert]')).not.toBeNull();
+      fireEvent.click(screen.getByText('Continue'));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(receive).not.toHaveBeenCalled();
     } finally {
       emitter.off('openui.followUp', receive);
     }

@@ -261,6 +261,8 @@
     "signOut": "Вийти з Factory",
     "actionFailed": "Запит не виконано. Оновіть сторінку й спробуйте ще раз.",
     "tasksTitle": "Автори",
+    "summaryRunning": "Виконується {{running}} з {{count}}",
+    "summaryDone": "Завершено: {{count}}",
     "revision": "Версія чернетки",
     "readDraft": "Прочитати чернетку",
     "noDraft": "Тексту чернетки ще немає.",

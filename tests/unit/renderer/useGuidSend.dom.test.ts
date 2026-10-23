@@ -253,13 +253,22 @@ describe('useGuidSend', () => {
     expect(createConversationInvokeMock).not.toHaveBeenCalled();
   });
 
-  it('allows starting an empty Codex session without sending an initial message', async () => {
+  it.each(['', '   \n'])('blocks sending blank input %j without creating a conversation', async (input) => {
     const deps = createDeps();
-    deps.input = '';
+    deps.input = input;
     const { result } = renderHook(() => useGuidSend(deps));
+    expect(result.current.isButtonDisabled).toBe(true);
     await act(async () => result.current.handleSend());
-    expect(createConversationInvokeMock).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem('acp_initial_message_conv-1')).toBeNull();
+    expect(createConversationInvokeMock).not.toHaveBeenCalled();
+    expect(deps.navigate).not.toHaveBeenCalled();
+  });
+
+  it('stashes typed input as the initial message of the new conversation', async () => {
+    const deps = createDeps();
+    const { result } = renderHook(() => useGuidSend(deps));
+    expect(result.current.isButtonDisabled).toBe(false);
+    await act(async () => result.current.handleSend());
+    expect(JSON.parse(sessionStorage.getItem('acp_initial_message_conv-1')!)).toMatchObject({ input: 'hello' });
     expect(deps.navigate).toHaveBeenCalledWith('/conversation/conv-1');
   });
 });

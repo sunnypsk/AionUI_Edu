@@ -95,7 +95,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   const sendingRef = useRef(false);
 
   const handleSend = useCallback(async () => {
-    if (!selectedAssistantId || selectedAssistantBackend !== 'codex') {
+    // An empty send would only create a blank, untitled conversation.
+    if (!selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim()) {
       return;
     }
 
@@ -177,16 +178,11 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
       emitter.emit('chat.history.refresh');
 
-      // Empty input = "start chat": create the conversation but do not stash an
-      // initial message, so the window opens idle on the empty state instead of
-      // auto-sending a blank first turn.
-      if (input.trim()) {
-        const initialMessage = {
-          input,
-          files: files.length > 0 ? files : undefined,
-        };
-        sessionStorage.setItem(`acp_initial_message_${conversation.id}`, JSON.stringify(initialMessage));
-      }
+      const initialMessage = {
+        input,
+        files: files.length > 0 ? files : undefined,
+      };
+      sessionStorage.setItem(`acp_initial_message_${conversation.id}`, JSON.stringify(initialMessage));
 
       await navigate(`/conversation/${conversation.id}`);
     } catch (error: unknown) {
@@ -247,11 +243,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     t,
   ]);
 
-  // Calculate button disabled state
-  // Calculate button disabled state. Empty input is allowed once an assistant is
-  // picked — that path creates an empty conversation ("start chat") rather than
-  // sending a message, so the gate only blocks while loading or with no assistant.
-  const isButtonDisabled = loading || !selectedAssistantId || selectedAssistantBackend !== 'codex';
+  // Blocked while loading, without a Codex assistant, or with nothing typed.
+  const isButtonDisabled = loading || !selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim();
 
   return {
     handleSend,

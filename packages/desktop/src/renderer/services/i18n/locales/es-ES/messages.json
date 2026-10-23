@@ -106,6 +106,7 @@
     "save": "No se pudieron guardar los cambios. El borrador se conserva.",
     "conflict": "Esta interfaz se actualizó en otro dispositivo. El borrador se conserva.",
     "submitFailed": "No se pudo enviar la acción.",
+    "submitted": "Enviado a las {{time}}",
     "followUp": "Continuar con estas selecciones.",
     "invalid": "No se pudo mostrar parte de esta interfaz.",
     "reapply": "Volver a aplicar el borrador",

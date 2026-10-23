@@ -256,6 +256,8 @@
     "signOut": "Factory 로그아웃",
     "actionFailed": "요청에 실패했습니다. 새로고침 후 다시 시도하세요.",
     "tasksTitle": "글쓰기 전문가",
+    "summaryRunning": "{{count}}개 중 {{running}}개 진행 중",
+    "summaryDone": "{{count}}개 종료됨",
     "revision": "초안 버전",
     "readDraft": "초안 읽기",
     "noDraft": "아직 초안이 없습니다.",

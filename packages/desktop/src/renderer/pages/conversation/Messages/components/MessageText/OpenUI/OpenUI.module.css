@@ -23,6 +23,43 @@
 .root :global(.openui-theme-provider) {
   max-width: 100%;
 }
+/* A submitted block is read-only; dim it so it no longer reads as actionable. */
+.submitted :global(.openui-theme-provider) {
+  opacity: 0.6;
+}
+/* Editable tables: the library pads a width/height 100% cell without border-box, so every
+   cell overflows its column and row. That pushed right-aligned numbers into the next column
+   and made the table scroll vertically, trapping the page's mouse wheel. */
+.root :global(.openui-editable-table-scroll-container) {
+  overflow-y: hidden;
+}
+.root :global(.openui-editable-table-table) {
+  width: 100%;
+}
+.root :global(.openui-editable-table-table thead th) {
+  height: auto;
+  white-space: normal;
+}
+/* A 1px cell height acts as a minimum, letting the cell base fill rows that grow with wrapped text. */
+.root :global(.openui-editable-table-table tbody td) {
+  height: 1px;
+  white-space: normal;
+}
+.root :global(.openui-editable-table-cell-base) {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+}
+/* Lay display values out in flow so long text wraps instead of being cut off. */
+.root :global(.openui-editable-table-display-text),
+.root :global(.openui-editable-table-display-number) {
+  position: static;
+  width: auto;
+  transform: none;
+  white-space: normal;
+  text-align: start;
+}
 .controls {
   display: flex;
   align-items: center;

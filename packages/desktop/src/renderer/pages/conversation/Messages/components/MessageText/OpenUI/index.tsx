@@ -21,7 +21,7 @@ import { openExternalUrl } from '@/renderer/utils/platform';
 import { parseHttpUrl } from '@/renderer/utils/url';
 import { callTool, isCompatible, listTools, openUiCapabilities, resolveMessageId, statePath } from './api';
 import { splitOpenUiContent } from './content';
-import { useSavedState } from './useSavedState';
+import { readSubmittedAt, SUBMITTED_AT_KEY, useSavedState, withoutSubmission } from './useSavedState';
 import type { OpenUiBlock } from './types';
 import styles from './OpenUI.module.css';
 import { withWebUiAdapters } from './runtimeLibrary';
@@ -117,6 +117,7 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
   const preview = useOptionalPreviewContext();
   const [errors, setErrors] = useState<OpenUIError[]>([]);
   const [actionFailed, setActionFailed] = useState(false);
+  const [localSubmittedAt, setLocalSubmittedAt] = useState<number>();
   const [mode, setMode] = useState<'light' | 'dark'>(() =>
     document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
   );
@@ -159,9 +160,18 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
     block.content,
     user?.id
   );
+  // A submitted block stays locked across reloads via a reserved key in its saved state.
+  const submittedAt = localSubmittedAt ?? readSubmittedAt(state.saved?.state);
   // The pinned runtime emits form-store changes while hydrating an existing instance.
   // A fresh store prevents stale reactive values from being saved over a remote snapshot.
-  const restoration = useMemo(() => ({ initial: state.restored, key: uuid() }), [state.restored]);
+  const restoration = useMemo(
+    () => ({ initial: state.restored && withoutSubmission(state.restored), key: uuid() }),
+    [state.restored]
+  );
+  const updateState = useCallback(
+    (next: Record<string, unknown>) => state.update(submittedAt ? { ...next, [SUBMITTED_AT_KEY]: submittedAt } : next),
+    [state.update, submittedAt]
+  );
   const library = block.profile === 'openui-chat' ? chatLibrary : fullLibrary;
   const parsed = useMemo(() => {
     try {
@@ -232,9 +242,9 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
   );
   const onAction = useCallback(
     (event: ActionEvent) => {
-      if (!ready || !persistedMessage || actionPending.current) return;
+      if (!ready || !persistedMessage || submittedAt || actionPending.current) return;
       actionPending.current = true;
-      const formState = structuredClone({ ...state.current(), ...event.formState });
+      const formState = structuredClone(withoutSubmission({ ...state.current(), ...event.formState }));
       setActionFailed(false);
       void (async () => {
         await state.flush();
@@ -260,6 +270,11 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
             });
             if (!delivered) reject(new Error('OPENUI_CONVERSATION_UNAVAILABLE'));
           });
+          const at = Date.now();
+          setLocalSubmittedAt(at);
+          state.update({ ...state.current(), [SUBMITTED_AT_KEY]: at });
+          // A failed save surfaces through the saved-state warning; the message was already delivered.
+          void state.flush().catch(() => {});
         } else throw new Error('OPENUI_ACTION_NOT_REGISTERED');
       })()
         .catch(() => setActionFailed(true))
@@ -267,7 +282,7 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
           actionPending.current = false;
         });
     },
-    [ready, state.flush, state.current, conversation, persistedMessage, block.id, preview, t]
+    [ready, submittedAt, state.flush, state.current, state.update, conversation, persistedMessage, block.id, preview, t]
   );
   const requestRepair = () => {
     if (!compatible || streaming || !persistedMessage || actionPending.current) return;
@@ -311,7 +326,7 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
               : null;
   return (
     <div
-      className={styles.root}
+      className={submittedAt ? `${styles.root} ${styles.submitted}` : styles.root}
       data-openui-block={block.id}
       onClickCapture={() => {
         operation.current = { id: uuid(), ordinal: 0 };
@@ -329,14 +344,14 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
           darkTheme={OPENUI_DARK_THEME}
           cssSelector='[data-openui-block]'
         >
-          <FieldScope disabled={!ready}>
+          <FieldScope disabled={!ready || Boolean(submittedAt)}>
             <Renderer
               key={restoration.key}
               library={library}
               response={block.content}
               isStreaming={!ready}
               initialState={restoration.initial}
-              onStateUpdate={ready ? state.update : undefined}
+              onStateUpdate={ready ? updateState : undefined}
               onAction={onAction}
               toolProvider={ready ? toolProvider : null}
               onError={(next) =>
@@ -346,6 +361,13 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
             />
           </FieldScope>
         </ThemeProvider>
+      )}
+      {submittedAt && (
+        <div className='mt-8px text-12px text-t-secondary' data-openui-submitted>
+          {t('messages.openui.submitted', {
+            time: new Date(submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          })}
+        </div>
       )}
       {invalid && <Alert type='warning' content={t('messages.openui.invalid')} />}
       {(canRepair || toolsError || messageError || state.error) && (

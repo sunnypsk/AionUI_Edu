@@ -261,6 +261,8 @@
     "signOut": "Factory oturumunu kapat",
     "actionFailed": "İstek başarısız oldu. Yenileyip tekrar deneyin.",
     "tasksTitle": "Yazı uzmanları",
+    "summaryRunning": "{{count}} görevden {{running}} tanesi çalışıyor",
+    "summaryDone": "{{count}} görev tamamlandı",
     "revision": "Taslak sürümü",
     "readDraft": "Taslağı oku",
     "noDraft": "Henüz taslak metni yok.",

@@ -3,6 +3,22 @@ import { isBackendHttpError } from '@/common/adapter/httpBridge';
 import { loadState, saveState } from './api';
 import type { OpenUiSavedState } from './types';
 
+/** Reserved saved-state key recording when the user submitted a block back to the assistant. */
+export const SUBMITTED_AT_KEY = '__aionui_submitted_at';
+
+/** The submission time stored in a block's saved state, if the block was submitted. */
+export const readSubmittedAt = (state: Record<string, unknown> | undefined): number | undefined => {
+  const value = state?.[SUBMITTED_AT_KEY];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+};
+
+/** Form state as the program sees it, without the reserved submission marker. */
+export const withoutSubmission = (state: Record<string, unknown>): Record<string, unknown> => {
+  if (!(SUBMITTED_AT_KEY in state)) return state;
+  const { [SUBMITTED_AT_KEY]: _submittedAt, ...rest } = state;
+  return rest;
+};
+
 type Snapshot = {
   saved: OpenUiSavedState | null;
   restored: Record<string, unknown> | undefined;

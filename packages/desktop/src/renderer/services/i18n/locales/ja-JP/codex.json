@@ -261,6 +261,8 @@
     "signOut": "Factory からログアウト",
     "actionFailed": "操作に失敗しました。更新して再試行してください。",
     "tasksTitle": "執筆スペシャリスト",
+    "summaryRunning": "{{count}} 件中 {{running}} 件実行中",
+    "summaryDone": "{{count}} 件完了",
     "revision": "草稿の版",
     "readDraft": "草稿を読む",
     "noDraft": "草稿はまだありません。",

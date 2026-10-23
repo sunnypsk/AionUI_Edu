@@ -261,6 +261,8 @@
     "signOut": "Von Factory abmelden",
     "actionFailed": "Die Anfrage ist fehlgeschlagen. Bitte aktualisieren und erneut versuchen.",
     "tasksTitle": "Schreibexperten",
+    "summaryRunning": "{{running}} von {{count}} laufen",
+    "summaryDone": "{{count}} abgeschlossen",
     "revision": "Entwurfsversion",
     "readDraft": "Entwurf lesen",
     "noDraft": "Noch kein Entwurfstext vorhanden.",

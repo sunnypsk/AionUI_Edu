@@ -261,6 +261,8 @@
     "signOut": "登出 Factory",
     "actionFailed": "操作失敗，請重新整理後再試。",
     "tasksTitle": "寫作專家",
+    "summaryRunning": "{{count}} 項中有 {{running}} 項進行中",
+    "summaryDone": "{{count}} 項已結束",
     "revision": "草稿版本",
     "readDraft": "閱讀草稿",
     "noDraft": "尚未產生草稿文字。",

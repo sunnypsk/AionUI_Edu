@@ -281,9 +281,7 @@ const GuidPage: React.FC = () => {
 
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
-        // Empty input is allowed — it creates an empty conversation ("start
-        // chat"). Mirror the send button's gate so Enter and click behave
-        // identically (blocked only while loading or with no assistant).
+        // Mirror the send button's gate so Enter and click behave identically.
         if (send.isButtonDisabled) return;
         send.sendMessageHandler();
       }

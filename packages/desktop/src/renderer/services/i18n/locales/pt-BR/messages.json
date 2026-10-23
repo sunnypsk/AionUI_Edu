@@ -106,6 +106,7 @@
     "save": "Não foi possível salvar as alterações. O rascunho foi mantido.",
     "conflict": "Esta interface foi atualizada em outro dispositivo. O rascunho foi mantido.",
     "submitFailed": "Não foi possível enviar a ação.",
+    "submitted": "Enviado às {{time}}",
     "followUp": "Continuar com estas escolhas.",
     "invalid": "Não foi possível exibir parte desta interface.",
     "reapply": "Reaplicar rascunho",

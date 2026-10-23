@@ -261,6 +261,8 @@
     "signOut": "Sign out of Factory",
     "actionFailed": "The request failed. Please refresh and try again.",
     "tasksTitle": "Writing specialists",
+    "summaryRunning": "{{running}} of {{count}} running",
+    "summaryDone": "{{count}} finished",
     "revision": "Draft revision",
     "readDraft": "Read draft",
     "noDraft": "No draft text yet.",

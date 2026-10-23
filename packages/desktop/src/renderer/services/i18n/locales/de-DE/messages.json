@@ -106,6 +106,7 @@
     "save": "Die Änderungen konnten nicht gespeichert werden. Der Entwurf bleibt erhalten.",
     "conflict": "Diese Oberfläche wurde auf einem anderen Gerät aktualisiert. Der Entwurf bleibt erhalten.",
     "submitFailed": "Die Aktion konnte nicht gesendet werden.",
+    "submitted": "Gesendet um {{time}}",
     "followUp": "Mit dieser Auswahl fortfahren.",
     "invalid": "Ein Teil dieser Oberfläche konnte nicht angezeigt werden.",
     "reapply": "Entwurf erneut anwenden",

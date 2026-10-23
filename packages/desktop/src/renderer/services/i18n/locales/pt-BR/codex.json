@@ -261,6 +261,8 @@
     "signOut": "Sair da Factory",
     "actionFailed": "A solicitação falhou. Atualize e tente novamente.",
     "tasksTitle": "Especialistas em escrita",
+    "summaryRunning": "{{running}} de {{count}} em andamento",
+    "summaryDone": "{{count}} concluídas",
     "revision": "Versão do rascunho",
     "readDraft": "Ler rascunho",
     "noDraft": "Ainda não há texto no rascunho.",

@@ -261,6 +261,8 @@
     "signOut": "Se déconnecter de Factory",
     "actionFailed": "La demande a échoué. Actualisez puis réessayez.",
     "tasksTitle": "Spécialistes de rédaction",
+    "summaryRunning": "{{running}} sur {{count}} en cours",
+    "summaryDone": "{{count}} terminées",
     "revision": "Version du brouillon",
     "readDraft": "Lire le brouillon",
     "noDraft": "Aucun texte de brouillon pour le moment.",

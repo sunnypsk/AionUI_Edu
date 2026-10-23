@@ -106,6 +106,7 @@
     "save": "The changes could not be saved. Your draft is kept here.",
     "conflict": "This interface was updated on another device. Your draft is kept here.",
     "submitFailed": "The interaction could not be submitted.",
+    "submitted": "Submitted at {{time}}",
     "followUp": "Continue with these selections.",
     "invalid": "Part of this interface could not be rendered.",
     "reapply": "Reapply draft",

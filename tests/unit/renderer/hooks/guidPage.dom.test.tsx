@@ -581,8 +581,8 @@ describe('GuidPage', () => {
     expect(actionRow).not.toHaveProperty('onThoughtLevelSelect');
   });
 
-  it('sends on Enter with empty input (empty-input start), matching the button', () => {
-    guidInputMock.input = '';
+  it('sends on Enter when the send gate is open, matching the button', () => {
+    guidInputMock.input = 'hello';
     sendMock.isButtonDisabled = false;
     sendMock.sendMessageHandler.mockClear();
 

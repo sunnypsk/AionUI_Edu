@@ -251,6 +251,8 @@
     "signOut": "退出 Factory",
     "actionFailed": "操作失败，请刷新后重试。",
     "tasksTitle": "写作专家",
+    "summaryRunning": "{{count}} 项中有 {{running}} 项进行中",
+    "summaryDone": "{{count}} 项已结束",
     "revision": "草稿版本",
     "readDraft": "阅读草稿",
     "noDraft": "尚未生成草稿文字。",

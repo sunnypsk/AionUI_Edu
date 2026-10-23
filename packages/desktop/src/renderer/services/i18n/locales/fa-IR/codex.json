@@ -261,6 +261,8 @@
     "signOut": "خروج از Factory",
     "actionFailed": "درخواست ناموفق بود. صفحه را تازه کنید و دوباره تلاش کنید.",
     "tasksTitle": "متخصصان نویسندگی",
+    "summaryRunning": "{{running}} از {{count}} در حال اجرا",
+    "summaryDone": "{{count}} مورد پایان یافت",
     "revision": "نسخه پیش‌نویس",
     "readDraft": "خواندن پیش‌نویس",
     "noDraft": "هنوز متنی برای پیش‌نویس وجود ندارد.",

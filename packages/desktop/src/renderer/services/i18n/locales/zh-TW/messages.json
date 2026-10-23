@@ -106,6 +106,7 @@
     "save": "未能儲存修改，草稿仍然保留。",
     "conflict": "另一部裝置已更新此介面，草稿仍然保留。",
     "submitFailed": "未能提交此次操作。",
+    "submitted": "已於 {{time}} 送出",
     "followUp": "按這些選項繼續。",
     "invalid": "部分介面未能顯示。",
     "reapply": "重新套用草稿",

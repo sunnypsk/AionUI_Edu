@@ -261,6 +261,8 @@
     "signOut": "Выйти из Factory",
     "actionFailed": "Запрос не выполнен. Обновите страницу и повторите попытку.",
     "tasksTitle": "Авторы",
+    "summaryRunning": "Выполняется {{running}} из {{count}}",
+    "summaryDone": "Завершено: {{count}}",
     "revision": "Версия черновика",
     "readDraft": "Прочитать черновик",
     "noDraft": "Текста черновика пока нет.",

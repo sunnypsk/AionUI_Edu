@@ -106,6 +106,7 @@
     "save": "Değişiklikler kaydedilemedi. Taslağınız korunuyor.",
     "conflict": "Bu arayüz başka bir cihazda güncellendi. Taslağınız korunuyor.",
     "submitFailed": "İşlem gönderilemedi.",
+    "submitted": "{{time}} saatinde gönderildi",
     "followUp": "Bu seçimlerle devam et.",
     "invalid": "Bu arayüzün bir bölümü görüntülenemedi.",
     "reapply": "Taslağı yeniden uygula",
