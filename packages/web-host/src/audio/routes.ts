@@ -4,7 +4,16 @@ import path from 'node:path';
 import { z } from 'zod';
 import { verifyBrowserCapability } from '../runtime/browser/types.js';
 import { AudioManager } from './manager.js';
-import { audioError, ownerId, settingsSchema, type AudioOwner, type AudioToolName } from './types.js';
+import {
+  agentTask,
+  audioError,
+  ownerId,
+  settingsSchema,
+  toolSchemas,
+  type AudioOwner,
+  type AudioToolName,
+} from './types.js';
+import { AudioProjectError } from './track/index.js';
 
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -104,7 +113,7 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
           : code === 'INVALID_REQUEST'
             ? 400
             : 409,
-      { error: { code } }
+      { error: { code, ...(error instanceof AudioProjectError ? { details: error.details } : {}) } }
     );
   };
   const server = http.createServer((req, res) => {
@@ -147,10 +156,15 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
           send(res, 200, { data: { ok: true } });
         } else {
           const p = z
-            .object({ name: z.enum(['transcribe_audio', 'synthesize_speech']), arguments: z.unknown() })
+            .object({
+              name: z.enum(Object.keys(toolSchemas) as [AudioToolName, ...AudioToolName[]]),
+              arguments: z.unknown(),
+            })
             .strict()
             .parse(input);
-          send(res, 200, { data: await manager.command(context, p.name as AudioToolName, p.arguments, abort.signal) });
+          send(res, 200, {
+            data: agentTask(await manager.command(context, p.name as AudioToolName, p.arguments, abort.signal)),
+          });
         }
       } catch (error) {
         failure(res, error);

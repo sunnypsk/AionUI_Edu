@@ -1,9 +1,10 @@
 import http from 'node:http';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAudioRuntime } from '../routes.js';
+import { agentTask } from '../types.js';
 import { signBrowserCapability } from '../../runtime/browser/types.js';
 
 describe('audio settings authentication and CSRF', () => {
@@ -109,5 +110,46 @@ describe('audio settings authentication and CSRF', () => {
     expect(await (await request(capability, 'fixture-runtime-token')).json()).toMatchObject({
       error: { code: 'AUDIO_TASK_NOT_FOUND' },
     });
+  });
+  it('returns listening project validation details to the agent', async () => {
+    await writeFile(path.join(directory, 'workspace', 'unit.listening.json'), JSON.stringify({ version: 1 }));
+    const response = await fetch(`${runtime.env.AIONUI_AUDIO_GATEWAY}/command`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-aionui-audio-capability': signBrowserCapability(runtime.env.AIONUI_AUDIO_SIGNING_KEY, 'alice', 'lesson'),
+        'x-aionui-runtime-token': 'fixture-runtime-token',
+      },
+      body: JSON.stringify({ name: 'render_listening_track', arguments: { project_path: 'unit.listening.json' } }),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'AUDIO_PROJECT_INVALID',
+        details: expect.arrayContaining([expect.stringMatching(/^title: /), expect.stringMatching(/^sections: /)]),
+      },
+    });
+  });
+});
+
+describe('agent task view', () => {
+  it('omits usage, cost and cost warnings from tool results', () => {
+    const view = agentTask({
+      id: 'task',
+      kind: 'transcription',
+      status: 'completed',
+      createdAt: 1,
+      updatedAt: 2,
+      completedChunks: 1,
+      totalChunks: 1,
+      files: [{ path: 'audio/task/transcript.srt', format: 'srt' }],
+      usage: [{ chunk: 1, costUsd: 0.002 }],
+      costUsd: 0.002,
+      warnings: ['AUDIO_COST_INCOMPLETE', 'AUDIO_APPROXIMATE_TIMESTAMPS'],
+    });
+    expect(view).not.toHaveProperty('usage');
+    expect(view).not.toHaveProperty('costUsd');
+    expect(view.warnings).toEqual(['AUDIO_APPROXIMATE_TIMESTAMPS']);
+    expect(view.files).toEqual([{ path: 'audio/task/transcript.srt', format: 'srt' }]);
   });
 });

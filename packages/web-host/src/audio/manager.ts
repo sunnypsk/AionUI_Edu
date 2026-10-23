@@ -9,16 +9,21 @@ import { MultimodalTranscriber, type TranscriptionOptions, type TranscriptionRes
 import { media, workspaceFile, type MediaServices } from './providers/media.js';
 import { synthesize, type SpeechOptions } from './providers/edge.js';
 import { formatTranscript, normalizeSegments } from './formats.js';
+import { AudioProjectError, loadProject, renderTrack, trackMedia, type TrackMedia } from './track/index.js';
+import { planTrack } from './track/project.js';
+import type { ListeningProject } from '../../../desktop/src/common/types/platform/listeningProject.ts';
 import {
   active,
   audioError,
   publicTask,
+  TOOL_KINDS,
   toolSchemas,
   type AudioOwner,
   type AudioTask,
   type AudioToolName,
   type SpeechInput,
   type TranscribeInput,
+  type TrackInput,
   type StoredAudioTask,
   type AudioSegment,
 } from './types.js';
@@ -28,6 +33,14 @@ type Services = {
   media: MediaServices;
   transcribe: (options: TranscriptionOptions) => Promise<TranscriptionResult>;
   speak: (options: SpeechOptions) => Promise<{ segments: AudioSegment[] }>;
+  trackMedia: TrackMedia;
+};
+type Snapshot = {
+  source?: string;
+  text?: string;
+  project?: ListeningProject;
+  selection?: { model: string; apiKey?: string };
+  model?: Awaited<ReturnType<AudioCatalog['resolve']>>;
 };
 type Gate = { epoch: number; open: boolean; threadId?: string; turns: Map<string, number> };
 type Work = { controller: AbortController; done: Promise<void> };
@@ -54,6 +67,7 @@ export class AudioManager {
       media,
       transcribe: (options) => transcriber.transcribe(options),
       speak: synthesize,
+      trackMedia,
       ...services,
     };
     this.ready = this.store.loadTasks().then(async (tasks) => {
@@ -129,7 +143,7 @@ export class AudioManager {
     if (parsed.action === 'start') return this.start(owner, name, parsed);
     if (!parsed.task_id) throw new Error('INVALID_REQUEST');
     const task = this.find(owner, parsed.task_id);
-    if ((name === 'transcribe_audio') !== (task.kind === 'transcription')) throw new Error('AUDIO_TASK_NOT_FOUND');
+    if (TOOL_KINDS[name] !== task.kind) throw new Error('AUDIO_TASK_NOT_FOUND');
     if (parsed.action === 'cancel') await this.stop(task, 'cancelled');
     if (parsed.action === 'wait') {
       const deadline = Date.now() + parsed.wait_sec * 1000;
@@ -153,14 +167,26 @@ export class AudioManager {
   private async start(
     owner: AudioOwner,
     name: AudioToolName,
-    input: TranscribeInput | SpeechInput
+    input: TranscribeInput | SpeechInput | TrackInput
   ): Promise<AudioTask> {
     if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
     let selection: Awaited<ReturnType<AudioStore['selection']>> | undefined;
     let model: Awaited<ReturnType<AudioCatalog['resolve']>> | undefined;
     let text: string | undefined;
     let source: string | undefined;
-    if (name === 'transcribe_audio') {
+    let project: ListeningProject | undefined;
+    if (name === 'render_listening_track') {
+      const p = input as TrackInput;
+      if (!p.project_path) throw new Error('INVALID_REQUEST');
+      project = await loadProject(owner.workspace, p.project_path);
+      planTrack(project, p.only_sections);
+      if (p.verify) {
+        selection = await this.store.selection(owner.userId);
+        // Without a key the track still renders; QA is reported as skipped instead of blocking delivery.
+        if (selection.apiKey) model = await this.services.catalog.resolve(selection.model);
+        else selection = undefined;
+      }
+    } else if (name === 'transcribe_audio') {
       const p = input as TranscribeInput;
       if (!p.audio_path) throw new Error('INVALID_REQUEST');
       source = await workspaceFile(owner.workspace, p.audio_path);
@@ -199,12 +225,13 @@ export class AudioManager {
       id: randomUUID(),
       owner: { ...owner },
       epoch: gate.epoch,
-      kind: name === 'transcribe_audio' ? 'transcription' : 'speech',
+      kind: TOOL_KINDS[name],
       status: 'queued',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       model: selection?.model,
       ...(name === 'synthesize_speech' ? { voice: (input as SpeechInput).voice } : {}),
+      ...(project ? { summary: project.title } : {}),
       completedChunks: 0,
       totalChunks: 0,
       files: [],
@@ -215,11 +242,12 @@ export class AudioManager {
     this.tasks.push(task);
     this.work.set(task.id, work);
     await this.persist(task);
-    work.done = this.execute(task, input, work.controller.signal, { source, text, selection, model })
+    work.done = this.execute(task, input, work.controller.signal, { source, text, project, selection, model })
       .catch(async (error: unknown) => {
         if (active(task)) {
           task.status = 'failed';
           task.error = audioError(error);
+          if (error instanceof AudioProjectError) task.errorDetails = error.details;
           if (task.kind === 'transcription') task.warnings.push('AUDIO_COST_INCOMPLETE');
           await this.persist(task).catch(() => {});
         }
@@ -231,14 +259,9 @@ export class AudioManager {
   }
   private async execute(
     task: StoredAudioTask,
-    input: TranscribeInput | SpeechInput,
+    input: TranscribeInput | SpeechInput | TrackInput,
     signal: AbortSignal,
-    snapshot: {
-      source?: string;
-      text?: string;
-      selection?: { model: string; apiKey?: string };
-      model?: Awaited<ReturnType<AudioCatalog['resolve']>>;
-    }
+    snapshot: Snapshot
   ): Promise<void> {
     const workRoot = path.resolve(this.dataDir, 'audio/work');
     const directory = path.join(workRoot, task.id);
@@ -249,10 +272,34 @@ export class AudioManager {
       await this.persist(task);
       await mkdir(workRoot, { recursive: true, mode: 0o700 });
       await mkdir(directory, { mode: 0o700 });
-      let output: string;
+      let outputs: string[];
       let format: string;
-      let subtitle: string | undefined;
-      if (task.kind === 'transcription') {
+      if (task.kind === 'track') {
+        format = 'mp3';
+        const result = await renderTrack({
+          project: snapshot.project!,
+          onlySections: (input as TrackInput).only_sections,
+          workspace: task.owner.workspace,
+          directory,
+          signal,
+          services: {
+            media: this.services.trackMedia,
+            speak: this.services.speak,
+            transcribe: snapshot.model
+              ? (file, workDirectory, abort) => this.verifySpeech(task, snapshot, file, workDirectory, abort)
+              : undefined,
+          },
+          progress: async (completed, total) => {
+            task.completedChunks = completed;
+            task.totalChunks = total;
+            await this.persist(task);
+          },
+        });
+        outputs = result.files;
+        task.durationSeconds = result.durationSeconds;
+        if (snapshot.model) task.qaIssues = result.qaIssues;
+        task.warnings.push(...result.warnings);
+      } else if (task.kind === 'transcription') {
         const p = input as TranscribeInput;
         const source = path.join(directory, 'source.audio');
         const handle = await open(
@@ -294,15 +341,17 @@ export class AudioManager {
           .join('')
           .slice(0, 240);
         format = p.format;
-        output = path.join(directory, `transcript.${format}`);
+        const output = path.join(directory, `transcript.${format}`);
         await writeFile(output, formatTranscript(p.format, result.segments), { flag: 'wx', mode: 0o600 });
+        outputs = [output];
         task.warnings.push('AUDIO_APPROXIMATE_TIMESTAMPS');
         if (task.usage.some((usage) => usage.costUsd === undefined)) task.warnings.push('AUDIO_COST_INCOMPLETE');
       } else {
         const p = input as SpeechInput;
         task.totalChunks = 1;
         await this.persist(task);
-        output = path.join(directory, 'speech.mp3');
+        const output = path.join(directory, 'speech.mp3');
+        outputs = [output];
         format = 'mp3';
         const result = await this.services.speak({ ...p, text: snapshot.text!, directory, output, signal });
         task.durationSeconds = await this.services.media.probe(output, signal);
@@ -310,8 +359,9 @@ export class AudioManager {
         if (p.subtitles) {
           const segments = normalizeSegments(result.segments, task.durationSeconds);
           if (!segments.length) throw new Error('AUDIO_SUBTITLES_UNAVAILABLE');
-          subtitle = path.join(directory, 'speech.srt');
+          const subtitle = path.join(directory, 'speech.srt');
           await writeFile(subtitle, formatTranscript('srt', segments), { flag: 'wx', mode: 0o600 });
+          outputs.push(subtitle);
         }
         task.completedChunks = 1;
       }
@@ -322,7 +372,7 @@ export class AudioManager {
       if ((await realpath(artifacts)) !== artifacts) throw new Error('AUDIO_FILE_FORBIDDEN');
       published = path.join(artifacts, task.id);
       await mkdir(published);
-      const files = [output, ...(subtitle ? [subtitle] : [])];
+      const files = outputs;
       for (const file of files) {
         signal.throwIfAborted();
         await copyFile(file, path.join(published, path.basename(file)), constants.COPYFILE_EXCL);
@@ -339,6 +389,30 @@ export class AudioManager {
         await rm(published, { recursive: true, force: true }).catch(() => {});
       if (path.dirname(directory) === workRoot) await rm(directory, { recursive: true, force: true }).catch(() => {});
     }
+  }
+  /** QA transcription of one synthesized segment; usage is recorded on the task but never shown to agents. */
+  private async verifySpeech(
+    task: StoredAudioTask,
+    snapshot: Snapshot,
+    source: string,
+    directory: string,
+    signal: AbortSignal
+  ): Promise<string> {
+    const result = await this.services.transcribe({
+      source,
+      directory,
+      duration: await this.services.media.probe(source, signal),
+      apiKey: snapshot.selection!.apiKey!,
+      model: snapshot.model!,
+      language: 'yue-Hant-HK',
+      instructions:
+        'Verbatim check of synthesized speech: write exactly the characters heard, including mispronunciations. Do not correct or paraphrase.',
+      signal,
+      progress: async (_completed, _total, usage) => {
+        task.usage.push(usage);
+      },
+    });
+    return result.segments.map((segment) => segment.text).join('');
   }
   private async stop(task: StoredAudioTask, status: 'cancelled' | 'interrupted'): Promise<void> {
     if (!active(task)) return;

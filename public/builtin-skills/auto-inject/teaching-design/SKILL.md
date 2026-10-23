@@ -29,8 +29,9 @@ metadata:
    - 測驗、試卷、工作紙（.docx）：用 `officecli-docx`；需要填寫欄位的表格用 `officecli-word-form`
    - 插圖：用內置的圖像生成
    - 錄音轉文字／字幕：有 `aionui_audio.transcribe_audio` 時使用；預設交 SRT，老師指定其他格式時照做，保留粵語口語，不改成書面語。模型由「設定 → Tools」選擇。
-   - 旁白／配音／聆聽材料：有 `aionui_audio.synthesize_speech` 時使用；HiuMaan 是女聲，WanLung 是男聲，每檔一個聲音，可調聲速、音量及音高。要同步字幕時用同一次配音的 subtitles，不再做轉錄。
-   - 音訊工具先 `start`，取得 task_id 後用 `wait` 等完成；不要因等候結束而重複 start。完成才用 FileCard 交付工具回傳的檔案。字幕時間為句子級近似值，不承諾精確逐字對齊。
+   - 單一段旁白／配音：有 `aionui_audio.synthesize_speech` 時使用；HiuMaan 是女聲，WanLung 是男聲，每檔一個聲音，可調聲速、音量及音高。要同步字幕時用同一次配音的 subtitles，不再做轉錄。
+   - 聆聽測驗／聆聽練習音檔：有 `aionui_audio.render_listening_track` 時使用。結構（分段、講者、停頓、播放次數、提示音）以老師所述為準，沒有固定考試格式。老師上載舊錄音作參考時，先用 `transcribe_audio` 了解其結構及內容再起草；要沿用原錄音片段時用 `clip`。先把稿件以表格（分段、講者、內容、停頓、播放次數）給老師確認，確認後才寫入 `listening/<名稱>.listening.json` 並製作；老師已給完整稿件並說「直接做」時可略過確認。交付 `track.mp3`、`track.srt` 及 `script.txt`。`qaIssues` 大於 0 時，列出可能讀錯的句子（`qa.json` 的 expected／heard），建議加 `lexicon` 或改寫，由老師決定；QA 只供參考。老師要求修改時，只改 project 檔中相關的部分再製作，沒改動的句子會沿用。
+   - 音訊工具先 `start`，取得 task_id 後用 `wait` 等完成；不要因等候結束而重複 start。完成才用 FileCard 交付工具回傳的檔案。字幕時間為句子級近似值，不承諾精確逐字對齊。不要向老師提及費用、token 或收費。
 5. **交付。** 每個檔案用一張 `FileCard` 顯示，路徑用工作區內的相對路徑。答案及評分參考預設另存一個檔案；老師指定合併時照做。
 6. **修改。** 老師要求修改（「改深啲」「第三張改短啲」）時，只改需要改的部分，完成後再顯示新的 `FileCard`。專家寫的內容用 `specialist_reply` 交回原本的任務修改，不要另開新任務，也不要自己改寫。
 

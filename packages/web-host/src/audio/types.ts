@@ -9,8 +9,10 @@ export type {
   AudioSegment,
   AudioUsage,
   AudioTask,
+  AudioVoice,
 } from '../../../desktop/src/common/types/platform/audioTools.js';
 import type { AudioTask } from '../../../desktop/src/common/types/platform/audioTools.js';
+import { AUDIO_VOICES, HERTZ_OFFSET, PERCENT_OFFSET } from '../../../desktop/src/common/types/platform/audioTools.ts';
 
 export const ownerId = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/);
 export type AudioOwner = { userId: string; conversationId: string; workspace: string };
@@ -35,27 +37,35 @@ export const toolSchemas = {
       ...common,
       text: z.string().min(1).max(200000).optional(),
       text_path: z.string().min(1).max(4096).optional(),
-      voice: z.enum(['HiuMaan', 'WanLung']).default('HiuMaan'),
-      rate: z
-        .string()
-        .regex(/^[+-]\d{1,3}%$/)
-        .default('+0%'),
-      volume: z
-        .string()
-        .regex(/^[+-]\d{1,3}%$/)
-        .default('+0%'),
-      pitch: z
-        .string()
-        .regex(/^[+-]\d{1,4}Hz$/)
-        .default('+0Hz'),
+      voice: z.enum(AUDIO_VOICES).default('HiuMaan'),
+      rate: z.string().regex(PERCENT_OFFSET).default('+0%'),
+      volume: z.string().regex(PERCENT_OFFSET).default('+0%'),
+      pitch: z.string().regex(HERTZ_OFFSET).default('+0Hz'),
       subtitles: z.boolean().default(false),
       boundary: z.enum(['SentenceBoundary', 'WordBoundary']).default('SentenceBoundary'),
     })
     .strict(),
+  render_listening_track: z
+    .object({
+      ...common,
+      project_path: z.string().min(1).max(4096).optional(),
+      verify: z.boolean().default(true),
+      only_sections: z
+        .array(z.string().regex(/^[\w-]{1,64}$/))
+        .max(100)
+        .optional(),
+    })
+    .strict(),
 };
+export const TOOL_KINDS = {
+  transcribe_audio: 'transcription',
+  synthesize_speech: 'speech',
+  render_listening_track: 'track',
+} as const satisfies Record<keyof typeof toolSchemas, AudioTask['kind']>;
 export type AudioToolName = keyof typeof toolSchemas;
 export type TranscribeInput = z.infer<typeof toolSchemas.transcribe_audio>;
 export type SpeechInput = z.infer<typeof toolSchemas.synthesize_speech>;
+export type TrackInput = z.infer<typeof toolSchemas.render_listening_track>;
 export const settingsSchema = z
   .object({
     model: z
@@ -77,4 +87,9 @@ export const audioError = (error: unknown): string =>
 export function publicTask(task: StoredAudioTask): AudioTask {
   const { owner: _owner, epoch: _epoch, ...value } = task;
   return structuredClone(value);
+}
+/** Agent-facing task view: usage and cost stay host-side so they never reach teachers through chat. */
+export function agentTask(task: AudioTask): Omit<AudioTask, 'usage' | 'costUsd'> {
+  const { usage: _usage, costUsd: _costUsd, ...value } = task;
+  return { ...value, warnings: value.warnings.filter((warning) => warning !== 'AUDIO_COST_INCOMPLETE') };
 }

@@ -242,3 +242,108 @@ describe('host-owned audio tasks', () => {
     expect(await manager.store.settings(owner.userId)).toEqual({ model: 'other/multimodal', hasApiKey: false });
   });
 });
+
+describe('listening track tasks', () => {
+  let directory: string;
+  let owner: AudioOwner;
+  let manager: AudioManager;
+  const transcribe = vi.fn(async (_options: { source: string }) => ({
+    segments: [{ text: '請排隊', startSecond: 0, endSecond: 1 }],
+  }));
+  beforeEach(async () => {
+    directory = await mkdtemp(path.join(os.tmpdir(), 'audio-track-'));
+    owner = { userId: 'alice', conversationId: 'lesson', workspace: path.join(directory, 'workspace') };
+    await mkdir(path.join(owner.workspace, 'listening'), { recursive: true });
+    transcribe.mockClear();
+    manager = new AudioManager(directory, {
+      catalog: { resolve: async (id) => ({ id, name: id, audioInput: true, parameters: [], reasoning: [] }) },
+      media: { probe: async () => 2, chunk: vi.fn() },
+      transcribe: async (options) => {
+        await options.progress(1, 1, { chunk: 1, costUsd: 0.003 });
+        return transcribe(options);
+      },
+      speak: async (options) => {
+        await writeFile(options.output, options.text!);
+        return { segments: [{ text: options.text!, startSecond: 0, endSecond: 2 }] };
+      },
+      trackMedia: {
+        probe: async () => 2,
+        silence: async (file) => writeFile(file, 'silence'),
+        tone: async (file) => writeFile(file, 'tone'),
+        decode: async (_source, file) => writeFile(file, 'pcm'),
+        assemble: async (_pieces, file) => writeFile(file, 'track'),
+      },
+    });
+    await manager.ready;
+    await manager.parentStart(owner, 'event-1', 'thread');
+  });
+  afterEach(async () => {
+    await manager.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const render = async (args: Record<string, unknown>) => {
+    const task = await manager.command(owner, 'render_listening_track', args, new AbortController().signal);
+    return manager.command(
+      owner,
+      'render_listening_track',
+      { action: 'wait', task_id: task.id, wait_sec: 5 },
+      new AbortController().signal
+    );
+  };
+  const writeProject = (sections: unknown[]) =>
+    writeFile(
+      path.join(owner.workspace, 'listening', 'unit.listening.json'),
+      JSON.stringify({ version: 1, title: '單元二', sections })
+    );
+
+  it('publishes the track bundle and skips QA without a key', async () => {
+    await writeProject([{ id: 'a', segments: [{ id: 's', type: 'speech', text: '請排隊。' }] }]);
+    const task = await render({ project_path: 'listening/unit.listening.json' });
+    expect(task).toMatchObject({
+      kind: 'track',
+      status: 'completed',
+      summary: '單元二',
+      warnings: ['AUDIO_QA_SKIPPED'],
+    });
+    expect(task).not.toHaveProperty('qaIssues');
+    expect(task.files.map((file) => file.path)).toEqual(
+      ['track.mp3', 'track.srt', 'timeline.json', 'script.txt'].map((name) => `audio/${task.id}/${name}`)
+    );
+    expect(await readFile(path.join(owner.workspace, task.files[0].path), 'utf8')).toBe('track');
+    expect(transcribe).not.toHaveBeenCalled();
+  });
+
+  it('runs QA with a configured key and records usage host-side only', async () => {
+    await manager.store.saveSettings(owner.userId, { model: 'google/gemini-3.8-flash', apiKey: 'fixture-secret' });
+    await writeProject([{ id: 'a', segments: [{ id: 's', type: 'speech', text: '請排隊。' }] }]);
+    const task = await render({ project_path: 'listening/unit.listening.json' });
+    expect(task).toMatchObject({ status: 'completed', qaIssues: 0, warnings: [] });
+    expect(task.files.map((file) => path.basename(file.path))).toContain('qa.json');
+    expect(task.usage).toEqual([{ chunk: 1, costUsd: 0.003 }]);
+    expect(transcribe.mock.calls[0][0].source).not.toContain(owner.workspace);
+  });
+
+  it('rejects invalid projects with actionable details', async () => {
+    await expect(manager.command(owner, 'render_listening_track', {}, new AbortController().signal)).rejects.toThrow(
+      'INVALID_REQUEST'
+    );
+    await writeProject([{ id: 'a', segments: [] }]);
+    await expect(
+      manager.command(
+        owner,
+        'render_listening_track',
+        { project_path: 'listening/unit.listening.json' },
+        new AbortController().signal
+      )
+    ).rejects.toMatchObject({
+      message: 'AUDIO_PROJECT_INVALID',
+      details: [expect.stringMatching(/^sections\.0\.segments: /)],
+    });
+    await writeProject([{ id: 'a', segments: [{ id: 'k', type: 'clip', path: 'missing.mp3', start: 0, end: 1 }] }]);
+    expect(await render({ project_path: 'listening/unit.listening.json' })).toMatchObject({
+      status: 'failed',
+      error: 'AUDIO_PROJECT_INVALID',
+      errorDetails: ['k.path: AUDIO_FILE_NOT_FOUND'],
+    });
+  });
+});
