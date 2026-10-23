@@ -220,7 +220,8 @@
       "speaker": "話者",
       "text": "内容",
       "voice": "声",
-      "voiceDefault": "既定の声"
+      "voiceDefault": "既定の声",
+      "clipPath": "録音ファイル（ワークスペース内のパス）"
     },
     "lexicon": {
       "add": "修正を追加",

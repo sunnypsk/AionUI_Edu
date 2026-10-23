@@ -1,6 +1,6 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { defaultLightTheme } from '@openuidev/react-ui';
 import OpenUIMessage, {
@@ -14,6 +14,7 @@ import {
   formatDuration,
 } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/draft';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
+import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
   ...(await original<object>()),
@@ -742,6 +743,45 @@ describe('listening track files', () => {
     expect(body.project.sections[0].segments[1]).toEqual({ id: 'p1', type: 'pause', seconds: 10 });
   });
 
+  it('edits and previews original clips and prevents invalid clip saves', async () => {
+    const withClip = {
+      ...project,
+      sections: [
+        {
+          ...project.sections[0],
+          segments: [
+            ...project.sections[0].segments,
+            { id: 'clip1', type: 'clip', path: 'audio/reference.wav', start: 3, end: 8, note: '原錄音' },
+          ],
+        },
+      ],
+    };
+    transport.request.mockImplementation(async (_method: string, path: string) =>
+      String(path).startsWith('/api/edu/audio/listening') ? state({ project: withClip }) : {}
+    );
+    await open();
+    expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(3);
+    fireEvent.change(screen.getByLabelText('messages.listening.fields.clipPath'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    expect(calls('PUT')).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText('messages.listening.fields.clipPath'), { target: { value: 'another.wav' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    await waitFor(() => expect(calls('PUT')).toHaveLength(1));
+    expect(calls('PUT')[0][2]).toMatchObject({
+      project: {
+        sections: [
+          {
+            segments: [
+              expect.anything(),
+              expect.anything(),
+              { id: 'clip1', type: 'clip', path: 'another.wav', start: 3, end: 8, note: '原錄音' },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
   it('blocks saving blank lines and reports a conflicting save', async () => {
     const line = await open();
     fireEvent.change(line, { target: { value: ' ' } });
@@ -785,5 +825,103 @@ describe('listening track files', () => {
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.stop' }));
     await waitFor(() => expect(calls('POST', '/cancel')).toHaveLength(1));
     expect(calls('POST', '/cancel')[0][2]).toMatchObject({ task_id: 't2' });
+  });
+});
+
+describe('audio playback windows', () => {
+  const fetchAudio = vi.fn();
+  const objectUrl = vi.fn(() => 'blob:fixture');
+  const revoke = vi.fn();
+  beforeEach(() => {
+    fetchAudio.mockReset().mockResolvedValue(new Response(new Blob(['fixture'])));
+    objectUrl.mockClear();
+    revoke.mockClear();
+    vi.stubGlobal('fetch', fetchAudio);
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = objectUrl;
+        static revokeObjectURL = revoke;
+      }
+    );
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      fireEvent.play(this);
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
+      fireEvent.pause(this);
+    });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('starts at the clip boundary, stops at the end and replays from the start', async () => {
+    const { container } = render(<AudioPlayer url='/reference.wav' start={10} end={15} />);
+    const audio = container.querySelector('audio')!;
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    await waitFor(() => expect(audio.play).toHaveBeenCalledOnce());
+    Object.defineProperty(audio, 'duration', { value: 60, configurable: true });
+    fireEvent.loadedMetadata(audio);
+    expect(audio.currentTime).toBe(10);
+    audio.currentTime = 15.7;
+    fireEvent.timeUpdate(audio);
+    expect(audio.currentTime).toBe(15);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    await waitFor(() => expect(audio.currentTime).toBe(10));
+    expect(fetchAudio).toHaveBeenCalledOnce();
+  });
+
+  it('discards a pending download when the clip changes', async () => {
+    let finish!: (value: Response) => void;
+    fetchAudio.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const { rerender } = render(<AudioPlayer url='/old.wav' start={2} end={4} />);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    const signal = fetchAudio.mock.calls[0][1].signal as AbortSignal;
+    rerender(<AudioPlayer url='/new.wav' start={5} end={8} />);
+    await act(async () => {
+      finish(new Response(new Blob(['stale'])));
+    });
+    expect(signal.aborted).toBe(true);
+    expect(objectUrl).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed download and lets the teacher retry', async () => {
+    fetchAudio.mockResolvedValueOnce(new Response('', { status: 404 }));
+    render(<AudioPlayer url='/reference.wav' />);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    expect(await screen.findByText('messages.listening.player.loadFailed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    await waitFor(() => expect(screen.queryByText('messages.listening.player.loadFailed')).toBeNull());
+    expect(fetchAudio).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores an old playback rejection after switching clips', async () => {
+    let rejectPlay!: (error: Error) => void;
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectPlay = reject;
+        })
+    );
+    const { rerender } = render(<AudioPlayer url='/old.wav' start={1} end={3} />);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce());
+    rerender(<AudioPlayer url='/new.wav' start={2} end={4} />);
+    await act(async () => rejectPlay(new Error('Playback was interrupted')));
+    expect(screen.queryByText('messages.listening.player.loadFailed')).toBeNull();
+  });
+
+  it('does not fetch or play an invalid clip window', () => {
+    render(<AudioPlayer url='/reference.wav' start={10} end={5} />);
+    expect(screen.getByRole('button', { name: 'messages.listening.player.play' })).toBeDisabled();
+    expect(fetchAudio).not.toHaveBeenCalled();
   });
 });

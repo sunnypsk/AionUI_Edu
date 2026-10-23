@@ -220,7 +220,8 @@
       "speaker": "Sprecher",
       "text": "Gesprochener Text",
       "voice": "Stimme",
-      "voiceDefault": "Standardstimme"
+      "voiceDefault": "Standardstimme",
+      "clipPath": "Aufnahmedatei (Pfad im Arbeitsbereich)"
     },
     "lexicon": {
       "add": "Korrektur hinzufügen",

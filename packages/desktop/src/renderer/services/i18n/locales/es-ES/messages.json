@@ -220,7 +220,8 @@
       "speaker": "Hablante",
       "text": "Lo que se dice",
       "voice": "Voz",
-      "voiceDefault": "Voz predeterminada"
+      "voiceDefault": "Voz predeterminada",
+      "clipPath": "Archivo de grabación (ruta del espacio de trabajo)"
     },
     "lexicon": {
       "add": "Añadir corrección",

@@ -28,7 +28,7 @@ export type AudioUsage = {
 export type AudioTaskView = Omit<AudioTask, 'usage' | 'costUsd'>;
 export type AudioTask = {
   id: string;
-  kind: 'transcription' | 'speech' | 'track';
+  kind: 'transcription' | 'speech' | 'track' | 'analysis';
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
   createdAt: number;
   updatedAt: number;
@@ -38,7 +38,7 @@ export type AudioTask = {
   totalChunks: number;
   durationSeconds?: number;
   summary?: string;
-  /** Workspace-relative listening project rendered by a track task. */
+  /** Workspace-relative listening project rendered by a track task, or drafted by an analysis task. */
   projectPath?: string;
   /** Section ids when a track task rendered only part of the project as a preview. */
   previewSections?: string[];

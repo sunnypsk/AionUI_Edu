@@ -220,7 +220,8 @@
       "speaker": "Locuteur",
       "text": "Texte prononcé",
       "voice": "Voix",
-      "voiceDefault": "Voix par défaut"
+      "voiceDefault": "Voix par défaut",
+      "clipPath": "Fichier audio (chemin dans l’espace de travail)"
     },
     "lexicon": {
       "add": "Ajouter une correction",

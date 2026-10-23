@@ -148,7 +148,17 @@ function SegmentFields({ segment, disabled, onChange }: Pick<SegmentRowProps, 's
     );
   return (
     <Space size={8} wrap>
-      <span className={styles.clipPath}>{segment.path}</span>
+      <Input
+        size='small'
+        className={styles.clipPath}
+        aria-label={t('messages.listening.fields.clipPath')}
+        placeholder={t('messages.listening.fields.clipPath')}
+        value={segment.path}
+        disabled={disabled}
+        status={segment.path.trim() ? undefined : 'error'}
+        maxLength={4096}
+        onChange={(value) => onChange({ ...segment, path: value })}
+      />
       {(['start', 'end'] as const).map((field) => (
         <InputNumber
           key={field}
@@ -160,10 +170,20 @@ function SegmentFields({ segment, disabled, onChange }: Pick<SegmentRowProps, 's
           step={0.5}
           precision={2}
           value={segment[field]}
+          error={segment.end <= segment.start}
           disabled={disabled}
           onChange={(value) => onChange({ ...segment, [field]: value ?? segment[field] })}
         />
       ))}
+      <Input
+        size='small'
+        aria-label={t('messages.listening.fields.note')}
+        placeholder={t('messages.listening.fields.note')}
+        value={segment.note ?? ''}
+        disabled={disabled}
+        maxLength={200}
+        onChange={(value) => onChange({ ...segment, note: value || undefined })}
+      />
     </Space>
   );
 }
@@ -173,7 +193,11 @@ export function SegmentRow(props: SegmentRowProps): React.ReactElement {
   const { t } = useTranslation();
   const { segment, state, disabled } = props;
   const url =
-    segment.type === 'speech' && state?.cached ? props.fileUrl(`${props.cacheDirectory}/${state.key}.mp3`) : undefined;
+    segment.type === 'clip' && segment.path.trim()
+      ? props.fileUrl(segment.path)
+      : segment.type === 'speech' && state?.cached
+        ? props.fileUrl(`${props.cacheDirectory}/${state.key}.mp3`)
+        : undefined;
   return (
     <div className={styles.segment}>
       <div className={styles.segmentType}>
@@ -191,7 +215,14 @@ export function SegmentRow(props: SegmentRowProps): React.ReactElement {
         <QaStatus {...props} />
       </div>
       <div className={styles.segmentActions}>
-        {url && <AudioPlayer url={url} compact />}
+        {url && (
+          <AudioPlayer
+            url={url}
+            compact
+            start={segment.type === 'clip' ? segment.start : undefined}
+            end={segment.type === 'clip' ? segment.end : undefined}
+          />
+        )}
         <Button
           size='mini'
           type='text'

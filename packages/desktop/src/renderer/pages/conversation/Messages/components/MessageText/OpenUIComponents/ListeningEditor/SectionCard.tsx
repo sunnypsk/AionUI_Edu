@@ -25,7 +25,7 @@ export type SectionCardProps = {
   onAcceptQa: (segmentId: string, accepted: boolean) => void;
 };
 
-const NEW_TYPES: NewSegmentType[] = ['speech', 'pause', 'chime'];
+const NEW_TYPES: NewSegmentType[] = ['speech', 'pause', 'chime', 'clip'];
 
 /** A section: its name, repeat and gap settings, ordered segments and a one-section preview render. */
 export function SectionCard(props: SectionCardProps): React.ReactElement {

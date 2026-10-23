@@ -57,16 +57,31 @@ export const toolSchemas = {
         .optional(),
     })
     .strict(),
+  analyze_reference_audio: z
+    .object({
+      ...common,
+      audio_path: z.string().min(1).max(4096).optional(),
+      mode: z.enum(['speech', 'clip']).optional(),
+      title: z.string().trim().min(1).max(200).optional(),
+      noise_db: z.number().min(-80).max(-10).default(-35),
+      merge_gap: z.number().min(0.2).max(10).default(1),
+      section_gap: z.number().min(1).max(60).default(3),
+      language: z.string().min(1).max(100).default('yue-Hant-HK'),
+      instructions: z.string().max(8000).optional(),
+    })
+    .strict(),
 };
 export const TOOL_KINDS = {
   transcribe_audio: 'transcription',
   synthesize_speech: 'speech',
   render_listening_track: 'track',
+  analyze_reference_audio: 'analysis',
 } as const satisfies Record<keyof typeof toolSchemas, AudioTask['kind']>;
 export type AudioToolName = keyof typeof toolSchemas;
 export type TranscribeInput = z.infer<typeof toolSchemas.transcribe_audio>;
 export type SpeechInput = z.infer<typeof toolSchemas.synthesize_speech>;
 export type TrackInput = z.infer<typeof toolSchemas.render_listening_track>;
+export type AnalysisInput = z.infer<typeof toolSchemas.analyze_reference_audio>;
 export const settingsSchema = z
   .object({
     model: z

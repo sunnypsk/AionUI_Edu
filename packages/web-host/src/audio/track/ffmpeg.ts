@@ -16,6 +16,46 @@ const ffmpeg = (args: string[], signal: AbortSignal, timeout = 180000): Promise<
 const beep = (frequency: number, offset: number): string =>
   `sine=frequency=${frequency}:sample_rate=24000:duration=0.35,afade=t=in:d=0.02,afade=t=out:st=0.25:d=0.1,volume=0.4,adelay=${offset}`;
 
+/**
+ * Silent intervals in seconds, from FFmpeg's silencedetect metadata printed on stdout. A trailing silence
+ * that runs to the end of the file has no end marker and is closed at `duration`.
+ */
+export async function detectSilences(
+  file: string,
+  options: { noiseDb: number; minSeconds: number; duration: number },
+  signal: AbortSignal
+): Promise<{ start: number; end: number }[]> {
+  const output = await ffmpeg(
+    [
+      '-protocol_whitelist',
+      'file,pipe',
+      '-i',
+      file,
+      '-map',
+      '0:a:0',
+      '-af',
+      `aformat=channel_layouts=mono,silencedetect=noise=${options.noiseDb}dB:d=${options.minSeconds},ametadata=mode=print:file=-`,
+      '-f',
+      'null',
+      '-',
+    ],
+    signal,
+    600000
+  );
+  const silences: { start: number; end: number }[] = [];
+  let open: number | undefined;
+  for (const match of output.matchAll(/lavfi\.silence_(start|end)=(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/gi)) {
+    const value = Math.min(options.duration, Math.max(0, Number(match[2])));
+    if (match[1] === 'start') open = value;
+    else if (open !== undefined) {
+      if (value > open) silences.push({ start: open, end: value });
+      open = undefined;
+    }
+  }
+  if (open !== undefined && options.duration > open) silences.push({ start: open, end: options.duration });
+  return silences;
+}
+
 export type TrackMedia = {
   probe: (file: string, signal: AbortSignal) => Promise<number>;
   silence: (destination: string, seconds: number, signal: AbortSignal) => Promise<void>;

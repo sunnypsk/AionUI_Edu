@@ -72,6 +72,17 @@ export function ListeningEditorDrawer({
   ).length;
 
   const guarded = async (action: () => Promise<unknown>): Promise<void> => {
+    if (
+      project?.sections.some((section) =>
+        section.segments.some(
+          (segment) =>
+            segment.type === 'clip' && (!segment.path.trim() || segment.start < 0 || segment.end <= segment.start)
+        )
+      )
+    ) {
+      message.warning?.(t('messages.listening.errors.invalid'));
+      return;
+    }
     if (project && hasBlankFields(project)) {
       message.warning?.(t('messages.listening.errors.blankFields'));
       return;

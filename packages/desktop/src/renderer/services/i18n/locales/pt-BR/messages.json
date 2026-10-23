@@ -220,7 +220,8 @@
       "speaker": "Falante",
       "text": "O que é dito",
       "voice": "Voz",
-      "voiceDefault": "Voz padrão"
+      "voiceDefault": "Voz padrão",
+      "clipPath": "Arquivo de gravação (caminho no espaço de trabalho)"
     },
     "lexicon": {
       "add": "Adicionar correção",

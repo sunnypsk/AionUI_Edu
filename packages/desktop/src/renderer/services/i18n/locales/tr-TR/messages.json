@@ -220,7 +220,8 @@
       "speaker": "Konuşmacı",
       "text": "Söylenen",
       "voice": "Ses",
-      "voiceDefault": "Varsayılan ses"
+      "voiceDefault": "Varsayılan ses",
+      "clipPath": "Kayıt dosyası (çalışma alanı yolu)"
     },
     "lexicon": {
       "add": "Düzeltme ekle",

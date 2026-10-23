@@ -220,7 +220,8 @@
       "speaker": "화자",
       "text": "내용",
       "voice": "음성",
-      "voiceDefault": "기본 음성"
+      "voiceDefault": "기본 음성",
+      "clipPath": "녹음 파일 (작업 공간 경로)"
     },
     "lexicon": {
       "add": "수정 추가",

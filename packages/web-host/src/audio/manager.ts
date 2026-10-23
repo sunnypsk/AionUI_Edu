@@ -9,7 +9,15 @@ import { MultimodalTranscriber, type TranscriptionOptions, type TranscriptionRes
 import { media, workspaceFile, type MediaServices } from './providers/media.js';
 import { synthesize, type SpeechOptions } from './providers/edge.js';
 import { formatTranscript, normalizeSegments } from './formats.js';
-import { AudioProjectError, loadProject, renderTrack, trackMedia, type TrackMedia } from './track/index.js';
+import {
+  analyzeReference,
+  AudioProjectError,
+  detectSilences,
+  loadProject,
+  renderTrack,
+  trackMedia,
+  type TrackMedia,
+} from './track/index.js';
 import { planTrack } from './track/project.js';
 import type { ListeningProject } from '../../../desktop/src/common/types/platform/listeningProject.ts';
 import {
@@ -24,6 +32,7 @@ import {
   type SpeechInput,
   type TranscribeInput,
   type TrackInput,
+  type AnalysisInput,
   type StoredAudioTask,
   type AudioSegment,
 } from './types.js';
@@ -34,6 +43,7 @@ type Services = {
   transcribe: (options: TranscriptionOptions) => Promise<TranscriptionResult>;
   speak: (options: SpeechOptions) => Promise<{ segments: AudioSegment[] }>;
   trackMedia: TrackMedia;
+  silences: typeof detectSilences;
 };
 type Snapshot = {
   source?: string;
@@ -41,6 +51,8 @@ type Snapshot = {
   project?: ListeningProject;
   selection?: { model: string; apiKey?: string };
   model?: Awaited<ReturnType<AudioCatalog['resolve']>>;
+  /** Analysis output: re-synthesized speech, or clips of the original recording. */
+  mode?: 'speech' | 'clip';
 };
 type Gate = { epoch: number; open: boolean; threadId?: string; turns: Map<string, number> };
 type Work = { controller: AbortController; done: Promise<void> };
@@ -68,6 +80,7 @@ export class AudioManager {
       transcribe: (options) => transcriber.transcribe(options),
       speak: synthesize,
       trackMedia,
+      silences: detectSilences,
       ...services,
     };
     this.ready = this.store.loadTasks().then(async (tasks) => {
@@ -199,7 +212,7 @@ export class AudioManager {
   private async start(
     owner: AudioOwner,
     name: AudioToolName,
-    input: TranscribeInput | SpeechInput | TrackInput,
+    input: TranscribeInput | SpeechInput | TrackInput | AnalysisInput,
     initiator?: 'user'
   ): Promise<AudioTask> {
     if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
@@ -208,6 +221,7 @@ export class AudioManager {
     let text: string | undefined;
     let source: string | undefined;
     let project: ListeningProject | undefined;
+    let mode: Snapshot['mode'];
     if (name === 'render_listening_track') {
       const p = input as TrackInput;
       if (!p.project_path) throw new Error('INVALID_REQUEST');
@@ -219,6 +233,16 @@ export class AudioManager {
         if (selection.apiKey) model = await this.services.catalog.resolve(selection.model);
         else selection = undefined;
       }
+    } else if (name === 'analyze_reference_audio') {
+      const p = input as AnalysisInput;
+      if (!p.audio_path) throw new Error('INVALID_REQUEST');
+      source = await workspaceFile(owner.workspace, p.audio_path);
+      selection = await this.store.selection(owner.userId);
+      // Speech drafts need transcripts; without a key the draft reuses the original audio as clips.
+      mode = p.mode ?? (selection.apiKey ? 'speech' : 'clip');
+      if (mode === 'speech' && !selection.apiKey) throw new Error('AUDIO_KEY_REQUIRED');
+      if (selection.apiKey) model = await this.services.catalog.resolve(selection.model);
+      else selection = undefined;
     } else if (name === 'transcribe_audio') {
       const p = input as TranscribeInput;
       if (!p.audio_path) throw new Error('INVALID_REQUEST');
@@ -285,7 +309,7 @@ export class AudioManager {
     this.tasks.push(task);
     this.work.set(task.id, work);
     await this.persist(task);
-    work.done = this.execute(task, input, work.controller.signal, { source, text, project, selection, model })
+    work.done = this.execute(task, input, work.controller.signal, { source, text, project, selection, model, mode })
       .catch(async (error: unknown) => {
         if (active(task)) {
           task.status = 'failed';
@@ -302,7 +326,7 @@ export class AudioManager {
   }
   private async execute(
     task: StoredAudioTask,
-    input: TranscribeInput | SpeechInput | TrackInput,
+    input: TranscribeInput | SpeechInput | TrackInput | AnalysisInput,
     signal: AbortSignal,
     snapshot: Snapshot
   ): Promise<void> {
@@ -317,7 +341,46 @@ export class AudioManager {
       await mkdir(directory, { mode: 0o700 });
       let outputs: string[];
       let format: string;
-      if (task.kind === 'track') {
+      if (task.kind === 'analysis') {
+        const p = input as AnalysisInput;
+        format = 'json';
+        const result = await analyzeReference({
+          workspace: task.owner.workspace,
+          audioPath: p.audio_path!,
+          directory,
+          outputPath: `audio/${task.id}`,
+          signal,
+          mode: snapshot.mode!,
+          title: p.title,
+          noiseDb: p.noise_db,
+          mergeGap: p.merge_gap,
+          sectionGap: p.section_gap,
+          services: {
+            probe: this.services.media.probe,
+            silences: this.services.silences,
+            cut: this.services.media.chunk,
+            transcribe: snapshot.model
+              ? (file, workDirectory, abort) =>
+                  this.transcribeFile(task, snapshot, file, workDirectory, abort, {
+                    language: p.language,
+                    instructions:
+                      p.instructions ??
+                      'Listening test recording: transcribe exactly what is said, in order, as plain text. Keep spoken wording; do not summarize.',
+                  })
+              : undefined,
+          },
+          progress: async (completed, total) => {
+            task.completedChunks = completed;
+            task.totalChunks = total;
+            await this.persist(task);
+          },
+        });
+        outputs = result.files;
+        task.durationSeconds = result.durationSeconds;
+        task.projectPath = result.projectPath;
+        task.summary = result.summary;
+        task.warnings.push(...result.warnings);
+      } else if (task.kind === 'track') {
         format = 'mp3';
         const result = await renderTrack({
           project: snapshot.project!,
@@ -329,7 +392,12 @@ export class AudioManager {
             media: this.services.trackMedia,
             speak: this.services.speak,
             transcribe: snapshot.model
-              ? (file, workDirectory, abort) => this.verifySpeech(task, snapshot, file, workDirectory, abort)
+              ? (file, workDirectory, abort) =>
+                  this.transcribeFile(task, snapshot, file, workDirectory, abort, {
+                    language: 'yue-Hant-HK',
+                    instructions:
+                      'Verbatim check of synthesized speech: write exactly the characters heard, including mispronunciations. Do not correct or paraphrase.',
+                  })
               : undefined,
           },
           progress: async (completed, total) => {
@@ -433,13 +501,14 @@ export class AudioManager {
       if (path.dirname(directory) === workRoot) await rm(directory, { recursive: true, force: true }).catch(() => {});
     }
   }
-  /** QA transcription of one synthesized segment; usage is recorded on the task but never shown to agents. */
-  private async verifySpeech(
+  /** Transcribe one short host-owned file; usage is recorded on the task but never shown to agents. */
+  private async transcribeFile(
     task: StoredAudioTask,
     snapshot: Snapshot,
     source: string,
     directory: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    prompt: { language: string; instructions: string }
   ): Promise<string> {
     const result = await this.services.transcribe({
       source,
@@ -447,9 +516,7 @@ export class AudioManager {
       duration: await this.services.media.probe(source, signal),
       apiKey: snapshot.selection!.apiKey!,
       model: snapshot.model!,
-      language: 'yue-Hant-HK',
-      instructions:
-        'Verbatim check of synthesized speech: write exactly the characters heard, including mispronunciations. Do not correct or paraphrase.',
+      ...prompt,
       signal,
       progress: async (_completed, _total, usage) => {
         task.usage.push(usage);

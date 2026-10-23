@@ -1421,6 +1421,7 @@ export type I18nKey =
   | 'messages.listening.fields.chimeEnd'
   | 'messages.listening.fields.chimeStart'
   | 'messages.listening.fields.clipEnd'
+  | 'messages.listening.fields.clipPath'
   | 'messages.listening.fields.clipStart'
   | 'messages.listening.fields.defaultRate'
   | 'messages.listening.fields.defaultVoice'

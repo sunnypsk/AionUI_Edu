@@ -220,7 +220,8 @@
       "speaker": "Speaker",
       "text": "What is said",
       "voice": "Voice",
-      "voiceDefault": "Default voice"
+      "voiceDefault": "Default voice",
+      "clipPath": "Recording file (workspace path)"
     },
     "lexicon": {
       "add": "Add fix",

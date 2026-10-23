@@ -220,7 +220,8 @@
       "speaker": "讲者",
       "text": "内容",
       "voice": "声音",
-      "voiceDefault": "默认声音"
+      "voiceDefault": "默认声音",
+      "clipPath": "录音文件（工作区路径）"
     },
     "lexicon": {
       "add": "添加修正",

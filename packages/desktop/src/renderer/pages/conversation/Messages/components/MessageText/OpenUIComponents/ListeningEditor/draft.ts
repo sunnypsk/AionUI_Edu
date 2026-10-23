@@ -1,6 +1,6 @@
 import type { ListeningProject, ListeningSection, ListeningSegment } from '@/common/types/platform/listeningProject';
 
-export type NewSegmentType = 'speech' | 'pause' | 'chime';
+export type NewSegmentType = 'speech' | 'pause' | 'chime' | 'clip';
 
 /** Short id that is unique within the project and matches the host's `[\w-]{1,64}` rule. */
 export function newId(project: ListeningProject, prefix: string): string {
@@ -14,6 +14,10 @@ export function newId(project: ListeningProject, prefix: string): string {
 function newSegment(project: ListeningProject, type: NewSegmentType): ListeningSegment {
   if (type === 'pause') return { id: newId(project, 'pause'), type, seconds: 5 };
   if (type === 'chime') return { id: newId(project, 'chime'), type, preset: 'start' };
+  if (type === 'clip') {
+    const source = project.sections.flatMap((section) => section.segments).find((segment) => segment.type === 'clip');
+    return { id: newId(project, 'clip'), type, path: source?.path ?? '', start: 0, end: 1 };
+  }
   return { id: newId(project, 'line'), type, text: '' };
 }
 
