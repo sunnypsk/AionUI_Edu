@@ -456,6 +456,7 @@
     "noModelSelected": "Aucun modèle sélectionné pour la session actuelle, impossible d'envoyer le message",
     "sendMessageTo": "Envoyer un message à {{model}}",
     "processing": "Traitement...",
+    "stillWorking": "Toujours en cours…",
     "quotaExceededTitle": "Quota du modèle atteint",
     "quotaExceededBody": "Le quota du modèle actuel est épuisé. Passer à {{model}} pour continuer ?",
     "quotaExceededNoFallback": "Quota du modèle atteint. Veuillez passer à un autre modèle disponible.",

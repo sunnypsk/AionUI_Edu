@@ -462,6 +462,7 @@
     "noModelSelected": "Nenhum modelo selecionado para a sessão atual, impossível enviar mensagem",
     "sendMessageTo": "Enviar mensagem para {{model}}",
     "processing": "Processando...",
+    "stillWorking": "Ainda trabalhando…",
     "quotaExceededTitle": "Cota do modelo alcançada",
     "quotaExceededBody": "A cota do modelo atual esgotou. Deseja mudar para o {{model}} para continuar?",
     "quotaExceededNoFallback": "Cota do modelo alcançada. Por favor, mude para outro modelo disponível.",

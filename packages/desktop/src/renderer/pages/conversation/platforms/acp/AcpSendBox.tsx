@@ -236,6 +236,9 @@ const AcpSendBox: React.FC<{
   };
   const isCancelling = runtimeView.state === 'cancelling';
   const isBusy = isCancelling || commandQueueRuntimeGate.isProcessing || !commandQueueRuntimeGate.canSendMessage;
+  // Keep the status bar up for the whole turn: after the first output arrives, the agent can
+  // still spend minutes on steps or files with nothing else signalling that it is busy.
+  const stillWorking = !aiProcessing && !isCancelling && runtimeView.isProcessing;
 
   // Register handler for adding text from preview panel to sendbox
   useEffect(() => {
@@ -752,8 +755,8 @@ Please check your local CLI tool authentication status`,
         onClear={clear}
       />
       <ThoughtDisplay
-        running={teamRuntime?.loading ?? (aiProcessing && !hasThinkingMessage)}
-        statusText={teamRuntime?.statusText}
+        running={teamRuntime?.loading ?? (aiProcessing ? !hasThinkingMessage : stillWorking)}
+        statusText={teamRuntime?.statusText ?? (stillWorking ? t('conversation.chat.stillWorking') : undefined)}
         externalElapsedSource={Boolean(teamRuntime) || turnStartedAtMs != null}
         startedAtMs={teamRuntime ? (teamRuntime.startedAtMs ?? null) : turnStartedAtMs}
         onStop={effectiveHandleStop}

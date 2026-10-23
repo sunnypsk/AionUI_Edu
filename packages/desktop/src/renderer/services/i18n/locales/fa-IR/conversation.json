@@ -456,6 +456,7 @@
     "noModelSelected": "مدلی برای جلسه فعلی انتخاب نشده، امکان ارسال پیام وجود ندارد",
     "sendMessageTo": "ارسال پیام به {{model}}",
     "processing": "در حال پردازش...",
+    "stillWorking": "هنوز در حال انجام…",
     "quotaExceededTitle": "سهمیه مدل تمام شد",
     "quotaExceededBody": "سهمیه مدل فعلی تمام شده است. برای ادامه به {{model}} تغییر دهید؟",
     "quotaExceededNoFallback": "سهمیه مدل تمام شد. لطفاً به مدل موجود دیگری تغییر دهید.",

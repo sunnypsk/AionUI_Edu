@@ -456,6 +456,7 @@
     "noModelSelected": "Kein Modell für die aktuelle Sitzung ausgewählt, Nachricht kann nicht gesendet werden",
     "sendMessageTo": "Nachricht an {{model}} senden",
     "processing": "Wird verarbeitet...",
+    "stillWorking": "Arbeitet noch…",
     "quotaExceededTitle": "Modellkontingent erreicht",
     "quotaExceededBody": "Das aktuelle Modellkontingent ist erschöpft. Zu {{model}} wechseln, um fortzufahren?",
     "quotaExceededNoFallback": "Modellkontingent erreicht. Bitte zu einem anderen verfügbaren Modell wechseln.",

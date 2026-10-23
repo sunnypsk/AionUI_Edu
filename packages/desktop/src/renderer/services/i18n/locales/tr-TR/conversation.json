@@ -441,6 +441,7 @@
     "noModelSelected": "Mevcut oturum için model seçilmedi, mesaj gönderilemiyor",
     "sendMessageTo": "{{model}} modeline mesaj gönder",
     "processing": "İşleniyor...",
+    "stillWorking": "Hâlâ çalışıyor…",
     "quotaExceededTitle": "Model kotasına ulaşıldı",
     "quotaExceededBody": "Mevcut model kotası tükendi. Devam etmek için {{model}} modeline geçilsin mi?",
     "quotaExceededNoFallback": "Model kotasına ulaşıldı. Lütfen başka bir uygun modele geçin.",

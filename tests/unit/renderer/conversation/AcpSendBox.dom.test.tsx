@@ -36,6 +36,7 @@ const {
   messageWarningMock,
   stopInvokeMock,
   specialistState,
+  thoughtDisplayPropsSpy,
 } = vi.hoisted(() => ({
   sendMessageInvokeMock: vi.fn(),
   addOrUpdateMessageMock: vi.fn(),
@@ -80,6 +81,7 @@ const {
   messageWarningMock: vi.fn(),
   stopInvokeMock: vi.fn().mockResolvedValue(undefined),
   specialistState: { running: false, tasks: [], cancel: vi.fn().mockResolvedValue(undefined) },
+  thoughtDisplayPropsSpy: vi.fn(),
 }));
 
 vi.mock('@/renderer/pages/conversation/platforms/acp/SpecialistTasks/useSpecialists', () => ({
@@ -207,7 +209,12 @@ vi.mock('@/renderer/components/chat/MobileActionSheet', () => ({
   },
   useAttachEntry: () => ({ entries: [], hiddenFileInput: null }),
 }));
-vi.mock('@/renderer/components/chat/ThoughtDisplay', () => ({ default: () => null }));
+vi.mock('@/renderer/components/chat/ThoughtDisplay', () => ({
+  default: (props: unknown) => {
+    thoughtDisplayPropsSpy(props);
+    return null;
+  },
+}));
 vi.mock('@/renderer/components/media/FileAttachButton', () => ({ default: () => null }));
 vi.mock('@/renderer/components/media/FilePreview', () => ({ default: () => null }));
 vi.mock('@/renderer/components/media/HorizontalFileList', () => ({
@@ -377,6 +384,28 @@ describe('AcpSendBox', () => {
       reload: vi.fn(),
       setConfigOption: vi.fn(),
     });
+  });
+
+  it('keeps the status bar up after the first output while the turn is still running', () => {
+    runtimeViewMock.isProcessing = true;
+    render(<AcpSendBox conversation_id='conv-1' backend='codex' messageState={makeMessageState()} />);
+    expect(thoughtDisplayPropsSpy.mock.calls.at(-1)![0]).toMatchObject({
+      running: true,
+      statusText: 'conversation.chat.stillWorking',
+    });
+  });
+
+  it('shows the default waiting status before the first output and hides the bar when idle', () => {
+    const { rerender } = render(
+      <AcpSendBox
+        conversation_id='conv-1'
+        backend='codex'
+        messageState={{ ...makeMessageState(), aiProcessing: true }}
+      />
+    );
+    expect(thoughtDisplayPropsSpy.mock.calls.at(-1)![0]).toMatchObject({ running: true, statusText: undefined });
+    rerender(<AcpSendBox conversation_id='conv-1' backend='codex' messageState={makeMessageState()} />);
+    expect(thoughtDisplayPropsSpy.mock.calls.at(-1)![0]).toMatchObject({ running: false, statusText: undefined });
   });
 
   it('keeps Stop available for a background specialist without inventing a parent turn ID', async () => {
