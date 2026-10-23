@@ -477,6 +477,8 @@ export type I18nKey =
   | 'common.viewMoreLines_other'
   | 'common.website'
   | 'common.workspace'
+  | 'conversation.agentError.codes.AGENT_RESOURCES_UNAVAILABLE.body'
+  | 'conversation.agentError.codes.AGENT_RESOURCES_UNAVAILABLE.title'
   | 'conversation.agentError.codes.AIONUI_CONVERSATION_BUSY.body'
   | 'conversation.agentError.codes.AIONUI_CONVERSATION_BUSY.title'
   | 'conversation.agentError.codes.AIONUI_INTERNAL_ERROR.body'

@@ -352,6 +352,10 @@
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "请求仍在使用旧的团队身份字段",
         "body": "这个团队操作必须使用 assistant_id，不能再使用旧的 backend 或 agent 字段。"
+      },
+      "AGENT_RESOURCES_UNAVAILABLE": {
+        "title": "服务器资源暂时不足",
+        "body": "服务器目前无法启动 Agent。请等待其他任务完成后手动重试。对话及已有输出已保留。"
       }
     }
   },

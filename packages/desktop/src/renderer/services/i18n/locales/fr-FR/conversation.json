@@ -352,6 +352,10 @@
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "La demande utilisait un ancien champ d'identité d'équipe",
         "body": "Cette action d'équipe doit utiliser assistant_id au lieu des anciens champs backend ou agent."
+      },
+      "AGENT_RESOURCES_UNAVAILABLE": {
+        "title": "Les ressources du serveur sont temporairement indisponibles",
+        "body": "Impossible de démarrer l’Agent actuellement. Attendez la fin d’une autre tâche, puis réessayez manuellement. La conversation et les résultats existants sont conservés."
       }
     }
   },

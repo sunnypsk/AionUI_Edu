@@ -352,6 +352,10 @@
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
         "body": "This team action must use assistant_id instead of legacy backend or agent fields."
+      },
+      "AGENT_RESOURCES_UNAVAILABLE": {
+        "title": "Server resources are temporarily unavailable",
+        "body": "The server cannot start the Agent right now. Wait for another task to finish, then retry manually. Your conversation and existing output are preserved."
       }
     }
   },

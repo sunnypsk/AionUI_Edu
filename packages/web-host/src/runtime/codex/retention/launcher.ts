@@ -6,6 +6,7 @@ import { createLease } from './leases.js';
 import { isInstallId } from './store.js';
 import { browserCodexLaunch, browserCodexSpawn } from '../../browser/launcher.js';
 import { specialistCodexLaunch } from '../../droid/launcher.js';
+export { readCgroupTasks } from './resources.js';
 
 /** Keeps a per-process lease until the selected CLI exits; stdio remains the app-server transport. */
 export async function launchCodex(args = process.argv.slice(2), env = process.env): Promise<number> {

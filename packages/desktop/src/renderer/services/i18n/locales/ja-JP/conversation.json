@@ -352,6 +352,10 @@
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
         "body": "This team action must use assistant_id instead of legacy backend or agent fields."
+      },
+      "AGENT_RESOURCES_UNAVAILABLE": {
+        "title": "サーバーのリソースが一時的に不足しています",
+        "body": "現在 Agent を起動できません。他のタスクの完了を待ってから手動で再試行してください。会話と既存の出力は保持されています。"
       }
     }
   },

@@ -7,6 +7,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CodexRetention } from './index.js';
 import { readUsage } from './leases.js';
 import { writeInstallRecord } from './store.js';
+import { readCgroupTasks } from './resources.js';
+
+describe('bounded cgroup diagnostics', () => {
+  it('reads numeric task counts and omits unavailable or unlimited limits', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'cgroup-tasks-'));
+    try {
+      expect(await readCgroupTasks(directory)).toBeUndefined();
+      await writeFile(path.join(directory, 'pids.current'), '143\n');
+      await writeFile(path.join(directory, 'pids.max'), '512\n');
+      expect(await readCgroupTasks(directory)).toEqual({ current: 143, max: 512 });
+      for (const value of ['max', '-1', '', '512bad', '9007199254740992']) {
+        await writeFile(path.join(directory, 'pids.max'), value);
+        expect(await readCgroupTasks(directory)).toBeUndefined();
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
 
 describe.skipIf(process.platform === 'win32')('managed CLI process protection', () => {
   let data: string;

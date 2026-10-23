@@ -8,6 +8,15 @@ try {
   process.exitCode = await launchCodex();
 } catch (error) {
   const code = error?.code === 'EAGAIN' ? 'CODEX_RESOURCES_UNAVAILABLE' : 'CODEX_LAUNCH_FAILED';
-  console.error(JSON.stringify({ event: 'codex.launchFailed', code }));
+  let tasks;
+  if (code === 'CODEX_RESOURCES_UNAVAILABLE') {
+    try {
+      const { readCgroupTasks } = await import(new URL('../../../../../dist-server/codex/launcher.mjs', import.meta.url));
+      tasks = await readCgroupTasks();
+    } catch {
+      // Diagnostics must never replace the original launch failure.
+    }
+  }
+  console.error(JSON.stringify({ event: 'codex.launchFailed', code, ...(tasks ? { tasks } : {}) }));
   process.exitCode = 1;
 }

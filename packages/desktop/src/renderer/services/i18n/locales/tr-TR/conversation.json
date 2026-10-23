@@ -335,6 +335,10 @@
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
         "body": "This team action must use assistant_id instead of legacy backend or agent fields."
+      },
+      "AGENT_RESOURCES_UNAVAILABLE": {
+        "title": "Sunucu kaynakları geçici olarak yetersiz",
+        "body": "Agent şu anda başlatılamıyor. Başka bir görevin bitmesini bekleyip elle yeniden deneyin. Konuşmanız ve mevcut çıktılar korunur."
       }
     }
   },

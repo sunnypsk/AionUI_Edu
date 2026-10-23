@@ -64,6 +64,7 @@ import type { AgentStreamErrorInfo, IMessageTips } from '@/common/chat/chatLib';
 
 const requiredAgentErrorCodes = [
   'AIONUI_CONVERSATION_BUSY',
+  'AGENT_RESOURCES_UNAVAILABLE',
   'USER_AGENT_HANDSHAKE_FAILED',
   'USER_AGENT_HANDSHAKE_TIMEOUT',
   'USER_AGENT_ACP_INIT_FAILED',
