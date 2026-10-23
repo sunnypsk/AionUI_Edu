@@ -15,7 +15,7 @@ import {
   MessagePaginationProvider,
   useUpdateMessageList,
 } from '@/renderer/pages/conversation/Messages/hooks';
-import MessageList from '@/renderer/pages/conversation/Messages/MessageList';
+import MessageList, { interleaveArtifacts } from '@/renderer/pages/conversation/Messages/MessageList';
 
 const { parseDiffMock, useTeamPermissionMock, toolSummaryRender } = vi.hoisted(() => ({
   parseDiffMock: vi.fn(),
@@ -505,6 +505,34 @@ describe('MessageList', () => {
     expect(screen.getByTestId('msgtext-text-a').getAttribute('data-copy-row')).toBe('true');
     // The in-progress final turn withholds its row until streaming ends.
     expect(screen.getByTestId('msgtext-text-b').getAttribute('data-copy-row')).toBe('false');
+  });
+
+  it('keeps a streaming reply below its user message when the browser clock lags the server', () => {
+    mockIsProcessing = true;
+    // The user row carries the server's time; the live reply is stamped by a browser clock 7s behind.
+    const messages = [
+      { id: 'text-a', type: 'text', position: 'left', content: { content: 'a' }, created_at: 900 },
+      { id: 'user-1', type: 'text', position: 'right', content: { content: 'q' }, created_at: 1000 },
+      { id: 'text-b', type: 'text', position: 'left', content: { content: 'b' }, created_at: 993 },
+    ] as unknown as IMessageText[];
+
+    render(<MessageList />, {
+      wrapper: ({ children }) => <Wrapper messages={messages}>{children}</Wrapper>,
+    });
+
+    const user = screen.getByTestId('msgtext-user-1');
+    expect(user.compareDocumentPosition(screen.getByTestId('msgtext-text-b'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('slots artifacts between messages by time without reordering the messages', () => {
+    const message = (id: string, created_at: number) => ({ id, type: 'text', created_at }) as unknown as IMessageText;
+    const artifact = (id: string, created_at: number) =>
+      ({ type: 'artifact', id, created_at, artifact: {} }) as Parameters<typeof interleaveArtifacts>[1][number];
+    const ordered = interleaveArtifacts(
+      [message('a', 10), message('user', 30), message('live', 25)],
+      [artifact('late', 40), artifact('early', 20)]
+    );
+    expect(ordered.map((item) => item.id)).toEqual(['a', 'early', 'user', 'live', 'late']);
   });
 
   it('renders the empty slot when there are no messages', () => {

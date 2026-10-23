@@ -144,6 +144,25 @@ const getProcessedItemCreatedAt = (item: IProcessedItem): number => {
   return item.created_at ?? 0;
 };
 
+/**
+ * Slot artifacts into the message stream by time while keeping messages in list order.
+ * Re-sorting messages would compare server timestamps with live rows stamped by the browser
+ * clock, drawing a reply that streams in quickly above the user message it answers.
+ */
+export const interleaveArtifacts = (items: IProcessedItem[], artifacts: IArtifactVO[]): IProcessedItem[] => {
+  if (!artifacts.length) return items;
+  const pending = artifacts.toSorted((a, b) => a.created_at - b.created_at);
+  const result: IProcessedItem[] = [];
+  let next = 0;
+  for (const item of items) {
+    while (next < pending.length && pending[next].created_at < getProcessedItemCreatedAt(item)) {
+      result.push(pending[next++]);
+    }
+    result.push(item);
+  }
+  return result.concat(pending.slice(next));
+};
+
 const highlightStyle: React.CSSProperties = {
   backgroundColor: 'var(--color-aou-1)',
   boxShadow: '0 0 0 1px var(--color-aou-6-brand) inset',
@@ -471,9 +490,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         ? previous
         : item;
     });
-    return [...stableResult, ...visibleArtifacts].toSorted(
-      (a, b) => getProcessedItemCreatedAt(a) - getProcessedItemCreatedAt(b)
-    );
+    return interleaveArtifacts(stableResult, visibleArtifacts);
   }, [artifacts, list]);
 
   useLayoutEffect(() => {

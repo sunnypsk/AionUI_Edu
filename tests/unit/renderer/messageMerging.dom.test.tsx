@@ -167,6 +167,22 @@ describe('message merging', () => {
     expect(merged.map((row) => row.msg_id)).toEqual(['user', 'reply']);
   });
 
+  it('keeps an already shown user row above its streaming reply when the late accept lands', () => {
+    // The server stamps the user row ahead of the browser clock that stamps live rows, and
+    // persisted rows carry no turn_id, so a re-sort would move the user row below its reply.
+    const previous = { ...createTextMessage('previous', 'earlier answer'), created_at: 900 };
+    const user = { ...createTextMessage('user', 'confirm'), position: 'right' as const, created_at: 1000 };
+    const reply = { ...createTextMessage('reply', 'working on it'), created_at: 995 };
+    const tool = { ...createToolCallMessage('call-1'), created_at: 996 };
+    const merged = mergeLoadedPageWithCurrent(
+      CONVERSATION_ID,
+      [{ ...user, turn_id: 'turn-new' }],
+      [previous, user, reply, tool]
+    );
+    expect(merged.map((row) => row.id)).toEqual([previous.id, user.id, reply.id, tool.id]);
+    expect(merged[1].turn_id).toBe('turn-new');
+  });
+
   it('keeps user and assistant rows separate even if their correlation ids match', async () => {
     const { result } = renderHook(useMessageHarness, { wrapper: TestWrapper });
     act(() => {

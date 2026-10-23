@@ -837,10 +837,21 @@ export function mergeLoadedPageWithCurrent(
   const loadedIds = new Set(messages.map((message) => message.id));
   const loadedKeys = new Set(messages.map(getMessageMergeKey));
 
-  const mergedMessages = messages.map((message) => {
-    const live = currentById.get(message.id) ?? currentByKey.get(getMessageMergeKey(message));
-    return live ? preferPersistedOrLiveMessage(message, live) : message;
-  });
+  const matches = messages.map(
+    (message) => [message, currentById.get(message.id) ?? currentByKey.get(getMessageMergeKey(message))] as const
+  );
+  // When every loaded row is already shown, refresh those rows in place. Re-sorting would compare
+  // server timestamps against live rows stamped by the browser clock, so a late accepted user row
+  // could jump below the reply already streaming under it.
+  if (matches.every(([, live]) => live)) {
+    const replacements = new Map(
+      matches.map(([message, live]) => [live!, preferPersistedOrLiveMessage(message, live!)])
+    );
+    return foldSupersededTips(sameConversation.map((message) => replacements.get(message) ?? message));
+  }
+  const mergedMessages = matches.map(([message, live]) =>
+    live ? preferPersistedOrLiveMessage(message, live) : message
+  );
   const liveOnly = sameConversation.filter(
     (message) => !loadedIds.has(message.id) && !loadedKeys.has(getMessageMergeKey(message))
   );
