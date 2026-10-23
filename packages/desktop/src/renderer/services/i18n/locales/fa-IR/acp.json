@@ -8,7 +8,7 @@
     "failed": "ارسال پیام ناموفق بود: {{error}}"
   },
   "sendbox": {
-    "placeholder": "ارسال پیام به {{backend}}..."
+    "placeholder": "پیامی بنویسید…"
   },
   "image": {
     "download": "دانلود",

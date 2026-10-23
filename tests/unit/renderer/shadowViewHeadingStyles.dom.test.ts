@@ -32,6 +32,15 @@ const parsedRules = (): CSSRule[] => {
 const selectorOf = (rule: CSSRule): string => (rule as CSSStyleRule).selectorText ?? '';
 
 describe('createInitStyle heading inline-markup sizing', () => {
+  it('separates a top-level heading from preceding text without adding space before the first heading', () => {
+    const rules = parsedRules();
+    const h1 = rules.find((rule) => selectorOf(rule) === 'h1') as CSSStyleRule;
+    const first = rules.find(
+      (rule) => selectorOf(rule).replace(/\s/g, '') === '.markdown-shadow-body>:is(h1,h2,h3,h4,h5,h6):first-child'
+    ) as CSSStyleRule;
+    expect(h1.style.getPropertyValue('margin-top')).toBe('24px');
+    expect(Number.parseFloat(first.style.getPropertyValue('margin-top'))).toBe(0);
+  });
   it('restores inheritance for elements nested in headings', () => {
     const rule = parsedRules().find((r) => selectorOf(r).replace(/\s/g, '') === ':is(h1,h2,h3,h4,h5,h6)*') as
       | CSSStyleRule

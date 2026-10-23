@@ -119,7 +119,10 @@
       "download": "Descargar",
       "invalidPath": "La ruta del archivo no es válida.",
       "unavailable": "No se puede abrir este archivo aquí.",
-      "downloadError": "No se pudo descargar el archivo."
+      "downloadError": "No se pudo descargar el archivo.",
+      "downloadAll": "Descargar los {{count}} archivos (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "La descarga supera los 128 MB. Descarga los archivos por separado."
     },
     "slides": {
       "slide": "Diapositiva {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Generar imagen",
       "viewImage": "Ver imagen"
     }
+  },
+  "attachments": {
+    "count": "{{count}} archivos",
+    "showAll": "Mostrar los {{count}} archivos",
+    "showLess": "Mostrar menos archivos"
   }
 }

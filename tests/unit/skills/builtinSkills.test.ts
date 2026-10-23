@@ -139,4 +139,16 @@ describe('bundled teaching-design installation', () => {
       ]);
     }
   });
+  it('allows specified and small requests to finish without a confirmation or planning specialist', async () => {
+    const manifest = await readFile(path.join(bundledDir, teachingDir, 'SKILL.md'), 'utf8');
+    for (const rule of [
+      '已指定輸出格式及數量',
+      '10 項或以下',
+      '不要為了出計劃而啟動 `opus`',
+      '開場、進度更新、OpenUI 標題',
+      '不因缺少 OpenUI 而多問一次',
+    ])
+      expect(manifest).toContain(rule);
+    expect(manifest).not.toContain('老師說「直接做」或「唔使問」就跳過計劃。');
+  });
 });

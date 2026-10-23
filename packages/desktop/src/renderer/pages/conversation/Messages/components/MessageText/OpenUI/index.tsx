@@ -27,6 +27,7 @@ import styles from './OpenUI.module.css';
 import { withWebUiAdapters } from './runtimeLibrary';
 import FieldScope from './FieldScope';
 import { withRendererTeacherComponents } from '../OpenUIComponents/library';
+import { FileDownloads } from '../OpenUIComponents/FileDownloads';
 
 const fullLibrary = withWebUiAdapters(withRendererTeacherComponents(openuiLibrary));
 const chatLibrary = withWebUiAdapters(withRendererTeacherComponents(openuiChatLibrary));
@@ -427,7 +428,7 @@ export default function OpenUIMessage({
   const { user } = useAuth();
   const segments = useMemo(() => splitOpenUiContent(content, streaming), [content, streaming]);
   return (
-    <>
+    <FileDownloads streaming={streaming}>
       {segments.map((segment, index) =>
         segment.kind === 'markdown' ? (
           <MarkdownView key={'markdown-' + index} onLocalFileLink={onLocalFileLink}>
@@ -444,6 +445,6 @@ export default function OpenUIMessage({
           />
         )
       )}
-    </>
+    </FileDownloads>
   );
 }

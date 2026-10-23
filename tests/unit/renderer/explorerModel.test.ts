@@ -14,6 +14,7 @@ import {
   canRemoveRoot,
   deriveWant,
   explorerContextMenuSections,
+  filterWorkingFiles,
   isCopyModifierPressed,
   isDescendantOrSelf,
   isTransferAllowed,
@@ -33,6 +34,37 @@ import type { DragPeRef, ExplorerMenuCaps } from '@/renderer/pages/conversation/
 const set = (...keys: PeKey[]): Set<PeKey> => new Set(keys);
 const file = (name: string): Entry => ({ name, kind: 'file' });
 const dir = (name: string): Entry => ({ name, kind: 'dir' });
+
+describe('working-file reading filter', () => {
+  it('hides scripts, JSON and Python caches without changing the source tree or hiding deliverables', () => {
+    const root = peKey('pe1', '');
+    const tree = buildTreeData(
+      new Map([
+        [root, [file('build_docs.py'), file('data.json'), dir('__pycache__'), file('試卷.docx'), dir('deliverables')]],
+      ]),
+      set(root),
+      [{ pe_id: 'pe1', title: 'Workspace' }]
+    );
+    const filtered = filterWorkingFiles(tree);
+    expect(filtered[0].children?.map((node) => node.title)).toEqual(['deliverables', '試卷.docx']);
+    expect(tree[0].children).toHaveLength(5);
+  });
+  it('keeps selected working files visible when revealed through search', () => {
+    const root = peKey('pe1', '');
+    const cache = peKey('pe1', '__pycache__');
+    const tree = buildTreeData(
+      new Map([
+        [root, [dir('__pycache__')]],
+        [cache, [file('data.pyc'), file('other.pyc')]],
+      ]),
+      set(root, cache),
+      [{ pe_id: 'pe1', title: 'Workspace' }]
+    );
+    const filtered = filterWorkingFiles(tree, peKey('pe1', '__pycache__/data.pyc'));
+    expect(filtered[0].children?.[0].children?.map((node) => node.title)).toEqual(['data.pyc']);
+    expect(filterWorkingFiles([])).toEqual([]);
+  });
+});
 
 // ── PeKey identity ──────────────────────────────────────────────────────────
 

@@ -772,7 +772,8 @@
       }
     },
     "pathCopied": "已複製路徑",
-    "copyFailed": "複製路徑失敗"
+    "copyFailed": "複製路徑失敗",
+    "showWorkingFiles": "顯示工作檔案"
   },
   "terminal": {
     "running": "執行中",

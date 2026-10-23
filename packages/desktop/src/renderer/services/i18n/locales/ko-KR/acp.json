@@ -8,7 +8,7 @@
     "failed": "메시지 전송에 실패했습니다: {{error}}"
   },
   "sendbox": {
-    "placeholder": "{{backend}}에게 메시지 보내기..."
+    "placeholder": "메시지 입력…"
   },
   "image": {
     "download": "다운로드",

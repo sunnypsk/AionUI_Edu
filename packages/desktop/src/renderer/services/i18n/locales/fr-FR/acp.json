@@ -8,7 +8,7 @@
     "failed": "Échec de l'envoi du message : {{error}}"
   },
   "sendbox": {
-    "placeholder": "Envoyer un message à {{backend}}..."
+    "placeholder": "Saisir un message…"
   },
   "image": {
     "download": "Télécharger",

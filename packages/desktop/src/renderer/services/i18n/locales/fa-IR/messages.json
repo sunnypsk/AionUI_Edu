@@ -119,7 +119,10 @@
       "download": "دانلود",
       "invalidPath": "مسیر این فایل معتبر نیست.",
       "unavailable": "این فایل را نمی‌توان اینجا باز کرد.",
-      "downloadError": "دانلود فایل انجام نشد."
+      "downloadError": "دانلود فایل انجام نشد.",
+      "downloadAll": "دریافت همهٔ {{count}} فایل (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "حجم دریافت بیش از ۱۲۸ مگابایت است. فایل‌ها را جداگانه دریافت کنید."
     },
     "slides": {
       "slide": "اسلاید {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "ساخت تصویر",
       "viewImage": "مشاهده تصویر"
     }
+  },
+  "attachments": {
+    "count": "{{count}} فایل",
+    "showAll": "نمایش همهٔ {{count}} فایل",
+    "showLess": "نمایش فایل‌های کمتر"
   }
 }

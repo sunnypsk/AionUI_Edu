@@ -58,6 +58,15 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('ExplorerPanel arco expand roundtrip', () => {
+  it('restores hidden working files when the reading filter is turned off', async () => {
+    configureExplorerStore(makePort({ [peKey('pe1', '')]: [file('build_docs.py'), file('report.docx')] }));
+    const roots = [{ pe_id: 'pe1', title: 'app', role: 'workspace' as const }];
+    const { rerender } = render(<ExplorerPanel projectId='p1' roots={roots} showWorkingFiles={false} />);
+    await screen.findByText('report.docx');
+    expect(screen.queryByText('build_docs.py')).toBeNull();
+    rerender(<ExplorerPanel projectId='p1' roots={roots} showWorkingFiles />);
+    expect(await screen.findByText('build_docs.py')).toBeVisible();
+  });
   it('renders a directory as a non-leaf expandable node (loadMore regression) and expands it via the controlled expandedKeys roundtrip', async () => {
     // NOTE: arco's internal switcher-click wiring is not reproducible under jsdom
     // (fireEvent does not reach it); that click→onExpand path is verified live via

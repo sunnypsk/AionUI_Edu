@@ -773,7 +773,8 @@
       }
     },
     "pathCopied": "Pfad kopiert",
-    "copyFailed": "Pfad konnte nicht kopiert werden"
+    "copyFailed": "Pfad konnte nicht kopiert werden",
+    "showWorkingFiles": "Arbeitsdateien anzeigen"
   },
   "terminal": {
     "running": "Läuft",

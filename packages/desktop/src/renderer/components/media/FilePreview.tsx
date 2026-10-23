@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { formatByteSize } from '@/renderer/services/i18n/format';
 import { getFileExtension } from '@/renderer/services/FileService';
 import { ipcBridge } from '@/common';
-import { Image, Tooltip } from '@arco-design/web-react';
+import { Button, Image, Tooltip } from '@arco-design/web-react';
 import fileIcon from '@/renderer/assets/icons/file-icon.svg';
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']);
@@ -26,13 +26,13 @@ const isImageFile = (path: string): boolean => {
   return IMAGE_EXTS.has(ext);
 };
 
-interface FilePreviewProps {
+type FilePreviewProps = {
   path: string;
   onRemove: () => void;
   readonly?: boolean;
   /** Optional tooltip shown on the chip (e.g. "sent as a file path"). */
   hint?: string;
-}
+};
 
 const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = false, hint }) => {
   // Defensive check: ensure path is a string
@@ -42,26 +42,31 @@ const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = fa
   }
 
   const isImage = isImageFile(path);
-  // 直接从路径中提取文件名，不清理时间戳后缀
   // Extract filename directly from path without cleaning timestamp suffix
   const file_name = path.split(/[\\/]/).pop() || '';
   const fileExt = getFileExtension(path).toUpperCase().replace('.', '');
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [imageUrl, setImageUrl] = useState<string>('');
-  const [fileSize, setFileSize] = useState<string>('');
+  const [fileSize, setFileSize] = useState<number | null>(null);
 
   useEffect(() => {
-    // 获取文件大小
+    let cancelled = false;
+    setFileSize(null);
     ipcBridge.fs.getFileMetadata
       .invoke({ path })
       .then((metadata) => {
-        setFileSize(formatByteSize(metadata.size, i18n.language));
+        if (!cancelled && Number.isFinite(metadata?.size) && metadata.size >= 0) setFileSize(metadata.size);
       })
       .catch((error) => {
-        console.error('[FilePreview] Failed to get file metadata:', { path, error });
+        if (!cancelled) console.error('[FilePreview] Failed to get file metadata:', { path, error });
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
 
-    // 如果是图片，获取图片的base64
+  useEffect(() => {
+    setImageUrl('');
     // Retry when the file is not found yet (race condition: display message rendered
     // before the backend finishes copying the pasted image to the workspace).
     if (isImage) {
@@ -102,7 +107,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = fa
     return undefined;
   }, [isImage, path]);
 
-  const handleRemove = (e: React.MouseEvent) => {
+  const handleRemove = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     onRemove();
   };
@@ -125,40 +130,45 @@ const FilePreview: React.FC<FilePreviewProps> = ({ path, onRemove, readonly = fa
           {!imageUrl && <div className='w-60px h-60px bg-bg-3'></div>}
         </div>
         {!readonly && (
-          <div
-            className='absolute -top-4px -end-4px w-16px h-16px rd-50% bg-white dark:bg-gray-700 cursor-pointer flex items-center justify-center shadow-md hover:shadow-lg transition-all z-10 border-1 border-solid border-gray-200 dark:border-gray-600'
+          <Button
+            type='text'
+            size='mini'
+            shape='circle'
+            aria-label={t('common.remove')}
+            className='absolute -top-4px -end-4px z-10'
             onClick={handleRemove}
-          >
-            <Close theme='filled' size='10' fill='var(--text-secondary)' />
-          </div>
+            icon={<Close theme='filled' size='10' fill='var(--text-secondary)' />}
+          />
         )}
       </div>
     );
   }
 
   return withHint(
-    <div className='relative inline-block mb-10px'>
-      <div
-        className='h-60px flex items-center gap-12px px-12px rd-8px bg-bg-2 border border-solid'
-        style={{ borderColor: 'var(--border-base)', boxShadow: '0 0 0 1px rgba(0,0,0,0.02)' }}
-      >
+    <div className='relative inline-block min-w-0 max-w-full mb-10px'>
+      <div className='h-60px box-border max-w-full flex items-center gap-12px px-12px rd-8px bg-bg-2 border border-solid border-b-base'>
         <div className='w-40px h-40px rd-8px flex items-center justify-center flex-shrink-0'>
-          <img className='w-full h-full object-contain' src={fileIcon} alt='File Icon' />
+          <img className='w-full h-full object-contain' src={fileIcon} alt='' />
         </div>
         <div className='flex flex-col gap-2px min-w-0'>
-          <span className='text-14px text-t-primary max-w-150px truncate'>{file_name}</span>
+          <span className='text-14px text-t-primary max-w-150px truncate' title={file_name}>
+            {file_name}
+          </span>
           <span className='text-12px text-t-secondary'>
-            {fileExt}: {fileSize || '...'}
+            {[fileExt, fileSize === null ? '' : formatByteSize(fileSize, i18n.language)].filter(Boolean).join(' · ')}
           </span>
         </div>
       </div>
       {!readonly && (
-        <div
-          className='absolute -top-4px -end-4px w-16px h-16px rd-50% bg-white dark:bg-gray-700 cursor-pointer flex items-center justify-center shadow-md hover:shadow-lg transition-all z-10 border-1 border-solid border-gray-200 dark:border-gray-600'
+        <Button
+          type='text'
+          size='mini'
+          shape='circle'
+          aria-label={t('common.remove')}
+          className='absolute -top-4px -end-4px z-10'
           onClick={handleRemove}
-        >
-          <Close theme='filled' size='10' fill='var(--text-secondary)' />
-        </div>
+          icon={<Close theme='filled' size='10' fill='var(--text-secondary)' />}
+        />
       )}
     </div>
   );

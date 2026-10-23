@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMessageText } from '@/common/chat/chatLib';
 import { ipcBridge } from '@/common';
@@ -18,6 +18,8 @@ import { copyText } from '@/renderer/utils/ui/clipboard';
 const previewMocks = vi.hoisted(() => ({
   openPreview: vi.fn(),
 }));
+const layout = vi.hoisted(() => ({ isMobile: false }));
+vi.mock('@/renderer/hooks/context/LayoutContext', () => ({ useLayoutContext: () => layout }));
 const localFileLinkMocks = vi.hoisted(() => ({
   payload: {
     path: '/missing/report.xlsx',
@@ -139,7 +141,8 @@ vi.mock('@/renderer/utils/ui/clipboard', () => ({
   copyText: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@arco-design/web-react', () => ({
+vi.mock('@arco-design/web-react', async (original) => ({
+  ...(await original<object>()),
   Alert: () => null,
   Message: {
     error: vi.fn(),
@@ -149,11 +152,13 @@ vi.mock('@arco-design/web-react', () => ({
 
 vi.mock('@icon-park/react', () => ({
   Copy: () => <span data-testid='copy-icon' />,
+  Close: () => null,
 }));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
+    i18n: { language: 'en-US' },
   }),
 }));
 
@@ -165,8 +170,53 @@ const fileMetadata = (path: string) => ({
   lastModified: 1_717_000_000,
 });
 
+const { default: ActualFilePreview } = await vi.importActual<typeof import('@/renderer/components/media/FilePreview')>(
+  '@/renderer/components/media/FilePreview'
+);
+
+describe('attachment file metadata', () => {
+  beforeEach(() => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockReset();
+  });
+
+  it('shows the extension without a permanent loading placeholder when metadata fails', async () => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockRejectedValue(new Error('not found'));
+    await act(async () => {
+      render(<ActualFilePreview path='/ws/report.pdf' onRemove={() => undefined} readonly />);
+    });
+    expect(screen.getByText('PDF')).toBeVisible();
+    expect(screen.queryByText(/\.\.\./)).toBeNull();
+  });
+
+  it('shows a zero-byte file size and exposes the full truncated filename', async () => {
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke).mockResolvedValue({ ...fileMetadata('/x'), size: 0 });
+    const name = '2026 DSE 中文科試卷及評卷參考.pdf';
+    render(<ActualFilePreview path={'/ws/' + name} onRemove={() => undefined} readonly />);
+    expect(await screen.findByText('PDF · 0 B')).toBeVisible();
+    expect(screen.getByTitle(name)).toHaveTextContent(name);
+  });
+
+  it('ignores old metadata that arrives after the attachment path changes', async () => {
+    let finish!: (metadata: ReturnType<typeof fileMetadata>) => void;
+    vi.mocked(ipcBridge.fs.getFileMetadata.invoke)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValueOnce(fileMetadata('/ws/new.pdf'));
+    const { rerender } = render(<ActualFilePreview path='/ws/old.pdf' onRemove={() => undefined} readonly />);
+    rerender(<ActualFilePreview path='/ws/new.pdf' onRemove={() => undefined} readonly />);
+    await screen.findByText('PDF · 128 B');
+    await act(async () => finish({ ...fileMetadata('/ws/old.pdf'), size: 2048 }));
+    expect(screen.getByText('PDF · 128 B')).toBeVisible();
+  });
+});
+
 describe('MessageText attachment paths', () => {
   beforeEach(() => {
+    layout.isMobile = false;
     mockFilePreview.mockClear();
     vi.mocked(copyText).mockClear();
     previewMocks.openPreview.mockClear();
@@ -248,6 +298,35 @@ describe('MessageText attachment paths', () => {
     );
 
     expect(screen.getByTestId('file-preview')).toHaveTextContent('/workspace/demo/uploads/photo.png');
+  });
+
+  it('keeps uploaded files inside the same user bubble as the text', () => {
+    renderMessageText('Please read this\n\n[[AION_FILES]]\nnotes.pdf', { position: 'right' });
+    const bubble = screen.getByTestId('message-text-content').parentElement;
+    expect(bubble).toContainElement(screen.getByRole('group', { name: 'messages.attachments.count' }));
+    expect(bubble?.className).toContain('userBubble');
+  });
+
+  it('shows six attachments initially and lets the user expand and collapse all nineteen', () => {
+    const files = Array.from({ length: 19 }, (_, index) => `uploads/${index}.pdf`);
+    renderMessageText('[[AION_FILES]]\n' + files.join('\n'), { position: 'right' });
+    expect(screen.getAllByTestId('file-preview')).toHaveLength(6);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.attachments.showAll' }));
+    expect(screen.getAllByTestId('file-preview')).toHaveLength(19);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.attachments.showLess' }));
+    expect(screen.getAllByTestId('file-preview')).toHaveLength(6);
+  });
+
+  it('keeps a turn timestamp visible on touch screens without hover', () => {
+    layout.isMobile = true;
+    renderMessageText('Reply', { created_at: Date.now() });
+    expect(screen.getByTestId('message-time')).toBeVisible();
+    expect(screen.getByTestId('message-time').className).not.toContain('opacity-0');
+  });
+
+  it('omits missing timestamps rather than showing an invalid date', () => {
+    renderMessageText('Reply', { created_at: undefined });
+    expect(screen.queryByTestId('message-time')).toBeNull();
   });
 
   it('lets text message content use the available row width on desktop', () => {

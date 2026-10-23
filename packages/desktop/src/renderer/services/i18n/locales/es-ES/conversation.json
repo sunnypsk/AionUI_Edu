@@ -773,7 +773,8 @@
       }
     },
     "pathCopied": "Ruta copiada",
-    "copyFailed": "No se pudo copiar la ruta"
+    "copyFailed": "No se pudo copiar la ruta",
+    "showWorkingFiles": "Mostrar archivos de trabajo"
   },
   "terminal": {
     "running": "En ejecución",

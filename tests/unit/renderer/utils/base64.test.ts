@@ -4,8 +4,91 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { CFB } from 'xlsx-republish';
 import { base64ToBlob, BINARY_MIME_MAP } from '@/renderer/utils/file/base64';
+import { createStoredZip, downloadFilesAsZip } from '@/renderer/utils/file/download';
+
+vi.mock('@/common', () => ({ ipcBridge: {} }));
+vi.mock('@/renderer/utils/file/fileUrls', () => ({
+  buildFileStreamUrl: (file: { path: string }) => '/stream?path=' + encodeURIComponent(file.path),
+}));
+
+const zipReader = CFB as {
+  read: (
+    data: Buffer,
+    options: { type: 'buffer' }
+  ) => { FullPaths: string[]; FileIndex: Array<{ content?: Uint8Array }> };
+};
+
+describe('ZIP file downloads', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('produces an independently readable UTF-8 ZIP retaining directories and exact binary bytes', async () => {
+    const bytes = new Uint8Array([0, 255, 1, 128]);
+    const blob = createStoredZip([
+      { name: '甲/小測.docx', data: bytes.buffer },
+      { name: '乙/小測.docx', data: new TextEncoder().encode('答案').buffer },
+    ]);
+    const zip = zipReader.read(Buffer.from(await blob.arrayBuffer()), { type: 'buffer' });
+    // CFB reads raw filename bytes but does not implement ZIP's UTF-8 flag.
+    const names = zip.FullPaths.map((name) => Buffer.from(name, 'binary').toString('utf8'));
+    const index = names.findIndex((name) => name.endsWith('甲/小測.docx'));
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect([...zip.FileIndex[index].content!]).toEqual([...bytes]);
+    expect(names.some((name) => name.endsWith('乙/小測.docx'))).toBe(true);
+  });
+
+  it('records the standard CRC-32 check value', async () => {
+    const blob = createStoredZip([{ name: 'check.txt', data: new TextEncoder().encode('123456789').buffer }]);
+    expect(new DataView(await blob.arrayBuffer()).getUint32(14, true)).toBe(0xcbf43926);
+  });
+
+  it.each(['../secret', '/etc/passwd', 'C:\\secret', 'a/../../b', 'a\0b'])(
+    'rejects unsafe archive names: %j',
+    (name) => {
+      expect(() => createStoredZip([{ name, data: new ArrayBuffer(1) }])).toThrow('ZIP_INVALID_NAME');
+    }
+  );
+
+  it('rejects duplicate names and empty file lists', () => {
+    const entry = { name: 'test.docx', data: new ArrayBuffer(1) };
+    expect(() => createStoredZip([entry, entry])).toThrow('ZIP_INVALID_NAME');
+    expect(() => createStoredZip([])).toThrow('ZIP_INVALID_FILES');
+  });
+
+  it('does not start a partial download when a later file is missing', async () => {
+    const fetchFile = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('first'))
+      .mockResolvedValueOnce(new Response('missing', { status: 404 }));
+    vi.stubGlobal('fetch', fetchFile);
+    const createUrl = vi.spyOn(URL, 'createObjectURL');
+    await expect(
+      downloadFilesAsZip(
+        [
+          { file: { kind: 'local', path: '/ws/first.docx' }, name: 'first.docx' },
+          { file: { kind: 'local', path: '/ws/missing.docx' }, name: 'missing.docx' },
+        ],
+        'files.zip'
+      )
+    ).rejects.toThrow('(404)');
+    expect(createUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized advertised response before reading it into memory', async () => {
+    const response = new Response('large', { headers: { 'content-length': String(129 * 1024 * 1024) } });
+    const read = vi.spyOn(response, 'arrayBuffer');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    await expect(
+      downloadFilesAsZip([{ file: { kind: 'local', path: '/ws/large.pdf' }, name: 'large.pdf' }], 'files.zip')
+    ).rejects.toThrow('ZIP_TOO_LARGE');
+    expect(read).not.toHaveBeenCalled();
+  });
+});
 
 describe('base64 utils', () => {
   describe('base64ToBlob', () => {

@@ -774,7 +774,8 @@
       }
     },
     "pathCopied": "Yol kopyalandı",
-    "copyFailed": "Yol kopyalanamadı"
+    "copyFailed": "Yol kopyalanamadı",
+    "showWorkingFiles": "Çalışma dosyalarını göster"
   },
   "terminal": {
     "running": "Çalışıyor",

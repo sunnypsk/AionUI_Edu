@@ -8,7 +8,7 @@
     "failed": "Nachricht konnte nicht gesendet werden: {{error}}"
   },
   "sendbox": {
-    "placeholder": "Nachricht an {{backend}} senden..."
+    "placeholder": "Nachricht eingeben…"
   },
   "image": {
     "download": "Herunterladen",

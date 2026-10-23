@@ -8,7 +8,7 @@
     "failed": "Mesaj gönderilemedi: {{error}}"
   },
   "sendbox": {
-    "placeholder": "{{backend}}'a mesaj gönder..."
+    "placeholder": "Bir mesaj yazın…"
   },
   "image": {
     "download": "İndir",

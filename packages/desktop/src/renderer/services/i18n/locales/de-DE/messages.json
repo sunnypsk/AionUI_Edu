@@ -119,7 +119,10 @@
       "download": "Herunterladen",
       "invalidPath": "Dieser Dateipfad ist ungültig.",
       "unavailable": "Diese Datei kann hier nicht geöffnet werden.",
-      "downloadError": "Die Datei konnte nicht heruntergeladen werden."
+      "downloadError": "Die Datei konnte nicht heruntergeladen werden.",
+      "downloadAll": "Alle {{count}} Dateien herunterladen (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "Der Download überschreitet 128 MB. Laden Sie die Dateien einzeln herunter."
     },
     "slides": {
       "slide": "Folie {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Bild erzeugen",
       "viewImage": "Bild ansehen"
     }
+  },
+  "attachments": {
+    "count": "{{count}} Dateien",
+    "showAll": "Alle {{count}} Dateien anzeigen",
+    "showLess": "Weniger Dateien anzeigen"
   }
 }

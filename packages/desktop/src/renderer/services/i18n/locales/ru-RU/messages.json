@@ -123,7 +123,10 @@
       "download": "Скачать",
       "invalidPath": "Недопустимый путь к файлу.",
       "unavailable": "Этот файл нельзя открыть здесь.",
-      "downloadError": "Не удалось скачать файл."
+      "downloadError": "Не удалось скачать файл.",
+      "downloadAll": "Скачать все файлы ({{count}}) в ZIP",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "Размер загрузки превышает 128 МБ. Скачайте файлы по отдельности."
     },
     "slides": {
       "slide": "Слайд {{number}}",
@@ -155,5 +158,10 @@
       "generateImage": "Создать изображение",
       "viewImage": "Просмотреть изображение"
     }
+  },
+  "attachments": {
+    "count": "Файлов: {{count}}",
+    "showAll": "Показать все файлы ({{count}})",
+    "showLess": "Свернуть список файлов"
   }
 }

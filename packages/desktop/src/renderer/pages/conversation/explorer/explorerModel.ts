@@ -295,6 +295,23 @@ export type TreeNode = {
   runtimeStatus?: RootRuntimeStatus;
 };
 
+/** Hide generated working files in the reading view while keeping search-revealed selections visible. */
+export function filterWorkingFiles(nodes: TreeNode[], selected: PeKey | null = null): TreeNode[] {
+  return nodes.flatMap((node) => {
+    const children = node.children && filterWorkingFiles(node.children, selected);
+    const ref = keyToRef(node.key);
+    const selectedRef = selected && keyToRef(selected);
+    const containsSelection =
+      selectedRef &&
+      selectedRef.pe_id === ref.pe_id &&
+      (selectedRef.relative_path === ref.relative_path ||
+        selectedRef.relative_path.startsWith(ref.relative_path + '/'));
+    const working = node.isLeaf ? /\.(?:py|pyc|json|jsonl)$/i.test(node.title) : node.title === '__pycache__';
+    if (ref.relative_path && working && !containsSelection) return [];
+    return [{ ...node, ...(children ? { children } : {}) }];
+  });
+}
+
 /** A project's pe root as fed to the projection (title = display name). */
 export type RootRef = {
   pe_id: string;

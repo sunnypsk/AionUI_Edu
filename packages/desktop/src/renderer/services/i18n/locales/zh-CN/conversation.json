@@ -772,7 +772,8 @@
       }
     },
     "pathCopied": "已复制路径",
-    "copyFailed": "复制路径失败"
+    "copyFailed": "复制路径失败",
+    "showWorkingFiles": "显示工作文件"
   },
   "terminal": {
     "running": "运行中",

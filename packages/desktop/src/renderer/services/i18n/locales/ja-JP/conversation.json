@@ -772,7 +772,8 @@
       }
     },
     "pathCopied": "パスをコピーしました",
-    "copyFailed": "パスのコピーに失敗しました"
+    "copyFailed": "パスのコピーに失敗しました",
+    "showWorkingFiles": "作業ファイルを表示"
   },
   "terminal": {
     "running": "実行中",

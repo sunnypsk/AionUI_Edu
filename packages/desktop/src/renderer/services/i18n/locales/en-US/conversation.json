@@ -772,7 +772,8 @@
       }
     },
     "pathCopied": "Path copied",
-    "copyFailed": "Failed to copy path"
+    "copyFailed": "Failed to copy path",
+    "showWorkingFiles": "Show working files"
   },
   "terminal": {
     "running": "Running",

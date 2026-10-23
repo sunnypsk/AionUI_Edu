@@ -119,7 +119,7 @@ const AcpSendBox: React.FC<{
     ui_action?: OpenUiActionContext;
   }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
-}> = ({ conversation_id, backend, session_mode, agent_name, messageState, teamSendMessage, teamRuntime }) => {
+}> = ({ conversation_id, backend, session_mode, messageState, teamSendMessage, teamRuntime }) => {
   const {
     aiProcessing,
     setAiProcessing,
@@ -796,10 +796,7 @@ Please check your local CLI tool authentication status`,
               })
             : undefined
         }
-        placeholder={t('acp.sendbox.placeholder', {
-          backend: agent_name || backend,
-          defaultValue: `Send message to {{backend}}...`,
-        })}
+        placeholder={t('acp.sendbox.placeholder')}
         onStop={effectiveHandleStop}
         className='z-10'
         onFilesAdded={handleFilesAdded}

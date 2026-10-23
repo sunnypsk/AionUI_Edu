@@ -119,7 +119,10 @@
       "download": "下載",
       "invalidPath": "檔案路徑無效。",
       "unavailable": "未能開啟此檔案。",
-      "downloadError": "未能下載檔案。"
+      "downloadError": "未能下載檔案。",
+      "downloadAll": "下載全部 {{count}} 個檔案（ZIP）",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "檔案總大小超過 128 MB，請逐一下載。"
     },
     "slides": {
       "slide": "第 {{number}} 張",
@@ -151,5 +154,10 @@
       "generateImage": "生成圖片",
       "viewImage": "查看圖片"
     }
+  },
+  "attachments": {
+    "count": "{{count}} 個檔案",
+    "showAll": "顯示全部 {{count}} 個檔案",
+    "showLess": "收起檔案"
   }
 }

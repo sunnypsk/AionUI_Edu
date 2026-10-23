@@ -119,7 +119,10 @@
       "download": "İndir",
       "invalidPath": "Bu dosya yolu geçerli değil.",
       "unavailable": "Bu dosya burada açılamıyor.",
-      "downloadError": "Dosya indirilemedi."
+      "downloadError": "Dosya indirilemedi.",
+      "downloadAll": "{{count}} dosyanın tümünü indir (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "İndirme 128 MB sınırını aşıyor. Dosyaları ayrı ayrı indirin."
     },
     "slides": {
       "slide": "Slayt {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Görsel oluştur",
       "viewImage": "Görseli görüntüle"
     }
+  },
+  "attachments": {
+    "count": "{{count}} dosya",
+    "showAll": "{{count}} dosyanın tümünü göster",
+    "showLess": "Daha az dosya göster"
   }
 }

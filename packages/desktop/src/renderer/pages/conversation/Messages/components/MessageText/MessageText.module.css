@@ -1,0 +1,31 @@
+.userBubble {
+  box-sizing: border-box;
+  max-width: 75%;
+  align-self: flex-end;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.attachments > :not(.attachmentToggle) {
+  width: min(240px, 100%);
+  margin-bottom: 0;
+}
+
+.attachments + :not(:empty) {
+  margin-top: 8px;
+}
+
+.attachmentToggle {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .userBubble {
+    max-width: 92%;
+  }
+}

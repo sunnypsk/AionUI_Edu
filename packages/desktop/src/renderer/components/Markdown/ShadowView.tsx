@@ -139,6 +139,8 @@ export const createInitStyle = (
     font-size: 24px;
     line-height: 32px;
     font-weight: bold;
+    margin-top: 24px;
+    margin-bottom: 12px;
   }
   h2,h3,h4,h5,h6{
     font-size: 16px;
@@ -146,6 +148,9 @@ export const createInitStyle = (
     font-weight: bold;
     margin-top: 20px;
     margin-bottom: 12px;
+  }
+  .markdown-shadow-body > :is(h1,h2,h3,h4,h5,h6):first-child {
+    margin-top: 0;
   }
   code span{
     font-size:var(--code-font-size, 13px);

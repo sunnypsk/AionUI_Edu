@@ -119,7 +119,10 @@
       "download": "Baixar",
       "invalidPath": "O caminho do arquivo não é válido.",
       "unavailable": "Não é possível abrir este arquivo aqui.",
-      "downloadError": "Não foi possível baixar o arquivo."
+      "downloadError": "Não foi possível baixar o arquivo.",
+      "downloadAll": "Baixar todos os {{count}} arquivos (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "O download excede 128 MB. Baixe os arquivos individualmente."
     },
     "slides": {
       "slide": "Slide {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Gerar imagem",
       "viewImage": "Ver imagem"
     }
+  },
+  "attachments": {
+    "count": "{{count}} arquivos",
+    "showAll": "Mostrar todos os {{count}} arquivos",
+    "showLess": "Mostrar menos arquivos"
   }
 }

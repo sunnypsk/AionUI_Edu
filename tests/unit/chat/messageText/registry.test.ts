@@ -87,10 +87,13 @@ describe('teacher component contracts', () => {
     expect(outline.properties.slides.maxItems).toBe(SLIDE_LIMITS.slides);
     expect(outline.properties.slides.items.properties.points.maxItems).toBe(SLIDE_LIMITS.points);
   });
-  it('defines seven rules that point to the new components and the teaching-design skill', () => {
-    expect(TEACHER_RULES).toHaveLength(7);
+  it('points to teacher components and skips redundant planning while keeping internal names out of replies', () => {
     const all = TEACHER_RULES.join('\n');
     for (const term of ['SlideOutline', 'FileCard', 'teaching-design', '@ToAssistant', 'Hong Kong'])
       expect(all).toContain(term);
+    expect(all).toContain('names the output format and quantity');
+    expect(all).toContain('Honor an explicit request to review a plan');
+    expect(all).toContain('Small tasks need no planning specialist');
+    expect(all).toContain('without naming internal skills');
   });
 });

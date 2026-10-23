@@ -8,7 +8,7 @@
     "failed": "发送消息失败：{{error}}"
   },
   "sendbox": {
-    "placeholder": "发送消息到 {{backend}}..."
+    "placeholder": "输入消息…"
   },
   "image": {
     "download": "下载",

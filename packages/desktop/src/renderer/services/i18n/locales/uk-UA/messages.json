@@ -125,7 +125,10 @@
       "download": "Завантажити",
       "invalidPath": "Неприпустимий шлях до файлу.",
       "unavailable": "Цей файл не можна відкрити тут.",
-      "downloadError": "Не вдалося завантажити файл."
+      "downloadError": "Не вдалося завантажити файл.",
+      "downloadAll": "Завантажити всі файли ({{count}}) у ZIP",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "Розмір завантаження перевищує 128 МБ. Завантажте файли окремо."
     },
     "slides": {
       "slide": "Слайд {{number}}",
@@ -157,5 +160,10 @@
       "generateImage": "Створити зображення",
       "viewImage": "Переглянути зображення"
     }
+  },
+  "attachments": {
+    "count": "Файлів: {{count}}",
+    "showAll": "Показати всі файли ({{count}})",
+    "showLess": "Згорнути список файлів"
   }
 }

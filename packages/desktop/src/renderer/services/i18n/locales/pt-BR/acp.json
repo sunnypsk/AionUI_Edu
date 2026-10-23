@@ -8,7 +8,7 @@
     "failed": "Falha ao enviar mensagem: {{error}}"
   },
   "sendbox": {
-    "placeholder": "Enviar mensagem para {{backend}}..."
+    "placeholder": "Digite uma mensagem…"
   },
   "status": {
     "connecting": "Conectando ao {{agent}}...",

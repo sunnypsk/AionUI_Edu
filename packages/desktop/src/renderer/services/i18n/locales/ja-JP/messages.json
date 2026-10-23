@@ -119,7 +119,10 @@
       "download": "ダウンロード",
       "invalidPath": "ファイルパスが無効です。",
       "unavailable": "このファイルを開けません。",
-      "downloadError": "ファイルをダウンロードできませんでした。"
+      "downloadError": "ファイルをダウンロードできませんでした。",
+      "downloadAll": "全 {{count}} 個をダウンロード（ZIP）",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "合計サイズが 128 MB を超えています。個別にダウンロードしてください。"
     },
     "slides": {
       "slide": "スライド {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "画像を生成",
       "viewImage": "画像を表示"
     }
+  },
+  "attachments": {
+    "count": "{{count}} 個のファイル",
+    "showAll": "全 {{count}} 個のファイルを表示",
+    "showLess": "ファイルを折りたたむ"
   }
 }

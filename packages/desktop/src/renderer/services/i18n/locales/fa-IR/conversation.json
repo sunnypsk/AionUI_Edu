@@ -772,7 +772,8 @@
       }
     },
     "pathCopied": "مسیر کپی شد",
-    "copyFailed": "کپی مسیر ناموفق بود"
+    "copyFailed": "کپی مسیر ناموفق بود",
+    "showWorkingFiles": "نمایش فایل‌های کاری"
   },
   "terminal": {
     "running": "در حال اجرا",

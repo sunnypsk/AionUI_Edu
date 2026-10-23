@@ -119,7 +119,10 @@
       "download": "Download",
       "invalidPath": "This file path is not valid.",
       "unavailable": "This file can't be opened here.",
-      "downloadError": "The file could not be downloaded."
+      "downloadError": "The file could not be downloaded.",
+      "downloadAll": "Download all {{count}} files (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "This download exceeds 128 MB. Download the files individually."
     },
     "slides": {
       "slide": "Slide {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Generate image",
       "viewImage": "View image"
     }
+  },
+  "attachments": {
+    "count": "{{count}} files",
+    "showAll": "Show all {{count}} files",
+    "showLess": "Show fewer files"
   }
 }

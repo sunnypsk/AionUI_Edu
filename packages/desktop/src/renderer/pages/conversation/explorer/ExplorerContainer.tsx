@@ -16,7 +16,7 @@
  * reveal / explicit add-to-chat; see {@link SearchPanel}).
  */
 
-import { Button, Input, Message, Modal, Spin, Tooltip } from '@arco-design/web-react';
+import { Button, Checkbox, Input, Message, Modal, Spin, Tooltip } from '@arco-design/web-react';
 import { FoldUpOne, FolderPlus, Refresh } from '@icon-park/react';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -253,6 +253,7 @@ export const ExplorerContainer: React.FC<ExplorerContainerProps> = ({ projectId 
   // subscription is owned by its store per project, not by the component's mount
   // (see ScmPanel's lifecycle note) — a tab switch never drops the backend watch.
   const [activeTab, setActiveTab] = useState<'files' | 'changes'>('files');
+  const [showWorkingFiles, setShowWorkingFiles] = useState(false);
   // Busy flag for the top-bar refresh: spins the icon and disables re-click while a
   // refresh is in flight (so rapid clicks don't fan out redundant backend round-trips).
   const [refreshing, setRefreshing] = useState(false);
@@ -616,7 +617,12 @@ export const ExplorerContainer: React.FC<ExplorerContainerProps> = ({ projectId 
           the 12px baseline on their own (the former via its own padding, the latter
           via the .workspace-tree rules in arco-override.css). Adding a layer here
           would push both off that baseline. */}
-      <div className='flex-1 min-h-0' style={activeTab === 'files' ? undefined : { display: 'none' }}>
+      <div className='flex-1 min-h-0 flex flex-col' style={activeTab === 'files' ? undefined : { display: 'none' }}>
+        <div className='ps-20px pe-8px py-4px'>
+          <Checkbox checked={showWorkingFiles} onChange={setShowWorkingFiles}>
+            {t('conversation.explorer.showWorkingFiles')}
+          </Checkbox>
+        </div>
         <SearchPanel
           roots={searchRoots}
           peNames={searchPeNames}
@@ -626,6 +632,7 @@ export const ExplorerContainer: React.FC<ExplorerContainerProps> = ({ projectId 
           <ExplorerPanel
             projectId={projectId}
             roots={roots}
+            showWorkingFiles={showWorkingFiles}
             workspacePeId={workspacePeId}
             onRemoveRoot={handleRemoveFolder}
             onOpenFile={handleOpenFile}

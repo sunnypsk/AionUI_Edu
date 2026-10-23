@@ -29,6 +29,7 @@ import {
   PE_REF_DRAG_MIME,
   canRemoveRoot,
   explorerContextMenuSections,
+  filterWorkingFiles,
   isCopyModifierPressed,
   isTransferAllowed,
   keyToRef,
@@ -44,6 +45,7 @@ import { useExplorerView } from './useExplorerView';
 export type ExplorerPanelProps = {
   projectId: string;
   roots: RootRef[];
+  showWorkingFiles?: boolean;
   /** pe_id of the workspace root — its remove action is disabled (immutable). */
   workspacePeId?: string;
   /** Remove an attached root from the project. Omit to disable the action. */
@@ -91,6 +93,7 @@ export type ExplorerPanelProps = {
 export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   projectId,
   roots,
+  showWorkingFiles = true,
   workspacePeId,
   onRemoveRoot,
   onOpenFile,
@@ -517,7 +520,9 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
           revealed/selected node has a clearly visible highlight. */}
       <Tree
         className='workspace-tree'
-        treeData={view.treeData as TreeProps['treeData']}
+        treeData={
+          (showWorkingFiles ? view.treeData : filterWorkingFiles(view.treeData, view.selected)) as TreeProps['treeData']
+        }
         expandedKeys={view.expanded}
         selectedKeys={view.selected ? [view.selected] : []}
         /* 让节点标题块（arco 的点击目标 .arco-tree-node-title）铺满整行剩余宽度：

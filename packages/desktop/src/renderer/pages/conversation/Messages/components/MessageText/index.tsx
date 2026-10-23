@@ -12,7 +12,7 @@ import { useConversationContextSafe } from '@/renderer/hooks/context/Conversatio
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useLocalFilePreview } from '@/renderer/pages/conversation/Preview/hooks/useLocalFilePreview';
 import { iconColors } from '@/renderer/styles/colors';
-import { Alert, Message, Tooltip } from '@arco-design/web-react';
+import { Alert, Button, Message, Tooltip } from '@arco-design/web-react';
 import { Copy } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { lazy, Suspense, useMemo, useState, useSyncExternalStore } from 'react';
@@ -25,7 +25,6 @@ import { useTranslation } from 'react-i18next';
 import { copyText } from '@/renderer/utils/ui/clipboard';
 import CollapsibleContent from '@renderer/components/chat/CollapsibleContent';
 import FilePreview from '@renderer/components/media/FilePreview';
-import HorizontalFileList from '@renderer/components/media/HorizontalFileList';
 import MarkdownView from '@renderer/components/Markdown';
 import { stripThinkTags, hasThinkTags } from '@renderer/utils/chat/thinkTagFilter';
 import { buildTurnClipboardText } from '@renderer/utils/chat/turnCopy';
@@ -33,6 +32,7 @@ import { stripSkillSuggest, hasSkillSuggest } from '@renderer/utils/chat/skillSu
 import { isForkEnabled } from '@/common/chat/forkConversation';
 import { useForkConversation } from '@/renderer/hooks/chat/useForkConversation';
 import ForkBranchIcon from '@renderer/components/base/ForkBranchIcon';
+import styles from './MessageText.module.css';
 
 /**
  * Format a timestamp for message display.
@@ -131,6 +131,7 @@ const MessageText: React.FC<{
 
   const { t } = useTranslation();
   const [showCopyAlert, setShowCopyAlert] = useState(false);
+  const [showAllFiles, setShowAllFiles] = useState(false);
   const isUserMessage = message.position === 'right';
   // Delivered-but-not-yet-consumed marker for messages sent mid-turn to a
   // supporting backend (claude/codex). The message already reached the
@@ -308,23 +309,9 @@ const MessageText: React.FC<{
             ))}
           </div>
         )}
-        {files.length > 0 && (
-          <div className={classNames('mt-6px min-w-0 max-w-full', { 'self-end': isUserMessage })}>
-            {resolvedFiles.length === 1 ? (
-              <div className='flex items-center'>
-                <FilePreview path={resolvedFiles[0]} onRemove={() => undefined} readonly />
-              </div>
-            ) : (
-              <HorizontalFileList>
-                {resolvedFiles.map((path) => (
-                  <FilePreview key={path} path={path} onRemove={() => undefined} readonly />
-                ))}
-              </HorizontalFileList>
-            )}
-          </div>
-        )}
         <div
           className={classNames('min-w-0 [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px', {
+            [styles.userBubble]: isUserMessage,
             'bg-aou-2 p-6px md:p-8px': isUserMessage || cronMeta,
             'bg-3 p-6px md:p-8px': isTeammateMessage,
             'w-full': !(isUserMessage || cronMeta || isTeammateMessage),
@@ -340,6 +327,30 @@ const MessageText: React.FC<{
                 : undefined),
           }}
         >
+          {resolvedFiles.length > 0 && (
+            <div
+              className={styles.attachments}
+              role='group'
+              aria-label={t('messages.attachments.count', { count: files.length })}
+            >
+              {resolvedFiles.slice(0, showAllFiles ? undefined : 6).map((path, index) => (
+                <FilePreview key={`${path}-${index}`} path={path} onRemove={() => undefined} readonly />
+              ))}
+              {resolvedFiles.length > 6 && (
+                <Button
+                  type='text'
+                  size='small'
+                  className={styles.attachmentToggle}
+                  aria-expanded={showAllFiles}
+                  onClick={() => setShowAllFiles((value) => !value)}
+                >
+                  {t(showAllFiles ? 'messages.attachments.showLess' : 'messages.attachments.showAll', {
+                    count: files.length,
+                  })}
+                </Button>
+              )}
+            </div>
+          )}
           {/* JSON 内容使用折叠组件 Use CollapsibleContent for JSON content */}
           {shouldRenderPlainText ? (
             <div className='whitespace-pre-wrap [overflow-wrap:anywhere]' data-testid='message-text-content'>
@@ -380,20 +391,17 @@ const MessageText: React.FC<{
             {t('messages.delivery.pending', { defaultValue: 'Unread' })}
           </div>
         )}
-        {/* Hover-revealed copy + timestamp row. Mobile has no hover affordance,
-            so we drop the row entirely — system-level long-press still copies.
-            For AI replies split across several text messages, only the last text
-            of the turn shows this row (showCopyRow); user messages always do. */}
-        {!isMobile && showCopyRow && (
+        {/* Keep timestamps visible at turn boundaries, including touch screens. */}
+        {showCopyRow && (
           <div
             className={classNames('h-32px flex items-center mt-4px gap-8px', {
               'flex-row-reverse': isUserMessage,
             })}
           >
-            {copyButton}
-            {forkButton}
-            {message.created_at && (
-              <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
+            {!isMobile && copyButton}
+            {!isMobile && forkButton}
+            {typeof message.created_at === 'number' && Number.isFinite(message.created_at) && (
+              <span className='text-12px text-t-secondary select-none' data-testid='message-time'>
                 {formatMessageTime(message.created_at)}
               </span>
             )}

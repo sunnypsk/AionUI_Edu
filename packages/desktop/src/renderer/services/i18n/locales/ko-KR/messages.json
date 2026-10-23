@@ -119,7 +119,10 @@
       "download": "다운로드",
       "invalidPath": "파일 경로가 올바르지 않습니다.",
       "unavailable": "이 파일을 열 수 없습니다.",
-      "downloadError": "파일을 다운로드하지 못했습니다."
+      "downloadError": "파일을 다운로드하지 못했습니다.",
+      "downloadAll": "파일 {{count}}개 모두 다운로드 (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "전체 크기가 128 MB를 초과합니다. 파일을 개별적으로 다운로드하세요."
     },
     "slides": {
       "slide": "슬라이드 {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "이미지 생성",
       "viewImage": "이미지 보기"
     }
+  },
+  "attachments": {
+    "count": "파일 {{count}}개",
+    "showAll": "파일 {{count}}개 모두 표시",
+    "showLess": "파일 접기"
   }
 }

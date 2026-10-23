@@ -119,7 +119,10 @@
       "download": "Télécharger",
       "invalidPath": "Ce chemin de fichier n’est pas valide.",
       "unavailable": "Ce fichier ne peut pas être ouvert ici.",
-      "downloadError": "Le fichier n’a pas pu être téléchargé."
+      "downloadError": "Le fichier n’a pas pu être téléchargé.",
+      "downloadAll": "Télécharger les {{count}} fichiers (ZIP)",
+      "archiveName": "files.zip",
+      "bundleTooLarge": "Le téléchargement dépasse 128 Mo. Téléchargez les fichiers séparément."
     },
     "slides": {
       "slide": "Diapositive {{number}}",
@@ -151,5 +154,10 @@
       "generateImage": "Générer une image",
       "viewImage": "Afficher l’image"
     }
+  },
+  "attachments": {
+    "count": "{{count}} fichiers",
+    "showAll": "Afficher les {{count}} fichiers",
+    "showLess": "Réduire la liste"
   }
 }

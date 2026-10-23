@@ -778,7 +778,8 @@
       }
     },
     "pathCopied": "Caminho copiado",
-    "copyFailed": "Falha ao copiar o caminho"
+    "copyFailed": "Falha ao copiar o caminho",
+    "showWorkingFiles": "Mostrar arquivos de trabalho"
   },
   "terminal": {
     "running": "Executando",

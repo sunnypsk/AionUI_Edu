@@ -14,6 +14,7 @@ import { getContentTypeByExtension } from '@/renderer/pages/conversation/Preview
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { previewErrorToI18nKey, type PreviewErrorKind } from '@/renderer/utils/previewError';
 import styles from './OpenUIComponents.module.css';
+import { useFileDownload } from './FileDownloads';
 
 /**
  * Return a `/`-separated workspace-relative path, or null for anything that could leave the
@@ -77,6 +78,7 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
   const name = path?.split('/').pop() ?? props.path;
   const Icon = (path && ICONS[getContentTypeByExtension(path)]) || FileText;
   const disabled = streaming || !workspace;
+  useFileDownload(path, !disabled);
   const status = !path ? 'messages.openui.file.invalidPath' : !workspace ? 'messages.openui.file.unavailable' : problem;
   const reportPreview = useCallback((kind: PreviewErrorKind) => setProblem(previewErrorToI18nKey(kind)), []);
   const download = async () => {

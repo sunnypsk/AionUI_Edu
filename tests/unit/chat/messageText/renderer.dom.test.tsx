@@ -34,6 +34,7 @@ const host = vi.hoisted(() => ({
   launch: vi.fn(),
   errorKind: null as string | null,
   download: vi.fn(),
+  downloadAll: vi.fn(),
 }));
 vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   useOptionalPreviewContext: () => host.preview,
@@ -41,7 +42,10 @@ vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
 vi.mock('@/renderer/hooks/file/usePreviewLauncher', () => ({
   usePreviewLauncher: () => ({ launchPreview: host.launch, loading: false, errorKind: host.errorKind }),
 }));
-vi.mock('@/renderer/utils/file/download', () => ({ downloadFileFromRef: host.download }));
+vi.mock('@/renderer/utils/file/download', () => ({
+  downloadFileFromRef: host.download,
+  downloadFilesAsZip: host.downloadAll,
+}));
 vi.mock('@/renderer/hooks/context/ConversationContext', async (original) => ({
   ...(await original<object>()),
   useConversationContextSafe: () => (host.workspace ? { workspace: host.workspace } : null),
@@ -377,6 +381,7 @@ describe('FileCard', () => {
     host.errorKind = null;
     host.launch.mockReset().mockResolvedValue(undefined);
     host.download.mockReset().mockResolvedValue(undefined);
+    host.downloadAll.mockReset().mockResolvedValue(undefined);
   });
   it('previews and downloads a workspace file with a CJK name', async () => {
     card('./簡報/《背影》 第一課.pptx');
@@ -438,6 +443,39 @@ describe('FileCard', () => {
     card('簡報/不存在.pptx');
     fireEvent.click(await ready('messages.openui.file.download'));
     expect(await screen.findByText('conversation.workspace.preview.errors.notFound')).toBeTruthy();
+  });
+  it('downloads one ZIP for distinct valid files across separate blocks, retaining their relative directories', async () => {
+    display(
+      '```openui\nroot = Stack([FileCard("甲/小測.docx", "甲卷"), FileCard("甲/小測.docx", "重複")])\n```\n```openui\nroot = Stack([FileCard("乙/小測.docx", "乙卷"), FileCard("../secret.txt", "Invalid")])\n```'
+    );
+    fireEvent.click(await ready('messages.openui.file.downloadAll'));
+    await waitFor(() =>
+      expect(host.downloadAll).toHaveBeenCalledWith(
+        [
+          { file: { kind: 'local', path: '/ws/甲/小測.docx' }, name: '甲/小測.docx' },
+          { file: { kind: 'local', path: '/ws/乙/小測.docx' }, name: '乙/小測.docx' },
+        ],
+        'messages.openui.file.archiveName'
+      )
+    );
+  });
+  it('does not offer a bundle for repeated copies of a single file', async () => {
+    display('root = Stack([FileCard("a.docx", "A"), FileCard("a.docx", "Again")])');
+    await screen.findByText('Again');
+    expect(screen.queryByRole('button', { name: 'messages.openui.file.downloadAll' })).toBeNull();
+  });
+  it('keeps bundle download disabled while the reply is streaming', async () => {
+    display('root = Stack([FileCard("a.docx", "A"), FileCard("b.pdf", "B")])', true);
+    expect(await screen.findByRole('button', { name: 'messages.openui.file.downloadAll' })).toBeDisabled();
+    expect(host.downloadAll).not.toHaveBeenCalled();
+  });
+  it('shows an actionable bundle-size error and lets the user try again', async () => {
+    host.downloadAll.mockRejectedValueOnce(new Error('ZIP_TOO_LARGE'));
+    display('root = Stack([FileCard("a.docx", "A"), FileCard("b.pdf", "B")])');
+    fireEvent.click(await ready('messages.openui.file.downloadAll'));
+    expect(await screen.findByRole('status')).toHaveTextContent('messages.openui.file.bundleTooLarge');
+    fireEvent.click(await ready('messages.openui.file.downloadAll'));
+    await waitFor(() => expect(host.downloadAll).toHaveBeenCalledTimes(2));
   });
 });
 describe('SlideOutline', () => {

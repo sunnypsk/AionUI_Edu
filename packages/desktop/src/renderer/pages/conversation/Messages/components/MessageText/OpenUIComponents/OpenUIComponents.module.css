@@ -1,5 +1,6 @@
 .fileCard {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
@@ -33,6 +34,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.fileDownloads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  .fileCard {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .fileActions {
+    grid-column: 2;
+  }
 }
 .outline {
   display: flex;
