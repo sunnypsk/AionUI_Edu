@@ -1570,7 +1570,97 @@
              parent_call_id: None,
          })
      }
-@@ -6881,6 +6917,56 @@
+@@ -6404,14 +6440,12 @@
+ 
+     /// A backend whose dispatch reports the session as gone (codex resume-poison:
+     /// `bound_thread_within` fails fast after a rejected thread/resume).
+-    struct DeadSessionBackend;
++    struct ResumeFailureBackend(BackendError);
+ 
+     #[async_trait::async_trait]
+-    impl SessionBackend for DeadSessionBackend {
++    impl SessionBackend for ResumeFailureBackend {
+         async fn dispatch(&self, _c: Command) -> Result<CommandReceipt, BackendError> {
+-            Err(BackendError::SessionNotFound(
+-                "codex thread/resume failed: no rollout found for thread id th-dead".into(),
+-            ))
++            Err(self.0.clone())
+         }
+         fn events(&self) -> BoxStream<'static, SessionEnvelope> {
+             use futures_util::StreamExt as _;
+@@ -6433,7 +6467,9 @@
+         repo.update_session_id_for_user("user-1", "conv-1", "dead-anchor")
+             .await
+             .unwrap();
+-        let backend: Arc<dyn SessionBackend> = Arc::new(DeadSessionBackend);
++        let backend: Arc<dyn SessionBackend> = Arc::new(ResumeFailureBackend(BackendError::SessionNotFound(
++            "codex thread/resume failed: no rollout found for thread id th-dead".into(),
++        )));
+         let task = SessionAgentTask::new(
+             AgentType::Acp,
+             "conv-1".into(),
+@@ -6470,6 +6506,60 @@
+             row.session_id.is_none(),
+             "a dispatch-time dead session must clear the resume anchor — the replay/next send opens Fresh"
+         );
++    }
++
++    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++    async fn transient_resume_dispatch_preserves_persistent_anchor() {
++        for detail in [
++            "AGENT_RESOURCES_UNAVAILABLE",
++            "codex thread/resume temporarily unavailable",
++        ] {
++            let (repo, _db) = seeded_repo().await;
++            repo.update_session_id_for_user("user-1", "conv-1", "original-anchor")
++                .await
++                .unwrap();
++            let backend: Arc<dyn SessionBackend> =
++                Arc::new(ResumeFailureBackend(BackendError::Transport(detail.into())));
++            let task = SessionAgentTask::new(
++                AgentType::Acp,
++                "conv-1".into(),
++                "user-1".into(),
++                "/w".into(),
++                backend,
++                Some(repo.clone()),
++            );
++            let error = crate::agent_task::IAgentTask::send_message(
++                task.as_ref(),
++                SendMessageData {
++                    content: "retry original conversation".into(),
++                    msg_id: "m1".into(),
++                    turn_id: None,
++                    files: Vec::new(),
++                    inject_skills: Vec::new(),
++                },
++            )
++            .await
++            .unwrap_err();
++            assert_ne!(
++                error.code(),
++                Some(aionui_api_types::AgentErrorCode::UserAgentSessionNotFound)
++            );
++            if detail == "AGENT_RESOURCES_UNAVAILABLE" {
++                assert_eq!(
++                    error.code(),
++                    Some(aionui_api_types::AgentErrorCode::AgentResourcesUnavailable)
++                );
++            }
++            assert_eq!(
++                repo.get_for_user("user-1", "conv-1")
++                    .await
++                    .unwrap()
++                    .unwrap()
++                    .session_id
++                    .as_deref(),
++                Some("original-anchor")
++            );
++        }
+     }
+ 
+     // A backend that advertises per-model reasoning efforts (claude `supportedEffortLevels`),
+@@ -6881,6 +6971,56 @@
          }
      }
  
@@ -1627,7 +1717,7 @@
      // Image-capable backend: an image attachment leaves the [[AION_FILES]]
      // text and rides as a native Image block PAIRED with a link to the same
      // file; non-media files keep the path-text + resource-link form.
-@@ -6939,7 +7025,8 @@
+@@ -6939,7 +7079,8 @@
          let ContentBlock::Text(text) = &content[0] else {
              panic!("expected text first: {content:?}");
          };
@@ -1637,7 +1727,7 @@
          let ContentBlock::ResourceLink { uri, .. } = &content[1] else {
              panic!("expected resource link second: {content:?}");
          };
-@@ -7804,7 +7891,9 @@
+@@ -7804,7 +7945,9 @@
          assert_eq!(dump["conversation_id"], "conv-1");
          assert_eq!(dump["msg_id"], "m-1");
          assert_eq!(dump["input"]["content"][0]["type"], "text");
@@ -1648,7 +1738,7 @@
      }
  
      // Multimodal blocks are dumped RAW: an Image block keeps its full base64 body
-@@ -10587,3 +10676,53 @@
+@@ -10587,3 +10730,53 @@
          assert!(!super::is_detached_exec_call(None));
      }
  }
@@ -9095,7 +9185,33 @@
          // Live spawn: `codex app-server --stdio` via the INJECTED Spawner (S14,
          // never raw-spawn). The PARSE/reverse-RPC/dispatch contract (the real 007
          // risk) is fully hermetic-tested via build_with_io; this path adds the
-@@ -994,6 +1004,7 @@
+@@ -823,19 +833,15 @@
+     /// it. Two-id (§4.1): the backend threadId never escapes upward.
+     thread_binding: Arc<Mutex<Option<String>>>,
+     /// The rpc id of the in-flight `thread/resume` (Resume handshakes only). The
+-    /// reader claims the response: an ERROR means the pre-seeded binding points at
+-    /// a thread this codex cannot restore ("no rollout found for thread id …",
+-    /// verified: samples/codex-cli/0.144.1/dead_resume.jsonl) — the binding is
+-    /// cleared and `resume_poison` set. A success just drops the correlation
++    /// reader classifies errors: only a verified missing thread clears the
++    /// binding (samples/codex-cli/0.144.1/dead_resume.jsonl). Transient errors
++    /// preserve it and set a transport poison. A success drops the correlation
+     /// (the follow-up `thread/started` re-confirms the binding).
+     pending_resume: Arc<Mutex<Option<u64>>>,
+-    /// Set when codex REJECTED the `thread/resume` (dead resume anchor). Carries
+-    /// the codex error message; `bound_thread_within` fails FAST with it
+-    /// (`BackendError::SessionNotFound`) instead of polling a binding that will
+-    /// never arrive — the send-path then classifies it as a dead-session error
+-    /// and the conversation's recovery (anchor clear + auto-replay) takes over.
++    /// Typed failure of the current resume/fork. Transport errors preserve the
++    /// durable anchor; SessionNotFound authorizes dead-anchor recovery only.
+     /// Reset at the start of every handshake (a re-spawn is a fresh chance).
+-    resume_poison: Arc<Mutex<Option<String>>>,
++    resume_poison: Arc<Mutex<Option<BackendError>>>,
+     /// The rpc id of the in-flight `thread/fork` (Fork handshakes only,
+     /// `pending_resume`'s sibling). The reader claims the response: an ERROR
+     /// (parent rollout gone, parent turn in flight, …) poisons the bound-thread
+@@ -994,6 +1000,7 @@
  /// and bindings (the threadId binding survives a suspend, so a wake re-attaches).
  #[derive(Clone)]
  struct CodexReaderState {
@@ -9103,7 +9219,16 @@
      session_id: String,
      turn_gen: Arc<AtomicU64>,
      event_tx: broadcast::Sender<SessionEnvelope>,
-@@ -1014,6 +1025,8 @@
+@@ -1006,7 +1013,7 @@
+     pending_set: Arc<Mutex<HashMap<u64, String>>>,
+     pending_steers: Arc<Mutex<HashMap<u64, PendingSteer>>>,
+     pending_resume: Arc<Mutex<Option<u64>>>,
+-    resume_poison: Arc<Mutex<Option<String>>>,
++    resume_poison: Arc<Mutex<Option<BackendError>>>,
+     pending_fork: Arc<Mutex<Option<u64>>>,
+     discovered: Arc<std::sync::Mutex<Discovered>>,
+     stdin: Arc<Mutex<Option<aionui_process::BoxedStdin>>>,
+@@ -1014,6 +1021,8 @@
      /// terminal (TurnResult / Detached). The idle timer reads it so a streaming turn
      /// is never suspended mid-flight.
      turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
@@ -9112,7 +9237,7 @@
      /// First-turn session-title latch. Fired by the reader on a successful turn
      /// terminal; runs on its OWN process (see `codex_title`), so nothing here
      /// touches `thread_binding` / `turn_in_flight` / the R8 `terminated` flag.
-@@ -1027,9 +1040,11 @@
+@@ -1027,9 +1036,11 @@
      stdout: Option<aionui_process::BoxedStdout>,
      io: Arc<dyn AgentIo>,
  ) -> tokio::task::JoinHandle<()> {
@@ -9124,7 +9249,7 @@
              state.session_id,
              stdout,
              io,
-@@ -1049,6 +1064,7 @@
+@@ -1049,6 +1060,7 @@
              state.discovered,
              state.stdin,
              state.turn_in_flight,
@@ -9132,7 +9257,7 @@
              state.title_gen,
          )
          .await;
-@@ -1259,6 +1275,7 @@
+@@ -1259,6 +1271,7 @@
          let pending_fork = Arc::new(Mutex::new(None));
          let discovered = Arc::new(std::sync::Mutex::new(Discovered::default()));
          let turn_in_flight = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -9140,7 +9265,7 @@
          let (event_tx, _) = broadcast::channel(1024);
  
          let (stdin, stdout) = match io.take_stdio().await {
-@@ -1268,6 +1285,7 @@
+@@ -1268,6 +1281,7 @@
          let stdin = Arc::new(Mutex::new(stdin));
  
          let reader_state = CodexReaderState {
@@ -9148,7 +9273,7 @@
              session_id: session_id.clone(),
              turn_gen: turn_gen.clone(),
              event_tx: event_tx.clone(),
-@@ -1285,6 +1303,7 @@
+@@ -1285,6 +1299,7 @@
              discovered: discovered.clone(),
              stdin: stdin.clone(),
              turn_in_flight: turn_in_flight.clone(),
@@ -9156,7 +9281,7 @@
              title_gen: title_gen.clone(),
          };
          let reader = start_codex_reader(&reader_state, stdout, io.clone());
-@@ -1296,6 +1315,7 @@
+@@ -1296,6 +1311,7 @@
          ));
          let idle_timer = {
              let tif = turn_in_flight.clone();
@@ -9164,7 +9289,7 @@
              // 009 R6 cleanup path 3: emit BackendSuspended on idle-reap → orchestrator
              // clears the workflow_roster (a running workflow's task_notification will
              // never arrive once the process is reaped).
-@@ -1306,7 +1326,10 @@
+@@ -1306,7 +1322,10 @@
                  &suspend,
                  idle_check_interval_ms(idle_ttl_ms),
                  aionui_common::now_ms,
@@ -9176,7 +9301,21 @@
                  move || {
                      let _ = etx.send(SessionEnvelope {
                          session_id: sid.clone(),
-@@ -1402,6 +1425,23 @@
+@@ -1392,16 +1411,31 @@
+     async fn bound_thread_within(&self, budget: std::time::Duration) -> Result<String, BackendError> {
+         let polls = (budget.as_millis() / 50).max(1) as u64;
+         for _ in 0..polls {
+-            // Dead resume anchor (ELECTRON-3Q0): codex rejected the thread/resume,
+-            // so the binding this poll waits for will NEVER arrive. Fail fast with
+-            // the codex message as a SessionNotFound — the send-path maps it to the
+-            // dead-session error class, which clears the persisted anchor and lets
+-            // the conversation's auto-replay reopen Fresh.
++            // A rejected resume cannot dispatch on the pre-seeded binding.
++            // Only a verified missing session may clear the durable anchor;
++            // transient failures keep it for the next explicit retry.
+             if let Some(poison) = self.resume_poison.lock().await.clone() {
+-                return Err(BackendError::SessionNotFound(poison));
++                return Err(poison);
              }
              if let Some(tid) = self.thread_binding.lock().await.clone() {
                  return Ok(tid);
@@ -9200,7 +9339,7 @@
              }
              tokio::time::sleep(std::time::Duration::from_millis(50)).await;
          }
-@@ -1580,6 +1620,7 @@
+@@ -1580,6 +1614,7 @@
  /// Permission.
  #[allow(clippy::too_many_arguments)]
  async fn reader_task(
@@ -9208,7 +9347,13 @@
      session_id: String,
      stdout: Option<aionui_process::BoxedStdout>,
      io: Arc<dyn AgentIo>,
-@@ -1599,11 +1640,14 @@
+@@ -1594,16 +1629,19 @@
+     pending_set: Arc<Mutex<HashMap<u64, String>>>,
+     pending_steers: Arc<Mutex<HashMap<u64, PendingSteer>>>,
+     pending_resume: Arc<Mutex<Option<u64>>>,
+-    resume_poison: Arc<Mutex<Option<String>>>,
++    resume_poison: Arc<Mutex<Option<BackendError>>>,
+     pending_fork: Arc<Mutex<Option<u64>>>,
      discovered: Arc<std::sync::Mutex<Discovered>>,
      stdin: Arc<Mutex<Option<aionui_process::BoxedStdin>>>,
      turn_in_flight: Arc<std::sync::atomic::AtomicBool>,
@@ -9223,7 +9368,7 @@
          emit(
              &event_tx,
              &session_id,
-@@ -1680,10 +1724,6 @@
+@@ -1680,10 +1718,6 @@
                  if line.is_empty() {
                      continue;
                  }
@@ -9234,7 +9379,7 @@
                  let Ok(frame): Result<Value, _> = serde_json::from_str(line) else {
                      // unparseable line → opaque, never panic
                      emit(
-@@ -1692,11 +1732,17 @@
+@@ -1692,11 +1726,17 @@
                          turn_gen.load(Ordering::SeqCst),
                          SessionEvent::AdapterSpecific {
                              tag: "codex_unparseable".into(),
@@ -9253,7 +9398,7 @@
  
                  // A server-initiated REQUEST has BOTH `method` and `id`
                  // (reverse-RPC). A notification has `method` but no `id`. A
-@@ -1724,6 +1770,19 @@
+@@ -1724,6 +1764,19 @@
                          // server notification → SessionEvent(s)
                          let cur = turn_gen.load(Ordering::SeqCst);
                          let params = frame.get("params").unwrap_or(&Value::Null);
@@ -9273,7 +9418,7 @@
                          if m == "thread/started" {
                              // bind threadId (backend transport key, kept private).
                              if let Some(tid) = params.get("thread").and_then(|t| t.get("id")).and_then(Value::as_str) {
-@@ -1877,6 +1936,14 @@
+@@ -1877,6 +1930,14 @@
                              continue;
                          }
                          for ev in map_notification(m, params) {
@@ -9288,7 +9433,44 @@
                              emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
                          }
                      }
-@@ -2207,13 +2274,36 @@
+@@ -1915,13 +1976,19 @@
+                                 }
+                             };
+                             if is_resume && let Some(msg) = error_message.as_deref() {
++                                let failure = classify_codex_binding_failure("thread/resume", msg);
++                                let dead_anchor = matches!(failure, BackendError::SessionNotFound(_));
+                                 tracing::warn!(
+                                     conversation_id = %session_id,
+-                                    error = %msg,
+-                                    "codex thread/resume rejected — clearing poisoned thread binding (dead resume anchor)"
++                                    phase = "thread/resume",
++                                    dead_anchor,
++                                    resource_unavailable = crate::adapter::is_local_resource_exhaustion(msg),
++                                    "codex resume rejected; preserving anchor unless verified missing"
+                                 );
+-                                *thread_binding.lock().await = None;
+-                                *resume_poison.lock().await = Some(format!("codex thread/resume failed: {msg}"));
++                                if dead_anchor {
++                                    *thread_binding.lock().await = None;
++                                }
++                                *resume_poison.lock().await = Some(failure);
+                                 continue;
+                             }
+                             // Claim the thread/fork response (pending_resume's
+@@ -1946,10 +2013,10 @@
+                             if is_fork && let Some(msg) = error_message.as_deref() {
+                                 tracing::warn!(
+                                     conversation_id = %session_id,
+-                                    error = %msg,
++                                    phase = "thread/fork",
+                                     "codex thread/fork rejected — poisoning bound-thread wait (no silent fallback)"
+                                 );
+-                                *resume_poison.lock().await = Some(format!("codex thread/fork failed: {msg}"));
++                                *resume_poison.lock().await = Some(classify_codex_binding_failure("thread/fork", msg));
+                                 continue;
+                             }
+                             let pending_send = pending_sends.lock().await.remove(&rid);
+@@ -2207,13 +2274,48 @@
      let exit = io.wait_for_exit().await;
      // G2: redact the stderr tail at the backend boundary so a crash carries a
      // user-facing reason (allowlisted, ≤240 chars) without leaking raw stderr.
@@ -9323,10 +9505,22 @@
 +
 +fn codex_state_db_unavailable(stderr: &str) -> bool {
 +    stderr.contains("failed to initialize sqlite state runtime")
++}
++
++fn classify_codex_binding_failure(operation: &str, message: &str) -> BackendError {
++    // Verified: samples/codex-cli/0.144.1/dead_resume.jsonl. Do not apply
++    // Claude-specific resume heuristics or treat every DB error as a dead id.
++    if crate::adapter::is_local_resource_exhaustion(message) {
++        BackendError::Transport("AGENT_RESOURCES_UNAVAILABLE".into())
++    } else if message.contains("no rollout found for thread id") || message.contains("thread not found:") {
++        BackendError::SessionNotFound(format!("codex {operation} failed: {message}"))
++    } else {
++        BackendError::Transport(format!("codex {operation} temporarily unavailable"))
++    }
  }
  
  fn emit(tx: &broadcast::Sender<SessionEnvelope>, session_id: &str, turn_gen: u64, event: SessionEvent) {
-@@ -2778,6 +2868,16 @@
+@@ -2778,6 +2880,16 @@
          let _ = w.write_all(&line).await;
          let _ = w.flush().await;
      }
@@ -9343,7 +9537,7 @@
  }
  
  /// Map a codex server notification → canonical SessionEvent(s). The A1 fix lives
-@@ -3204,7 +3304,9 @@
+@@ -3204,7 +3316,9 @@
              if completed {
                  // 009 R7/H3: a codex tool is failed when status==failed OR a command
                  // exited non-zero — carry it so a failed tool is not shown as success.
@@ -9354,7 +9548,7 @@
                      || item.get("exitCode").and_then(Value::as_i64).is_some_and(|c| c != 0);
                  // 009 R8: carry the tool OUTPUT. `aggregatedOutput` (command stdout)
                  // is fixture-confirmed (commandExecution completed). codex writes any
-@@ -3242,15 +3344,35 @@
+@@ -3242,15 +3356,35 @@
                  // aggregatedOutput (a commandExecution-only field imageGeneration lacks),
                  // so the image card was empty. Carry the path as FilePath (NOT the
                  // base64 `result` as Text — that would dump megabytes of bytes).
@@ -9399,7 +9593,7 @@
                  }
                  if let Some(text) = item.get("aggregatedOutput").and_then(Value::as_str)
                      && !text.is_empty()
-@@ -3300,7 +3422,15 @@
+@@ -3300,7 +3434,15 @@
                      // tool calls) are present while the output fields are still null,
                      // so the whole item Value is the faithful argument carrier.
                      // TIO-13: never logged at info.
@@ -9416,7 +9610,7 @@
                      // 009 H5: codex inline tool — main agent.
                      parent_tool_use_id: None,
                  });
-@@ -3767,8 +3897,8 @@
+@@ -3767,8 +3909,8 @@
  
  /// Parse a completed `dynamicToolCall` item's `contentItems[]`
  /// (`{type:"inputText",text}` / `{type:"inputImage",imageUrl}`). Previously DROPPED.
@@ -9427,7 +9621,7 @@
  fn parse_codex_dynamic_content_items(items: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
      use crate::event::ToolResultContent;
      let Some(arr) = items.and_then(Value::as_array) else {
-@@ -3776,17 +3906,64 @@
+@@ -3776,17 +3918,64 @@
      };
      arr.iter()
          .filter_map(|el| match el.get("type").and_then(Value::as_str) {
@@ -9498,7 +9692,7 @@
  }
  
  /// Completed→EndTurn (or Truncated if a stop reason says so), Interrupted→
-@@ -4778,6 +4955,90 @@
+@@ -4778,6 +4967,90 @@
          assert!(codex_capabilities().supports_midturn_delivery);
      }
  
@@ -9589,10 +9783,57 @@
      /// A retrying error must reach the user, not just tick the heartbeat.
      ///
      /// Frame captured live from codex 0.147.0, whose response stream kept
-@@ -9375,6 +9636,212 @@
-         assert!(backend.suspend.is_active().await, "stays Active (production parity)");
+@@ -9045,6 +9318,44 @@
+         );
      }
  
++    #[tokio::test]
++    async fn transient_resume_failure_blocks_dispatch_but_keeps_original_anchor() {
++        for message in [
++            "failed to read thread metadata: error communicating with database: Resource temporarily unavailable (os error 11)",
++            "error communicating with database: database is locked at /private/db",
++            "thread not found: thread-store lookup failed: Resource temporarily unavailable (os error 11)",
++        ] {
++            let response = serde_json::json!({"jsonrpc":"2.0","id":7,"error":{"code":-32600,"message":message}});
++            let fake = FakeAgentIo::new(Vec::new(), None).with_gated_tail(format!("{response}\n").into_bytes());
++            let release = fake.stdout_releaser();
++            let captured = fake.captured_stdin();
++            let backend = CodexSessionBackend::build_with_io("resume-transient", Box::new(fake)).await;
++            backend.seed_thread_binding_for_test("th-original").await;
++            backend.register_pending_resume_for_test(7).await;
++            release();
++            tokio::time::timeout(std::time::Duration::from_secs(2), async {
++                while backend.resume_poison.lock().await.is_none() {
++                    tokio::task::yield_now().await;
++                }
++            })
++            .await
++            .unwrap();
++            assert_eq!(backend.thread_binding.lock().await.as_deref(), Some("th-original"));
++            let failure = backend
++                .bound_thread_within(std::time::Duration::from_millis(50))
++                .await
++                .unwrap_err();
++            assert!(matches!(&failure, BackendError::Transport(_)));
++            assert!(!failure.to_string().contains("/private"));
++            backend
++                .run_handshake(HandshakeMode::Resume("th-original"))
++                .await
++                .unwrap();
++            assert!(backend.resume_poison.lock().await.is_none());
++            assert!(captured_str(&captured).await.contains(r#""threadId":"th-original""#));
++        }
++    }
++
+     /// The happy-path counterpart: a `thread/resume` SUCCESS response leaves the
+     /// pre-seeded binding intact and sets no poison.
+     #[tokio::test]
+@@ -9373,6 +9684,212 @@
+         assert!(backend.suspend.is_active().await, "slot Active");
+         tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+         assert!(backend.suspend.is_active().await, "stays Active (production parity)");
++    }
++
 +    #[test]
 +    fn container_idle_threshold_is_opt_in_and_explicit_configuration_wins() {
 +        assert_eq!(configured_idle_ttl_ms(None, Some("1800000")), Some(1_800_000));
@@ -9797,12 +10038,10 @@
 +                .all(|frame| frame["params"]["threadId"] == "fixture-thread")
 +        );
 +        drop(backend);
-+    }
-+
+     }
+ 
      /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
-     /// next dispatch(Send) wakes by re-spawning `codex app-server` through the
-     /// injected spawner (then replaying the thread/resume handshake against the
-@@ -9594,6 +10061,63 @@
+@@ -9594,6 +10111,63 @@
      /// `Transport` (which mapped to an opaque 500). Uses a tiny injected budget so the
      /// timeout branch is exercised deterministically (no 30s wait, no global env).
      #[tokio::test]
@@ -9866,7 +10105,7 @@
      async fn bound_thread_timeout_is_handshake_timeout_not_transport() {
          // never_exits + empty stdout → no thread/started → never binds.
          let fake = FakeAgentIo::never_exits(Vec::new());
-@@ -9800,3 +10324,81 @@
+@@ -9800,3 +10374,81 @@
          );
      }
  }
