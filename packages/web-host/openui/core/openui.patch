@@ -9964,7 +9964,62 @@
                  move || {
                      let _ = etx.send(SessionEnvelope {
                          session_id: sid.clone(),
-@@ -1392,16 +1411,31 @@
+@@ -1348,21 +1367,42 @@
+ 
+     /// Write one JSON-RPC frame (request or response) to stdin as a single line.
+     async fn write_frame(&self, frame: Value) -> Result<(), BackendError> {
+-        let mut guard = self.stdin.lock().await;
+-        let stdin = guard
+-            .as_mut()
+-            .ok_or_else(|| BackendError::Transport("codex stdin unavailable".into()))?;
+         let mut line = serde_json::to_vec(&frame).map_err(|e| BackendError::Transport(e.to_string()))?;
+         line.push(b'\n');
+         use tokio::io::AsyncWriteExt;
+-        stdin
+-            .write_all(&line)
+-            .await
+-            .map_err(|e| BackendError::Transport(e.to_string()))?;
+-        stdin
+-            .flush()
+-            .await
+-            .map_err(|e| BackendError::Transport(e.to_string()))?;
++        let mut guard = self.stdin.lock().await;
++        let result = async {
++            let stdin = guard
++                .as_mut()
++                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::BrokenPipe, "codex stdin unavailable"))?;
++            stdin.write_all(&line).await?;
++            stdin.flush().await
++        }
++        .await;
++        drop(guard);
++        if let Err(error) = result {
++            let recorded_failure = *self
++                .reader_state
++                .startup_failure
++                .lock()
++                .unwrap_or_else(|e| e.into_inner());
++            if let Some(reason) = recorded_failure {
++                return Err(BackendError::Transport(reason.into()));
++            }
++            // A resumed thread is pre-seeded before initialize. If the wrapper
++            // dies first, a pipe failure must retain the resource diagnosis even
++            // when the reader has not yet published its terminal event.
++            let stderr = self.suspend.peek_stderr(crate::adapter::STDERR_PEEK_LINES).await;
++            if crate::adapter::is_local_resource_exhaustion(&stderr) {
++                *self
++                    .reader_state
++                    .startup_failure
++                    .lock()
++                    .unwrap_or_else(|e| e.into_inner()) = Some("AGENT_RESOURCES_UNAVAILABLE");
++                return Err(BackendError::Transport("AGENT_RESOURCES_UNAVAILABLE".into()));
++            }
++            return Err(BackendError::Transport(error.to_string()));
++        }
+         Ok(())
+     }
+ 
+@@ -1392,16 +1432,31 @@
      async fn bound_thread_within(&self, budget: std::time::Duration) -> Result<String, BackendError> {
          let polls = (budget.as_millis() / 50).max(1) as u64;
          for _ in 0..polls {
@@ -9979,9 +10034,6 @@
              if let Some(poison) = self.resume_poison.lock().await.clone() {
 -                return Err(BackendError::SessionNotFound(poison));
 +                return Err(poison);
-             }
-             if let Some(tid) = self.thread_binding.lock().await.clone() {
-                 return Ok(tid);
 +            }
 +            if let Some(reason) = *self
 +                .reader_state
@@ -9990,6 +10042,9 @@
 +                .unwrap_or_else(|e| e.into_inner())
 +            {
 +                return Err(BackendError::Transport(reason.into()));
+             }
+             if let Some(tid) = self.thread_binding.lock().await.clone() {
+                 return Ok(tid);
 +            }
 +            // This exact signature was captured on the NAS. It establishes a local
 +            // state initialization failure, not its cause (locking/disk/proxy).
@@ -10002,7 +10057,7 @@
              }
              tokio::time::sleep(std::time::Duration::from_millis(50)).await;
          }
-@@ -1580,6 +1614,7 @@
+@@ -1580,6 +1635,7 @@
  /// Permission.
  #[allow(clippy::too_many_arguments)]
  async fn reader_task(
@@ -10010,7 +10065,7 @@
      session_id: String,
      stdout: Option<aionui_process::BoxedStdout>,
      io: Arc<dyn AgentIo>,
-@@ -1594,16 +1629,19 @@
+@@ -1594,16 +1650,19 @@
      pending_set: Arc<Mutex<HashMap<u64, String>>>,
      pending_steers: Arc<Mutex<HashMap<u64, PendingSteer>>>,
      pending_resume: Arc<Mutex<Option<u64>>>,
@@ -10031,7 +10086,7 @@
          emit(
              &event_tx,
              &session_id,
-@@ -1680,10 +1718,6 @@
+@@ -1680,10 +1739,6 @@
                  if line.is_empty() {
                      continue;
                  }
@@ -10042,7 +10097,7 @@
                  let Ok(frame): Result<Value, _> = serde_json::from_str(line) else {
                      // unparseable line → opaque, never panic
                      emit(
-@@ -1692,11 +1726,17 @@
+@@ -1692,11 +1747,17 @@
                          turn_gen.load(Ordering::SeqCst),
                          SessionEvent::AdapterSpecific {
                              tag: "codex_unparseable".into(),
@@ -10061,7 +10116,7 @@
  
                  // A server-initiated REQUEST has BOTH `method` and `id`
                  // (reverse-RPC). A notification has `method` but no `id`. A
-@@ -1724,6 +1764,19 @@
+@@ -1724,6 +1785,19 @@
                          // server notification → SessionEvent(s)
                          let cur = turn_gen.load(Ordering::SeqCst);
                          let params = frame.get("params").unwrap_or(&Value::Null);
@@ -10081,7 +10136,7 @@
                          if m == "thread/started" {
                              // bind threadId (backend transport key, kept private).
                              if let Some(tid) = params.get("thread").and_then(|t| t.get("id")).and_then(Value::as_str) {
-@@ -1877,6 +1930,14 @@
+@@ -1877,6 +1951,14 @@
                              continue;
                          }
                          for ev in map_notification(m, params) {
@@ -10096,7 +10151,7 @@
                              emit(&event_tx, &session_id, cur, scope_notice_to_turn(ev, cur));
                          }
                      }
-@@ -1915,13 +1976,19 @@
+@@ -1915,13 +1997,19 @@
                                  }
                              };
                              if is_resume && let Some(msg) = error_message.as_deref() {
@@ -10120,7 +10175,7 @@
                                  continue;
                              }
                              // Claim the thread/fork response (pending_resume's
-@@ -1946,10 +2013,10 @@
+@@ -1946,10 +2034,10 @@
                              if is_fork && let Some(msg) = error_message.as_deref() {
                                  tracing::warn!(
                                      conversation_id = %session_id,
@@ -10133,7 +10188,7 @@
                                  continue;
                              }
                              let pending_send = pending_sends.lock().await.remove(&rid);
-@@ -2207,13 +2274,48 @@
+@@ -2207,13 +2295,53 @@
      let exit = io.wait_for_exit().await;
      // G2: redact the stderr tail at the backend boundary so a crash carries a
      // user-facing reason (allowlisted, ≤240 chars) without leaking raw stderr.
@@ -10158,6 +10213,11 @@
 +    } else {
 +        crate::adapter::redact_exit_stderr(io.as_ref()).await
 +    };
++    if redacted_summary.as_deref() == Some("AGENT_RESOURCES_UNAVAILABLE") {
++        // Keep the durable resume anchor, but never mistake its pre-seeded
++        // in-memory binding for a live process on the next send.
++        *startup_failure.lock().unwrap_or_else(|e| e.into_inner()) = Some("AGENT_RESOURCES_UNAVAILABLE");
++    }
      emit(
          &event_tx,
          &session_id,
@@ -10183,7 +10243,7 @@
  }
  
  fn emit(tx: &broadcast::Sender<SessionEnvelope>, session_id: &str, turn_gen: u64, event: SessionEvent) {
-@@ -2778,6 +2880,16 @@
+@@ -2778,6 +2906,16 @@
          let _ = w.write_all(&line).await;
          let _ = w.flush().await;
      }
@@ -10200,7 +10260,7 @@
  }
  
  /// Map a codex server notification → canonical SessionEvent(s). The A1 fix lives
-@@ -3204,7 +3316,9 @@
+@@ -3204,7 +3342,9 @@
              if completed {
                  // 009 R7/H3: a codex tool is failed when status==failed OR a command
                  // exited non-zero — carry it so a failed tool is not shown as success.
@@ -10211,7 +10271,7 @@
                      || item.get("exitCode").and_then(Value::as_i64).is_some_and(|c| c != 0);
                  // 009 R8: carry the tool OUTPUT. `aggregatedOutput` (command stdout)
                  // is fixture-confirmed (commandExecution completed). codex writes any
-@@ -3242,15 +3356,35 @@
+@@ -3242,15 +3382,35 @@
                  // aggregatedOutput (a commandExecution-only field imageGeneration lacks),
                  // so the image card was empty. Carry the path as FilePath (NOT the
                  // base64 `result` as Text — that would dump megabytes of bytes).
@@ -10256,7 +10316,7 @@
                  }
                  if let Some(text) = item.get("aggregatedOutput").and_then(Value::as_str)
                      && !text.is_empty()
-@@ -3300,7 +3434,15 @@
+@@ -3300,7 +3460,15 @@
                      // tool calls) are present while the output fields are still null,
                      // so the whole item Value is the faithful argument carrier.
                      // TIO-13: never logged at info.
@@ -10273,7 +10333,7 @@
                      // 009 H5: codex inline tool — main agent.
                      parent_tool_use_id: None,
                  });
-@@ -3767,8 +3909,8 @@
+@@ -3767,8 +3935,8 @@
  
  /// Parse a completed `dynamicToolCall` item's `contentItems[]`
  /// (`{type:"inputText",text}` / `{type:"inputImage",imageUrl}`). Previously DROPPED.
@@ -10284,7 +10344,7 @@
  fn parse_codex_dynamic_content_items(items: Option<&Value>) -> Vec<crate::event::ToolResultContent> {
      use crate::event::ToolResultContent;
      let Some(arr) = items.and_then(Value::as_array) else {
-@@ -3776,17 +3918,64 @@
+@@ -3776,17 +3944,64 @@
      };
      arr.iter()
          .filter_map(|el| match el.get("type").and_then(Value::as_str) {
@@ -10355,7 +10415,7 @@
  }
  
  /// Completed→EndTurn (or Truncated if a stop reason says so), Interrupted→
-@@ -4778,6 +4967,90 @@
+@@ -4778,6 +4993,90 @@
          assert!(codex_capabilities().supports_midturn_delivery);
      }
  
@@ -10446,7 +10506,7 @@
      /// A retrying error must reach the user, not just tick the heartbeat.
      ///
      /// Frame captured live from codex 0.147.0, whose response stream kept
-@@ -9045,6 +9318,44 @@
+@@ -9045,6 +9344,44 @@
          );
      }
  
@@ -10491,7 +10551,7 @@
      /// The happy-path counterpart: a `thread/resume` SUCCESS response leaves the
      /// pre-seeded binding intact and sets no poison.
      #[tokio::test]
-@@ -9373,6 +9684,212 @@
+@@ -9373,6 +9710,212 @@
          assert!(backend.suspend.is_active().await, "slot Active");
          tokio::time::sleep(std::time::Duration::from_millis(60)).await;
          assert!(backend.suspend.is_active().await, "stays Active (production parity)");
@@ -10704,7 +10764,7 @@
      }
  
      /// F-4 suspend→wake: a configured idle_ttl suspends the idle app-server; the
-@@ -9594,6 +10111,63 @@
+@@ -9594,6 +10137,118 @@
      /// `Transport` (which mapped to an opaque 500). Uses a tiny injected budget so the
      /// timeout branch is exercised deterministically (no 30s wait, no global env).
      #[tokio::test]
@@ -10745,6 +10805,61 @@
 +    }
 +
 +    #[tokio::test]
++    async fn resource_exit_preserves_a_seeded_resume_anchor_without_dispatching_it() {
++        use futures_util::StreamExt as _;
++        let fake = FakeAgentIo::new(Vec::new(), None)
++            .with_gated_tail(Vec::new())
++            .with_stderr("CODEX_RESOURCES_UNAVAILABLE /private/diagnostic");
++        let release = fake.stdout_releaser();
++        fake.release_exit();
++        let backend = CodexSessionBackend::build_with_io("resource-resume", Box::new(fake)).await;
++        backend.seed_thread_binding_for_test("saved-thread").await;
++        let mut events = backend.events();
++        release();
++        tokio::time::timeout(std::time::Duration::from_secs(1), async {
++            while let Some(envelope) = events.next().await {
++                if matches!(envelope.event, SessionEvent::Detached { .. }) {
++                    return;
++                }
++            }
++            panic!("resource exit must publish Detached");
++        })
++        .await
++        .unwrap();
++        assert_eq!(
++            backend.bound_thread_within(std::time::Duration::from_millis(100)).await,
++            Err(BackendError::Transport("AGENT_RESOURCES_UNAVAILABLE".into()))
++        );
++        assert_eq!(backend.thread_binding.lock().await.as_deref(), Some("saved-thread"));
++    }
++
++    #[tokio::test]
++    async fn pipe_failure_classifies_resources_before_the_reader_observes_exit() {
++        for (diagnostic, resource) in [
++            ("CODEX_RESOURCES_UNAVAILABLE /private/diagnostic", true),
++            ("socket read: Resource temporarily unavailable", false),
++        ] {
++            let fake = FakeAgentIo::never_exits(Vec::new()).with_stderr(diagnostic);
++            let backend = CodexSessionBackend::build_with_io("resource-pipe", Box::new(fake)).await;
++            backend.seed_thread_binding_for_test("saved-thread").await;
++            let (writer, reader) = tokio::io::duplex(64);
++            drop(reader);
++            *backend.stdin.lock().await = Some(Box::new(writer));
++            let error = backend
++                .write_frame(json!({ "id": 1, "method": "turn/start" }))
++                .await
++                .unwrap_err();
++            if resource {
++                assert_eq!(error, BackendError::Transport("AGENT_RESOURCES_UNAVAILABLE".into()));
++            } else {
++                assert!(!error.to_string().contains("AGENT_RESOURCES_UNAVAILABLE"));
++            }
++            assert!(!error.to_string().contains("private"));
++            assert_eq!(backend.thread_binding.lock().await.as_deref(), Some("saved-thread"));
++        }
++    }
++
++    #[tokio::test]
 +    async fn confirmed_unbound_exit_fails_before_handshake_timeout() {
 +        let fake = FakeAgentIo::new(Vec::new(), None).with_stderr("secret diagnostic");
 +        fake.release_exit();
@@ -10768,7 +10883,7 @@
      async fn bound_thread_timeout_is_handshake_timeout_not_transport() {
          // never_exits + empty stdout → no thread/started → never binds.
          let fake = FakeAgentIo::never_exits(Vec::new());
-@@ -9800,3 +10374,81 @@
+@@ -9800,3 +10455,81 @@
          );
      }
  }
