@@ -7,9 +7,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CodexRetention } from './index.js';
 import { readUsage } from './leases.js';
 import { writeInstallRecord } from './store.js';
-import { readCgroupTasks } from './resources.js';
+import {
+  assertStartupHeadroom,
+  DEFAULT_STARTUP_TASK_RESERVE,
+  readCgroupTasks,
+  startupTaskReserve,
+} from './resources.js';
 
 describe('bounded cgroup diagnostics', () => {
+  it('rejects only new starts below the reserve and allows its exact boundary', () => {
+    expect(() => assertStartupHeadroom({ current: 512 - DEFAULT_STARTUP_TASK_RESERVE + 1, max: 512 })).toThrow(
+      'CODEX_RESOURCES_UNAVAILABLE'
+    );
+    expect(() => assertStartupHeadroom({ current: 512 - DEFAULT_STARTUP_TASK_RESERVE, max: 512 })).not.toThrow();
+    expect(() => assertStartupHeadroom(undefined)).not.toThrow();
+  });
+
+  it('bounds explicit reserves and fails safely to the default for invalid values', () => {
+    expect(startupTaskReserve('192')).toBe(192);
+    for (const value of [undefined, '', '0', '-1', '127', '1025', 'NaN', '192.5']) {
+      expect(startupTaskReserve(value)).toBe(DEFAULT_STARTUP_TASK_RESERVE);
+    }
+  });
   it('reads numeric task counts and omits unavailable or unlimited limits', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'cgroup-tasks-'));
     try {

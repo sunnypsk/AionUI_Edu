@@ -19,7 +19,7 @@ services:
     environment:
       PUID: '${PUID:-99}'
       PGID: '${PGID:-100}'
-    pids_limit: 512
+    pids_limit: '${AIONUI_PIDS_LIMIT:-1024}'
     logging:
       driver: json-file
       options:

@@ -6,10 +6,12 @@ import { createLease } from './leases.js';
 import { isInstallId } from './store.js';
 import { browserCodexLaunch, browserCodexSpawn } from '../../browser/launcher.js';
 import { specialistCodexLaunch } from '../../droid/launcher.js';
+import { assertStartupHeadroom, readCgroupTasks, startupTaskReserve } from './resources.js';
 export { readCgroupTasks } from './resources.js';
 
 /** Keeps a per-process lease until the selected CLI exits; stdio remains the app-server transport. */
 export async function launchCodex(args = process.argv.slice(2), env = process.env): Promise<number> {
+  assertStartupHeadroom(await readCgroupTasks(), startupTaskReserve(env.AIONUI_CODEX_STARTUP_TASK_RESERVE));
   const root = env.AIONUI_CODEX_RUNTIME_ROOT;
   const lease = root ? await createLease(root) : undefined;
   let command = env.AIONUI_BUNDLED_CODEX;

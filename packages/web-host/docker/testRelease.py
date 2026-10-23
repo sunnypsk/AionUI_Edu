@@ -213,6 +213,27 @@ class Release(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "owner-only"):
             self.subject.validate_settings()
 
+    def test_legacy_settings_keep_the_default_task_limit(self):
+        self.subject.validate_settings()
+        args = self.subject.create_args("pinned-image")
+        self.assertEqual(args[args.index("--pids-limit") + 1], str(deploy.DEFAULT_PIDS_LIMIT))
+        compose = Path(__file__).with_name("compose.nas.yaml").read_text()
+        self.assertIn("${AIONUI_PIDS_LIMIT:-" + str(deploy.DEFAULT_PIDS_LIMIT) + "}", compose)
+
+    def test_optional_task_limit_is_bounded_and_applied_to_candidates_and_template(self):
+        for limit in (512, 768, 1024):
+            self.subject.settings["pidsLimit"] = limit
+            self.subject.validate_settings()
+            for probe in (None, self.control / "probe"):
+                args = self.subject.create_args("pinned-image", "candidate", probe)
+                self.assertEqual(args[args.index("--pids-limit") + 1], str(limit))
+            self.subject.write_template(deploy.validate_image(image()))
+            self.assertIn("--pids-limit=" + str(limit), ET.fromstring(self.template.read_text()).findtext("ExtraParams"))
+        for invalid in (511, 1025, True, "768", None, 768.5):
+            self.subject.settings["pidsLimit"] = invalid
+            with self.assertRaisesRegex(ValueError, "pidsLimit"):
+                self.subject.validate_settings()
+
     def test_rejects_disabled_or_dns_dependent_proxy_settings(self):
         for value in [{"enabled": False}, {"enabled": True, "proxyUrl": "socks5://proxy.example:1080"}]:
             deploy.atomic(self.data / "network-proxy.json", value)

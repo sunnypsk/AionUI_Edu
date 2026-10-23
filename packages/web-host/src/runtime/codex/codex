@@ -17,6 +17,7 @@ try {
       // Diagnostics must never replace the original launch failure.
     }
   }
-  console.error(JSON.stringify({ event: 'codex.launchFailed', code, ...(tasks ? { tasks } : {}) }));
+  const phase = process.argv[2] === '--version' ? 'version_probe' : process.argv[2] === 'app-server' ? 'app_server' : 'cli';
+  console.error(JSON.stringify({ event: 'codex.launchFailed', phase, code, ...(tasks ? { tasks } : {}) }));
   process.exitCode = 1;
 }

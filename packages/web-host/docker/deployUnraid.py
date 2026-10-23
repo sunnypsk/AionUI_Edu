@@ -126,6 +126,9 @@ def validate_image(info):
     return {"sourceCommit": revision, "sequence": list(map(int, sequence.split("."))), "imageId": info["Id"], "image": digest}
 
 
+DEFAULT_PIDS_LIMIT = 1024
+
+
 class Deployment:
     def __init__(self, base=BASE, template=TEMPLATE):
         self.base = base
@@ -135,7 +138,8 @@ class Deployment:
         self.settings = read(self.control / "settings.json", {})
 
     def validate_settings(self):
-        if set(self.settings) != {"bindAddress", "port", "puid", "pgid"}:
+        required = {"bindAddress", "port", "puid", "pgid"}
+        if not required <= set(self.settings) <= required | {"pidsLimit"}:
             raise ValueError("Write the reviewed NAS settings.json first")
         address = ipaddress.ip_address(self.settings["bindAddress"])
         if address.version != 4 or address.is_unspecified or address.is_multicast:
@@ -144,6 +148,9 @@ class Deployment:
             value = self.settings[key]
             if type(value) is not int or not 1 <= value <= (65535 if key == "port" else 2**31 - 1):
                 raise ValueError("Invalid deployment setting")
+        pids_limit = self.settings.get("pidsLimit", DEFAULT_PIDS_LIMIT)
+        if type(pids_limit) is not int or not 512 <= pids_limit <= 1024:
+            raise ValueError("pidsLimit must be an integer between 512 and 1024")
         if self.base.is_symlink() or self.data.is_symlink() or self.control.is_symlink():
             raise ValueError("Deployment directories must not be symlinks")
         proxy = read(self.data / "network-proxy.json", {})
@@ -169,7 +176,7 @@ class Deployment:
         return ["run", "-d", "--name", name, "--network", "bridge",
                 "--restart", "no" if probe else "unless-stopped",
                 "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun:/dev/net/tun",
-                "--security-opt", "no-new-privileges:true", "--pids-limit", "512",
+                "--security-opt", "no-new-privileges:true", "--pids-limit", str(self.settings.get("pidsLimit", DEFAULT_PIDS_LIMIT)),
                 "--security-opt", f"seccomp={policy_file}", "--shm-size", "256m",
                 "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "-p", port,
                 "-v", f"{probe_data or self.data}:/data:rw",
@@ -236,7 +243,7 @@ class Deployment:
         values = {"Name": NAME, "Repository": release["image"], "Network": "bridge", "Shell": "bash",
                   "Privileged": "false", "Project": "https://github.com/sunnypsk/AionUI_Edu",
                   "WebUI": f"http://{self.settings['bindAddress']}:{self.settings['port']}",
-                  "ExtraParams": f"--cap-add=NET_ADMIN --security-opt=no-new-privileges --security-opt=seccomp={self.control / 'browser-seccomp.json'} --shm-size=256m --pids-limit=512 --restart=unless-stopped --publish={self.settings['bindAddress']}:{self.settings['port']}:25808 --log-opt=max-size=10m --log-opt=max-file=3"}
+                  "ExtraParams": f"--cap-add=NET_ADMIN --security-opt=no-new-privileges --security-opt=seccomp={self.control / 'browser-seccomp.json'} --shm-size=256m --pids-limit={self.settings.get('pidsLimit', DEFAULT_PIDS_LIMIT)} --restart=unless-stopped --publish={self.settings['bindAddress']}:{self.settings['port']}:25808 --log-opt=max-size=10m --log-opt=max-file=3"}
         for key, value in values.items():
             ET.SubElement(tree, key).text = value
         for label, target, kind, mode, value in [

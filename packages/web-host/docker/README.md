@@ -33,6 +33,34 @@ After a successful GHCR publication, copy the reviewed `deployUnraid.py` to the 
 { "bindAddress": "192.0.2.10", "port": 25808, "puid": 99, "pgid": 100 }
 ```
 
+`pidsLimit` is optional (integer, 512–1024); existing settings files remain valid.
+The default is 1024 tasks, counting both processes and threads. The same limit
+applies to candidate checks and Unraid recreation. Compose accepts the matching
+`AIONUI_PIDS_LIMIT` override. Size this from a measured workload, including Browser
+and temporary version probes; keep peak usage below 75% and retain startup headroom.
+
+Codex startup reserves 256 free tasks by default. An operator can set
+`AIONUI_CODEX_STARTUP_TASK_RESERVE` (128–1024); invalid values use the default.
+The measured reserve is rounded up to a multiple of 64 from the larger of 128
+and 125% of a single cold-start peak increment. This preflight rejects new starts
+only and never stops active sessions. It is best effort: concurrent starts,
+Chromium, and running tools can race it. History browsing does not start an agent.
+Local resource failures require an explicit retry and preserve resume anchors.
+
+The isolated Linux QA run used a 53-task cold baseline and a 215-task single
+conversation peak, giving a 256-task reserve after the formula above. The full
+three-conversation workload included a Browser click, live shell tools, version
+probes, and background title generation. Counts include the QA sampler.
+
+| Task limit | Observed peak | Free at peak | Capacity result                        |
+| ---------- | ------------- | ------------ | -------------------------------------- |
+| 512        | 482           | 30           | Exceeds 75% and lacks startup headroom |
+| 768        | 530           | 238          | Lacks the 256-task startup headroom    |
+| 1024       | 595           | 429          | Passes both capacity checks            |
+
+These are local measurements; repeat the workload when changing the CLI, model,
+host, or task mix. The preflight is additional protection, not a scheduler.
+
 Configure the authenticated proxy **in the NAS terminal**, before first startup:
 
 ```bash

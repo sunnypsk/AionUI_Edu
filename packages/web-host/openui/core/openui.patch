@@ -1322,7 +1322,27 @@
          AgentSendError::new(
              self.message,
              self.code,
-@@ -546,6 +551,25 @@
+@@ -398,6 +403,19 @@
+ }
+ 
+ fn classify_acp_error(err: &AcpError) -> AgentSendError {
++    // Typed process errors intentionally omit stderr from Display. Inspect only for
++    // the local resource signature here, then retain the fixed public marker.
++    let lifecycle_detail = match err {
++        AcpError::SpawnFailed { message } => Some(message.as_str()),
++        AcpError::StartupCrash { stderr, .. } | AcpError::Disconnected { stderr, .. } => Some(stderr.as_str()),
++        _ => None,
++    };
++    if let Some(classification) = lifecycle_detail
++        .and_then(|detail| classify_agent_lifecycle(&detail.to_ascii_lowercase()))
++        .filter(|classification| classification.code == AgentErrorCode::AgentResourcesUnavailable)
++    {
++        return classification.into_send_error(String::new());
++    }
+     match err {
+         AcpError::AgentInternal { message, code, data } => {
+             let default_detail = acp_agent_internal_public_detail(*code);
+@@ -546,6 +564,25 @@
  }
  
  fn classify_agent_lifecycle(lower: &str) -> Option<ClassifiedError> {
@@ -1348,7 +1368,7 @@
      // codex dead resume anchor (ELECTRON-3Q0): `thread/resume` against a threadId
      // with no on-disk rollout / `turn/start` against a threadId unknown to the
      // process (verified: samples/codex-cli/0.144.1/dead_resume.jsonl). MUST
-@@ -577,7 +601,7 @@
+@@ -577,7 +614,7 @@
              AgentErrorResolutionKind::ReconnectAgent,
          ));
      }
@@ -1357,7 +1377,7 @@
          return Some(agent_error(
              "The selected Agent did not finish starting in time",
              AgentErrorCode::UserAgentHandshakeTimeout,
-@@ -1536,6 +1560,22 @@
+@@ -1536,6 +1573,22 @@
      }
  
      #[test]
@@ -1380,7 +1400,7 @@
      fn classifies_mid_session_cli_exit_as_agent_disconnected() {
          // Mid-session ACP CLI exit (e.g. Claude Code) surfaces as -32603 with
          // `details: "Claude Code process exited with code 1"`. Previously this
-@@ -2046,3 +2086,36 @@
+@@ -2046,3 +2099,69 @@
          );
      }
  }
@@ -1405,6 +1425,39 @@
 +            assert_eq!(error.detail.as_deref(), Some("AGENT_RESOURCES_UNAVAILABLE"));
 +            assert_eq!(error.retryable, Some(true));
 +        }
++    }
++
++    #[test]
++    fn typed_process_errors_classify_resources_before_generic_lifecycle_codes() {
++        for error in [
++            AcpError::SpawnFailed {
++                message: "spawn /private/agent: Resource temporarily unavailable (os error 11)".into(),
++            },
++            AcpError::StartupCrash {
++                exit_code: Some(1),
++                signal: None,
++                stderr: "CODEX_RESOURCES_UNAVAILABLE private=payload".into(),
++            },
++            AcpError::Disconnected {
++                exit_code: Some(1),
++                signal: None,
++                stderr: "AGENT_RESOURCES_UNAVAILABLE".into(),
++            },
++        ] {
++            let error = AgentSendError::from_agent_error(AgentError::Acp(error)).into_stream_error();
++            assert_eq!(error.code, Some(AgentErrorCode::AgentResourcesUnavailable));
++            assert_eq!(error.ownership, Some(AgentErrorOwnership::Aionui));
++            assert_eq!(error.detail.as_deref(), Some("AGENT_RESOURCES_UNAVAILABLE"));
++            assert!(!error.message.contains("private"));
++        }
++        let network_error = AgentSendError::from_agent_error(AgentError::Acp(AcpError::Disconnected {
++            exit_code: Some(1),
++            signal: None,
++            stderr: "socket read: Resource temporarily unavailable".into(),
++        }))
++        .into_stream_error();
++        assert_eq!(network_error.code, Some(AgentErrorCode::UserAgentDisconnected));
++        assert!(!network_error.detail.unwrap_or_default().contains("socket"));
 +    }
 +
 +    #[test]
@@ -3191,6 +3244,18 @@
  
  #[tokio::test]
  async fn t1_1_create_conversation_success() {
+--- a/crates/aionui-app/tests/extension_e2e.rs
++++ b/crates/aionui-app/tests/extension_e2e.rs
+@@ -1625,7 +1625,8 @@
+ 
+     let skill_creator = &by_name["skill-creator"];
+     assert_eq!(skill_creator["source"], "builtin");
+-    assert_eq!(skill_creator["is_auto_inject"], true);
++    // Administrator skills remain opt-in under the existing teacher skill policy.
++    assert_eq!(skill_creator["is_auto_inject"], false);
+     assert_eq!(skill_creator["relative_location"], "auto-inject/skill-creator/SKILL.md");
+ 
+     let review = &by_name["review"];
 --- a/crates/aionui-channel/src/message_service.rs
 +++ b/crates/aionui-channel/src/message_service.rs
 @@ -566,6 +566,7 @@
