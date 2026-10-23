@@ -261,6 +261,12 @@ export const useAcpMessage = (
         return;
       }
 
+      if (message.runtime_notice && message.type === 'error') {
+        const notice = transformMessage(message);
+        if (notice) mergeLiveMessage(notice);
+        return;
+      }
+
       if (isErrorTipMessage(message)) {
         turnFinishedRef.current = true;
         setRunning(false);

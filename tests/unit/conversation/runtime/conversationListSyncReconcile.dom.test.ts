@@ -10,7 +10,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   stream: vi.fn(
-    (_handler: (event: { conversation_id: string; type: string; turn_id: string; data: object }) => void) => () => {}
+    (
+      _handler: (event: {
+        conversation_id: string;
+        type: string;
+        turn_id: string;
+        data: object;
+        runtime_notice?: boolean;
+      }) => void
+    ) =>
+      () => {}
   ),
   complete: vi.fn((_handler: (event: { session_id: string; turn_id: string; state: string }) => void) => () => {}),
   reconnect: vi.fn((_handler: () => void) => () => {}),
@@ -92,6 +101,21 @@ const runtime = (turn: string | null): TConversationRuntimeSummary => ({
 });
 
 describe('guarded runtime reconciliation', () => {
+  it('keeps a newer running conversation busy when an idle lifecycle notice arrives', () => {
+    const { result } = renderHook(() => useConversationListSync());
+    act(() => reconcileSidebarRuntime('notice-race', runtime('new-turn'), beginSidebarRuntimeRead('notice-race')));
+    act(() =>
+      mocks.stream.mock.calls[0][0]({
+        conversation_id: 'notice-race',
+        type: 'error',
+        turn_id: '',
+        runtime_notice: true,
+        data: {},
+      })
+    );
+    expect(result.current.isConversationGenerating('notice-race')).toBe(true);
+    expect(result.current.hasCompletionUnread('notice-race')).toBe(false);
+  });
   it('clears a stale spinner using a fresh idle snapshot', () => {
     const { result } = renderHook(() => useConversationListSync());
     act(() => {

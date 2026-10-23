@@ -700,10 +700,10 @@ const transformMessageInner = (message: IResponseMessage): TMessage | undefined 
           ? errorData
           : ((errorData as { message?: string })?.message ?? JSON.stringify(errorData));
       return {
-        id: uuid(),
+        id: message.runtime_notice ? message.msg_id : uuid(),
         type: 'tips',
         msg_id: message.msg_id,
-        position: 'center',
+        position: message.runtime_notice ? 'left' : 'center',
         conversation_id: message.conversation_id,
         created_at,
         content: {

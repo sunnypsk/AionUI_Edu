@@ -1915,6 +1915,8 @@ export interface IResponseMessage {
   status?: 'finish' | 'pending' | 'error' | 'work';
   /** Replace accumulated text for the same msg_id instead of appending. */
   replace?: boolean;
+  /** Durable lifecycle notice outside a turn; does not settle running work. */
+  runtime_notice?: boolean;
 }
 
 export type IConversationArtifactKind = 'cron_trigger' | 'skill_suggest';

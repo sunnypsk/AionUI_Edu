@@ -668,7 +668,7 @@ const initializeConversationListSyncStore = () => {
   });
   ipcBridge.conversation.responseStream.on((message) => {
     const conversation_id = message.conversation_id;
-    if (!conversation_id) {
+    if (!conversation_id || message.runtime_notice) {
       return;
     }
 

@@ -74,6 +74,40 @@ function deferred<T>() {
 }
 
 describe('useAcpMessage', () => {
+  it('merges a durable runtime notice without settling a newer running turn', async () => {
+    vi.mocked(getConversationOrNull).mockResolvedValue(null);
+    const { result } = renderHook(() => useAcpMessage('notice-conversation'));
+    await waitFor(() => expect(result.current.hasHydratedRunningState).toBe(true));
+    act(() =>
+      responseStreamHandlerRef.current?.({
+        type: 'start',
+        conversation_id: 'notice-conversation',
+        msg_id: 'active-message',
+        turn_id: 'new-turn',
+        data: {},
+      })
+    );
+    expect(result.current.running).toBe(true);
+    act(() =>
+      responseStreamHandlerRef.current?.({
+        type: 'error',
+        conversation_id: 'notice-conversation',
+        msg_id: 'stored-notice-id',
+        created_at: 1234,
+        runtime_notice: true,
+        data: { message: 'Agent disconnected', code: 'USER_AGENT_DISCONNECTED' },
+      })
+    );
+    expect(result.current.running).toBe(true);
+    expect(addOrUpdateMessageMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'stored-notice-id',
+        msg_id: 'stored-notice-id',
+        created_at: 1234,
+        type: 'tips',
+      })
+    );
+  });
   it('renders an OpenUI permission without starting an agent turn or spinner', async () => {
     vi.mocked(getConversationOrNull).mockResolvedValue(null);
     const { result } = renderHook(() => useAcpMessage('openui-conversation'));
