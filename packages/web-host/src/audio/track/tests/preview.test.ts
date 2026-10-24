@@ -22,7 +22,7 @@ describe('listening preview media', () => {
         async (_source: string, destination: string, _signal: AbortSignal, window?: { start: number; end: number }) =>
           writeFile(
             destination,
-            wav(window ? new Array(Math.round((window.end - window.start) * 24000)).fill(5) : samples)
+            wav(window ? Array.from({ length: Math.round((window.end - window.start) * 24000) }, () => 5) : samples)
           )
       ),
     };

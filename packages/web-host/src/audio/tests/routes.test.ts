@@ -281,7 +281,7 @@ describe('audio settings authentication and CSRF', () => {
       destination: string,
       _signal: AbortSignal,
       window?: { start: number; end: number }
-    ) => writeFile(destination, wav(new Array(window ? 2400 : 24000).fill(100)));
+    ) => writeFile(destination, wav(Array.from({ length: window ? 2400 : 24000 }, () => 100)));
     runtime = await createAudioRuntime({
       dataDir: directory,
       manager: new AudioManager(directory, {
