@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -157,6 +157,7 @@ describe('MessageTips — error surfaces', () => {
     );
 
     expect(screen.getByText(BUTLER_LABEL)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /common.technical_details/ }));
     expect(screen.getByText(/connect ECONNREFUSED 127\.0\.0\.1:8080/)).toBeInTheDocument();
     expect(screen.queryByText(REPORT_LABEL)).not.toBeInTheDocument();
   });
@@ -368,11 +369,12 @@ describe('MessageTips — error surfaces', () => {
     expect(screen.getByText(/reported that an ACP\/JSON-RPC message could not be parsed/)).toBeInTheDocument();
     expect(screen.queryByText(/Suggestion:/)).not.toBeInTheDocument();
     expect(screen.queryByText(REPORT_LABEL)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /common.technical_details/ }));
     expect(screen.getByText(/USER_AGENT_PROTOCOL_PARSE_ERROR/)).toBeInTheDocument();
     expect(screen.queryByText('backend protocol fallback')).not.toBeInTheDocument();
   });
 
-  it('expands classified error technical details by default', () => {
+  it('keeps classified error guidance visible while technical details start collapsed', () => {
     render(
       <MessageTips
         message={buildTips('error', 'raw provider 401', {
@@ -387,8 +389,10 @@ describe('MessageTips — error surfaces', () => {
     );
 
     const detailsToggle = screen.getByRole('button', { name: /common.technical_details/ });
-    expect(detailsToggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(/Provider returned 401/)).toBeInTheDocument();
+    expect(detailsToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Model provider authentication failed')).toBeVisible();
+    fireEvent.click(detailsToggle);
+    expect(screen.getByText(/Provider returned 401/)).toBeVisible();
   });
 });
 

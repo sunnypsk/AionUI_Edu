@@ -628,6 +628,8 @@ export type I18nKey =
   | 'conversation.agentTip.connection.fallback'
   | 'conversation.agentTip.connection.recovered'
   | 'conversation.agentTip.connection.retrying'
+  | 'conversation.agentTip.technical.repeated'
+  | 'conversation.agentTip.technical.summary'
   | 'conversation.chat.apiErrorNoCli'
   | 'conversation.chat.apiErrorSwitchFailed'
   | 'conversation.chat.apiErrorSwitched'

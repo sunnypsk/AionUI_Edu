@@ -646,6 +646,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (attempt {{attempts}}, {{elapsed}} so far — the agent's provider keeps dropping the connection; AionUi is waiting it out.)"
       }
+    },
+    "technical": {
+      "summary": "Automatic approval records and system setup notices. No action is needed here.",
+      "repeated": "Shown {{count}} times"
     }
   },
   "notFound": "Conversation not found or has been deleted",

@@ -646,6 +646,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}}（累計 {{attempts}} 回目の再試行、経過 {{elapsed}} — エージェントの提供元が接続を切断し続けており、AionUi は再接続を待っています。）"
       }
+    },
+    "technical": {
+      "summary": "自動承認の記録とシステム設定の通知です。ここでの操作は不要です。",
+      "repeated": "{{count}} 回表示"
     }
   },
   "notFound": "会話が存在しないか、削除されました",

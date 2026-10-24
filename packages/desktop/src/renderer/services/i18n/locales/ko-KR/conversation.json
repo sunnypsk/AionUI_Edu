@@ -646,6 +646,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (누적 {{attempts}}번째 재시도, {{elapsed}} 경과 — 에이전트 제공자가 연결을 계속 끊고 있어 AionUi가 재연결을 기다리는 중입니다.)"
       }
+    },
+    "technical": {
+      "summary": "자동 승인 기록 및 시스템 설정 알림입니다. 여기서 조치할 필요가 없습니다.",
+      "repeated": "{{count}}회 표시됨"
     }
   },
   "notFound": "대화를 찾을 수 없거나 삭제되었습니다",

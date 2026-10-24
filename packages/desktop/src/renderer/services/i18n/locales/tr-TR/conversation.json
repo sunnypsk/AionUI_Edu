@@ -648,6 +648,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} ({{attempts}}. deneme, {{elapsed}} geçti — aracının sağlayıcısı bağlantıyı sürekli kesiyor; AionUi bekliyor.)"
       }
+    },
+    "technical": {
+      "summary": "Otomatik onay kayıtları ve sistem kurulumu bildirimleri. Burada işlem yapmanız gerekmez.",
+      "repeated": "{{count}} kez gösterildi"
     }
   },
   "notFound": "Konuşma bulunamadı veya silinmiş",

@@ -6,15 +6,15 @@
 
 import type { IMessageTips } from '@/common/chat/chatLib';
 import { Button, Collapse, Tag } from '@arco-design/web-react';
-import { Attention, CheckOne, Info } from '@icon-park/react';
+import { Attention, CheckOne, Info, Right } from '@icon-park/react';
 import classNames from 'classnames';
-import React, { useMemo } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import MarkdownView from '@renderer/components/Markdown';
 import ButlerDiagnoseButton from '@renderer/components/base/ButlerDiagnoseButton';
 import CollapsibleContent from '@renderer/components/chat/CollapsibleContent';
 import { iconColors } from '@/renderer/styles/colors';
-import { isHiddenVersionTip } from '@/renderer/utils/chat/hiddenTips';
+import { isHiddenVersionTip, isTechnicalTipMessage } from '@/renderer/utils/chat/hiddenTips';
 import { emitter } from '@/renderer/utils/emitter';
 
 // One entry per `IMessageTips['type']`. `info` was missing, and the render
@@ -66,6 +66,49 @@ const resolveAgentTipBody = (
 const isConnectionTip = (code: IMessageTips['content']['code'], content: string): boolean =>
   code === 'CODEX_RETRYING' || /^Falling back from WebSockets/i.test(content);
 
+/** Non-actionable records stay available on demand, without warning styling. */
+export const MessageTechnicalDetails: React.FC<{ messages: IMessageTips[] }> = ({ messages }) => {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
+  const entries = useMemo(() => {
+    const grouped = new Map<string, { message: IMessageTips; count: number }>();
+    for (const message of messages) {
+      const previous = grouped.get(message.content.content);
+      if (previous) previous.count++;
+      else grouped.set(message.content.content, { message, count: 1 });
+    }
+    return [...grouped.values()];
+  }, [messages]);
+
+  return (
+    <div className='min-w-0 text-left' data-technical-notices>
+      <Button
+        type='text'
+        size='mini'
+        className='!text-t-secondary !h-auto !py-4px !px-0'
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => setExpanded((value) => !value)}
+        icon={<Right size='12' fill='currentColor' className={expanded ? 'rotate-90' : ''} />}
+      >
+        {t('common.technical_details')} · {messages.length}
+      </Button>
+      {expanded && (
+        <div id={panelId} className='min-w-0 flex flex-col gap-8px mt-4px text-12px text-t-secondary'>
+          <div>{t('conversation.agentTip.technical.summary')}</div>
+          {entries.map(({ message, count }) => (
+            <div key={message.id} className='min-w-0 border-l-2 border-solid border-base pl-8px'>
+              {count > 1 && <div>{t('conversation.agentTip.technical.repeated', { count })}</div>}
+              <div className='whitespace-pre-wrap [overflow-wrap:anywhere]'>{message.content.content}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MessageTips: React.FC<{ message: IMessageTips; recovered?: boolean }> = ({ message, recovered }) => {
   const { t } = useTranslation();
   const { content, type, code, params } = message.content;
@@ -80,6 +123,7 @@ const MessageTips: React.FC<{ message: IMessageTips; recovered?: boolean }> = ({
   const shouldShowButler = type === 'error';
 
   if (hideVersionDrift) return null;
+  if (isTechnicalTipMessage(message)) return <MessageTechnicalDetails messages={[message]} />;
 
   // Teachers get one plain line; the provider's raw transport text stays under technical details.
   if (type !== 'error' && isConnectionTip(code, content)) {
@@ -172,7 +216,7 @@ const MessageTips: React.FC<{ message: IMessageTips; recovered?: boolean }> = ({
                 <div className='text-t-secondary whitespace-break-spaces [word-break:break-word]'>{resolutionHint}</div>
               )}
               {detailParts.length > 0 && (
-                <Collapse bordered={false} className='bg-transparent' defaultActiveKey={['technical-details']}>
+                <Collapse bordered={false} className='bg-transparent'>
                   <Collapse.Item
                     name='technical-details'
                     header={<span className='text-12px text-t-tertiary'>{t('common.technical_details')}</span>}

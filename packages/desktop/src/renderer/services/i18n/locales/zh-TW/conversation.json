@@ -646,6 +646,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}}（累計第 {{attempts}} 次重試，已等待 {{elapsed}}——Agent 的服務方反覆中斷連線，AionUi 正在等待重連。）"
       }
+    },
+    "technical": {
+      "summary": "自動批准紀錄及系統設定訊息，毋須在此處理。",
+      "repeated": "重複 {{count}} 次"
     }
   },
   "notFound": "會話不存在或已被刪除",

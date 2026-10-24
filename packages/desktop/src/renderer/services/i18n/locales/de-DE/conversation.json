@@ -647,6 +647,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (Versuch {{attempts}}, bisher {{elapsed}} – der Anbieter des Agents bricht die Verbindung wiederholt ab; AionUi wartet ab.)"
       }
+    },
+    "technical": {
+      "summary": "Protokolle automatischer Genehmigungen und Hinweise zur Systemeinrichtung. Hier ist keine Aktion erforderlich.",
+      "repeated": "{{count}}-mal angezeigt"
     }
   },
   "notFound": "Unterhaltung nicht gefunden oder wurde gelöscht",

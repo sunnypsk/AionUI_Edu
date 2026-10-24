@@ -652,6 +652,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (tentativa {{attempts}}, {{elapsed}} decorridos — o provedor do agente derruba a conexão repetidamente; o AionUi está aguardando.)"
       }
+    },
+    "technical": {
+      "summary": "Registros de aprovação automática e avisos de configuração do sistema. Nenhuma ação é necessária aqui.",
+      "repeated": "Exibido {{count}} vezes"
     }
   },
   "notFound": "Conversa não encontrada ou foi deletada",

@@ -7,7 +7,13 @@
 import React, { type PropsWithChildren } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { IMessageAcpToolCall, IMessageText, IMessageToolGroup, TMessage } from '@/common/chat/chatLib';
+import type {
+  IMessageAcpToolCall,
+  IMessageText,
+  IMessageTips,
+  IMessageToolGroup,
+  TMessage,
+} from '@/common/chat/chatLib';
 import type { MessageFileChangesProps } from '@/renderer/pages/conversation/Messages/MessageFileChanges';
 import {
   MessageListLoadingProvider,
@@ -140,10 +146,16 @@ vi.mock('@/renderer/pages/conversation/Messages/components/MessageSkillSuggest',
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/components/MessageToolGroupSummary', () => ({
-  default: React.memo(({ messages }: { messages: Array<IMessageToolGroup | IMessageAcpToolCall> }) => {
-    toolSummaryRender(messages);
-    return <div data-testid='tool-summary'>{messages.map((message) => message.id).join(',')}</div>;
-  }),
+  default: React.memo(
+    ({ messages, notices }: { messages: Array<IMessageToolGroup | IMessageAcpToolCall>; notices?: IMessageTips[] }) => {
+      toolSummaryRender(messages);
+      return (
+        <div data-testid='tool-summary' data-notice-ids={notices?.map((message) => message.id).join(',')}>
+          {messages.map((message) => message.id).join(',')}
+        </div>
+      );
+    }
+  ),
 }));
 
 vi.mock('@/renderer/pages/conversation/Messages/MessageFileChanges', () => ({
@@ -254,6 +266,18 @@ function ReplaceMessagesButton({ messages }: { messages: TMessage[] }): JSX.Elem
   return <button onClick={() => updateMessages(messages)}>replace messages</button>;
 }
 
+const createApprovalTip = (id: string): IMessageTips => ({
+  id,
+  msg_id: id,
+  conversation_id: 'conversation-1',
+  type: 'tips',
+  position: 'center',
+  content: {
+    content: 'Automatic approval review approved (risk: low, authorization: high): Wait for the task.',
+    type: 'warning',
+  },
+});
+
 describe('MessageList', () => {
   beforeEach(() => {
     mockIsProcessing = false;
@@ -267,6 +291,75 @@ describe('MessageList', () => {
       diff: 'diff',
     });
     useTeamPermissionMock.mockReturnValue(null);
+  });
+
+  it('groups persisted approval successes with the surrounding tool steps without blank warning rows', () => {
+    const read = createAcpToolCall({ id: 'read' });
+    const wait = createAcpToolCall({ id: 'wait' });
+    render(<MessageList />, {
+      wrapper: ({ children }) => <Wrapper messages={[read, createApprovalTip('approved'), wait]}>{children}</Wrapper>,
+    });
+    expect(screen.getAllByTestId('tool-summary')).toHaveLength(1);
+    expect(screen.getByTestId('tool-summary')).toHaveAttribute('data-notice-ids', 'approved');
+    expect(screen.queryByTestId('message-tips-center')).not.toBeInTheDocument();
+  });
+
+  it('applies the same grouping when a later approval arrives in the live list', () => {
+    const read = createAcpToolCall({ id: 'read' });
+    render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[read, createApprovalTip('live-approval')]} />
+      </>,
+      { wrapper: ({ children }) => <Wrapper messages={[read]}>{children}</Wrapper> }
+    );
+    fireEvent.click(screen.getByText('replace messages'));
+    expect(screen.getAllByTestId('tool-summary')).toHaveLength(1);
+    expect(screen.getByTestId('tool-summary')).toHaveAttribute('data-notice-ids', 'live-approval');
+  });
+
+  it('keeps a rejected approval as a visible warning that separates tool groups', () => {
+    const rejected = createApprovalTip('rejected');
+    rejected.content.content =
+      'Automatic approval review rejected (risk: high, authorization: low): Requires approval.';
+    render(<MessageList />, {
+      wrapper: ({ children }) => (
+        <Wrapper messages={[createAcpToolCall({ id: 'a' }), rejected, createAcpToolCall({ id: 'b' })]}>
+          {children}
+        </Wrapper>
+      ),
+    });
+    expect(screen.getByTestId('tips-rejected')).toBeInTheDocument();
+    expect(screen.getAllByTestId('tool-summary')).toHaveLength(2);
+  });
+
+  it('does not mistake a technical-only group for recovered connection output', () => {
+    const retry: IMessageTips = {
+      ...createApprovalTip('retry'),
+      content: { type: 'warning', code: 'CODEX_RETRYING', content: 'Reconnecting' },
+    };
+    render(<MessageList />, {
+      wrapper: ({ children }) => <Wrapper messages={[retry, createApprovalTip('approval-only')]}>{children}</Wrapper>,
+    });
+    expect(screen.getByTestId('tips-retry')).toHaveAttribute('data-recovered', 'false');
+  });
+
+  it('updates the connection summary when actual output follows technical-only notices', () => {
+    const retry: IMessageTips = {
+      ...createApprovalTip('retry'),
+      content: { type: 'warning', code: 'CODEX_RETRYING', content: 'Reconnecting' },
+    };
+    const initial = [retry, createApprovalTip('approval-only')];
+    render(
+      <>
+        <MessageList />
+        <ReplaceMessagesButton messages={[...initial, createTextMessage()]} />
+      </>,
+      { wrapper: ({ children }) => <Wrapper messages={initial}>{children}</Wrapper> }
+    );
+    expect(screen.getByTestId('tips-retry')).toHaveAttribute('data-recovered', 'false');
+    fireEvent.click(screen.getByText('replace messages'));
+    expect(screen.getByTestId('tips-retry')).toHaveAttribute('data-recovered', 'true');
   });
 
   it('does not re-render unchanged tool summaries while another message streams', () => {

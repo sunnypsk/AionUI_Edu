@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { TMessage } from '@/common/chat/chatLib';
+import type { IMessageTips, TMessage } from '@/common/chat/chatLib';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 
 /**
@@ -16,3 +16,24 @@ export const isHiddenVersionTip = (code: string | undefined): boolean =>
 
 export const isHiddenTipMessage = (message: TMessage): boolean =>
   message.type === 'tips' && isHiddenVersionTip(message.content.code);
+
+/**
+ * Only known, non-actionable provider notices belong in technical details.
+ * Match the same payload in live and persisted messages; never classify chat text,
+ * coded guidance, approval rejections, or errors by a word such as "warning".
+ */
+export const isTechnicalTipMessage = (message: TMessage): message is IMessageTips => {
+  if (message.type !== 'tips') return false;
+  const { content, type, code, error } = message.content;
+  if (type === 'error' || error || code) return false;
+  const text = content.trim();
+
+  return (
+    /^Automatic approval review approved \(risk: (?:low|medium|high), authorization: (?:low|medium|high)\):/.test(
+      text
+    ) ||
+    /^Full-history hydration is deprecated for paginated threads[;.]/.test(text) ||
+    text.startsWith('Under-development features enabled:') ||
+    text.startsWith('`[features].collab` is deprecated. Use `[features].multi_agent` instead.')
+  );
+};

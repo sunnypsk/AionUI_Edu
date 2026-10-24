@@ -5,13 +5,19 @@
  */
 
 import type { IConversationArtifact } from '@/common/adapter/ipcBridge';
-import type { IMessageAcpToolCall, IMessageToolCall, IMessageToolGroup, TMessage } from '@/common/chat/chatLib';
+import type {
+  IMessageAcpToolCall,
+  IMessageTips,
+  IMessageToolCall,
+  IMessageToolGroup,
+  TMessage,
+} from '@/common/chat/chatLib';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { useConversationRuntimeView } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
 import { getChatSurfaceWidthClass } from '@/renderer/pages/conversation/utils/chatSurfaceWidth';
 import { iconColors } from '@/renderer/styles/colors';
 import { CHAT_MESSAGE_JUMP_EVENT, type ChatMessageJumpDetail } from '@/renderer/utils/chat/chatMinimapEvents';
-import { isHiddenTipMessage } from '@/renderer/utils/chat/hiddenTips';
+import { isHiddenTipMessage, isTechnicalTipMessage } from '@/renderer/utils/chat/hiddenTips';
 import { collectAiCopyRows, type TurnCopyItem } from '@/renderer/utils/chat/turnCopy';
 import { Button, Image } from '@arco-design/web-react';
 import { Down } from '@icon-park/react';
@@ -58,6 +64,7 @@ type IMessageVO =
       type: 'tool_summary';
       id: string;
       messages: Array<IMessageToolGroup | IMessageAcpToolCall | IMessageToolCall>;
+      notices: IMessageTips[];
       sourceMessageIds: string[];
       created_at: number;
     };
@@ -348,6 +355,7 @@ const MessageItem: React.FC<{
     prev.showCopyRow === next.showCopyRow &&
     prev.isLastMessage === next.isLastMessage &&
     prev.hasForkAnchor === next.hasForkAnchor &&
+    prev.outputFollows === next.outputFollows &&
     // Compare by content: the map is rebuilt per render, so reference equality
     // would defeat the memo for the one row that carries the copy button.
     (prev.turnTexts === next.turnTexts ||
@@ -385,6 +393,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     let diffsChanges: FileChangeInfo[] = [];
     let diffsSourceMessageIds: string[] = [];
     let toolList: Array<IMessageToolGroup | IMessageAcpToolCall | IMessageToolCall> = [];
+    let technicalNotices: IMessageTips[] = [];
     let toolSourceMessageIds: string[] = [];
 
     const pushFileDiffChanges = (changes: FileChangeInfo, sourceMessageId: string, created_at: number) => {
@@ -401,26 +410,30 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       diffsChanges.push(changes);
       diffsSourceMessageIds.push(sourceMessageId);
       toolList = [];
+      technicalNotices = [];
       toolSourceMessageIds = [];
     };
-    const pushToolList = (message: IMessageToolGroup | IMessageAcpToolCall | IMessageToolCall) => {
-      if (!toolList.length) {
+    const pushToolList = (message: IMessageToolGroup | IMessageAcpToolCall | IMessageToolCall | IMessageTips) => {
+      if (!toolList.length && !technicalNotices.length) {
         toolSourceMessageIds = [];
         result.push({
           type: 'tool_summary',
           id: `tool-summary-${message.id}`,
           messages: toolList,
+          notices: technicalNotices,
           sourceMessageIds: toolSourceMessageIds,
           created_at: message.created_at ?? 0,
         });
       }
-      toolList.push(message);
+      if (message.type === 'tips') technicalNotices.push(message);
+      else toolList.push(message);
       toolSourceMessageIds.push(message.id);
       diffsChanges = [];
       diffsSourceMessageIds = [];
     };
     const pushStandaloneMessage = (message: TMessage) => {
       toolList = [];
+      technicalNotices = [];
       toolSourceMessageIds = [];
       diffsChanges = [];
       diffsSourceMessageIds = [];
@@ -437,6 +450,12 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       if (message.type === 'plan') continue;
       // Hidden version tips render nothing; a row would still leave a blank 10px slot.
       if (isHiddenTipMessage(message)) continue;
+      // Approval successes and known setup diagnostics must not interrupt steps.
+      // Both history and live rows pass through this presentation-only grouping.
+      if (isTechnicalTipMessage(message)) {
+        pushToolList(message);
+        continue;
+      }
       if (message.type === 'tool_group') {
         const writeFileResults = message.content.flatMap((item) =>
           item.name === 'WriteFile' && isWriteFileResult(item.result_display) ? [item.result_display] : []
@@ -489,7 +508,9 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       return previous &&
         previous.created_at === item.created_at &&
         previous.messages.length === item.messages.length &&
-        previous.messages.every((message, index) => message === item.messages[index])
+        previous.messages.every((message, index) => message === item.messages[index]) &&
+        previous.notices.length === item.notices.length &&
+        previous.notices.every((message, index) => message === item.notices[index])
         ? previous
         : item;
     });
@@ -504,7 +525,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       const item = processedList[index];
       if (item.type === 'tips') {
         if (outputAfter) ids.add(item.id);
-      } else if (item.type !== 'artifact') {
+      } else if (item.type !== 'artifact' && (item.type !== 'tool_summary' || item.messages.length > 0)) {
         outputAfter = true;
       }
     }
@@ -764,7 +785,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
           style={highlighted ? highlightStyle : undefined}
         >
           {item.type === 'file_summary' && <MessageFileChanges diffsChanges={item.diffs} />}
-          {item.type === 'tool_summary' && <MessageToolGroupSummary messages={item.messages}></MessageToolGroupSummary>}
+          {item.type === 'tool_summary' && <MessageToolGroupSummary messages={item.messages} notices={item.notices} />}
         </div>
       );
     }

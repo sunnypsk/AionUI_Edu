@@ -646,6 +646,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (tentative {{attempts}}, {{elapsed}} écoulées — le fournisseur de l'agent coupe la connexion à répétition ; AionUi patiente.)"
       }
+    },
+    "technical": {
+      "summary": "Historique des autorisations automatiques et avis de configuration du système. Aucune action n’est nécessaire ici.",
+      "repeated": "Affiché {{count}} fois"
     }
   },
   "notFound": "Conversation introuvable ou supprimée",

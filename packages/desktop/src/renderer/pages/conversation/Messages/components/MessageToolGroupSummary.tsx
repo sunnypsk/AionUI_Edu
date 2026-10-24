@@ -7,11 +7,13 @@ import { useTranslation } from 'react-i18next';
 import { ipcBridge } from '@/common';
 import { getAcpImageFileName } from '@/common/chat/acpToolCallOutput';
 import type { NormalizedToolCall, NormalizedToolStatus, ToolMessage } from '@/common/chat/normalizeToolCall';
+import type { IMessageTips } from '@/common/chat/chatLib';
 import { normalizeToolMessages, hasRunningToolMessages } from '@/common/chat/normalizeToolCall';
 import LocalImageView from '@/renderer/components/media/LocalImageView';
 import { downloadFileFromPath } from '@/renderer/utils/file/download';
 import './MessageToolGroupSummary.css';
 import { ToolImageGallery } from './MessageToolCall';
+import { MessageTechnicalDetails } from './MessageTips';
 
 const statusToBadge = (status: NormalizedToolStatus): BadgeProps['status'] => {
   switch (status) {
@@ -200,7 +202,10 @@ const ToolItemDetail: React.FC<{ item: NormalizedToolCall }> = ({ item }) => {
   );
 };
 
-const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messages }) => {
+const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[]; notices?: IMessageTips[] }> = ({
+  messages,
+  notices,
+}) => {
   const { t } = useTranslation();
   const hasRunning = hasRunningToolMessages(messages);
   const [showMore, setShowMore] = useState(hasRunning);
@@ -212,21 +217,16 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
   const tools = useMemo(() => normalizeToolMessages(messages), [messages]);
   const images = tools.filter((item) => item.imageRole === 'generated').flatMap((item) => item.images ?? []);
 
+  if (!messages.length && notices?.length) return <MessageTechnicalDetails messages={notices} />;
+
   return (
     <div className='tool-group-summary'>
-      <div
-        className='tool-group-summary__header'
-        role='button'
-        tabIndex={0}
+      <Button
+        type='text'
+        size='mini'
+        className='tool-group-summary__header !h-auto !p-0 !bg-transparent !text-t-secondary hover:!text-t-primary'
         aria-expanded={showMore}
         onClick={() => setShowMore(!showMore)}
-        onKeyDown={(event) => {
-          if (event.target !== event.currentTarget) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setShowMore(!showMore);
-          }
-        }}
       >
         <span className='tool-group-summary__icon'>
           {hasRunning ? <Spin size={12} /> : <Checklist theme='outline' size='14' />}
@@ -239,12 +239,13 @@ const MessageToolGroupSummary: React.FC<{ messages: ToolMessage[] }> = ({ messag
         <span className={`tool-group-summary__arrow${showMore ? ' tool-group-summary__arrow--open' : ''}`}>
           <Right theme='outline' size='12' />
         </span>
-      </div>
+      </Button>
       {showMore && (
         <div className='tool-group-summary__body'>
           {tools.map((item) => (
             <ToolItemDetail key={item.key} item={item} />
           ))}
+          {notices && notices.length > 0 && <MessageTechnicalDetails messages={notices} />}
         </div>
       )}
       {images.length > 0 && <ToolImageGallery images={images} editable />}

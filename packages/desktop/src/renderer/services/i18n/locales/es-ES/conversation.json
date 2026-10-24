@@ -647,6 +647,10 @@
       "CODEX_RETRYING": {
         "body": "{{detail}} (intento {{attempts}}, {{elapsed}} transcurridos: el proveedor del agente corta la conexión una y otra vez; AionUi está esperando.)"
       }
+    },
+    "technical": {
+      "summary": "Registros de aprobación automática y avisos de configuración del sistema. No es necesario hacer nada aquí.",
+      "repeated": "Mostrado {{count}} veces"
     }
   },
   "notFound": "Conversación no encontrada o ha sido eliminada",
