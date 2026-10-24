@@ -18,6 +18,7 @@ import {
   analyzeReference,
   AudioProjectError,
   detectSilences,
+  generateSegments,
   renderTrack,
   trackMedia,
   type TrackMedia,
@@ -61,7 +62,12 @@ type Snapshot = {
   /** Analysis output: re-synthesized speech, or clips of the original recording. */
   mode?: 'speech' | 'clip';
 };
-type EditorInput = { project_path: string; revision: string; replacement?: AudioReplacementInput };
+type EditorInput = {
+  project_path: string;
+  revision: string;
+  replacement?: AudioReplacementInput;
+  segmentIds?: string[];
+};
 type Gate = { epoch: number; open: boolean; threadId?: string; turns: Map<string, number> };
 type Work = { controller: AbortController; done: Promise<void> };
 
@@ -203,7 +209,7 @@ export class AudioManager {
     const tasks = this.tasks
       .filter(
         (task) =>
-          ['track', 'replacement', 'export', 'analysis'].includes(task.kind) &&
+          ['track', 'replacement', 'export', 'analysis', 'segments'].includes(task.kind) &&
           task.projectPath === projectPath &&
           task.owner.userId === owner.userId &&
           task.owner.conversationId === owner.conversationId &&
@@ -223,18 +229,33 @@ export class AudioManager {
   async cancelTrack(owner: AudioOwner, id: string): Promise<AudioTask> {
     await this.ready;
     const task = this.find(owner, id);
-    if (!['track', 'replacement', 'export'].includes(task.kind)) throw new Error('AUDIO_TASK_NOT_FOUND');
+    if (!['track', 'replacement', 'export', 'segments'].includes(task.kind)) throw new Error('AUDIO_TASK_NOT_FOUND');
     await this.stop(task, 'cancelled');
     return publicTask(task);
   }
   /** Start an editor-owned preview/export with the same cancellation and publication rules as renders. */
-  async startEditorTask(owner: AudioOwner, kind: 'replacement' | 'export', input: EditorInput): Promise<AudioTask> {
+  async startEditorTask(
+    owner: AudioOwner,
+    kind: 'replacement' | 'export' | 'segments',
+    input: EditorInput
+  ): Promise<AudioTask> {
     await this.ready;
     if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
     const state = await readProjectState(owner.workspace, input.project_path);
     if (state.revision !== input.revision) throw new Error('AUDIO_PROJECT_CONFLICT');
     if (!state.project) throw new AudioProjectError(state.details ?? []);
     if (kind === 'replacement') replacementClip(state.project, input.replacement!);
+    const snapshot: Snapshot = { project: state.project };
+    const warnings: string[] = [];
+    if (kind === 'segments') {
+      const segments = state.project.sections.flatMap((section) => section.segments);
+      const invalid = (input.segmentIds ?? []).filter(
+        (id) => segments.find((segment) => segment.id === id)?.type !== 'speech'
+      );
+      if (!input.segmentIds?.length || invalid.length)
+        throw new AudioProjectError(invalid.map((id) => `segment_ids: ${id} is not a speech line`));
+      Object.assign(snapshot, await this.qaSelection(owner, warnings));
+    }
     this.assertCapacity(owner);
     const task: StoredAudioTask = {
       id: randomUUID(),
@@ -249,17 +270,18 @@ export class AudioManager {
       projectRevision: state.revision,
       summary: state.project.title,
       ...(input.replacement ? { replacementInput: input.replacement } : {}),
+      ...(kind === 'segments' ? { segmentIds: input.segmentIds } : {}),
       completedChunks: 0,
       totalChunks: 0,
       files: [],
       usage: [],
-      warnings: [],
+      warnings,
     };
     const work: Work = { controller: new AbortController(), done: Promise.resolve() };
     this.tasks.push(task);
     this.work.set(task.id, work);
     await this.persist(task);
-    work.done = this.execute(task, input, work.controller.signal, { project: state.project })
+    work.done = this.execute(task, input, work.controller.signal, snapshot)
       .catch(async (error: unknown) => {
         if (active(task)) {
           task.status = 'failed';
@@ -288,6 +310,32 @@ export class AudioManager {
     await editProject(owner.workspace, projectPath, revision, (project) =>
       replaceRange(project, task.replacementInput!)
     );
+  }
+  /** QA model for listening lines; without a key the work still runs and QA is reported as skipped. */
+  private async qaSelection(owner: AudioOwner, warnings: string[]): Promise<Pick<Snapshot, 'selection' | 'model'>> {
+    const selection = await this.store.selection(owner.userId);
+    if (!selection.apiKey) return {};
+    try {
+      return { selection, model: await this.services.catalog.resolve(selection.model) };
+    } catch {
+      warnings.push('AUDIO_QA_INCOMPLETE');
+      return {};
+    }
+  }
+  /** Synthesis services for listening lines, with QA re-transcription when a model is selected. */
+  private trackServices(task: StoredAudioTask, snapshot: Snapshot) {
+    return {
+      media: this.services.trackMedia,
+      speak: this.services.speak,
+      transcribe: snapshot.model
+        ? (file: string, workDirectory: string, abort: AbortSignal) =>
+            this.transcribeFile(task, snapshot, file, workDirectory, abort, {
+              language: 'yue-Hant-HK',
+              instructions:
+                'Verbatim check of synthesized speech: write exactly the characters heard, including mispronunciations. Do not correct or paraphrase.',
+            })
+        : undefined,
+    };
   }
   private assertCapacity(owner: AudioOwner): void {
     const activeTasks = this.tasks.filter((task) => task.owner.userId === owner.userId && active(task));
@@ -320,18 +368,7 @@ export class AudioManager {
       project = state.project;
       projectRevision = state.revision;
       planTrack(project, p.only_sections);
-      if (p.verify) {
-        selection = await this.store.selection(owner.userId);
-        // Without a key the track still renders; QA is reported as skipped instead of blocking delivery.
-        if (selection.apiKey) {
-          try {
-            model = await this.services.catalog.resolve(selection.model);
-          } catch {
-            initialWarnings.push('AUDIO_QA_INCOMPLETE');
-            selection = undefined;
-          }
-        } else selection = undefined;
-      }
+      if (p.verify) ({ selection, model } = await this.qaSelection(owner, initialWarnings));
     } else if (name === 'analyze_reference_audio') {
       const p = input as AnalysisInput;
       if (!p.audio_path) throw new Error('INVALID_REQUEST');
@@ -528,6 +565,26 @@ export class AudioManager {
         task.summary = result.summary;
         task.warnings.push(...result.warnings);
         task.issues = result.issues;
+      } else if (task.kind === 'segments') {
+        format = 'mp3';
+        const result = await generateSegments(
+          {
+            project: snapshot.project!,
+            workspace: task.owner.workspace,
+            directory,
+            signal,
+            services: this.trackServices(task, snapshot),
+            progress: async (completed, total) => {
+              task.completedChunks = completed;
+              task.totalChunks = total;
+              await this.persist(task);
+            },
+          },
+          task.segmentIds ?? []
+        );
+        // Lines land in the shared segment cache; nothing is published under audio/.
+        outputs = [];
+        task.warnings.push(...result.warnings);
       } else if (task.kind === 'track') {
         format = 'mp3';
         const result = await renderTrack({
@@ -536,18 +593,7 @@ export class AudioManager {
           workspace: task.owner.workspace,
           directory,
           signal,
-          services: {
-            media: this.services.trackMedia,
-            speak: this.services.speak,
-            transcribe: snapshot.model
-              ? (file, workDirectory, abort) =>
-                  this.transcribeFile(task, snapshot, file, workDirectory, abort, {
-                    language: 'yue-Hant-HK',
-                    instructions:
-                      'Verbatim check of synthesized speech: write exactly the characters heard, including mispronunciations. Do not correct or paraphrase.',
-                  })
-              : undefined,
-          },
+          services: this.trackServices(task, snapshot),
           progress: async (completed, total) => {
             task.completedChunks = completed;
             task.totalChunks = total;
@@ -631,6 +677,11 @@ export class AudioManager {
         task.completedChunks = 1;
       }
       signal.throwIfAborted();
+      if (!outputs.length) {
+        task.status = 'completed';
+        await this.persist(task);
+        return;
+      }
       const workspace = await realpath(task.owner.workspace);
       const artifacts = path.join(workspace, 'audio');
       await mkdir(artifacts, { recursive: true });

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioManager } from '../manager.js';
 import { AudioStore } from '../store.js';
+import { readProjectState } from '../track/editor.js';
 import type { AudioOwner, AudioTask } from '../types.js';
 
 describe('host-owned audio tasks', () => {
@@ -357,6 +358,77 @@ describe('listening track tasks', () => {
       await slow.cancelConversation(owner.conversationId);
       expect((await slow.listTracks(owner, project))[0]).toMatchObject({ id: started.id, status: 'cancelled' });
       expect(await slow.listTracks({ ...owner, userId: 'bob' }, project)).toEqual([]);
+    } finally {
+      release();
+      await slow.close();
+    }
+  });
+
+  it('generates selected lines as an editor task without publishing files', async () => {
+    const project = 'listening/unit.listening.json';
+    await writeProject([
+      {
+        id: 'a',
+        segments: [
+          { id: 's', type: 'speech', text: '請排隊。' },
+          { id: 'p', type: 'pause', seconds: 2 },
+        ],
+      },
+    ]);
+    const { revision } = await readProjectState(owner.workspace, project);
+    await expect(
+      manager.startEditorTask(owner, 'segments', { project_path: project, revision: 'stale', segmentIds: ['s'] })
+    ).rejects.toThrow('AUDIO_PROJECT_CONFLICT');
+    await expect(
+      manager.startEditorTask(owner, 'segments', { project_path: project, revision, segmentIds: ['p'] })
+    ).rejects.toMatchObject({ message: 'AUDIO_PROJECT_INVALID', details: ['segment_ids: p is not a speech line'] });
+    const started = await manager.startEditorTask(owner, 'segments', {
+      project_path: project,
+      revision,
+      segmentIds: ['s'],
+    });
+    expect(started).toMatchObject({ kind: 'segments', segmentIds: ['s'], initiator: 'user' });
+    await vi.waitFor(async () =>
+      expect((await manager.listTracks(owner, project))[0]).toMatchObject({ id: started.id, status: 'completed' })
+    );
+    expect((await manager.listTracks(owner, project))[0].files).toEqual([]);
+    await expect(readdir(path.join(owner.workspace, 'audio', started.id))).rejects.toThrow();
+    expect((await readProjectState(owner.workspace, project)).segments.s).toMatchObject({ cached: true, duration: 2 });
+  });
+
+  it('cancels a running line generation from the editor', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const slow = new AudioManager(directory, {
+      catalog: { resolve: async (id) => ({ id, name: id, audioInput: true, parameters: [], reasoning: [] }) },
+      media: { probe: async () => 2, chunk: vi.fn() },
+      speak: async (options) => {
+        await Promise.race([held, new Promise((_, reject) => options.signal.addEventListener('abort', reject))]);
+        await writeFile(options.output, options.text!);
+        return { segments: [] };
+      },
+      trackMedia: {
+        probe: async () => 2,
+        silence: async (file) => writeFile(file, 'silence'),
+        tone: async (file) => writeFile(file, 'tone'),
+        decode: async (_source, file) => writeFile(file, 'pcm'),
+        assemble: async (_pieces, file) => writeFile(file, 'track'),
+      },
+    });
+    await slow.ready;
+    const project = 'listening/unit.listening.json';
+    try {
+      await writeProject([{ id: 'a', segments: [{ id: 's', type: 'speech', text: '請排隊。' }] }]);
+      const { revision } = await readProjectState(owner.workspace, project);
+      const started = await slow.startEditorTask(owner, 'segments', {
+        project_path: project,
+        revision,
+        segmentIds: ['s'],
+      });
+      await slow.cancelTrack(owner, started.id);
+      expect((await slow.listTracks(owner, project))[0]).toMatchObject({ id: started.id, status: 'cancelled' });
     } finally {
       release();
       await slow.close();

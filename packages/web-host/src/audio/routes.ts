@@ -164,6 +164,23 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
       });
       return { taskId: task.id, state: await state() };
     }
+    if (route === '/segments/generate' && req.method === 'POST') {
+      const value = z
+        .object({
+          revision: z.string().max(64),
+          segment_ids: z
+            .array(z.string().regex(/^[\w-]{1,64}$/))
+            .min(1)
+            .max(500),
+        })
+        .parse(input);
+      const task = await manager.startEditorTask(context, 'segments', {
+        project_path: target.path,
+        revision: value.revision,
+        segmentIds: value.segment_ids,
+      });
+      return { taskId: task.id, state: await state() };
+    }
     if (route === '/bundle' && req.method === 'POST') {
       const { revision } = z.object({ revision: z.string().max(64) }).parse(input);
       const task = await manager.startEditorTask(context, 'export', { project_path: target.path, revision });

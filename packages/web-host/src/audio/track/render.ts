@@ -19,6 +19,7 @@ import {
   formatScript,
   planTrack,
   restoreLexicon,
+  speechRequest,
   type PlanItem,
   type SpeechRequest,
 } from './project.js';
@@ -306,4 +307,32 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
     await write('qa.json', JSON.stringify(issues, null, 2) + '\n');
   }
   return { files, durationSeconds, qaIssues, warnings: [...warnings] };
+}
+
+/** Synthesize and QA-check only the given speech lines into the shared cache, without assembling a track. */
+export async function generateSegments(
+  options: Omit<TrackOptions, 'onlySections'>,
+  segmentIds: string[]
+): Promise<{ warnings: string[] }> {
+  const wanted = new Set(segmentIds);
+  const requests = [
+    ...new Map(
+      options.project.sections
+        .flatMap((section) => section.segments)
+        .flatMap((segment) =>
+          segment.type === 'speech' && wanted.has(segment.id)
+            ? [[speechRequest(options.project, segment).key, speechRequest(options.project, segment)] as const]
+            : []
+        )
+    ).values(),
+  ];
+  const total = requests.length * (options.services.transcribe ? 2 : 1);
+  let completed = 0;
+  const tick = async (): Promise<void> => options.progress(++completed, total);
+  await options.progress(0, total);
+  const warnings = new Set<string>();
+  const cache = await SegmentCache.open(options.workspace);
+  const speeches = await synthesizeAll(options, cache, requests, tick);
+  await verifyAll(options, cache, speeches, warnings, tick);
+  return { warnings: [...warnings] };
 }

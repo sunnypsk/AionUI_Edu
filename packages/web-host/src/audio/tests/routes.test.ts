@@ -147,6 +147,25 @@ describe('audio settings authentication and CSRF', () => {
       (await post('replacements/apply', 'wrong', { ...target, previewId: '00000000-0000-4000-8000-000000000000' }))
         .status
     ).toBe(403);
+    const generate = { ...target, segment_ids: ['clip'] };
+    expect((await post('segments/generate', 'wrong', generate)).status).toBe(403);
+    expect(await (await post('segments/generate', 'token', generate)).json()).toEqual({
+      error: { code: 'AUDIO_PROJECT_CONFLICT' },
+    });
+    const current = await (
+      await fetch(
+        `${url}/api/edu/audio/listening?${new URLSearchParams({ conversation_id: 'lesson', path: target.path })}`,
+        {
+          headers: { cookie: 'session=alice' },
+        }
+      )
+    ).json();
+    expect(
+      await (await post('segments/generate', 'token', { ...generate, revision: current.data.revision })).json()
+    ).toEqual({
+      error: { code: 'AUDIO_PROJECT_INVALID', details: ['segment_ids: clip is not a speech line'] },
+    });
+    expect((await post('segments/generate', 'token', { ...generate, segment_ids: [] })).status).toBe(400);
   });
   it('keeps analysis jump targets valid after replacing or removing the original clip', async () => {
     const projectPath = 'edited.listening.json';

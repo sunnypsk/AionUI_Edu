@@ -8,7 +8,7 @@ import {
 } from '../../../../../desktop/src/common/types/platform/listeningProject.ts';
 import type { TrackMedia } from '../ffmpeg.js';
 import { layoutTimeline, sequenceTrack } from '../../../../../desktop/src/common/types/platform/listeningTimeline.ts';
-import { renderTrack, SEGMENT_CACHE, type TrackServices } from '../render.js';
+import { generateSegments, renderTrack, SEGMENT_CACHE, type TrackServices } from '../render.js';
 
 /** Fake media: every piece is a text file whose content encodes its duration. */
 const fakeMedia = (): TrackMedia => ({
@@ -214,5 +214,34 @@ describe('listening track rendering', () => {
       ({ estimated: _estimated, ...entry }) => entry
     );
     expect((JSON.parse(await read('timeline.json')) as ListeningTimeline).entries).toEqual(expected);
+  });
+
+  it('generates and checks only the requested lines without assembling a track', async () => {
+    const directory = path.join(root, `work-${run++}`);
+    await mkdir(directory);
+    const media = fakeMedia();
+    const assemble = vi.spyOn(media, 'assemble');
+    const transcribe = vi.fn<NonNullable<TrackServices['transcribe']>>(async () => '請重新排隊。');
+    const result = await generateSegments(
+      {
+        project: listeningProjectSchema.parse({ version: 1, title: '單元二', sections: dialogue }),
+        workspace,
+        directory,
+        signal: new AbortController().signal,
+        services: { media, speak, transcribe },
+        progress: async () => {},
+      },
+      ['a']
+    );
+    expect(result.warnings).toEqual([]);
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak.mock.calls[0][0].text).toBe('請重新排隊。');
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    expect(assemble).not.toHaveBeenCalled();
+    const cached = await readdir(path.join(workspace, ...SEGMENT_CACHE.split('/')));
+    expect(cached.filter((name) => !name.endsWith('.tmp')).toSorted()).toEqual(
+      expect.arrayContaining([expect.stringMatching(/\.mp3$/), expect.stringMatching(/\.meta\.json$/)])
+    );
+    expect(cached.filter((name) => name.endsWith('.mp3'))).toHaveLength(1);
   });
 });
