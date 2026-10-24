@@ -39,6 +39,16 @@ describe('listening editor state', () => {
     });
   });
 
+  it('reports generated line durations from metadata, falling back to subtitle boundaries', async () => {
+    const { key } = (await readProjectState(workspace, file)).segments.s;
+    await cache(`${key}.json`, JSON.stringify([{ text: '早晨。', startSecond: 0.1, endSecond: 2.7 }]));
+    expect((await readProjectState(workspace, file)).segments.s.duration).toBeUndefined();
+    await cache(`${key}.mp3`, 'audio');
+    expect((await readProjectState(workspace, file)).segments.s.duration).toBe(2.7);
+    await cache(`${key}.meta.json`, JSON.stringify({ duration: 3.2 }));
+    expect((await readProjectState(workspace, file)).segments.s.duration).toBe(3.2);
+  });
+
   it('returns validation details for an invalid file instead of failing', async () => {
     await writeFile(path.join(workspace, file), '{"version":1}');
     const state = await readProjectState(workspace, file);

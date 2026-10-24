@@ -136,6 +136,8 @@ export type ListeningQaIssue = { segmentId: string; expected: string; heard: str
 export type ListeningSegmentState = {
   key: string;
   cached: boolean;
+  /** Seconds of the generated audio, when cached. */
+  duration?: number;
   transcript?: z.infer<typeof transcriptSchema>;
   warnings?: string[];
   qa?: { heard: string; similarity: number; accepted: boolean };

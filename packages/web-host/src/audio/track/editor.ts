@@ -9,7 +9,7 @@ import type {
 } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
 import { workspaceFile } from '../providers/media.js';
 import { AudioProjectError, parseProject, parseProjectText, readProjectText, speechRequest } from './project.js';
-import { SEGMENT_CACHE } from './render.js';
+import { SEGMENT_CACHE, speechMetaSchema } from './render.js';
 import { QA_THRESHOLD, qaRecordSchema, speechSimilarity, type QaRecord } from './verify.js';
 
 export const PROJECT_SUFFIX = '.listening.json';
@@ -24,6 +24,20 @@ async function projectText(workspace: string, projectPath: string): Promise<{ fi
 
 async function cached(workspace: string, name: string): Promise<string | undefined> {
   return workspaceFile(workspace, `${SEGMENT_CACHE}/${name}`).catch((): undefined => undefined);
+}
+
+async function cachedJson(workspace: string, name: string): Promise<unknown> {
+  const file = await cached(workspace, name);
+  return file ? JSON.parse(await readFile(file, 'utf8').catch(() => 'null')) : undefined;
+}
+
+/** Generated length: recorded at synthesis, or the last subtitle boundary for lines cached before that. */
+async function speechDuration(workspace: string, key: string): Promise<number | undefined> {
+  const meta = speechMetaSchema.safeParse(await cachedJson(workspace, `${key}.meta.json`));
+  if (meta.success) return meta.data.duration;
+  const boundaries = await cachedJson(workspace, `${key}.json`);
+  const last = Array.isArray(boundaries) ? (boundaries.at(-1) as { endSecond?: unknown } | undefined) : undefined;
+  return typeof last?.endSecond === 'number' && last.endSecond > 0 ? last.endSecond : undefined;
 }
 
 async function qaRecord(workspace: string, key: string): Promise<{ file: string; record: QaRecord } | undefined> {
@@ -67,9 +81,11 @@ async function segmentStates(
         cached(workspace, `${request.key}.mp3`),
         qaRecord(workspace, request.key),
       ]);
+      const duration = audio ? await speechDuration(workspace, request.key) : undefined;
       states[segment.id] = {
         key: request.key,
         cached: !!audio,
+        ...(duration === undefined ? {} : { duration }),
         ...(qa
           ? {
               qa: {

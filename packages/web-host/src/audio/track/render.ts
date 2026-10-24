@@ -45,6 +45,8 @@ export type TrackResult = { files: string[]; durationSeconds: number; qaIssues: 
 const boundariesSchema = z
   .array(z.object({ text: z.string(), startSecond: z.number().finite(), endSecond: z.number().finite() }))
   .max(20000);
+/** Generated length of one cached line, so the editor can lay it out without probing. */
+export const speechMetaSchema = z.object({ duration: z.number().positive() });
 const synthesis = new Map<string, Promise<unknown>>();
 
 /** Run `task` over `items` with at most `limit` in flight, failing fast on the first error. */
@@ -146,6 +148,10 @@ async function synthesizeAll(
         await cache.put(`${request.key}.json`, { json: boundaries });
         file = await cache.put(`${request.key}.mp3`, output);
       }
+      if (!(await cache.json(`${request.key}.meta.json`, speechMetaSchema)))
+        await cache.put(`${request.key}.meta.json`, {
+          json: { duration: await options.services.media.probe(file, options.signal) },
+        });
       return { request, file, boundaries };
     });
     speeches.set(request.key, speech);

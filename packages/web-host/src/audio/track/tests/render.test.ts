@@ -138,6 +138,11 @@ describe('listening track rendering', () => {
     const cached = await readdir(path.join(workspace, ...SEGMENT_CACHE.split('/')));
     expect(cached.filter((name) => name.endsWith('.mp3'))).toHaveLength(3);
     expect(cached.some((name) => name.endsWith('.tmp'))).toBe(false);
+    // The fake media probes every synthesized file as 2 seconds.
+    const metas = cached.filter((name) => name.endsWith('.meta.json'));
+    expect(metas).toHaveLength(3);
+    const directory = path.join(workspace, ...SEGMENT_CACHE.split('/'));
+    expect(JSON.parse(await readFile(path.join(directory, metas[0]), 'utf8'))).toEqual({ duration: 2 });
   });
   it('shares immutable takes across simultaneous previews and renders', async () => {
     const [first, second] = await Promise.all([render(dialogue), render(dialogue)]);
