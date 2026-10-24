@@ -54,6 +54,8 @@ export function useListeningProject(
   const [conflict, setConflict] = useState(false);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
+  const draftRef = useRef<ListeningProject | undefined>(undefined);
+  draftRef.current = draft;
   /** Latest adopted state, so actions that save first can read the new revision. */
   const stateRef = useRef<ListeningState | undefined>(undefined);
   const onErrorRef = useRef(onError);
@@ -148,8 +150,16 @@ export function useListeningProject(
           return false;
         }
       }
-      const saved = await run(() => listeningApi.save(target, draft, revision), true);
-      if (saved) setConflict(false);
+      const submitted = draft;
+      // Keep edits made while the save was in flight: the draft is replaced only if it is still the saved one.
+      const saved = await run(() => listeningApi.save(target, submitted, revision), false);
+      if (saved) {
+        setConflict(false);
+        if (draftRef.current === submitted) {
+          setDraft(stateRef.current?.project);
+          setDirty(false);
+        }
+      }
       return saved;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` identifies the target.
@@ -181,7 +191,10 @@ export function useListeningProject(
     busy,
     conflict,
     edit: (change) => {
-      setDraft((current) => (current ? change(current) : current));
+      // Update the ref eagerly so a save resolving in the same tick sees the newer draft.
+      const next = draftRef.current ? change(draftRef.current) : draftRef.current;
+      draftRef.current = next;
+      setDraft(next);
       setDirty(true);
     },
     save,

@@ -181,7 +181,9 @@
       "retry": "Tentar novamente",
       "save": "Salvar",
       "stop": "Parar",
-      "jump": "Ir para"
+      "jump": "Ir para",
+      "undo": "Desfazer",
+      "redo": "Refazer"
     },
     "conflict": {
       "content": "Este projeto foi alterado em outro lugar (por exemplo, pelo assistente) depois que você o abriu.",
@@ -401,6 +403,13 @@
       "back": "Voltar à conversa",
       "missing": "Nenhum projeto de compreensão auditiva foi indicado. Abra-o pelo cartão de arquivo na conversa.",
       "conversationMissing": "Esta conversa não foi encontrada ou não tem espaço de trabalho."
+    },
+    "save": {
+      "saved": "Todas as alterações salvas",
+      "pending": "Alterações não salvas",
+      "saving": "Salvando…",
+      "error": "Não salvo: preencha os campos destacados",
+      "conflict": "Alterado em outro lugar — escolha o que manter"
     }
   }
 }

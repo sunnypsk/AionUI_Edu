@@ -181,7 +181,9 @@
       "retry": "Reintentar",
       "save": "Guardar",
       "stop": "Detener",
-      "jump": "Ir a"
+      "jump": "Ir a",
+      "undo": "Deshacer",
+      "redo": "Rehacer"
     },
     "conflict": {
       "content": "Este proyecto se modificó en otro lugar (por ejemplo, el asistente) después de abrirlo.",
@@ -401,6 +403,13 @@
       "back": "Volver a la conversación",
       "missing": "No se indicó ningún proyecto de comprensión auditiva. Ábrelo desde su tarjeta de archivo en la conversación.",
       "conversationMissing": "No se encontró esta conversación o no tiene espacio de trabajo."
+    },
+    "save": {
+      "saved": "Todos los cambios guardados",
+      "pending": "Cambios sin guardar",
+      "saving": "Guardando…",
+      "error": "Sin guardar: completa los campos marcados",
+      "conflict": "Modificado en otro lugar: elige qué conservar"
     }
   }
 }

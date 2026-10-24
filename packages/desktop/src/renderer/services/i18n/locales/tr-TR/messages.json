@@ -181,7 +181,9 @@
       "retry": "Yeniden dene",
       "save": "Kaydet",
       "stop": "Durdur",
-      "jump": "Git"
+      "jump": "Git",
+      "undo": "Geri al",
+      "redo": "Yinele"
     },
     "conflict": {
       "content": "Bu proje siz açtıktan sonra başka bir yerde (örneğin asistan tarafından) değiştirildi.",
@@ -401,6 +403,13 @@
       "back": "Sohbete dön",
       "missing": "Dinleme projesi belirtilmedi. Sohbetteki dosya kartından açın.",
       "conversationMissing": "Bu sohbet bulunamadı veya çalışma alanı yok."
+    },
+    "save": {
+      "saved": "Tüm değişiklikler kaydedildi",
+      "pending": "Kaydedilmemiş değişiklikler",
+      "saving": "Kaydediliyor…",
+      "error": "Kaydedilmedi: işaretli alanları doldurun",
+      "conflict": "Başka yerde değiştirildi — hangisinin kalacağını seçin"
     }
   }
 }

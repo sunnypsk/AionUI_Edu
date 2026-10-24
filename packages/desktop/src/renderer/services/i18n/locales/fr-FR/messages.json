@@ -181,7 +181,9 @@
       "retry": "Réessayer",
       "save": "Enregistrer",
       "stop": "Arrêter",
-      "jump": "Aller à"
+      "jump": "Aller à",
+      "undo": "Annuler",
+      "redo": "Rétablir"
     },
     "conflict": {
       "content": "Ce projet a été modifié ailleurs (par exemple par l'assistant) après son ouverture.",
@@ -401,6 +403,13 @@
       "back": "Retour à la conversation",
       "missing": "Aucun projet d'écoute indiqué. Ouvrez-le depuis sa carte de fichier dans la conversation.",
       "conversationMissing": "Cette conversation est introuvable ou n'a pas d'espace de travail."
+    },
+    "save": {
+      "saved": "Toutes les modifications enregistrées",
+      "pending": "Modifications non enregistrées",
+      "saving": "Enregistrement…",
+      "error": "Non enregistré : remplissez les champs signalés",
+      "conflict": "Modifié ailleurs — choisissez quoi garder"
     }
   }
 }

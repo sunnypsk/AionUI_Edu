@@ -459,3 +459,8 @@
   gap: 8px;
   margin-left: auto;
 }
+.saveState {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

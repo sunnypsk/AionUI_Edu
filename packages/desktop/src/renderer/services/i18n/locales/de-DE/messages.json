@@ -181,7 +181,9 @@
       "retry": "Erneut versuchen",
       "save": "Speichern",
       "stop": "Stoppen",
-      "jump": "Gehe zu"
+      "jump": "Gehe zu",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen"
     },
     "conflict": {
       "content": "Dieses Projekt wurde nach dem Öffnen an anderer Stelle geändert (zum Beispiel vom Assistenten).",
@@ -401,6 +403,13 @@
       "back": "Zurück zur Unterhaltung",
       "missing": "Kein Hörprojekt angegeben. Öffne es über seine Dateikarte in der Unterhaltung.",
       "conversationMissing": "Diese Unterhaltung wurde nicht gefunden oder hat keinen Arbeitsbereich."
+    },
+    "save": {
+      "saved": "Alle Änderungen gespeichert",
+      "pending": "Ungespeicherte Änderungen",
+      "saving": "Wird gespeichert…",
+      "error": "Nicht gespeichert: markierte Felder ausfüllen",
+      "conflict": "Woanders geändert – wähle, was bleiben soll"
     }
   }
 }

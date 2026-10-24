@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Collapse, Message, Modal, Select, Space, Spin } from '@arco-design/web-react';
-import { Plus } from '@icon-park/react';
+import { Plus, Redo, Undo } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { joinPath } from '@/common/chat/chatLib';
@@ -25,39 +25,18 @@ import {
   readCapabilities,
   summarize,
 } from '@/renderer/pages/listening/data/status';
-import { useListeningProject } from '@/renderer/pages/listening/editing/useListeningProject';
+import { useProjectDraft } from '@/renderer/pages/listening/editing/useProjectDraft';
 import { TopBar } from '@/renderer/pages/listening/layout/TopBar';
+import { blankLine, hasBlankFields, invalidClip } from '@/renderer/pages/listening/editing/validation';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 /** Host-side segment cache directory, mirrored from the web host's SEGMENT_CACHE. */
 const CACHE_DIRECTORY = 'listening/.segments';
 
-/** Blank speech lines or pronunciation entries the host would reject; caught before saving. */
-const hasBlankFields = (project: ListeningProject): boolean =>
-  project.lexicon.some((entry) => !entry.match || !entry.speak) ||
-  project.sections.some((section) =>
-    section.segments.some((segment) => segment.type === 'speech' && !segment.text.trim())
-  );
-
 /** The app uses a hash router; setting the hash also works where the editor renders outside it. */
 const openToolSettings = (): void => {
   window.location.hash = '#/settings/tools';
 };
-
-/** First clip with a missing path or an empty range, so the editor can reveal it. */
-const invalidClip = (project: ListeningProject): string | undefined =>
-  project.sections
-    .flatMap((section) => section.segments)
-    .find(
-      (segment) =>
-        segment.type === 'clip' && (!segment.path.trim() || segment.start < 0 || segment.end <= segment.start)
-    )?.id;
-
-/** First blank speech line, so the editor can reveal it. */
-const blankLine = (project: ListeningProject): string | undefined =>
-  project.sections
-    .flatMap((section) => section.segments)
-    .find((segment) => segment.type === 'speech' && !segment.text.trim())?.id;
 
 /** Full-screen editor body for a `*.listening.json` project: script, preview, render progress and QA review. */
 export function ListeningEditor({ path, onBack }: { path: string; onBack?: () => void }): React.ReactElement {
@@ -83,7 +62,15 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
       }),
     [t, message]
   );
-  const model = useListeningProject(target, report);
+  const model = useProjectDraft(target, report);
+  const unsaved = model.saveState !== 'saved';
+  useEffect(() => {
+    if (!unsaved) return;
+    // The browser shows its own leave-page prompt; the message text is ignored by modern browsers.
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
   const [lexiconOpen, setLexiconOpen] = useState<string[]>([]);
   const fileUrl = useCallback(
     (relative: string) => (workspace ? buildFileStreamUrl(localFileRef(joinPath(workspace, relative))) : undefined),
@@ -135,12 +122,13 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     guarded(async () => {
       if (await model.save()) message.success?.(t('messages.listening.saved'));
     });
-  const close = (then?: () => void) => {
+  const close = async (then?: () => void) => {
     const leave = () => {
       onBack?.();
       then?.();
     };
-    if (!model.dirty) return leave();
+    // Save what the autosave has not reached yet; ask only when that fails.
+    if (await model.flush()) return leave();
     modal.confirm?.({
       title: t('messages.listening.unsaved.title'),
       content: t('messages.listening.unsaved.content'),
@@ -166,8 +154,23 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
           title={project?.title}
           disabled={disabled}
           onTitleChange={(title) => model.edit((current) => ({ ...current, title }))}
-          onBack={onBack ? () => close() : undefined}
+          onBack={onBack ? () => void close() : undefined}
         >
+          <span className={styles.saveState} role='status'>
+            {t(`messages.listening.save.${model.saveState}`)}
+          </span>
+          <Button
+            disabled={!model.canUndo || disabled}
+            aria-label={t('messages.listening.actions.undo')}
+            icon={<Undo />}
+            onClick={model.undo}
+          />
+          <Button
+            disabled={!model.canRedo || disabled}
+            aria-label={t('messages.listening.actions.redo')}
+            icon={<Redo />}
+            onClick={model.redo}
+          />
           <Button disabled={!model.dirty || disabled} loading={busy && model.dirty} onClick={() => void save()}>
             {t('messages.listening.actions.save')}
           </Button>
@@ -203,7 +206,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
           />
         ) : (
           <div className={styles.editor}>
-            <CapabilityBanner capabilities={capabilities} onOpenSettings={() => close(openToolSettings)} />
+            <CapabilityBanner capabilities={capabilities} onOpenSettings={() => void close(openToolSettings)} />
             {model.conflict && (
               <Alert
                 type='warning'

@@ -181,7 +181,9 @@
       "retry": "Retry",
       "save": "Save",
       "stop": "Stop",
-      "jump": "Go to"
+      "jump": "Go to",
+      "undo": "Undo",
+      "redo": "Redo"
     },
     "conflict": {
       "content": "This project was changed elsewhere (for example by the assistant) after you opened it.",
@@ -401,6 +403,13 @@
       "back": "Back to conversation",
       "missing": "No listening project was specified. Open it from its file card in the conversation.",
       "conversationMissing": "This conversation could not be found or has no workspace."
+    },
+    "save": {
+      "saved": "All changes saved",
+      "pending": "Unsaved changes",
+      "saving": "Saving…",
+      "error": "Not saved: fill in the highlighted fields",
+      "conflict": "Changed elsewhere — choose what to keep"
     }
   }
 }

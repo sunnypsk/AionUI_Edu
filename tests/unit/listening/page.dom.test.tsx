@@ -41,20 +41,18 @@ const show = (entry: string) =>
 describe('listening editor page', () => {
   beforeEach(() => {
     conversations.get.mockReset().mockResolvedValue({ id: 'c1', type: 'codex', extra: { workspace: '/ws' } });
-    transport.request
-      .mockReset()
-      .mockImplementation(async (_method: string, path: string) =>
-        String(path).startsWith('/api/edu/audio/listening')
-          ? {
-              path: 'listening/unit.listening.json',
-              revision: 'r1',
-              project,
-              qaThreshold: 0.9,
-              segments: {},
-              tasks: [],
-            }
-          : {}
-      );
+    transport.request.mockReset().mockImplementation(async (_method: string, path: string) =>
+      String(path).startsWith('/api/edu/audio/listening')
+        ? {
+            path: 'listening/unit.listening.json',
+            revision: 'r1',
+            project,
+            qaThreshold: 0.9,
+            segments: {},
+            tasks: [],
+          }
+        : {}
+    );
   });
   afterEach(cleanup);
 
@@ -81,6 +79,16 @@ describe('listening editor page', () => {
     await screen.findByDisplayValue('中三聆聽');
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.page.back' }));
     expect(await screen.findByText('chat page')).toBeTruthy();
+  });
+
+  it('saves pending edits before returning to the conversation', async () => {
+    show(listeningPagePath('c1', 'listening/unit.listening.json'));
+    fireEvent.change(await screen.findByDisplayValue('中三聆聽'), { target: { value: '中三聆聽（修訂）' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.page.back' }));
+    expect(await screen.findByText('chat page')).toBeTruthy();
+    const puts = transport.request.mock.calls.filter(([method]) => method === 'PUT');
+    expect(puts).toHaveLength(1);
+    expect(puts[0][2]).toMatchObject({ revision: 'r1', project: { title: '中三聆聽（修訂）' } });
   });
 
   it('explains a missing project path', async () => {
