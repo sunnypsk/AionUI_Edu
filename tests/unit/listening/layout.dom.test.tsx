@@ -54,20 +54,18 @@ const order = () =>
 
 describe('editor layout and selection', () => {
   beforeEach(() => {
-    transport.request
-      .mockReset()
-      .mockImplementation(async (_method: string, path: string) =>
-        String(path).startsWith('/api/edu/audio/listening')
-          ? {
-              path: 'listening/unit.listening.json',
-              revision: 'r1',
-              project,
-              qaThreshold: 0.9,
-              segments: {},
-              tasks: [],
-            }
-          : {}
-      );
+    transport.request.mockReset().mockImplementation(async (_method: string, path: string) =>
+      String(path).startsWith('/api/edu/audio/listening')
+        ? {
+            path: 'listening/unit.listening.json',
+            revision: 'r1',
+            project,
+            qaThreshold: 0.9,
+            segments: {},
+            tasks: [],
+          }
+        : {}
+    );
   });
   afterEach(cleanup);
 

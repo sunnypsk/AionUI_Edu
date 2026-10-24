@@ -1,4 +1,4 @@
-import { httpRequest, isBackendHttpError } from '@/common/adapter/httpBridge';
+import { getBaseUrl, httpRequest, isBackendHttpError } from '@/common/adapter/httpBridge';
 import type { AudioCapabilities, AudioVoice } from '@/common/types/platform/audioTools';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
 
@@ -42,6 +42,15 @@ export const listeningApi = {
     httpRequest('POST', `${ROOT}/replacements/apply`, { ...target, revision, previewId }, SENSITIVE),
   bundle: (target: ListeningTarget, revision: string): Promise<ListeningTaskStart> =>
     httpRequest('POST', `${ROOT}/bundle`, { ...target, revision }, SENSITIVE),
+  /** Start generating the given speech lines into the cache, against the saved revision. */
+  generate: (target: ListeningTarget, revision: string, segmentIds: string[]): Promise<ListeningTaskStart> =>
+    httpRequest('POST', `${ROOT}/segments/generate`, { ...target, revision, segment_ids: segmentIds }, SENSITIVE),
+  /** Binary waveform peaks of a workspace recording (GET, cookie-authenticated). */
+  peaksUrl: (target: ListeningTarget, source: string): string =>
+    `${getBaseUrl()}${ROOT}/peaks?${new URLSearchParams({ ...target, source }).toString()}`,
+  /** A decoded WAV window of at most 30 seconds of a workspace recording. */
+  rangeUrl: (target: ListeningTarget, source: string, start: number, end: number): string =>
+    `${getBaseUrl()}${ROOT}/range?${new URLSearchParams({ ...target, source, start: String(start), end: String(end) }).toString()}`,
   capabilities: (conversationId: string): Promise<AudioCapabilities> =>
     httpRequest(
       'GET',

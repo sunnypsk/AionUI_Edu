@@ -511,3 +511,7 @@
   text-align: center;
   color: var(--text-secondary);
 }
+.waveform {
+  display: block;
+  color: var(--primary);
+}
