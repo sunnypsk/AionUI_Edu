@@ -410,6 +410,25 @@
       "saving": "儲存中…",
       "error": "未能儲存：請填寫標示的欄位",
       "conflict": "已在別處修改，請選擇保留哪個版本"
+    },
+    "view": {
+      "script": "劇本",
+      "timeline": "時間軸"
+    },
+    "inspector": {
+      "title": "檢查面板",
+      "multiple": "已選取 {{count}} 項"
+    },
+    "insert": {
+      "speech": "+ 語音",
+      "pause": "+ 停頓",
+      "chime": "+ 提示音",
+      "clip": "+ 錄音片段"
+    },
+    "clipPicker": {
+      "title": "插入錄音片段",
+      "file": "工作區中的錄音",
+      "none": "找不到錄音，請先在對話中上載。"
     }
   }
 }

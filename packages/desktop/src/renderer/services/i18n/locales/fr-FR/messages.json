@@ -410,6 +410,25 @@
       "saving": "Enregistrement…",
       "error": "Non enregistré : remplissez les champs signalés",
       "conflict": "Modifié ailleurs — choisissez quoi garder"
+    },
+    "view": {
+      "script": "Script",
+      "timeline": "Chronologie"
+    },
+    "inspector": {
+      "title": "Inspecteur",
+      "multiple": "{{count}} éléments sélectionnés"
+    },
+    "insert": {
+      "speech": "+ Voix",
+      "pause": "+ Pause",
+      "chime": "+ Signal sonore",
+      "clip": "+ Extrait d'enregistrement"
+    },
+    "clipPicker": {
+      "title": "Insérer un extrait d'enregistrement",
+      "file": "Enregistrement de cet espace de travail",
+      "none": "Aucun enregistrement. Téléversez-en un dans la conversation d'abord."
     }
   }
 }

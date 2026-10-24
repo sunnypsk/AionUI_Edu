@@ -410,6 +410,25 @@
       "saving": "저장 중…",
       "error": "저장 안 됨: 표시된 항목을 입력하세요",
       "conflict": "다른 곳에서 변경됨 — 유지할 버전을 선택하세요"
+    },
+    "view": {
+      "script": "대본",
+      "timeline": "타임라인"
+    },
+    "inspector": {
+      "title": "속성 패널",
+      "multiple": "{{count}}개 선택됨"
+    },
+    "insert": {
+      "speech": "+ 음성",
+      "pause": "+ 쉼",
+      "chime": "+ 알림음",
+      "clip": "+ 녹음 구간"
+    },
+    "clipPicker": {
+      "title": "녹음 구간 삽입",
+      "file": "작업 공간의 녹음",
+      "none": "녹음을 찾을 수 없습니다. 먼저 대화에서 업로드하세요."
     }
   }
 }

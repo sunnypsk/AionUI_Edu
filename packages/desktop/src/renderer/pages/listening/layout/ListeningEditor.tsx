@@ -1,23 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Collapse, Message, Modal, Select, Space, Spin } from '@arco-design/web-react';
-import { Plus, Redo, Undo } from '@icon-park/react';
+import { Alert, Button, Message, Modal, Radio, Space, Spin } from '@arco-design/web-react';
+import { Redo, Undo } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { joinPath } from '@/common/chat/chatLib';
-import { AUDIO_VOICES, type AudioVoice } from '@/common/types/platform/audioTools';
-import type { ListeningProject } from '@/common/types/platform/listeningProject';
+import type { ListeningSegment } from '@/common/types/platform/listeningProject';
 import { localFileRef } from '@/common/types/chatFile';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
 import { listeningApi, type ListeningError } from '@/renderer/pages/listening/data/api';
-import { draft as edits, RATE_OPTIONS } from '@/renderer/pages/listening/editing/draft';
+import { draft as edits, newSegment, type NewSegmentType } from '@/renderer/pages/listening/editing/draft';
+import { insertSegment } from '@/renderer/pages/listening/editing/operations';
+import { useSelection, type ViewMode } from '@/renderer/pages/listening/editing/useSelection';
+import { ClipPicker } from '@/renderer/pages/listening/layout/ClipPicker';
+import { Inspector } from '@/renderer/pages/listening/layout/Inspector';
+import { ProjectSettings } from '@/renderer/pages/listening/layout/ProjectSettings';
+import { TransportBar } from '@/renderer/pages/listening/layout/TransportBar';
+import { ScriptView } from '@/renderer/pages/listening/script/ScriptView';
 import { CapabilityBanner } from '@/renderer/pages/listening/panels/CapabilityBanner';
-import { LexiconPanel } from '@/renderer/pages/listening/panels/LexiconPanel';
 import { RenderPanel, TaskIssues } from '@/renderer/pages/listening/panels/RenderPanel';
 import { StatusSummary } from '@/renderer/pages/listening/panels/StatusSummary';
-import { SectionCard } from '@/renderer/pages/listening/script/SectionCard';
-import { SectionNav } from '@/renderer/pages/listening/script/SectionNav';
 import {
   currentTrack,
   errorKey,
@@ -88,7 +91,11 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const rendering = !!state?.tasks.some(
     (task) => task.kind === 'track' && (task.status === 'queued' || task.status === 'running')
   );
-  const disabled = busy;
+  // Autosaves run in the background; only explicit actions (renders, previews) lock the editor.
+  const disabled = busy && model.saveState !== 'saving';
+  const { selection, select, selectSegment } = useSelection(project);
+  const [view, setView] = useState<ViewMode>('script');
+  const [picking, setPicking] = useState(false);
   const issueIds = Object.entries(state?.segments ?? {})
     .filter(([, segment]) => segment.qa && segment.qa.similarity < (state?.qaThreshold ?? 1) && !segment.qa.accepted)
     .map(([id]) => id);
@@ -139,6 +146,51 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
         leave();
       },
     });
+  };
+  /** Insert after the selected segment, or at the end of the first section when nothing is selected. */
+  const insertAtSelection = (segment: ListeningSegment) => {
+    if (!project) return;
+    const anchorId =
+      selection.kind === 'segments'
+        ? selection.ids[selection.ids.length - 1]
+        : selection.kind === 'range'
+          ? selection.clipId
+          : undefined;
+    const section =
+      project.sections.find((item) => item.segments.some((s) => s.id === anchorId)) ??
+      (selection.kind === 'section' ? project.sections.find((item) => item.id === selection.sectionId) : undefined) ??
+      project.sections[0];
+    const index = anchorId ? section.segments.findIndex((s) => s.id === anchorId) + 1 : section.segments.length;
+    model.edit((current) => insertSegment(current, section.id, index, segment));
+    select({ kind: 'segments', sectionId: section.id, ids: [segment.id] });
+  };
+  const insert = (type: NewSegmentType) => {
+    if (!project) return;
+    if (type === 'clip') setPicking(true);
+    else insertAtSelection(newSegment(project, type));
+  };
+  const rowContext = {
+    fileUrl,
+    cacheDirectory: CACHE_DIRECTORY,
+    onAddLexicon: () => addLexicon(),
+    replacement: {
+      tasks: state?.tasks ?? [],
+      revision: state?.revision ?? '',
+      dirty: model.dirty,
+      disabled,
+      unavailable: ttsUnavailable,
+      defaultVoice: project?.defaults.voice ?? 'HiuMaan',
+      fileUrl,
+      onPreview: async (request: Parameters<typeof model.previewReplacement>[0]) => {
+        let taskId: string | undefined;
+        await guarded(async () => {
+          taskId = await model.previewReplacement(request);
+        });
+        return taskId;
+      },
+      onApply: (previewId: string): Promise<boolean> => model.applyReplacement(previewId),
+      onCancel: (taskId: string): void => void model.cancel(taskId),
+    },
   };
   const addLexicon = () => {
     model.edit((current) => edits.setLexicon(current, [...current.lexicon, { match: '', speak: '' }]));
@@ -264,116 +316,83 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
               onCancel={(taskId) => void model.cancel(taskId)}
               onJump={jump}
             />
-            <div className={styles.projectSettings}>
-              <Space size={8} wrap>
-                <Select
-                  size='small'
-                  className={styles.defaultSelect}
-                  aria-label={t('messages.listening.fields.defaultVoice')}
-                  prefix={t('messages.listening.fields.defaultVoice')}
-                  value={project.defaults.voice}
-                  disabled={disabled}
-                  options={AUDIO_VOICES.map((voice) => ({
-                    value: voice,
-                    label: t(`messages.listening.voices.${voice}`),
-                  }))}
-                  onChange={(voice: AudioVoice) =>
-                    model.edit((current) => ({ ...current, defaults: { ...current.defaults, voice } }))
-                  }
-                />
-                <Select
-                  size='small'
-                  className={styles.defaultSelect}
-                  aria-label={t('messages.listening.fields.defaultRate')}
-                  prefix={t('messages.listening.fields.defaultRate')}
-                  value={project.defaults.rate}
-                  disabled={disabled}
-                  options={[...new Set([...RATE_OPTIONS, project.defaults.rate])].map((rate) => ({
-                    value: rate,
-                    label: rate === '+0%' ? t('messages.listening.fields.rateNormal') : rate,
-                  }))}
-                  onChange={(rate: string) =>
-                    model.edit((current) => ({ ...current, defaults: { ...current.defaults, rate } }))
-                  }
-                />
-              </Space>
-            </div>
-            <Collapse activeKey={lexiconOpen} onChange={(_key, keys) => setLexiconOpen(keys)} bordered={false}>
-              <Collapse.Item
-                name='lexicon'
-                header={t('messages.listening.lexicon.title', { count: project.lexicon.length })}
-              >
-                <LexiconPanel
-                  lexicon={project.lexicon}
-                  disabled={disabled}
-                  onChange={(lexicon) => model.edit((current) => edits.setLexicon(current, lexicon))}
-                />
-              </Collapse.Item>
-            </Collapse>
-            <div className={styles.workArea}>
-              {project.sections.length > 1 && <SectionNav project={project} state={state} onJump={jump} />}
-              <div className={styles.sections}>
-                {project.sections.map((section, index) => (
-                  <SectionCard
-                    key={section.id}
-                    section={section}
-                    index={index}
-                    count={project.sections.length}
+            <Radio.Group
+              type='button'
+              size='small'
+              value={view}
+              onChange={(value: ViewMode) => setView(value)}
+              options={[
+                { value: 'script', label: t('messages.listening.view.script') },
+                { value: 'timeline', label: t('messages.listening.view.timeline') },
+              ]}
+            />
+            <div className={styles.body}>
+              <div className={styles.main}>
+                {view === 'script' ? (
+                  <ScriptView
+                    project={project}
                     state={state}
                     disabled={disabled}
                     focus={focus}
-                    defaultOpen={project.sections.length === 1}
-                    rowContext={{
-                      fileUrl,
-                      cacheDirectory: CACHE_DIRECTORY,
-                      onAddLexicon: addLexicon,
-                      replacement: {
-                        tasks: state.tasks,
-                        revision: state.revision,
-                        dirty: model.dirty,
-                        disabled,
-                        unavailable: ttsUnavailable,
-                        defaultVoice: project.defaults.voice,
-                        fileUrl,
-                        onPreview: async (request) => {
-                          let taskId: string | undefined;
-                          await guarded(async () => {
-                            taskId = await model.previewReplacement(request);
-                          });
-                          return taskId;
-                        },
-                        onApply: (previewId) => model.applyReplacement(previewId),
-                        onCancel: (taskId) => void model.cancel(taskId),
-                      },
-                    }}
-                    onChange={(patch) => model.edit((current) => edits.updateSection(current, section.id, patch))}
-                    onMove={(offset) => model.edit((current) => edits.moveSection(current, section.id, offset))}
-                    onRemove={() => model.edit((current) => edits.removeSection(current, section.id))}
-                    onPreview={() => void guarded(() => model.render([section.id]))}
-                    onAddSegment={(type) => model.edit((current) => edits.addSegment(current, section.id, type))}
-                    onSegmentChange={(segment) =>
-                      model.edit((current) => edits.updateSegment(current, section.id, segment))
-                    }
-                    onSegmentMove={(segmentId, offset) =>
-                      model.edit((current) => edits.moveSegment(current, section.id, segmentId, offset))
-                    }
-                    onSegmentRemove={(segmentId) =>
-                      model.edit((current) => edits.removeSegment(current, section.id, segmentId))
-                    }
+                    selection={selection}
+                    rowContext={rowContext}
+                    onEdit={model.edit}
+                    onJump={jump}
+                    onPreview={(sectionId) => void guarded(() => model.render([sectionId]))}
                     onAcceptQa={(segmentId, accepted) => void model.acceptQa(segmentId, accepted)}
+                    onSelectSegment={selectSegment}
                   />
-                ))}
-                <Button
-                  type='dashed'
-                  long
-                  icon={<Plus />}
-                  disabled={disabled}
-                  onClick={() => model.edit(edits.addSection)}
-                >
-                  {t('messages.listening.actions.addSection')}
-                </Button>
+                ) : (
+                  <div className={styles.timelinePlaceholder}>{t('messages.listening.view.timeline')}</div>
+                )}
               </div>
+              <Inspector
+                view={view}
+                selection={selection}
+                project={project}
+                state={state}
+                disabled={disabled}
+                row={{
+                  ...rowContext,
+                  onChange: (segment) =>
+                    model.edit((current) => {
+                      const section = current.sections.find((item) => item.segments.some((s) => s.id === segment.id));
+                      return section ? edits.updateSegment(current, section.id, segment) : current;
+                    }),
+                  onSegmentMove: (sectionId, segmentId, offset) =>
+                    model.edit((current) => edits.moveSegment(current, sectionId, segmentId, offset)),
+                  onSegmentRemove: (sectionId, segmentId) =>
+                    model.edit((current) => edits.removeSegment(current, sectionId, segmentId)),
+                  onAcceptQa: (segmentId, accepted) => void model.acceptQa(segmentId, accepted),
+                }}
+                onSectionChange={(sectionId, patch) =>
+                  model.edit((current) => edits.updateSection(current, sectionId, patch))
+                }
+                projectSettings={
+                  <ProjectSettings
+                    project={project}
+                    disabled={disabled}
+                    lexiconOpen={lexiconOpen}
+                    onLexiconOpen={setLexiconOpen}
+                    onEdit={model.edit}
+                  />
+                }
+              />
             </div>
+            <TransportBar disabled={disabled} onInsert={insert} />
+            {conversation && (
+              <ClipPicker
+                visible={picking}
+                conversationId={conversation.conversation_id}
+                workspace={workspace}
+                initialPath={project.sourceAudio}
+                onCancel={() => setPicking(false)}
+                onPick={(choice) => {
+                  setPicking(false);
+                  insertAtSelection({ ...newSegment(project, 'clip'), type: 'clip', ...choice } as ListeningSegment);
+                }}
+              />
+            )}
           </div>
         )}
       </div>

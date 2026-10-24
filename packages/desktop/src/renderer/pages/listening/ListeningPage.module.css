@@ -464,3 +464,50 @@
   color: var(--text-secondary);
   white-space: nowrap;
 }
+.scriptRow {
+  border-radius: 8px;
+  outline: 2px solid transparent;
+}
+.scriptRow[data-selected='true'] {
+  outline-color: var(--primary);
+}
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  overflow: auto;
+}
+.inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-2);
+  overflow: auto;
+}
+.inspectorTitle {
+  font-weight: 600;
+}
+.transportBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-base);
+}
+.timelinePlaceholder {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--text-secondary);
+}

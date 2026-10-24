@@ -410,6 +410,25 @@
       "saving": "Salvando…",
       "error": "Não salvo: preencha os campos destacados",
       "conflict": "Alterado em outro lugar — escolha o que manter"
+    },
+    "view": {
+      "script": "Roteiro",
+      "timeline": "Linha do tempo"
+    },
+    "inspector": {
+      "title": "Inspetor",
+      "multiple": "{{count}} itens selecionados"
+    },
+    "insert": {
+      "speech": "+ Fala",
+      "pause": "+ Pausa",
+      "chime": "+ Sinal",
+      "clip": "+ Trecho de gravação"
+    },
+    "clipPicker": {
+      "title": "Inserir trecho de gravação",
+      "file": "Gravação deste espaço de trabalho",
+      "none": "Nenhuma gravação encontrada. Envie uma na conversa primeiro."
     }
   }
 }

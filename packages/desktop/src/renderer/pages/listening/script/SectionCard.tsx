@@ -28,6 +28,9 @@ export type SectionCardProps = {
   onSegmentMove: (segmentId: string, offset: -1 | 1) => void;
   onSegmentRemove: (segmentId: string) => void;
   onAcceptQa: (segmentId: string, accepted: boolean) => void;
+  /** Selected segment ids in this section, highlighted in the script. */
+  selectedIds?: string[];
+  onSelectSegment?: (segmentId: string, extend: boolean) => void;
 };
 
 const NEW_TYPES: NewSegmentType[] = ['speech', 'pause', 'chime', 'clip'];
@@ -140,21 +143,28 @@ export function SectionCard(props: SectionCardProps): React.ReactElement {
             {props.index < props.count - 1 && number('gapAfter', 0, 600, 1)}
           </Space>
           {section.segments.map((segment, position) => (
-            <SegmentRow
+            <div
               key={segment.id}
-              {...props.rowContext}
-              segment={segment}
-              state={props.state.segments[segment.id]}
-              qaThreshold={props.state.qaThreshold}
-              first={position === 0}
-              last={position === section.segments.length - 1}
-              disabled={disabled}
-              onChange={props.onSegmentChange}
-              onMove={(offset) => props.onSegmentMove(segment.id, offset)}
-              onRemove={() => props.onSegmentRemove(segment.id)}
-              onAcceptQa={(accepted) => props.onAcceptQa(segment.id, accepted)}
-              focusedId={focusedSegment}
-            />
+              className={styles.scriptRow}
+              data-script-row={segment.id}
+              data-selected={props.selectedIds?.includes(segment.id) ? 'true' : 'false'}
+              onClick={(event) => props.onSelectSegment?.(segment.id, event.shiftKey)}
+            >
+              <SegmentRow
+                {...props.rowContext}
+                segment={segment}
+                state={props.state.segments[segment.id]}
+                qaThreshold={props.state.qaThreshold}
+                first={position === 0}
+                last={position === section.segments.length - 1}
+                disabled={disabled}
+                onChange={props.onSegmentChange}
+                onMove={(offset) => props.onSegmentMove(segment.id, offset)}
+                onRemove={() => props.onSegmentRemove(segment.id)}
+                onAcceptQa={(accepted) => props.onAcceptQa(segment.id, accepted)}
+                focusedId={focusedSegment}
+              />
+            </div>
           ))}
           <Dropdown
             disabled={disabled}

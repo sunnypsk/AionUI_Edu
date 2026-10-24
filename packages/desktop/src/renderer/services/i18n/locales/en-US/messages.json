@@ -410,6 +410,25 @@
       "saving": "Saving…",
       "error": "Not saved: fill in the highlighted fields",
       "conflict": "Changed elsewhere — choose what to keep"
+    },
+    "view": {
+      "script": "Script",
+      "timeline": "Timeline"
+    },
+    "inspector": {
+      "title": "Inspector",
+      "multiple": "{{count}} items selected"
+    },
+    "insert": {
+      "speech": "+ Speech",
+      "pause": "+ Pause",
+      "chime": "+ Chime",
+      "clip": "+ Recording clip"
+    },
+    "clipPicker": {
+      "title": "Insert a recording clip",
+      "file": "Recording in this workspace",
+      "none": "No recordings found. Upload one in the conversation first."
     }
   }
 }

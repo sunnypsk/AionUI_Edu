@@ -410,6 +410,25 @@
       "saving": "Wird gespeichert…",
       "error": "Nicht gespeichert: markierte Felder ausfüllen",
       "conflict": "Woanders geändert – wähle, was bleiben soll"
+    },
+    "view": {
+      "script": "Skript",
+      "timeline": "Zeitleiste"
+    },
+    "inspector": {
+      "title": "Eigenschaften",
+      "multiple": "{{count}} Elemente ausgewählt"
+    },
+    "insert": {
+      "speech": "+ Sprache",
+      "pause": "+ Pause",
+      "chime": "+ Signalton",
+      "clip": "+ Aufnahmeausschnitt"
+    },
+    "clipPicker": {
+      "title": "Aufnahmeausschnitt einfügen",
+      "file": "Aufnahme in diesem Arbeitsbereich",
+      "none": "Keine Aufnahmen gefunden. Lade zuerst eine in der Unterhaltung hoch."
     }
   }
 }

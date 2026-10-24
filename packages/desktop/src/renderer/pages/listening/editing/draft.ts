@@ -11,7 +11,8 @@ export function newId(project: ListeningProject, prefix: string): string {
   }
 }
 
-function newSegment(project: ListeningProject, type: NewSegmentType): ListeningSegment {
+/** A blank segment of `type` with a fresh id, as inserted by the add buttons. */
+export function newSegment(project: ListeningProject, type: NewSegmentType): ListeningSegment {
   if (type === 'pause') return { id: newId(project, 'pause'), type, seconds: 5 };
   if (type === 'chime') return { id: newId(project, 'chime'), type, preset: 'start' };
   if (type === 'clip') {

@@ -410,6 +410,25 @@
       "saving": "Kaydediliyor…",
       "error": "Kaydedilmedi: işaretli alanları doldurun",
       "conflict": "Başka yerde değiştirildi — hangisinin kalacağını seçin"
+    },
+    "view": {
+      "script": "Metin",
+      "timeline": "Zaman çizelgesi"
+    },
+    "inspector": {
+      "title": "Özellikler",
+      "multiple": "{{count}} öğe seçildi"
+    },
+    "insert": {
+      "speech": "+ Konuşma",
+      "pause": "+ Duraklama",
+      "chime": "+ Uyarı sesi",
+      "clip": "+ Kayıt parçası"
+    },
+    "clipPicker": {
+      "title": "Kayıt parçası ekle",
+      "file": "Bu çalışma alanındaki kayıt",
+      "none": "Kayıt bulunamadı. Önce sohbette bir kayıt yükleyin."
     }
   }
 }

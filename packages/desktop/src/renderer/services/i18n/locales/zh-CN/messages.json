@@ -410,6 +410,25 @@
       "saving": "保存中…",
       "error": "未能保存：请填写标示的字段",
       "conflict": "已在别处修改，请选择保留哪个版本"
+    },
+    "view": {
+      "script": "剧本",
+      "timeline": "时间轴"
+    },
+    "inspector": {
+      "title": "检查面板",
+      "multiple": "已选择 {{count}} 项"
+    },
+    "insert": {
+      "speech": "+ 语音",
+      "pause": "+ 停顿",
+      "chime": "+ 提示音",
+      "clip": "+ 录音片段"
+    },
+    "clipPicker": {
+      "title": "插入录音片段",
+      "file": "工作区中的录音",
+      "none": "找不到录音，请先在对话中上传。"
     }
   }
 }
