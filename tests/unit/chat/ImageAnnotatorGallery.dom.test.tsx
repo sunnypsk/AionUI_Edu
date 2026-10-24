@@ -76,7 +76,8 @@ describe('ToolImageGallery image editing', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(originalBlob, { status: 200 }))
+      // Node's Response expects Blob.stream(), which jsdom's Blob does not provide.
+      vi.fn(async () => ({ ok: true, status: 200, blob: async () => originalBlob }))
     );
     URL.createObjectURL = vi.fn(() => 'blob:original');
     URL.revokeObjectURL = vi.fn();

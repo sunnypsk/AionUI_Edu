@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readlink, readdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readlink, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import os from 'node:os';
@@ -43,7 +43,7 @@ describe.skipIf(process.platform === 'win32')('atomic Droid updates', () => {
   it('verifies the candidate before activation and preserves the old executable', async () => {
     const fetcher = request();
     const verify = vi.fn(async () => {
-      expect(await runtime.resolve()).toBe(path.join(runtime.root, 'versions/old/droid'));
+      expect(await runtime.resolve()).toBe(await realpath(path.join(runtime.root, 'versions/old/droid')));
     });
     await new DroidInstaller(runtime, fetcher, 'linux', 'x64').install(
       '0.247.0',

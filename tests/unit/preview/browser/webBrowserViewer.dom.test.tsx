@@ -155,7 +155,7 @@ describe('shared browser manual controls', () => {
       tabs: [{ id: 'tab-one', title: 'Page', url: 'https://example.com', fileChooser: false }],
     });
     show(current);
-    await screen.findByRole('button', { name: 'preview.sharedBrowser.returnToAi' });
+    await waitFor(() => expect(resized).toBeTypeOf('function'));
     resized([{ contentRect: { width: 480, height: 640 } } as ResizeObserverEntry], {} as ResizeObserver);
     await waitFor(() =>
       expect(api.action).toHaveBeenCalledWith('task-one', { kind: 'resize', tabId: 'tab-one', width: 480, height: 640 })
