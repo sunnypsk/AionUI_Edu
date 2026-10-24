@@ -8,6 +8,7 @@ import {
   type ListeningQaIssue,
   type ListeningTimelineEntry,
 } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
+import { layoutTimeline, sequenceTrack } from '../../../../desktop/src/common/types/platform/listeningTimeline.ts';
 import { formatTranscript, normalizeSegments } from '../formats.js';
 import { workspaceFile } from '../providers/media.js';
 import type { SpeechOptions } from '../providers/edge.js';
@@ -239,30 +240,14 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
     return value;
   };
 
-  const entries: ListeningTimelineEntry[] = [];
+  const measured = new Map<string, number>();
   const cues: AudioSegment[] = [];
   const order: string[] = [];
   let offset = 0;
   for (const item of plan) {
     const { file, duration } = await piece(item);
     order.push(file);
-    entries.push({
-      sectionId: item.sectionId,
-      ...(item.segmentId ? { segmentId: item.segmentId } : {}),
-      type:
-        item.kind === 'speech'
-          ? 'speech'
-          : item.kind === 'tone'
-            ? 'chime'
-            : item.kind === 'clip'
-              ? 'clip'
-              : item.segmentId
-                ? 'pause'
-                : 'gap',
-      play: item.play,
-      start: Number(offset.toFixed(3)),
-      end: Number((offset + duration).toFixed(3)),
-    });
+    if (item.segmentId) measured.set(item.segmentId, duration);
     if (item.kind === 'speech') {
       const local = normalizeSegments(speeches.get(item.request.key)!.boundaries, duration);
       const restore = item.request.text !== item.original;
@@ -277,6 +262,12 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
     if (offset > LISTENING_LIMITS.TRACK_SECONDS) throw new Error('AUDIO_TRACK_TOO_LONG');
   }
 
+  // Same layout the editor uses, so timeline.json and the live preview agree on positions.
+  const entries: ListeningTimelineEntry[] = layoutTimeline(
+    sequenceTrack(project, options.onlySections),
+    project,
+    (segment) => measured.get(segment.id)
+  ).entries.map(({ estimated: _estimated, ...entry }) => entry);
   const track = path.join(directory, 'track.mp3');
   await media.assemble(order, track, signal);
   const durationSeconds = await media.probe(track, signal);

@@ -7,6 +7,7 @@ import {
   type ListeningProject,
   type ListeningSegment,
 } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
+import { sequenceTrack } from '../../../../desktop/src/common/types/platform/listeningTimeline.ts';
 import { workspaceFile } from '../providers/media.js';
 import type { AudioVoice } from '../types.js';
 
@@ -121,22 +122,16 @@ export function planTrack(project: ListeningProject, onlySections?: string[]): P
         .filter((id) => !project.sections.some((section) => section.id === id))
         .map((id) => `only_sections: unknown section ${id}`)
     );
-  const items: PlanItem[] = [];
-  sections.forEach((section, index) => {
-    for (let play = 1; play <= section.plays; play++) {
-      if (play > 1 && section.gapBetweenPlays > 0)
-        items.push({ kind: 'silence', sectionId: section.id, play, seconds: section.gapBetweenPlays });
-      for (const segment of section.segments) {
-        const base = { sectionId: section.id, segmentId: segment.id, play };
-        if (segment.type === 'speech')
-          items.push({ kind: 'speech', ...base, original: segment.text, request: speechRequest(project, segment) });
-        else if (segment.type === 'pause') items.push({ kind: 'silence', ...base, seconds: segment.seconds });
-        else if (segment.type === 'chime') items.push({ kind: 'tone', ...base, preset: segment.preset });
-        else items.push({ kind: 'clip', ...base, path: segment.path, start: segment.start, end: segment.end });
-      }
-    }
-    if (index < sections.length - 1 && section.gapAfter > 0)
-      items.push({ kind: 'silence', sectionId: section.id, play: section.plays, seconds: section.gapAfter });
+  const items = sequenceTrack(project, onlySections).map((item): PlanItem => {
+    const base = { sectionId: item.sectionId, play: item.play };
+    if (item.kind === 'gap') return { kind: 'silence', ...base, seconds: item.seconds };
+    const segment = item.segment;
+    const owned = { ...base, segmentId: segment.id };
+    if (segment.type === 'speech')
+      return { kind: 'speech', ...owned, original: segment.text, request: speechRequest(project, segment) };
+    if (segment.type === 'pause') return { kind: 'silence', ...owned, seconds: segment.seconds };
+    if (segment.type === 'chime') return { kind: 'tone', ...owned, preset: segment.preset };
+    return { kind: 'clip', ...owned, path: segment.path, start: segment.start, end: segment.end };
   });
   const fixed = items.reduce(
     (sum, item) => sum + (item.kind === 'silence' ? item.seconds : item.kind === 'clip' ? item.end - item.start : 0),

@@ -7,6 +7,7 @@ import {
   type ListeningTimeline,
 } from '../../../../../desktop/src/common/types/platform/listeningProject.ts';
 import type { TrackMedia } from '../ffmpeg.js';
+import { layoutTimeline, sequenceTrack } from '../../../../../desktop/src/common/types/platform/listeningTimeline.ts';
 import { renderTrack, SEGMENT_CACHE, type TrackServices } from '../render.js';
 
 /** Fake media: every piece is a text file whose content encodes its duration. */
@@ -198,5 +199,15 @@ describe('listening track rendering', () => {
     expect(speak).not.toHaveBeenCalled();
     expect((JSON.parse(await read('timeline.json')) as ListeningTimeline).entries).toHaveLength(1);
     expect(await read('script.txt')).not.toContain('好的');
+  });
+
+  it('writes the same timeline the editor lays out from measured durations', async () => {
+    const { read } = await render(dialogue);
+    const project = listeningProjectSchema.parse({ version: 1, title: '單元二', sections: dialogue });
+    // The fake media probes every speech and chime piece as 2 seconds.
+    const expected = layoutTimeline(sequenceTrack(project), project, () => 2).entries.map(
+      ({ estimated: _estimated, ...entry }) => entry
+    );
+    expect((JSON.parse(await read('timeline.json')) as ListeningTimeline).entries).toEqual(expected);
   });
 });
