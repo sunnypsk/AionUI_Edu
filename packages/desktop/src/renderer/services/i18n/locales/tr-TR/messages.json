@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Özellikler",
-      "multiple": "{{count}} öğe seçildi"
+      "multiple": "{{count}} öğe seçildi",
+      "range": "Seçili {{start}}–{{end}}",
+      "deleteRange": "Bu kısmı sil"
     },
     "insert": {
       "speech": "+ Konuşma",
@@ -429,6 +431,18 @@
       "title": "Kayıt parçası ekle",
       "file": "Bu çalışma alanındaki kayıt",
       "none": "Kayıt bulunamadı. Önce sohbette bir kayıt yükleyin."
+    },
+    "timeline": {
+      "repeat": "Tekrar ×{{plays}} · ara {{gap}} sn",
+      "gap": "Ara",
+      "pause": "Duraklama {{seconds}} sn",
+      "playBadge": "{{play}}. dinleme",
+      "move": "Taşımak için sürükleyin",
+      "trimStart": "Başı kırp",
+      "trimEnd": "Sonu kırp",
+      "split": "Böl",
+      "zoom": "Yakınlaştır",
+      "notGenerated": "Oluşturulmadı"
     }
   }
 }

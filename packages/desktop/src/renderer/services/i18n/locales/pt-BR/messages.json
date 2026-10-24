@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Inspetor",
-      "multiple": "{{count}} itens selecionados"
+      "multiple": "{{count}} itens selecionados",
+      "range": "Seleção {{start}}–{{end}}",
+      "deleteRange": "Excluir esta parte"
     },
     "insert": {
       "speech": "+ Fala",
@@ -429,6 +431,18 @@
       "title": "Inserir trecho de gravação",
       "file": "Gravação deste espaço de trabalho",
       "none": "Nenhuma gravação encontrada. Envie uma na conversa primeiro."
+    },
+    "timeline": {
+      "repeat": "Repetir ×{{plays}} · intervalo {{gap}} s",
+      "gap": "Intervalo",
+      "pause": "Pausa {{seconds}} s",
+      "playBadge": "Reprodução {{play}}",
+      "move": "Arraste para mover",
+      "trimStart": "Cortar início",
+      "trimEnd": "Cortar fim",
+      "split": "Dividir",
+      "zoom": "Zoom",
+      "notGenerated": "Não gerado"
     }
   }
 }

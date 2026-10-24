@@ -11,7 +11,16 @@ import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
 import { listeningApi, type ListeningError } from '@/renderer/pages/listening/data/api';
 import { draft as edits, newSegment, type NewSegmentType } from '@/renderer/pages/listening/editing/draft';
-import { insertSegment } from '@/renderer/pages/listening/editing/operations';
+import {
+  deleteClipRange,
+  insertSegment,
+  removeSegments,
+  splitClip,
+} from '@/renderer/pages/listening/editing/operations';
+import { useEditorShortcuts } from '@/renderer/pages/listening/editing/useEditorShortcuts';
+import { layoutTimeline, sequenceTrack } from '@/common/types/platform/listeningTimeline';
+import { stateDurations, Timeline } from '@/renderer/pages/listening/timeline/Timeline';
+import { useZoom } from '@/renderer/pages/listening/timeline/useZoom';
 import { useSelection, type ViewMode } from '@/renderer/pages/listening/editing/useSelection';
 import { ClipPicker } from '@/renderer/pages/listening/layout/ClipPicker';
 import { Inspector } from '@/renderer/pages/listening/layout/Inspector';
@@ -96,6 +105,16 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const { selection, select, selectSegment } = useSelection(project);
   const [view, setView] = useState<ViewMode>('script');
   const [picking, setPicking] = useState(false);
+  const zoom = useZoom();
+  const [playhead, setPlayhead] = useState(0);
+  const timeline = useMemo(
+    () => (project && state ? layoutTimeline(sequenceTrack(project), project, stateDurations(state)) : undefined),
+    [project, state]
+  );
+  const seek = useCallback(
+    (seconds: number) => setPlayhead(Math.max(0, Math.min(seconds, timeline?.durationSeconds ?? 0))),
+    [timeline]
+  );
   const issueIds = Object.entries(state?.segments ?? {})
     .filter(([, segment]) => segment.qa && segment.qa.similarity < (state?.qaThreshold ?? 1) && !segment.qa.accepted)
     .map(([id]) => id);
@@ -164,6 +183,30 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     model.edit((current) => insertSegment(current, section.id, index, segment));
     select({ kind: 'segments', sectionId: section.id, ids: [segment.id] });
   };
+  /** Split the clip under the playhead at the matching source time. */
+  const split = () => {
+    const entry = timeline?.entries.find(
+      (item) => item.type === 'clip' && playhead >= item.start && playhead < item.end
+    );
+    if (!entry?.segmentId || !project) return;
+    const clip = project.sections.flatMap((section) => section.segments).find((s) => s.id === entry.segmentId);
+    if (clip?.type === 'clip')
+      model.edit((current) => splitClip(current, clip.id, clip.start + playhead - entry.start));
+  };
+  const remove = () => {
+    if (selection.kind === 'range')
+      model.edit((current) => deleteClipRange(current, selection.clipId, selection.start, selection.end));
+    else if (selection.kind === 'segments') model.edit((current) => removeSegments(current, selection.ids));
+  };
+  useEditorShortcuts({
+    togglePlay: () => {},
+    split,
+    remove,
+    undo: model.undo,
+    redo: model.redo,
+    nudge: (seconds) => seek(playhead + seconds),
+    saveNow: () => void model.flush(),
+  });
   const insert = (type: NewSegmentType) => {
     if (!project) return;
     if (type === 'clip') setPicking(true);
@@ -343,7 +386,20 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                     onSelectSegment={selectSegment}
                   />
                 ) : (
-                  <div className={styles.timelinePlaceholder}>{t('messages.listening.view.timeline')}</div>
+                  <Timeline
+                    project={project}
+                    state={state}
+                    target={target}
+                    selection={selection}
+                    disabled={disabled}
+                    pxPerSec={zoom.pxPerSec}
+                    playhead={playhead}
+                    onSeek={seek}
+                    onWheel={zoom.onWheel}
+                    onSelect={select}
+                    onSelectSegment={selectSegment}
+                    onEdit={model.edit}
+                  />
                 )}
               </div>
               <Inspector
@@ -365,6 +421,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                     model.edit((current) => edits.removeSegment(current, sectionId, segmentId)),
                   onAcceptQa: (segmentId, accepted) => void model.acceptQa(segmentId, accepted),
                 }}
+                onDeleteRange={remove}
                 onSectionChange={(sectionId, patch) =>
                   model.edit((current) => edits.updateSection(current, sectionId, patch))
                 }
@@ -379,7 +436,12 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                 }
               />
             </div>
-            <TransportBar disabled={disabled} onInsert={insert} />
+            <TransportBar
+              disabled={disabled}
+              onInsert={insert}
+              onSplit={split}
+              zoom={view === 'timeline' ? zoom : undefined}
+            />
             {conversation && (
               <ClipPicker
                 visible={picking}

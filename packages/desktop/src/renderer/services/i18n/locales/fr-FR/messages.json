@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Inspecteur",
-      "multiple": "{{count}} éléments sélectionnés"
+      "multiple": "{{count}} éléments sélectionnés",
+      "range": "Sélection {{start}}–{{end}}",
+      "deleteRange": "Supprimer cette partie"
     },
     "insert": {
       "speech": "+ Voix",
@@ -429,6 +431,18 @@
       "title": "Insérer un extrait d'enregistrement",
       "file": "Enregistrement de cet espace de travail",
       "none": "Aucun enregistrement. Téléversez-en un dans la conversation d'abord."
+    },
+    "timeline": {
+      "repeat": "Répéter ×{{plays}} · pause {{gap}} s",
+      "gap": "Pause",
+      "pause": "Pause {{seconds}} s",
+      "playBadge": "Écoute {{play}}",
+      "move": "Glisser pour déplacer",
+      "trimStart": "Rogner le début",
+      "trimEnd": "Rogner la fin",
+      "split": "Couper",
+      "zoom": "Zoom",
+      "notGenerated": "Non généré"
     }
   }
 }

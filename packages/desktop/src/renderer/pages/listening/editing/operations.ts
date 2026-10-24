@@ -169,3 +169,16 @@ export function moveSectionTo(project: ListeningProject, sectionId: string, toIn
   const at = Math.max(0, Math.min(toIndex, rest.length));
   return { ...project, sections: [...rest.slice(0, at), section, ...rest.slice(at)] };
 }
+
+/** Remove segments by id; a removal that would leave a section empty is refused as a whole. */
+export function removeSegments(project: ListeningProject, segmentIds: string[]): ListeningProject {
+  const remove = new Set(segmentIds);
+  if (project.sections.some((section) => section.segments.every((segment) => remove.has(segment.id)))) return project;
+  return {
+    ...project,
+    sections: project.sections.map((section) => ({
+      ...section,
+      segments: section.segments.filter((segment) => !remove.has(segment.id)),
+    })),
+  };
+}

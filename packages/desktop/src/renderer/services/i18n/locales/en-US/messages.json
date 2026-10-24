@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Inspector",
-      "multiple": "{{count}} items selected"
+      "multiple": "{{count}} items selected",
+      "range": "Selected {{start}}–{{end}}",
+      "deleteRange": "Delete this part"
     },
     "insert": {
       "speech": "+ Speech",
@@ -429,6 +431,18 @@
       "title": "Insert a recording clip",
       "file": "Recording in this workspace",
       "none": "No recordings found. Upload one in the conversation first."
+    },
+    "timeline": {
+      "repeat": "Repeat ×{{plays}} · gap {{gap}}s",
+      "gap": "Gap",
+      "pause": "Pause {{seconds}}s",
+      "playBadge": "Play {{play}}",
+      "move": "Drag to move",
+      "trimStart": "Trim start",
+      "trimEnd": "Trim end",
+      "split": "Split",
+      "zoom": "Zoom",
+      "notGenerated": "Not generated"
     }
   }
 }

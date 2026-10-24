@@ -134,6 +134,61 @@ describe('editor layout and selection', () => {
     expect(await screen.findByText('messages.listening.save.saved')).toBeTruthy();
   });
 
+  it('deletes a dragged range and splits at the playhead from the keyboard in the timeline', async () => {
+    const withClip = {
+      ...project,
+      sections: [
+        {
+          ...project.sections[0],
+          segments: [
+            { id: 'k', type: 'clip', path: 'audio/source.mp3', start: 0, end: 10 },
+            { id: 'c', type: 'pause', seconds: 3 },
+          ],
+        },
+      ],
+    };
+    transport.request.mockImplementation(async (method: string, path: string, body?: { project: unknown }) =>
+      String(path).startsWith('/api/edu/audio/listening')
+        ? {
+            path: 'listening/unit.listening.json',
+            revision: method === 'PUT' ? 'r2' : 'r1',
+            project: method === 'PUT' ? body!.project : withClip,
+            qaThreshold: 0.9,
+            segments: {},
+            tasks: [],
+          }
+        : {}
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false }))
+    );
+    render(
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
+        <MemoryRouter initialEntries={[listeningPagePath('c1', 'listening/unit.listening.json')]}>
+          <Routes>
+            <Route path='/conversation/:id/listening' element={<ListeningPage />} />
+          </Routes>
+        </MemoryRouter>
+      </SWRConfig>
+    );
+    fireEvent.click(await screen.findByText('messages.listening.view.timeline'));
+    const clip = () => document.querySelector('[data-block]') as HTMLElement;
+    // Default zoom is 40 px/s: drag from 1 s to 2 s of the clip, then delete that range.
+    fireEvent.mouseDown(clip().querySelector('[data-body]')!, { button: 0, clientX: 40 });
+    fireEvent.mouseMove(window, { clientX: 80 });
+    fireEvent.mouseUp(window, { clientX: 80 });
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    const clips = () =>
+      [...document.querySelectorAll('[data-kind="clip"]')].map((node) => (node as HTMLElement).style.width);
+    expect(clips()).toEqual(['40px', '320px']);
+    // Seek to 5 s (200 px) on the ruler and split there.
+    fireEvent.mouseDown(document.querySelector('[class*="ruler"]')!, { clientX: 200 });
+    fireEvent.keyDown(document.body, { key: 's' });
+    expect(clips()).toEqual(['40px', '160px', '160px']);
+    vi.unstubAllGlobals();
+  });
+
   it('inserts at the end of the first section when nothing is selected', async () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.insert.chime' }));

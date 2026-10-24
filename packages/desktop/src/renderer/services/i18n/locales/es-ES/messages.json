@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Inspector",
-      "multiple": "{{count}} elementos seleccionados"
+      "multiple": "{{count}} elementos seleccionados",
+      "range": "Selección {{start}}–{{end}}",
+      "deleteRange": "Eliminar esta parte"
     },
     "insert": {
       "speech": "+ Voz",
@@ -429,6 +431,18 @@
       "title": "Insertar fragmento de grabación",
       "file": "Grabación de este espacio de trabajo",
       "none": "No hay grabaciones. Sube una primero en la conversación."
+    },
+    "timeline": {
+      "repeat": "Repetir ×{{plays}} · pausa {{gap}} s",
+      "gap": "Pausa",
+      "pause": "Pausa {{seconds}} s",
+      "playBadge": "Reproducción {{play}}",
+      "move": "Arrastra para mover",
+      "trimStart": "Recortar inicio",
+      "trimEnd": "Recortar final",
+      "split": "Dividir",
+      "zoom": "Zoom",
+      "notGenerated": "Sin generar"
     }
   }
 }

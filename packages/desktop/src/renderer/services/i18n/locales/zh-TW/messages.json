@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "檢查面板",
-      "multiple": "已選取 {{count}} 項"
+      "multiple": "已選取 {{count}} 項",
+      "range": "已選取 {{start}}–{{end}}",
+      "deleteRange": "刪除這部分"
     },
     "insert": {
       "speech": "+ 語音",
@@ -429,6 +431,18 @@
       "title": "插入錄音片段",
       "file": "工作區中的錄音",
       "none": "找不到錄音，請先在對話中上載。"
+    },
+    "timeline": {
+      "repeat": "重播 ×{{plays}}・空白 {{gap}} 秒",
+      "gap": "段落間空白",
+      "pause": "停頓 {{seconds}} 秒",
+      "playBadge": "第 {{play}} 次",
+      "move": "拖動以移動",
+      "trimStart": "修剪開頭",
+      "trimEnd": "修剪結尾",
+      "split": "切開",
+      "zoom": "縮放",
+      "notGenerated": "未生成"
     }
   }
 }

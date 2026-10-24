@@ -101,3 +101,39 @@ describe('layoutTimeline', () => {
     expect(length('c')).toBe(4);
   });
 });
+
+describe('authored timeline blocks', () => {
+  it('lays out one first play per section, a repeat summary and the gap after', async () => {
+    const { authoredBlocks } = await import('@/renderer/pages/listening/timeline/blocks');
+    const value = project();
+    // Section 1: a = 2 s, b = 1 s, plays 2 with a 5 s gap; section 2: pause 4, chime, clip 2.5.
+    const blocks = authoredBlocks(value, (segment) => ({ a: 2, b: 1 })[segment.id as 'a' | 'b'], 10);
+    const summary = blocks.map((block) =>
+      block.kind === 'segment'
+        ? `${block.segment.id}:${block.x}+${block.width}`
+        : `${block.kind}:${block.x}+${block.width}`
+    );
+    expect(summary).toEqual(['a:0+20', 'b:20+10', 'repeat:30+80', 'gap:110+30', 'c:140+40', 'd:180+8', 'e:188+25']);
+  });
+
+  it('maps rendered track time to authored positions and back, folding repeats onto the first play', async () => {
+    const { authoredBlocks, timeToAuthored, authoredToTime } =
+      await import('@/renderer/pages/listening/timeline/blocks');
+    const value = project();
+    const lookup = (segment: { id: string }) => ({ a: 2, b: 1 })[segment.id as 'a' | 'b'];
+    const blocks = authoredBlocks(value, lookup, 10);
+    const { entries } = layoutTimeline(sequenceTrack(value), value, lookup);
+    // 0.5 s into the first play of `a`.
+    expect(timeToAuthored(0.5, entries, blocks, 10)).toEqual({ x: 5, play: 1, sectionId: 's1' });
+    // Second play of `b` starts at 2 + 1 + 5 + 2 = 10 s.
+    expect(timeToAuthored(10.5, entries, blocks, 10)).toEqual({ x: 25, play: 2, sectionId: 's1' });
+    // During the gap between plays the playhead waits at the section start.
+    expect(timeToAuthored(4, entries, blocks, 10)).toEqual({ x: 0, play: 2, sectionId: 's1' });
+    expect(authoredToTime(25, entries, blocks, 10)).toBeCloseTo(2.5);
+    // Clicking the pause in section 2 seeks into its only play.
+    expect(authoredToTime(150, entries, blocks, 10)).toBeCloseTo(at(entries, 'c').start + 1);
+  });
+});
+
+const at = (entries: { segmentId?: string; play: number; start: number }[], id: string) =>
+  entries.find((entry) => entry.segmentId === id && entry.play === 1)!;

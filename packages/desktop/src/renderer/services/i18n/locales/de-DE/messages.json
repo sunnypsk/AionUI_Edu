@@ -417,7 +417,9 @@
     },
     "inspector": {
       "title": "Eigenschaften",
-      "multiple": "{{count}} Elemente ausgewählt"
+      "multiple": "{{count}} Elemente ausgewählt",
+      "range": "Ausgewählt {{start}}–{{end}}",
+      "deleteRange": "Diesen Teil löschen"
     },
     "insert": {
       "speech": "+ Sprache",
@@ -429,6 +431,18 @@
       "title": "Aufnahmeausschnitt einfügen",
       "file": "Aufnahme in diesem Arbeitsbereich",
       "none": "Keine Aufnahmen gefunden. Lade zuerst eine in der Unterhaltung hoch."
+    },
+    "timeline": {
+      "repeat": "Wiederholung ×{{plays}} · Pause {{gap}} s",
+      "gap": "Abstand",
+      "pause": "Pause {{seconds}} s",
+      "playBadge": "Durchgang {{play}}",
+      "move": "Zum Verschieben ziehen",
+      "trimStart": "Anfang kürzen",
+      "trimEnd": "Ende kürzen",
+      "split": "Teilen",
+      "zoom": "Zoom",
+      "notGenerated": "Nicht erzeugt"
     }
   }
 }

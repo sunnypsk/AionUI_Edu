@@ -36,10 +36,11 @@ const signed = (seconds: number): string => `${seconds >= 0 ? '+' : '−'}${Math
 export function ReplacementPanel({
   clip,
   sourceUrl,
+  initialMarks,
   ...context
-}: ReplacementContext & { clip: Clip; sourceUrl: string }): React.ReactElement {
+}: ReplacementContext & { clip: Clip; sourceUrl: string; initialMarks?: RangeMarks }): React.ReactElement {
   const { t } = useTranslation();
-  const [marks, setMarks] = useState<RangeMarks>({});
+  const [marks, setMarks] = useState<RangeMarks>(initialMarks ?? {});
   const [text, setText] = useState('');
   const [voice, setVoice] = useState<AudioVoice>(context.defaultVoice);
   const [taskId, setTaskId] = useState<string>();

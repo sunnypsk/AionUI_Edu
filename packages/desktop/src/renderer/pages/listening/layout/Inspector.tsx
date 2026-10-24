@@ -1,9 +1,11 @@
 import React from 'react';
-import { Input, InputNumber, Space } from '@arco-design/web-react';
+import { Button, Input, InputNumber, Space } from '@arco-design/web-react';
+import { Delete } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningProject, ListeningSection, ListeningState } from '@/common/types/platform/listeningProject';
 import { formatTimestamp } from '@/renderer/pages/listening/data/status';
 import type { Selection, ViewMode } from '@/renderer/pages/listening/editing/useSelection';
+import { ReplacementPanel } from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
 import { SegmentRow, type SegmentRowProps } from '@/renderer/pages/listening/script/SegmentRow';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
@@ -23,6 +25,8 @@ export type InspectorProps = {
     onAcceptQa: (segmentId: string, accepted: boolean) => void;
   };
   onSectionChange: (sectionId: string, patch: Partial<Omit<ListeningSection, 'id' | 'segments'>>) => void;
+  /** Remove the selected source range from its clip. */
+  onDeleteRange: () => void;
   /** Project settings, shown when nothing is selected. */
   projectSettings: React.ReactNode;
 };
@@ -66,6 +70,31 @@ export function Inspector(props: InspectorProps): React.ReactElement {
     );
   } else if (selection.kind === 'segments' && selection.ids.length > 1) {
     body = <div>{t('messages.listening.inspector.multiple', { count: selection.ids.length })}</div>;
+  } else if (selection.kind === 'range' && props.view === 'timeline') {
+    const clip = project.sections.flatMap((section) => section.segments).find((s) => s.id === selection.clipId);
+    const sourceUrl = clip?.type === 'clip' ? props.row.fileUrl(clip.path) : undefined;
+    body = clip?.type === 'clip' && (
+      <Space direction='vertical' size={8} style={{ width: '100%' }}>
+        <div className={styles.inspectorTitle}>
+          {t('messages.listening.inspector.range', {
+            start: formatTimestamp(selection.start),
+            end: formatTimestamp(selection.end),
+          })}
+        </div>
+        <Button size='small' status='danger' icon={<Delete />} disabled={disabled} onClick={props.onDeleteRange}>
+          {t('messages.listening.inspector.deleteRange')}
+        </Button>
+        {sourceUrl && (
+          <ReplacementPanel
+            key={`${selection.start}-${selection.end}`}
+            {...props.row.replacement}
+            clip={clip}
+            sourceUrl={sourceUrl}
+            initialMarks={{ start: selection.start, end: selection.end }}
+          />
+        )}
+      </Space>
+    );
   } else if (selection.kind === 'segments' || selection.kind === 'range') {
     const id = selection.kind === 'segments' ? selection.ids[0] : selection.clipId;
     const section = project.sections.find((item) => item.segments.some((segment) => segment.id === id))!;

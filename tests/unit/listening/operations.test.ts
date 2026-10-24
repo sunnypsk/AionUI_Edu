@@ -6,6 +6,7 @@ import {
   insertSegment,
   moveSectionTo,
   moveSegment,
+  removeSegments,
   resizePause,
   splitClip,
   trimClip,
@@ -110,6 +111,12 @@ describe('arranging operations', () => {
   it('refuses to move the only segment out of a section', () => {
     const value = project();
     expect(moveSegment(value, 'k', 's2', 0)).toBe(value);
+  });
+
+  it('removes selected segments but never empties a section', () => {
+    const value = project([clip(), { id: 'b', type: 'pause', seconds: 1 }, { id: 'c', type: 'chime', preset: 'end' }]);
+    expect(ranges(removeSegments(value, ['k', 'c']))).toEqual(['pause']);
+    expect(removeSegments(value, ['k', 'b', 'c'])).toBe(value);
   });
 
   it('moves a section to a new position', () => {
