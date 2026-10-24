@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Algunas partes no se pudieron transcribir",
       "blocked": "Algunas partes no se pudieron transcribir durante el análisis. La grabación de origen se conserva; revisa los rangos de abajo o cámbialos con el reemplazo manual."
+    },
+    "page": {
+      "back": "Volver a la conversación",
+      "missing": "No se indicó ningún proyecto de comprensión auditiva. Ábrelo desde su tarjeta de archivo en la conversación.",
+      "conversationMissing": "No se encontró esta conversación o no tiene espacio de trabajo."
     }
   }
 }

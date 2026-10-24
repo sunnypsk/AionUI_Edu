@@ -2,7 +2,7 @@ import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Button, Slider } from '@arco-design/web-react';
 import { PauseOne, PlayOne } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
-import { formatDuration } from './ListeningEditor/draft';
+import { formatDuration } from '@/renderer/pages/listening/editing/draft';
 import styles from './OpenUIComponents.module.css';
 
 /** Imperative controls for keyboard shortcuts and range marking; times are seconds in the file. */

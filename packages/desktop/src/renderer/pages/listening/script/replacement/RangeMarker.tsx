@@ -1,9 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Button, Space, Switch, Tooltip } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
-import { AudioPlayer, type AudioPlayerHandle } from '../../AudioPlayer';
-import { formatTimestamp, roundTime } from '../status';
-import styles from '../ListeningEditor.module.css';
+import {
+  AudioPlayer,
+  type AudioPlayerHandle,
+} from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import { formatTimestamp, roundTime } from '@/renderer/pages/listening/data/status';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 export type RangeMarks = { start?: number; end?: number };
 type Edge = keyof RangeMarks;

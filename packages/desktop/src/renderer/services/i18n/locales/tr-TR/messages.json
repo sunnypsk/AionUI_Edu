@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Bazı bölümlerin dökümü yapılamadı",
       "blocked": "Analiz sırasında bazı bölümlerin dökümü yapılamadı. Kaynak kayıt korunuyor; aşağıdaki aralıkları kontrol edin veya elle değiştirme ile düzenleyin."
+    },
+    "page": {
+      "back": "Sohbete dön",
+      "missing": "Dinleme projesi belirtilmedi. Sohbetteki dosya kartından açın.",
+      "conversationMissing": "Bu sohbet bulunamadı veya çalışma alanı yok."
     }
   }
 }

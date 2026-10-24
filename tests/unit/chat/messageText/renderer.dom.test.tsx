@@ -9,13 +9,12 @@ import OpenUIMessage, {
 } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI';
 import { SUBMITTED_AT_KEY } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/useSavedState';
 import { emitter } from '@/renderer/utils/emitter';
-import {
-  draft as listeningDraft,
-  formatDuration,
-} from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/draft';
+import { draft as listeningDraft, formatDuration } from '@/renderer/pages/listening/editing/draft';
+import { ListeningEditor } from '@/renderer/pages/listening/layout/ListeningEditor';
+import { listeningPagePath } from '@/renderer/pages/listening/route';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
 import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
-import { useListeningProject } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/useListeningProject';
+import { useListeningProject } from '@/renderer/pages/listening/editing/useListeningProject';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
   ...(await original<object>()),
@@ -89,6 +88,13 @@ const display = (content: string, streaming = false) =>
   render(
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
       <OpenUIMessage content={content} conversation='conversation' message='message' streaming={streaming} />
+    </SWRConfig>
+  );
+/** The full-screen editor body, rendered without the page route around it. */
+const showEditor = (path: string) =>
+  render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
+      <ListeningEditor path={path} />
     </SWRConfig>
   );
 describe('official OpenUI renderer integration', () => {
@@ -692,14 +698,7 @@ describe('listening track files', () => {
       ([verb, path]) => verb === method && String(path).startsWith('/api/edu/audio/listening' + route)
     );
   const open = async () => {
-    display('root = Stack([FileCard("listening/unit.listening.json", "聆聽項目")])');
-    fireEvent.click(
-      await waitFor(() => {
-        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
-        expect(button).not.toBeDisabled();
-        return button;
-      })
-    );
+    showEditor('listening/unit.listening.json');
     return screen.findByDisplayValue('請問銀行在哪裏？');
   };
   beforeEach(() => {
@@ -718,6 +717,20 @@ describe('listening track files', () => {
     display('root = Stack([FileCard("audio/t1/track.mp3", "聆聽音檔")])');
     expect(await screen.findByRole('button', { name: 'messages.listening.player.play' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'messages.openui.file.preview' })).toBeNull();
+  });
+
+  it('opens listening projects in the full-screen editor page', async () => {
+    window.location.hash = '';
+    display('root = Stack([FileCard("listening/unit.listening.json", "聆聽項目")])');
+    fireEvent.click(
+      await waitFor(() => {
+        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
+        expect(button).not.toBeDisabled();
+        return button;
+      })
+    );
+    expect(window.location.hash).toBe(`#${listeningPagePath('conversation', 'listening/unit.listening.json')}`);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('opens the project editor with sections, segment preview, latest track and QA hints', async () => {
@@ -746,14 +759,7 @@ describe('listening track files', () => {
           })
         : {}
     );
-    display('root = Stack([FileCard("listening/unit.listening.json", "聆聽項目")])');
-    fireEvent.click(
-      await waitFor(() => {
-        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
-        expect(button).not.toBeDisabled();
-        return button;
-      })
-    );
+    showEditor('listening/unit.listening.json');
     await screen.findByText('messages.listening.qa.issues');
     expect(screen.queryByDisplayValue('請問銀行在哪裏？')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.jump' }));
@@ -1041,14 +1047,7 @@ describe('listening drafts from original recordings', () => {
       ([verb, path]) => verb === method && String(path).startsWith('/api/edu/audio/listening' + route)
     );
   const open = async () => {
-    display('root = Stack([FileCard("audio/a1/reference.listening.json", "聆聽項目")])');
-    fireEvent.click(
-      await waitFor(() => {
-        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
-        expect(button).not.toBeDisabled();
-        return button;
-      })
-    );
+    showEditor('audio/a1/reference.listening.json');
     return screen.findByRole('region', { name: 'messages.listening.summary.title' });
   };
   const expandFirstClip = async () => {

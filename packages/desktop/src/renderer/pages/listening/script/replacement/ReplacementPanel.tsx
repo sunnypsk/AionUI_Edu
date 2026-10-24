@@ -3,11 +3,11 @@ import { Alert, Button, Input, Progress, Select, Space } from '@arco-design/web-
 import { useTranslation } from 'react-i18next';
 import { AUDIO_VOICES, type AudioTaskView, type AudioVoice } from '@/common/types/platform/audioTools';
 import type { ListeningSegment } from '@/common/types/platform/listeningProject';
-import { AudioPlayer } from '../../AudioPlayer';
-import type { ReplacementRequest } from '../api';
-import { errorKey, formatTimestamp, isActive } from '../status';
+import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import type { ReplacementRequest } from '@/renderer/pages/listening/data/api';
+import { errorKey, formatTimestamp, isActive } from '@/renderer/pages/listening/data/status';
 import { RangeMarker, type RangeMarks } from './RangeMarker';
-import styles from '../ListeningEditor.module.css';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 type Clip = Extract<ListeningSegment, { type: 'clip' }>;
 

@@ -7,7 +7,7 @@ import {
   type ListeningTarget,
   type ListeningTaskStart,
   type ReplacementRequest,
-} from './api';
+} from '@/renderer/pages/listening/data/api';
 
 const ACTIVE_POLL_MS = 1500;
 const IDLE_POLL_MS = 5000;

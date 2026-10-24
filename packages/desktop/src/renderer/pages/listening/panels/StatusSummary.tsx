@@ -4,8 +4,8 @@ import { Download } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { AudioTaskView } from '@/common/types/platform/audioTools';
 import type { ListeningState } from '@/common/types/platform/listeningProject';
-import { errorKey, isActive, latestTask, trackFile, type ProjectSummary } from '../status';
-import styles from '../ListeningEditor.module.css';
+import { errorKey, isActive, latestTask, trackFile, type ProjectSummary } from '@/renderer/pages/listening/data/status';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 export type StatusSummaryProps = {
   summary: ProjectSummary;

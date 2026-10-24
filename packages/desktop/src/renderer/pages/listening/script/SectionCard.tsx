@@ -3,10 +3,10 @@ import { Button, Dropdown, Input, InputNumber, Menu, Space, Tag } from '@arco-de
 import { ArrowDown, ArrowUp, Delete, Down, Plus, PreviewOpen, Right } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningSection, ListeningSegment, ListeningState } from '@/common/types/platform/listeningProject';
-import type { NewSegmentType } from '../draft';
-import { formatTimestamp, sectionRange, sectionUnverified } from '../status';
+import type { NewSegmentType } from '@/renderer/pages/listening/editing/draft';
+import { formatTimestamp, sectionRange, sectionUnverified } from '@/renderer/pages/listening/data/status';
 import { SegmentRow, type SegmentRowProps } from './SegmentRow';
-import styles from '../ListeningEditor.module.css';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 export type SectionCardProps = {
   section: ListeningSection;

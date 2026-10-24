@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Collapse, Drawer, Input, Message, Modal, Select, Space, Spin } from '@arco-design/web-react';
+import { Alert, Button, Collapse, Message, Modal, Select, Space, Spin } from '@arco-design/web-react';
 import { Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
@@ -10,17 +10,24 @@ import { localFileRef } from '@/common/types/chatFile';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
-import { listeningApi, type ListeningError } from './api';
-import { draft as edits, RATE_OPTIONS } from './draft';
-import { CapabilityBanner } from './panels/CapabilityBanner';
-import { LexiconPanel } from './panels/LexiconPanel';
-import { RenderPanel, TaskIssues } from './panels/RenderPanel';
-import { StatusSummary } from './panels/StatusSummary';
-import { SectionCard } from './sections/SectionCard';
-import { SectionNav } from './sections/SectionNav';
-import { currentTrack, errorKey, latestTask, readCapabilities, summarize } from './status';
-import { useListeningProject } from './useListeningProject';
-import styles from './ListeningEditor.module.css';
+import { listeningApi, type ListeningError } from '@/renderer/pages/listening/data/api';
+import { draft as edits, RATE_OPTIONS } from '@/renderer/pages/listening/editing/draft';
+import { CapabilityBanner } from '@/renderer/pages/listening/panels/CapabilityBanner';
+import { LexiconPanel } from '@/renderer/pages/listening/panels/LexiconPanel';
+import { RenderPanel, TaskIssues } from '@/renderer/pages/listening/panels/RenderPanel';
+import { StatusSummary } from '@/renderer/pages/listening/panels/StatusSummary';
+import { SectionCard } from '@/renderer/pages/listening/script/SectionCard';
+import { SectionNav } from '@/renderer/pages/listening/script/SectionNav';
+import {
+  currentTrack,
+  errorKey,
+  latestTask,
+  readCapabilities,
+  summarize,
+} from '@/renderer/pages/listening/data/status';
+import { useListeningProject } from '@/renderer/pages/listening/editing/useListeningProject';
+import { TopBar } from '@/renderer/pages/listening/layout/TopBar';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 /** Host-side segment cache directory, mirrored from the web host's SEGMENT_CACHE. */
 const CACHE_DIRECTORY = 'listening/.segments';
@@ -52,16 +59,8 @@ const blankLine = (project: ListeningProject): string | undefined =>
     .flatMap((section) => section.segments)
     .find((segment) => segment.type === 'speech' && !segment.text.trim())?.id;
 
-/** Drawer editor for a `*.listening.json` project: script table, preview, render progress and QA review. */
-export function ListeningEditorDrawer({
-  path,
-  visible,
-  onClose,
-}: {
-  path: string;
-  visible: boolean;
-  onClose: () => void;
-}): React.ReactElement {
+/** Full-screen editor body for a `*.listening.json` project: script, preview, render progress and QA review. */
+export function ListeningEditor({ path, onBack }: { path: string; onBack?: () => void }): React.ReactElement {
   const { t } = useTranslation();
   // Hook-based Message/Modal render inside this tree, which React 19 requires (no ReactDOM.render).
   const [message, messageHolder] = Message.useMessage();
@@ -69,8 +68,8 @@ export function ListeningEditorDrawer({
   const conversation = useConversationContextSafe();
   const workspace = conversation?.workspace;
   const target = useMemo(
-    () => (visible && conversation ? { conversation_id: conversation.conversation_id, path } : undefined),
-    [visible, conversation, path]
+    () => (conversation ? { conversation_id: conversation.conversation_id, path } : undefined),
+    [conversation, path]
   );
   const report = useCallback(
     (error: ListeningError) =>
@@ -138,7 +137,7 @@ export function ListeningEditorDrawer({
     });
   const close = (then?: () => void) => {
     const leave = () => {
-      onClose();
+      onBack?.();
       then?.();
     };
     if (!model.dirty) return leave();
@@ -162,28 +161,24 @@ export function ListeningEditorDrawer({
     <>
       {messageHolder}
       {modalHolder}
-      <Drawer
-        width='min(820px, 100vw)'
-        title={t('messages.listening.title')}
-        visible={visible}
-        onCancel={() => close()}
-        unmountOnExit
-        footer={
-          <Space>
-            <Button onClick={() => close()}>{t('messages.listening.actions.close')}</Button>
-            <Button disabled={!model.dirty || disabled} loading={busy && model.dirty} onClick={() => void save()}>
-              {t('messages.listening.actions.save')}
-            </Button>
-            <Button
-              type='primary'
-              disabled={!project || disabled || rendering || renderUnavailable}
-              onClick={() => void guarded(() => model.render())}
-            >
-              {t('messages.listening.actions.render')}
-            </Button>
-          </Space>
-        }
-      >
+      <div className={styles.page}>
+        <TopBar
+          title={project?.title}
+          disabled={disabled}
+          onTitleChange={(title) => model.edit((current) => ({ ...current, title }))}
+          onBack={onBack ? () => close() : undefined}
+        >
+          <Button disabled={!model.dirty || disabled} loading={busy && model.dirty} onClick={() => void save()}>
+            {t('messages.listening.actions.save')}
+          </Button>
+          <Button
+            type='primary'
+            disabled={!project || disabled || rendering || renderUnavailable}
+            onClick={() => void guarded(() => model.render())}
+          >
+            {t('messages.listening.actions.render')}
+          </Button>
+        </TopBar>
         {model.loadError ? (
           <Alert
             type='error'
@@ -267,15 +262,6 @@ export function ListeningEditorDrawer({
               onJump={jump}
             />
             <div className={styles.projectSettings}>
-              <Input
-                aria-label={t('messages.listening.fields.projectTitle')}
-                placeholder={t('messages.listening.fields.projectTitle')}
-                value={project.title}
-                maxLength={200}
-                disabled={disabled}
-                status={project.title.trim() ? undefined : 'error'}
-                onChange={(title) => model.edit((current) => ({ ...current, title }))}
-              />
               <Space size={8} wrap>
                 <Select
                   size='small'
@@ -387,7 +373,7 @@ export function ListeningEditorDrawer({
             </div>
           </div>
         )}
-      </Drawer>
+      </div>
     </>
   );
 }

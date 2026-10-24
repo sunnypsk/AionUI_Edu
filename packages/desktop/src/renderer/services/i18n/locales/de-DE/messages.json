@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Einige Teile konnten nicht transkribiert werden",
       "blocked": "Bei der Analyse konnten einige Teile nicht transkribiert werden. Die Quellaufnahme bleibt erhalten; prüfen Sie die Bereiche unten oder ändern Sie sie per manueller Ersetzung."
+    },
+    "page": {
+      "back": "Zurück zur Unterhaltung",
+      "missing": "Kein Hörprojekt angegeben. Öffne es über seine Dateikarte in der Unterhaltung.",
+      "conversationMissing": "Diese Unterhaltung wurde nicht gefunden oder hat keinen Arbeitsbereich."
     }
   }
 }

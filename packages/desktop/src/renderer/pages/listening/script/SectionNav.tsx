@@ -2,8 +2,8 @@ import React from 'react';
 import { Badge, Button, Select } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
-import { formatTimestamp, sectionRange, sectionUnverified } from '../status';
-import styles from '../ListeningEditor.module.css';
+import { formatTimestamp, sectionRange, sectionUnverified } from '@/renderer/pages/listening/data/status';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 /**
  * Jump between sections. A side list on wide drawers; a Select on narrow screens (CSS switches them),

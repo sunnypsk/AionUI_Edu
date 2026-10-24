@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Algumas partes não puderam ser transcritas",
       "blocked": "Algumas partes não puderam ser transcritas na análise. A gravação de origem continua guardada; confira os intervalos abaixo ou altere-os com a substituição manual."
+    },
+    "page": {
+      "back": "Voltar à conversa",
+      "missing": "Nenhum projeto de compreensão auditiva foi indicado. Abra-o pelo cartão de arquivo na conversa.",
+      "conversationMissing": "Esta conversa não foi encontrada ou não tem espaço de trabalho."
     }
   }
 }

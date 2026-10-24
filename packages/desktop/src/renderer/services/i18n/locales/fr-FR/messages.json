@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Certaines parties n’ont pas pu être transcrites",
       "blocked": "Certaines parties n’ont pas pu être transcrites lors de l’analyse. L’enregistrement source est conservé ; vérifiez les plages ci-dessous ou modifiez-les par remplacement manuel."
+    },
+    "page": {
+      "back": "Retour à la conversation",
+      "missing": "Aucun projet d'écoute indiqué. Ouvrez-le depuis sa carte de fichier dans la conversation.",
+      "conversationMissing": "Cette conversation est introuvable ou n'a pas d'espace de travail."
     }
   }
 }

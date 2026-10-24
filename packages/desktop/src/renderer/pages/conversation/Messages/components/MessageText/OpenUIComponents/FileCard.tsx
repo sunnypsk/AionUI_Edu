@@ -28,7 +28,7 @@ import { previewErrorToI18nKey, type PreviewErrorKind } from '@/renderer/utils/p
 import styles from './OpenUIComponents.module.css';
 import { useFileDownload } from './FileDownloads';
 import { AudioPlayer } from './AudioPlayer';
-import { ListeningEditorDrawer } from './ListeningEditor';
+import { listeningPagePath } from '@/renderer/pages/listening/route';
 
 const AUDIO_EXTENSIONS = /\.(?:mp3|wav|m4a|ogg)$/i;
 const LISTENING_PROJECT = /\.listening\.json$/i;
@@ -88,14 +88,14 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
   const { t } = useTranslation();
   const streaming = useIsStreaming();
   const preview = useOptionalPreviewContext();
-  const workspace = useConversationContextSafe()?.workspace;
+  const conversation = useConversationContextSafe();
+  const workspace = conversation?.workspace;
   /** An i18n key for the last preview or download failure. */
   const [problem, setProblem] = useState<string | null>(null);
   const path = normalizeWorkspacePath(props.path ?? '');
   const name = path?.split('/').pop() ?? props.path;
   const audio = !!path && AUDIO_EXTENSIONS.test(path);
   const listening = !!path && LISTENING_PROJECT.test(path);
-  const [editing, setEditing] = useState(false);
   const Icon = audio ? FileMusic : (path && ICONS[getContentTypeByExtension(path)]) || FileText;
   const disabled = streaming || !workspace;
   useFileDownload(path, !disabled);
@@ -126,7 +126,16 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
       {path && (
         <div className={styles.fileActions}>
           {listening && (
-            <Button size='small' type='primary' icon={<Edit />} disabled={disabled} onClick={() => setEditing(true)}>
+            <Button
+              size='small'
+              type='primary'
+              icon={<Edit />}
+              disabled={disabled}
+              onClick={() => {
+                // Setting the hash also works where the card renders outside the router.
+                if (conversation) window.location.hash = `#${listeningPagePath(conversation.conversation_id, path)}`;
+              }}
+            >
               {t('messages.listening.edit')}
             </Button>
           )}
@@ -142,7 +151,6 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
           <AudioPlayer url={buildFileStreamUrl(localFileRef(joinPath(workspace, path!)))} />
         </div>
       )}
-      {listening && path && <ListeningEditorDrawer path={path} visible={editing} onClose={() => setEditing(false)} />}
     </div>
   );
 };

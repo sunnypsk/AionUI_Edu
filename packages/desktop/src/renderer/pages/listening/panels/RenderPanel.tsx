@@ -2,10 +2,10 @@ import React from 'react';
 import { Alert, Button, Progress, Space } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import type { AudioIssue, AudioTaskView } from '@/common/types/platform/audioTools';
-import { AudioPlayer } from '../../AudioPlayer';
-import { formatDuration } from '../draft';
-import { errorKey, formatTimestamp, isActive, trackFile } from '../status';
-import styles from '../ListeningEditor.module.css';
+import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import { formatDuration } from '@/renderer/pages/listening/editing/draft';
+import { errorKey, formatTimestamp, isActive, trackFile } from '@/renderer/pages/listening/data/status';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 /** Problems the host reported for a task (e.g. a range the cloud service refused), with a jump link. */
 export function TaskIssues({

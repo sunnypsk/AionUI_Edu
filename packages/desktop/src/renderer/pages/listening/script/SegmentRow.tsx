@@ -4,11 +4,11 @@ import { ArrowDown, ArrowUp, Delete } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { AUDIO_VOICES } from '@/common/types/platform/audioTools';
 import type { ListeningSegment, ListeningSegmentState } from '@/common/types/platform/listeningProject';
-import { AudioPlayer } from '../../AudioPlayer';
-import type { ReplacementContext } from '../replacement/ReplacementPanel';
-import { formatTimestamp } from '../status';
+import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import type { ReplacementContext } from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
+import { formatTimestamp } from '@/renderer/pages/listening/data/status';
 import { ClipRow } from './ClipRow';
-import styles from '../ListeningEditor.module.css';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 export type SegmentRowProps = {
   segment: ListeningSegment;

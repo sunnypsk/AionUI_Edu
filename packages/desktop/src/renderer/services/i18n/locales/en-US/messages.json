@@ -396,6 +396,11 @@
     "analysis": {
       "blockedTitle": "Some parts could not be transcribed",
       "blocked": "Some parts could not be transcribed during analysis. The source recording is still kept; check the ranges below, or change them with manual replacement."
+    },
+    "page": {
+      "back": "Back to conversation",
+      "missing": "No listening project was specified. Open it from its file card in the conversation.",
+      "conversationMissing": "This conversation could not be found or has no workspace."
     }
   }
 }

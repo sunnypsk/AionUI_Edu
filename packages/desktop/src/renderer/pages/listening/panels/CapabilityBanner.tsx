@@ -2,8 +2,8 @@ import React from 'react';
 import { Alert, Button } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import type { AudioCapabilities } from '@/common/types/platform/audioTools';
-import { errorKey } from '../status';
-import styles from '../ListeningEditor.module.css';
+import { errorKey } from '@/renderer/pages/listening/data/status';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 /**
  * Explain which audio tools are ready. A missing transcription key is informational: teachers can

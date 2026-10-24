@@ -3,11 +3,14 @@ import { Button, Collapse, Input, InputNumber, Space, Tag, Tooltip } from '@arco
 import { ArrowDown, ArrowUp, Delete, Down, Right } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningSegment } from '@/common/types/platform/listeningProject';
-import { AudioPlayer } from '../../AudioPlayer';
-import { ReplacementPanel, type ReplacementContext } from '../replacement/ReplacementPanel';
-import { clipTranscript, clipWarnings, formatTimestamp, warningKey } from '../status';
+import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import {
+  ReplacementPanel,
+  type ReplacementContext,
+} from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
+import { clipTranscript, clipWarnings, formatTimestamp, warningKey } from '@/renderer/pages/listening/data/status';
 import type { SegmentRowProps } from './SegmentRow';
-import styles from '../ListeningEditor.module.css';
+import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 type Clip = Extract<ListeningSegment, { type: 'clip' }>;
 
