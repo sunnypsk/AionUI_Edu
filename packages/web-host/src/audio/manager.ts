@@ -311,6 +311,10 @@ export class AudioManager {
       replaceRange(project, task.replacementInput!)
     );
   }
+  /** Decoder used for editor waveform and range previews. */
+  get previewMedia(): TrackMedia {
+    return this.services.trackMedia;
+  }
   /** QA model for listening lines; without a key the work still runs and QA is reported as skipped. */
   private async qaSelection(owner: AudioOwner, warnings: string[]): Promise<Pick<Snapshot, 'selection' | 'model'>> {
     const selection = await this.store.selection(owner.userId);

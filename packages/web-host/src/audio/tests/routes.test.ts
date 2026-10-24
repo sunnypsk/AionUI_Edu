@@ -7,6 +7,8 @@ import { createAudioRuntime } from '../routes.js';
 import { agentTask } from '../types.js';
 import { signBrowserCapability } from '../../runtime/browser/types.js';
 import { AudioStore } from '../store.js';
+import { AudioManager } from '../manager.js';
+import { wav } from '../track/tests/wav.js';
 
 describe('audio settings authentication and CSRF', () => {
   let directory: string;
@@ -271,6 +273,53 @@ describe('audio settings authentication and CSRF', () => {
     expect(await (await request(capability, 'fixture-runtime-token')).json()).toMatchObject({
       error: { code: 'AUDIO_TASK_NOT_FOUND' },
     });
+  });
+  it('serves waveform peaks and short source ranges only to the conversation owner', async () => {
+    await runtime.close();
+    const decode = async (
+      _source: string,
+      destination: string,
+      _signal: AbortSignal,
+      window?: { start: number; end: number }
+    ) => writeFile(destination, wav(new Array(window ? 2400 : 24000).fill(100)));
+    runtime = await createAudioRuntime({
+      dataDir: directory,
+      manager: new AudioManager(directory, {
+        trackMedia: {
+          probe: async () => 30,
+          silence: async () => {},
+          tone: async () => {},
+          decode,
+          assemble: async () => {},
+        },
+      }),
+    });
+    runtime.setBackendPort((backend.address() as { port: number }).port);
+    await mkdir(path.join(directory, 'workspace', 'listening'));
+    await writeFile(path.join(directory, 'workspace', 'listening', 'unit.listening.json'), '{}');
+    await writeFile(path.join(directory, 'workspace', 'source.mp3'), 'mp3');
+    const get = (route: string, query: Record<string, string>, cookie = 'session=alice') =>
+      fetch(
+        `${url}/api/edu/audio/listening/${route}?${new URLSearchParams({
+          conversation_id: 'lesson',
+          path: 'listening/unit.listening.json',
+          source: 'source.mp3',
+          ...query,
+        })}`,
+        { headers: { cookie } }
+      );
+    const peaks = await get('peaks', {});
+    expect(peaks.status).toBe(200);
+    expect(peaks.headers.get('content-type')).toBe('application/octet-stream');
+    expect(Buffer.from(await peaks.arrayBuffer()).toString('latin1', 0, 4)).toBe('LPK1');
+    const range = await get('range', { start: '1', end: '1.1' });
+    expect(range.headers.get('content-type')).toBe('audio/wav');
+    expect(Buffer.from(await range.arrayBuffer()).toString('latin1', 0, 4)).toBe('RIFF');
+    expect(await (await get('range', { start: '0', end: '31' })).json()).toEqual({
+      error: { code: 'AUDIO_RANGE_INVALID' },
+    });
+    expect((await get('peaks', { path: 'notes.json' })).status).toBe(403);
+    expect((await get('peaks', {}, 'session=mallory')).status).toBe(401);
   });
   it('serves the listening editor with CSRF-protected saves and revision checks', async () => {
     await mkdir(path.join(directory, 'workspace', 'listening'));

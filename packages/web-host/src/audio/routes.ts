@@ -16,7 +16,16 @@ import {
   type AudioOwner,
   type AudioToolName,
 } from './types.js';
-import { AudioProjectError, readProjectState, saveProject, setQaAccepted } from './track/index.js';
+import {
+  AudioProjectError,
+  PROJECT_SUFFIX,
+  readProjectState,
+  saveProject,
+  setQaAccepted,
+  sourcePeaks,
+  sourceRange,
+} from './track/index.js';
+import { workspaceFile } from './providers/media.js';
 
 const listeningTarget = z.object({ conversation_id: z.string(), path: z.string().min(1).max(4096) });
 const record = (value: unknown): Record<string, unknown> =>
@@ -205,6 +214,49 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
     } else if (route !== '' || req.method !== 'GET') throw new Error('INVALID_REQUEST');
     return state();
   };
+  /** Binary preview media for the editor: waveform peaks and short decoded windows of a project's recordings. */
+  const listeningMedia = async (
+    res: ServerResponse,
+    url: URL,
+    userId: string,
+    headers: Record<string, string>
+  ): Promise<void> => {
+    const input = z
+      .object({ conversation_id: z.string(), path: z.string().min(1).max(4096), source: z.string().min(1).max(4096) })
+      .parse(Object.fromEntries(url.searchParams));
+    const context = await conversationOwner(userId, input.conversation_id, headers);
+    if (!input.path.endsWith(PROJECT_SUFFIX)) throw new Error('AUDIO_FILE_FORBIDDEN');
+    await workspaceFile(context.workspace, input.path);
+    const abort = new AbortController();
+    res.once('close', () => abort.abort());
+    let bytes: Buffer;
+    let type: string;
+    if (url.pathname.endsWith('/peaks')) {
+      bytes = await sourcePeaks(context.workspace, input.source, manager.previewMedia, abort.signal);
+      type = 'application/octet-stream';
+    } else {
+      const window = z
+        .object({ start: z.coerce.number().finite(), end: z.coerce.number().finite() })
+        .parse(Object.fromEntries(url.searchParams));
+      bytes = await sourceRange(
+        context.workspace,
+        input.source,
+        window.start,
+        window.end,
+        manager.previewMedia,
+        abort.signal
+      );
+      type = 'audio/wav';
+    }
+    if (res.destroyed || res.headersSent) return;
+    res.writeHead(200, {
+      'content-type': type,
+      'content-length': bytes.length,
+      'cache-control': 'private, max-age=3600',
+      'x-content-type-options': 'nosniff',
+    });
+    res.end(bytes);
+  };
   const failure = (res: ServerResponse, error: unknown): void => {
     const code = error instanceof z.ZodError ? 'INVALID_REQUEST' : audioError(error);
     send(
@@ -339,6 +391,11 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
           send(res, 200, { data: await manager.store.saveSettings(userId, value) });
         } else if (url.pathname === '/api/edu/audio/models' && req.method === 'GET')
           send(res, 200, { data: await manager.catalog.get(url.searchParams.get('refresh') === '1') });
+        else if (
+          req.method === 'GET' &&
+          ['/api/edu/audio/listening/peaks', '/api/edu/audio/listening/range'].includes(url.pathname)
+        )
+          await listeningMedia(res, url, userId, headers);
         else if (url.pathname.startsWith('/api/edu/audio/listening'))
           send(res, 200, { data: await listening(req, url, userId, headers) });
         else throw new Error('INVALID_REQUEST');
