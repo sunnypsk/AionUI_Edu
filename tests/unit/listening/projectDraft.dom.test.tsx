@@ -154,4 +154,62 @@ describe('useProjectDraft', () => {
     });
     expect(saves()).toHaveLength(1);
   });
+
+  it('keeps the draft base revision when a background poll finds an external edit', async () => {
+    const { result } = await mount();
+    act(() => result.current.edit(retitle('')));
+    transport.request.mockImplementation(async (method: string, path: string, body?: { revision: string }) => {
+      if (method === 'PUT') {
+        if (body?.revision === 'r1')
+          throw new BackendHttpError({
+            method,
+            path,
+            status: 409,
+            body: { error: { code: 'AUDIO_PROJECT_CONFLICT' } },
+          });
+        return state('r10', { ...project, title: 'Teacher' });
+      }
+      return state('r9', { ...project, title: 'Agent' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    act(() => result.current.edit(retitle('Teacher')));
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect(saves()[0][2]).toMatchObject({ revision: 'r1' });
+    expect(result.current.conflict).toBe(true);
+    expect(result.current.draft?.title).toBe('Teacher');
+  });
+
+  it('waits for an in-flight autosave before generating the saved revision', async () => {
+    const { result } = await mount();
+    const submitted = { ...project, title: 'Teacher' };
+    let release: () => void = () => {};
+    transport.request.mockImplementation(async (method: string, path: string) => {
+      if (method === 'PUT')
+        return new Promise((resolve) => {
+          release = () => resolve(state('r2', submitted));
+        });
+      if (String(path).endsWith('/segments/generate')) return { taskId: 'g1', state: state('r2', submitted) };
+      return state('r1');
+    });
+    act(() => result.current.edit(retitle('Teacher')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    });
+    let generation: Promise<string | undefined>;
+    act(() => {
+      generation = result.current.generate(['a']);
+    });
+    expect(saves()).toHaveLength(1);
+    await act(async () => {
+      release();
+      await generation;
+    });
+    expect(
+      transport.request.mock.calls.find(([, path]) => String(path).endsWith('/segments/generate'))?.[2]
+    ).toMatchObject({ revision: 'r2', segment_ids: ['a'] });
+  });
 });

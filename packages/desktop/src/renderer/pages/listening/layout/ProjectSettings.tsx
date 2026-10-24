@@ -1,5 +1,5 @@
 import React from 'react';
-import { Collapse, Select, Space } from '@arco-design/web-react';
+import { Collapse, InputNumber, Select, Space } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
 import { AUDIO_VOICES, type AudioVoice } from '@/common/types/platform/audioTools';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
@@ -50,6 +50,30 @@ export function ProjectSettings({
           }))}
           onChange={(rate: string) => onEdit((current) => ({ ...current, defaults: { ...current.defaults, rate } }))}
         />
+        {(['volume', 'pitch'] as const).map((field) => (
+          <InputNumber
+            key={field}
+            size='small'
+            className={styles.defaultSelect}
+            aria-label={t(`messages.listening.fields.${field}`)}
+            prefix={t(`messages.listening.fields.${field}`)}
+            suffix={field === 'pitch' ? 'Hz' : '%'}
+            step={5}
+            precision={0}
+            value={Number.parseFloat(project.defaults[field])}
+            disabled={disabled}
+            onChange={(value) => {
+              const next = value ?? 0;
+              onEdit((current) => ({
+                ...current,
+                defaults: {
+                  ...current.defaults,
+                  [field]: `${next >= 0 ? '+' : ''}${next}${field === 'pitch' ? 'Hz' : '%'}`,
+                },
+              }));
+            }}
+          />
+        ))}
       </Space>
       <Collapse activeKey={lexiconOpen} onChange={(_key, keys) => onLexiconOpen(keys)} bordered={false}>
         <Collapse.Item name='lexicon' header={t('messages.listening.lexicon.title', { count: project.lexicon.length })}>

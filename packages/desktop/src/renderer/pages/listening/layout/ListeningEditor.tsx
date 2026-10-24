@@ -18,8 +18,9 @@ import {
   splitClip,
 } from '@/renderer/pages/listening/editing/operations';
 import { useEditorShortcuts } from '@/renderer/pages/listening/editing/useEditorShortcuts';
-import { layoutTimeline, sequenceTrack } from '@/common/types/platform/listeningTimeline';
-import { stateDurations, Timeline } from '@/renderer/pages/listening/timeline/Timeline';
+import { PlaybackControls } from '@/renderer/pages/listening/playback/PlaybackControls';
+import { usePlayer } from '@/renderer/pages/listening/playback/usePlayer';
+import { Timeline } from '@/renderer/pages/listening/timeline/Timeline';
 import { useZoom } from '@/renderer/pages/listening/timeline/useZoom';
 import { useSelection, type ViewMode } from '@/renderer/pages/listening/editing/useSelection';
 import { ClipPicker } from '@/renderer/pages/listening/layout/ClipPicker';
@@ -28,12 +29,16 @@ import { ProjectSettings } from '@/renderer/pages/listening/layout/ProjectSettin
 import { TransportBar } from '@/renderer/pages/listening/layout/TransportBar';
 import { ScriptView } from '@/renderer/pages/listening/script/ScriptView';
 import { CapabilityBanner } from '@/renderer/pages/listening/panels/CapabilityBanner';
-import { RenderPanel, TaskIssues } from '@/renderer/pages/listening/panels/RenderPanel';
-import { StatusSummary } from '@/renderer/pages/listening/panels/StatusSummary';
+import { TaskIssues } from '@/renderer/pages/listening/panels/RenderPanel';
+import { ExportMenu } from '@/renderer/pages/listening/panels/ExportMenu';
 import {
   currentTrack,
   errorKey,
   latestTask,
+  isActive,
+  previewState,
+  generationStatus,
+  ungeneratedIds,
   readCapabilities,
   summarize,
 } from '@/renderer/pages/listening/data/status';
@@ -96,7 +101,11 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const capabilities = readCapabilities(reported);
   const [focus, setFocus] = useState<{ id: string; nonce: number }>();
   const jump = useCallback((id: string) => setFocus((previous) => ({ id, nonce: (previous?.nonce ?? 0) + 1 })), []);
-  const { state, draft: project, busy } = model;
+  const { state: savedState, draft: project, busy } = model;
+  const state = useMemo(
+    () => (project && savedState ? previewState(project, savedState) : savedState),
+    [project, savedState]
+  );
   const rendering = !!state?.tasks.some(
     (task) => task.kind === 'track' && (task.status === 'queued' || task.status === 'running')
   );
@@ -106,15 +115,9 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const [view, setView] = useState<ViewMode>('script');
   const [picking, setPicking] = useState(false);
   const zoom = useZoom();
-  const [playhead, setPlayhead] = useState(0);
-  const timeline = useMemo(
-    () => (project && state ? layoutTimeline(sequenceTrack(project), project, stateDurations(state)) : undefined),
-    [project, state]
-  );
-  const seek = useCallback(
-    (seconds: number) => setPlayhead(Math.max(0, Math.min(seconds, timeline?.durationSeconds ?? 0))),
-    [timeline]
-  );
+  const player = usePlayer(project, state, target, workspace);
+  const playhead = player.time;
+  const seek = player.seek;
   const issueIds = Object.entries(state?.segments ?? {})
     .filter(([, segment]) => segment.qa && segment.qa.similarity < (state?.qaThreshold ?? 1) && !segment.qa.accepted)
     .map(([id]) => id);
@@ -124,6 +127,12 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const ttsUnavailable =
     capabilities && !capabilities.tts.available ? (capabilities.tts.reason ?? 'AUDIO_UNAVAILABLE') : undefined;
   const renderUnavailable = capabilities ? !capabilities.render.available : false;
+  const generationTask = state?.tasks.find((task) => task.kind === 'segments' && isActive(task));
+  const missingIds = project && state ? ungeneratedIds(project, state) : [];
+  const generationStates = useMemo(
+    () => (state ? generationStatus(state) : new Map<string, 'running' | 'failed'>()),
+    [state]
+  );
 
   const guarded = async (action: () => Promise<unknown>): Promise<void> => {
     const invalid = project && invalidClip(project);
@@ -166,9 +175,26 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
       },
     });
   };
-  /** Insert after the selected segment, or at the end of the first section when nothing is selected. */
+  /** Section and index at the segment boundary nearest the playhead (repeats count as the first play). */
+  const playheadSlot = (): { sectionId: string; index: number } | undefined => {
+    const entry =
+      player.entries.find((item) => playhead >= item.start && playhead < item.end) ??
+      (playhead >= player.duration ? player.entries.at(-1) : undefined);
+    if (!entry || !project) return undefined;
+    const section = project.sections.find((item) => item.id === entry.sectionId)!;
+    if (!entry.segmentId) return { sectionId: section.id, index: section.segments.length };
+    const position = section.segments.findIndex((s) => s.id === entry.segmentId);
+    return { sectionId: section.id, index: position + (playhead > (entry.start + entry.end) / 2 ? 1 : 0) };
+  };
+  /** Insert after the selection; in the timeline with nothing selected, at the playhead. */
   const insertAtSelection = (segment: ListeningSegment) => {
     if (!project) return;
+    const slot = selection.kind === 'none' && view === 'timeline' ? playheadSlot() : undefined;
+    if (slot) {
+      model.edit((current) => insertSegment(current, slot.sectionId, slot.index, segment));
+      select({ kind: 'segments', sectionId: slot.sectionId, ids: [segment.id] });
+      return;
+    }
     const anchorId =
       selection.kind === 'segments'
         ? selection.ids[selection.ids.length - 1]
@@ -185,9 +211,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   };
   /** Split the clip under the playhead at the matching source time. */
   const split = () => {
-    const entry = timeline?.entries.find(
-      (item) => item.type === 'clip' && playhead >= item.start && playhead < item.end
-    );
+    const entry = player.entries.find((item) => item.type === 'clip' && playhead >= item.start && playhead < item.end);
     if (!entry?.segmentId || !project) return;
     const clip = project.sections.flatMap((section) => section.segments).find((s) => s.id === entry.segmentId);
     if (clip?.type === 'clip')
@@ -199,12 +223,12 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     else if (selection.kind === 'segments') model.edit((current) => removeSegments(current, selection.ids));
   };
   useEditorShortcuts({
-    togglePlay: () => {},
+    togglePlay: player.toggle,
     split,
     remove,
     undo: model.undo,
     redo: model.redo,
-    nudge: (seconds) => seek(playhead + seconds),
+    nudge: player.nudge,
     saveNow: () => void model.flush(),
   });
   const insert = (type: NewSegmentType) => {
@@ -216,6 +240,14 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     fileUrl,
     cacheDirectory: CACHE_DIRECTORY,
     onAddLexicon: () => addLexicon(),
+    generation: {
+      status: generationStates,
+      disabled: disabled || !!generationTask,
+      unavailable: ttsUnavailable,
+      onGenerate: (id: string): void => {
+        void guarded(() => model.generate([id]));
+      },
+    },
     replacement: {
       tasks: state?.tasks ?? [],
       revision: state?.revision ?? '',
@@ -251,6 +283,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
           onTitleChange={(title) => model.edit((current) => ({ ...current, title }))}
           onBack={onBack ? () => void close() : undefined}
         >
+          <span className={styles.saveState}>{t('messages.listening.player.loudnessNote')}</span>
           <span className={styles.saveState} role='status'>
             {t(`messages.listening.save.${model.saveState}`)}
           </span>
@@ -271,11 +304,49 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
           </Button>
           <Button
             type='primary'
-            disabled={!project || disabled || rendering || renderUnavailable}
-            onClick={() => void guarded(() => model.render())}
+            loading={!!generationTask}
+            disabled={!project || disabled || !missingIds.length || !!generationTask || !!ttsUnavailable}
+            onClick={() => void guarded(() => model.generate(missingIds))}
           >
-            {t('messages.listening.actions.render')}
+            {t('messages.listening.generate.all', { count: missingIds.length })}
           </Button>
+          {generationTask && (
+            <Button size='small' status='danger' onClick={() => void model.cancel(generationTask.id)}>
+              {t('messages.listening.generate.stop')}
+            </Button>
+          )}
+          {state && project && (
+            <ExportMenu
+              summary={summarize(project, state)}
+              state={state}
+              dirty={model.dirty}
+              current={current}
+              hasOlderTrack={state.tasks.some(
+                (task) => task.kind === 'track' && task.status === 'completed' && !task.previewSections?.length
+              )}
+              disabled={disabled}
+              renderDisabled={disabled || rendering || renderUnavailable}
+              onRender={() => void guarded(() => model.render())}
+              openIssues={openIssues}
+              firstIssue={issueIds[0]}
+              fileUrl={fileUrl}
+              onJump={(id) => {
+                const section = project.sections.find((item) => item.segments.some((segment) => segment.id === id));
+                if (section) selectSegment(section.id, id, false);
+                jump(id);
+              }}
+              onAcceptQa={(id, accepted) => void model.acceptQa(id, accepted)}
+              onBundle={async () => {
+                let id: string | undefined;
+                await guarded(async () => {
+                  id = await model.bundle();
+                });
+                return id;
+              }}
+              onCancel={(id) => void model.cancel(id)}
+              onDownload={download}
+            />
+          )}
         </TopBar>
         {model.loadError ? (
           <Alert
@@ -318,25 +389,6 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                 }
               />
             )}
-            <StatusSummary
-              summary={summarize(project, state)}
-              state={state}
-              dirty={model.dirty}
-              current={current}
-              hasOlderTrack={state.tasks.some(
-                (task) => task.kind === 'track' && task.status === 'completed' && !task.previewSections?.length
-              )}
-              disabled={disabled}
-              onBundle={async () => {
-                let taskId: string | undefined;
-                await guarded(async () => {
-                  taskId = await model.bundle();
-                });
-                return taskId;
-              }}
-              onCancel={(taskId) => void model.cancel(taskId)}
-              onDownload={download}
-            />
             {analysis?.issues?.length ? (
               <Alert
                 type='warning'
@@ -349,16 +401,6 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                 }
               />
             ) : null}
-            <RenderPanel
-              tasks={state.tasks}
-              current={current}
-              openIssues={openIssues}
-              firstIssue={issueIds[0]}
-              fileUrl={fileUrl}
-              disabled={disabled}
-              onCancel={(taskId) => void model.cancel(taskId)}
-              onJump={jump}
-            />
             <Radio.Group
               type='button'
               size='small'
@@ -394,6 +436,8 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                     disabled={disabled}
                     pxPerSec={zoom.pxPerSec}
                     playhead={playhead}
+                    flashing={player.flashing}
+                    generation={rowContext.generation}
                     onSeek={seek}
                     onWheel={zoom.onWheel}
                     onSelect={select}
@@ -441,7 +485,9 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
               onInsert={insert}
               onSplit={split}
               zoom={view === 'timeline' ? zoom : undefined}
-            />
+            >
+              <PlaybackControls player={player} />
+            </TransportBar>
             {conversation && (
               <ClipPicker
                 visible={picking}

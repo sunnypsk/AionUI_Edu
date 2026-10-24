@@ -189,6 +189,22 @@ describe('editor layout and selection', () => {
     vi.unstubAllGlobals();
   });
 
+  it('inserts at the playhead in the timeline when nothing is selected', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false }))
+    );
+    await show();
+    fireEvent.click(screen.getByText('messages.listening.view.timeline'));
+    // '第一句' and '第二句' are estimated at 0.66 s each (26.4 px at 40 px/s); seek into the second line's later half.
+    fireEvent.mouseDown(document.querySelector('[class*="ruler"]')!, { clientX: 48 });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.insert.pause' }));
+    fireEvent.click(screen.getByText('messages.listening.view.script'));
+    expect(order().slice(0, 2)).toEqual(['a', 'b']);
+    expect(order()[2]).toMatch(/^pause-/);
+    vi.unstubAllGlobals();
+  });
+
   it('inserts at the end of the first section when nothing is selected', async () => {
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.insert.chime' }));

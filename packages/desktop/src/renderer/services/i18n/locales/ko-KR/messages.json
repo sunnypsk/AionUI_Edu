@@ -230,7 +230,11 @@
       "voice": "음성",
       "voiceDefault": "기본 음성",
       "clipPath": "녹음 파일 (작업 공간 경로)",
-      "internalNote": "내부 메모(음성에 영향 없음)"
+      "internalNote": "내부 메모(음성에 영향 없음)",
+      "volume": "음량",
+      "pitch": "음높이",
+      "voiceSettings": "음성 설정",
+      "prosodyDefault": "프로젝트 기본값"
     },
     "lexicon": {
       "add": "수정 추가",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "오디오를 불러올 수 없습니다.",
       "pause": "일시 정지",
-      "play": "재생"
+      "play": "재생",
+      "prevSection": "이전 구간",
+      "nextSection": "다음 구간",
+      "buffering": "버퍼링 중…",
+      "loudnessNote": "미리 듣기 음량은 최종 MP3와 다를 수 있습니다.",
+      "sourceError": "일부 오디오를 불러올 수 없어 해당 부분은 무음으로 재생됩니다."
     },
     "qa": {
       "accept": "맞음",
@@ -393,7 +402,9 @@
       "render": "오디오 제작 사용 불가",
       "noKey": "자동 전사가 꺼져 있습니다(Vercel 키 없음). 원본 오디오 유지, 직접 지정·바꾸기, MP3 만들기는 계속 할 수 있습니다.",
       "openSettings": "설정 열기",
-      "transcriptionUnavailable": "지금은 자동 전사를 사용할 수 없습니다."
+      "transcriptionUnavailable": "지금은 자동 전사를 사용할 수 없습니다.",
+      "show": "도구 상태 표시",
+      "hide": "도구 상태 숨기기"
     },
     "analysis": {
       "blockedTitle": "일부를 전사하지 못했습니다",
@@ -443,6 +454,18 @@
       "split": "자르기",
       "zoom": "확대/축소",
       "notGenerated": "생성 안 됨"
+    },
+    "generate": {
+      "one": "생성",
+      "all": "모두 생성 ({{count}})",
+      "retry": "재시도",
+      "running": "생성 중…",
+      "stop": "생성 중지"
+    },
+    "export": {
+      "title": "내보내기",
+      "qa": "발음 검토",
+      "noQaIssues": "표시된 발음 문제가 없습니다. 미생성 또는 미확인 문장은 들어서 확인해야 합니다."
     }
   }
 }

@@ -230,7 +230,11 @@
       "voice": "聲線",
       "voiceDefault": "預設聲線",
       "clipPath": "錄音檔案（工作區路徑）",
-      "internalNote": "內部備註（不影響聲音）"
+      "internalNote": "內部備註（不影響聲音）",
+      "volume": "音量",
+      "pitch": "音調",
+      "voiceSettings": "語音設定",
+      "prosodyDefault": "沿用項目預設"
     },
     "lexicon": {
       "add": "新增修正",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "無法載入音訊。",
       "pause": "暫停",
-      "play": "播放"
+      "play": "播放",
+      "prevSection": "上一節",
+      "nextSection": "下一節",
+      "buffering": "載入音訊中…",
+      "loudnessNote": "試播音量可能與最終 MP3 不同。",
+      "sourceError": "部分音訊無法載入，該部分會以靜音代替。"
     },
     "qa": {
       "accept": "讀音正確",
@@ -393,7 +402,9 @@
       "render": "音檔製作未能使用",
       "noKey": "未開啟自動轉錄（未設定 Vercel key）。你仍可保留原音、手動標記及替換，並製作 MP3。",
       "openSettings": "開啟設定",
-      "transcriptionUnavailable": "自動轉錄暫時未能使用。"
+      "transcriptionUnavailable": "自動轉錄暫時未能使用。",
+      "show": "顯示工具狀態",
+      "hide": "收起工具狀態"
     },
     "analysis": {
       "blockedTitle": "部分內容未能轉錄",
@@ -443,6 +454,18 @@
       "split": "切開",
       "zoom": "縮放",
       "notGenerated": "未生成"
+    },
+    "generate": {
+      "one": "生成",
+      "all": "生成全部（{{count}}）",
+      "retry": "重試",
+      "running": "生成中…",
+      "stop": "停止生成"
+    },
+    "export": {
+      "title": "匯出",
+      "qa": "讀音檢查",
+      "noQaIssues": "目前沒有標記為誤讀的句子。未生成或未檢查的句子仍需試聽。"
     }
   }
 }

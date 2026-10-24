@@ -230,7 +230,11 @@
       "voice": "Ses",
       "voiceDefault": "Varsayılan ses",
       "clipPath": "Kayıt dosyası (çalışma alanı yolu)",
-      "internalNote": "Dahili not (seslendirilmez)"
+      "internalNote": "Dahili not (seslendirilmez)",
+      "volume": "Ses düzeyi",
+      "pitch": "Perde",
+      "voiceSettings": "Ses ayarları",
+      "prosodyDefault": "Proje varsayılanı"
     },
     "lexicon": {
       "add": "Düzeltme ekle",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "Ses yüklenemedi.",
       "pause": "Duraklat",
-      "play": "Oynat"
+      "play": "Oynat",
+      "prevSection": "Önceki bölüm",
+      "nextSection": "Sonraki bölüm",
+      "buffering": "Ses yükleniyor…",
+      "loudnessNote": "Önizleme ses düzeyi son MP3 dosyasından farklı olabilir.",
+      "sourceError": "Bazı sesler yüklenemedi; bu bölümler sessiz çalınacak."
     },
     "qa": {
       "accept": "Doğru",
@@ -393,7 +402,9 @@
       "render": "Ses oluşturma kullanılamıyor",
       "noKey": "Otomatik döküm kapalı (Vercel anahtarı yok). Yine de orijinal sesi koruyabilir, bölümleri elle işaretleyip değiştirebilir ve MP3 oluşturabilirsiniz.",
       "openSettings": "Ayarları aç",
-      "transcriptionUnavailable": "Otomatik döküm kullanılamıyor."
+      "transcriptionUnavailable": "Otomatik döküm kullanılamıyor.",
+      "show": "Araç durumunu göster",
+      "hide": "Araç durumunu gizle"
     },
     "analysis": {
       "blockedTitle": "Bazı bölümlerin dökümü yapılamadı",
@@ -443,6 +454,18 @@
       "split": "Böl",
       "zoom": "Yakınlaştır",
       "notGenerated": "Oluşturulmadı"
+    },
+    "generate": {
+      "one": "Oluştur",
+      "all": "Tümünü oluştur ({{count}})",
+      "retry": "Yeniden dene",
+      "running": "Oluşturuluyor…",
+      "stop": "Oluşturmayı durdur"
+    },
+    "export": {
+      "title": "Dışa aktar",
+      "qa": "Telaffuz incelemesi",
+      "noQaIssues": "İşaretlenmiş satır yok. Oluşturulmamış veya denetlenmemiş satırlar yine de dinlenmelidir."
     }
   }
 }

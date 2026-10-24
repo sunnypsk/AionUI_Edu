@@ -230,7 +230,11 @@
       "voice": "Stimme",
       "voiceDefault": "Standardstimme",
       "clipPath": "Aufnahmedatei (Pfad im Arbeitsbereich)",
-      "internalNote": "Interne Notiz (wird nicht gesprochen)"
+      "internalNote": "Interne Notiz (wird nicht gesprochen)",
+      "volume": "Lautstärke",
+      "pitch": "Tonhöhe",
+      "voiceSettings": "Stimmeinstellungen",
+      "prosodyDefault": "Projektstandard"
     },
     "lexicon": {
       "add": "Korrektur hinzufügen",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "Audio konnte nicht geladen werden.",
       "pause": "Pause",
-      "play": "Abspielen"
+      "play": "Abspielen",
+      "prevSection": "Vorheriger Abschnitt",
+      "nextSection": "Nächster Abschnitt",
+      "buffering": "Wird geladen…",
+      "loudnessNote": "Die Lautstärke der Vorschau kann von der fertigen MP3 abweichen.",
+      "sourceError": "Einige Audiodaten konnten nicht geladen werden. Diese Teile bleiben stumm."
     },
     "qa": {
       "accept": "Klingt richtig",
@@ -393,7 +402,9 @@
       "render": "Audioerstellung nicht verfügbar",
       "noKey": "Automatische Transkription ist aus (kein Vercel-Schlüssel). Sie können das Originalaudio trotzdem behalten, Teile von Hand markieren und ersetzen und die MP3 erstellen.",
       "openSettings": "Einstellungen öffnen",
-      "transcriptionUnavailable": "Automatische Transkription ist nicht verfügbar."
+      "transcriptionUnavailable": "Automatische Transkription ist nicht verfügbar.",
+      "show": "Werkzeugstatus anzeigen",
+      "hide": "Werkzeugstatus ausblenden"
     },
     "analysis": {
       "blockedTitle": "Einige Teile konnten nicht transkribiert werden",
@@ -443,6 +454,18 @@
       "split": "Teilen",
       "zoom": "Zoom",
       "notGenerated": "Nicht erzeugt"
+    },
+    "generate": {
+      "one": "Erzeugen",
+      "all": "Alle erzeugen ({{count}})",
+      "retry": "Erneut versuchen",
+      "running": "Wird erzeugt…",
+      "stop": "Erzeugung stoppen"
+    },
+    "export": {
+      "title": "Exportieren",
+      "qa": "Aussprache prüfen",
+      "noQaIssues": "Keine markierten Aussprachefehler. Noch nicht erzeugte oder geprüfte Zeilen müssen angehört werden."
     }
   }
 }

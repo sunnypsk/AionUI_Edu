@@ -97,6 +97,10 @@ const showEditor = (path: string) =>
       <ListeningEditor path={path} />
     </SWRConfig>
   );
+const openExport = async () => {
+  fireEvent.click(await screen.findByRole('button', { name: 'messages.listening.export.title' }));
+  return screen.findByRole('region', { name: 'messages.listening.export.title' });
+};
 describe('official OpenUI renderer integration', () => {
   it('traps modal keyboard focus and returns to the opening button on Escape', async () => {
     const modal =
@@ -735,6 +739,7 @@ describe('listening track files', () => {
 
   it('opens the project editor with sections, segment preview, latest track and QA hints', async () => {
     await open();
+    await openExport();
     expect(calls('GET')[0][1]).toBe(
       '/api/edu/audio/listening?conversation_id=conversation&path=listening%2Funit.listening.json'
     );
@@ -743,8 +748,8 @@ describe('listening track files', () => {
     expect(screen.getByText('messages.listening.qa.heard')).toBeTruthy();
     expect(screen.getByText('messages.listening.status.completed')).toBeTruthy();
     expect(screen.getByText('messages.listening.qa.issues')).toBeTruthy();
-    // One player for the latest track and one for the cached line.
-    expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(2);
+    // Live timeline preview, latest rendered track, and the cached line.
+    expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(3);
   });
 
   it('jumps from the QA summary to the misread line inside a collapsed section', async () => {
@@ -760,9 +765,10 @@ describe('listening track files', () => {
         : {}
     );
     showEditor('listening/unit.listening.json');
+    const exported = await openExport();
     await screen.findByText('messages.listening.qa.issues');
     expect(screen.queryByDisplayValue('請問銀行在哪裏？')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.jump' }));
+    fireEvent.click(within(exported).getAllByRole('button', { name: 'messages.listening.actions.jump' })[0]);
     expect(await screen.findByDisplayValue('請問銀行在哪裏？')).toBeTruthy();
   });
 
@@ -843,6 +849,7 @@ describe('listening track files', () => {
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.qa.accept' }));
     await waitFor(() => expect(calls('POST', '/qa')).toHaveLength(1));
     expect(calls('POST', '/qa')[0][2]).toMatchObject({ segment_id: 'a1', accepted: true });
+    await openExport();
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.render' }));
     await waitFor(() => expect(calls('POST', '/render')).toHaveLength(1));
     expect(calls('PUT')).toHaveLength(0);
@@ -857,6 +864,7 @@ describe('listening track files', () => {
       String(path).startsWith('/api/edu/audio/listening') ? state({ tasks: [running, completed] }) : {}
     );
     await open();
+    await openExport();
     expect(screen.getByText(/messages\.listening\.status\.running/)).toHaveTextContent(
       'messages.listening.status.byAssistant'
     );
@@ -1048,6 +1056,7 @@ describe('listening drafts from original recordings', () => {
     );
   const open = async () => {
     showEditor('audio/a1/reference.listening.json');
+    await openExport();
     return screen.findByRole('region', { name: 'messages.listening.summary.title' });
   };
   const expandFirstClip = async () => {

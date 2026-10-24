@@ -1,5 +1,5 @@
 /** Authored-order timeline geometry: each segment once, plus a summary of repeated plays. */
-import type { ListeningProject, ListeningSegment } from '@/common/types/platform/listeningProject';
+import type { ListeningProject, ListeningSegment, ListeningState } from '@/common/types/platform/listeningProject';
 import {
   CHIME_SECONDS,
   estimateSpeechSeconds,
@@ -95,3 +95,9 @@ export function authoredToTime(x: number, entries: LaidOutEntry[], blocks: Timel
   else entry = entries.find((item, index) => item.sectionId === block.sectionId && isAfterGap(entries, index));
   return entry ? entry.start + offset : 0;
 }
+
+/** Generated line lengths from the editor state; everything else uses its own length or an estimate. */
+export const stateDurations =
+  (state: ListeningState): DurationLookup =>
+  (segment) =>
+    segment.type === 'speech' ? state.segments[segment.id]?.duration : undefined;

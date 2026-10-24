@@ -230,7 +230,11 @@
       "voice": "声音",
       "voiceDefault": "默认声音",
       "clipPath": "录音文件（工作区路径）",
-      "internalNote": "内部备注（不影响声音）"
+      "internalNote": "内部备注（不影响声音）",
+      "volume": "音量",
+      "pitch": "音调",
+      "voiceSettings": "语音设置",
+      "prosodyDefault": "沿用项目默认"
     },
     "lexicon": {
       "add": "添加修正",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "无法加载音频。",
       "pause": "暂停",
-      "play": "播放"
+      "play": "播放",
+      "prevSection": "上一节",
+      "nextSection": "下一节",
+      "buffering": "正在加载音频…",
+      "loudnessNote": "试听音量可能与最终 MP3 不同。",
+      "sourceError": "部分音频无法加载，该部分将以静音代替。"
     },
     "qa": {
       "accept": "读音正确",
@@ -393,7 +402,9 @@
       "render": "音频制作无法使用",
       "noKey": "未开启自动转录（未设置 Vercel key）。你仍可保留原音、手动标记及替换，并制作 MP3。",
       "openSettings": "打开设置",
-      "transcriptionUnavailable": "自动转录暂时无法使用。"
+      "transcriptionUnavailable": "自动转录暂时无法使用。",
+      "show": "显示工具状态",
+      "hide": "收起工具状态"
     },
     "analysis": {
       "blockedTitle": "部分内容未能转录",
@@ -443,6 +454,18 @@
       "split": "切开",
       "zoom": "缩放",
       "notGenerated": "未生成"
+    },
+    "generate": {
+      "one": "生成",
+      "all": "生成全部（{{count}}）",
+      "retry": "重试",
+      "running": "生成中…",
+      "stop": "停止生成"
+    },
+    "export": {
+      "title": "导出",
+      "qa": "读音检查",
+      "noQaIssues": "当前没有标记为误读的句子。未生成或未检查的句子仍需试听。"
     }
   }
 }

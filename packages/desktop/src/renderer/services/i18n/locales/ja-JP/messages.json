@@ -230,7 +230,11 @@
       "voice": "声",
       "voiceDefault": "既定の声",
       "clipPath": "録音ファイル（ワークスペース内のパス）",
-      "internalNote": "内部メモ（音声には影響しません）"
+      "internalNote": "内部メモ（音声には影響しません）",
+      "volume": "音量",
+      "pitch": "ピッチ",
+      "voiceSettings": "音声設定",
+      "prosodyDefault": "プロジェクトの既定値"
     },
     "lexicon": {
       "add": "修正を追加",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "音声を読み込めませんでした。",
       "pause": "一時停止",
-      "play": "再生"
+      "play": "再生",
+      "prevSection": "前のセクション",
+      "nextSection": "次のセクション",
+      "buffering": "読み込み中…",
+      "loudnessNote": "プレビューの音量は最終 MP3 と異なる場合があります。",
+      "sourceError": "一部の音声を読み込めませんでした。その部分は無音になります。"
     },
     "qa": {
       "accept": "正しい",
@@ -393,7 +402,9 @@
       "render": "音声の作成を利用できません",
       "noKey": "自動文字起こしはオフです（Vercel キー未設定）。元の音声の保持、手動での指定と置き換え、MP3 の作成は引き続き行えます。",
       "openSettings": "設定を開く",
-      "transcriptionUnavailable": "自動文字起こしは現在利用できません。"
+      "transcriptionUnavailable": "自動文字起こしは現在利用できません。",
+      "show": "ツールの状態を表示",
+      "hide": "ツールの状態を隠す"
     },
     "analysis": {
       "blockedTitle": "一部を文字起こしできませんでした",
@@ -443,6 +454,18 @@
       "split": "分割",
       "zoom": "ズーム",
       "notGenerated": "未生成"
+    },
+    "generate": {
+      "one": "生成",
+      "all": "すべて生成（{{count}}）",
+      "retry": "再試行",
+      "running": "生成中…",
+      "stop": "生成を停止"
+    },
+    "export": {
+      "title": "書き出し",
+      "qa": "発音の確認",
+      "noQaIssues": "要確認の発音はありません。未生成・未確認の行は試聴が必要です。"
     }
   }
 }

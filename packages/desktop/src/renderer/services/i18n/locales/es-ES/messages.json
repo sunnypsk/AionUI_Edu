@@ -230,7 +230,11 @@
       "voice": "Voz",
       "voiceDefault": "Voz predeterminada",
       "clipPath": "Archivo de grabación (ruta del espacio de trabajo)",
-      "internalNote": "Nota interna (no se lee)"
+      "internalNote": "Nota interna (no se lee)",
+      "volume": "Volumen",
+      "pitch": "Tono",
+      "voiceSettings": "Ajustes de voz",
+      "prosodyDefault": "Valor del proyecto"
     },
     "lexicon": {
       "add": "Añadir corrección",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "No se pudo cargar el audio.",
       "pause": "Pausa",
-      "play": "Reproducir"
+      "play": "Reproducir",
+      "prevSection": "Sección anterior",
+      "nextSection": "Sección siguiente",
+      "buffering": "Cargando audio…",
+      "loudnessNote": "El volumen de la vista previa puede diferir del MP3 final.",
+      "sourceError": "No se pudo cargar parte del audio; esa parte se reproducirá en silencio."
     },
     "qa": {
       "accept": "Suena bien",
@@ -393,7 +402,9 @@
       "render": "Creación de audio no disponible",
       "noKey": "La transcripción automática está desactivada (sin clave de Vercel). Aun así puedes conservar el audio original, marcar y reemplazar partes a mano y crear el MP3.",
       "openSettings": "Abrir ajustes",
-      "transcriptionUnavailable": "La transcripción automática no está disponible."
+      "transcriptionUnavailable": "La transcripción automática no está disponible.",
+      "show": "Mostrar estado de las herramientas",
+      "hide": "Ocultar estado de las herramientas"
     },
     "analysis": {
       "blockedTitle": "Algunas partes no se pudieron transcribir",
@@ -443,6 +454,18 @@
       "split": "Dividir",
       "zoom": "Zoom",
       "notGenerated": "Sin generar"
+    },
+    "generate": {
+      "one": "Generar",
+      "all": "Generar todo ({{count}})",
+      "retry": "Reintentar",
+      "running": "Generando…",
+      "stop": "Detener generación"
+    },
+    "export": {
+      "title": "Exportar",
+      "qa": "Revisión de pronunciación",
+      "noQaIssues": "No hay líneas marcadas para revisar. Las líneas sin generar o verificar aún deben escucharse."
     }
   }
 }

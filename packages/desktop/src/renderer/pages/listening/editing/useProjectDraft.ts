@@ -67,7 +67,9 @@ export function useProjectDraft(
     setInvalid(false);
     setSaving(true);
     try {
-      return await current.save();
+      const saved = await current.save();
+      setInvalid(!saved);
+      return saved;
     } finally {
       setSaving(false);
     }

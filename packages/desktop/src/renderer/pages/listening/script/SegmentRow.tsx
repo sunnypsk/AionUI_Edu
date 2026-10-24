@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Button, Input, InputNumber, Select, Space, Tag, Tooltip } from '@arco-design/web-react';
+import { Button, Collapse, Input, InputNumber, Select, Space, Tag, Tooltip } from '@arco-design/web-react';
 import { ArrowDown, ArrowUp, Delete } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { AUDIO_VOICES } from '@/common/types/platform/audioTools';
@@ -7,6 +7,7 @@ import type { ListeningSegment, ListeningSegmentState } from '@/common/types/pla
 import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
 import type { ReplacementContext } from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
 import { formatTimestamp } from '@/renderer/pages/listening/data/status';
+import { GenerateButton, type GenerationContext } from '@/renderer/pages/listening/panels/GenerateButton';
 import { ClipRow } from './ClipRow';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
@@ -26,6 +27,7 @@ export type SegmentRowProps = {
   onAcceptQa: (accepted: boolean) => void;
   onAddLexicon: () => void;
   replacement: ReplacementContext;
+  generation?: GenerationContext;
   /** Segment to expand and scroll to. */
   focusedId?: string;
 };
@@ -108,6 +110,37 @@ function SegmentFields({ segment, disabled, onChange }: Pick<SegmentRowProps, 's
           autoSize={{ minRows: 1, maxRows: 8 }}
           onChange={(value) => onChange({ ...segment, text: value })}
         />
+        <Collapse bordered={false} className={styles.advanced}>
+          <Collapse.Item name='prosody' header={t('messages.listening.fields.voiceSettings')}>
+            <Space size={8} wrap>
+              {(['rate', 'volume', 'pitch'] as const).map((field) => (
+                <InputNumber
+                  key={field}
+                  size='small'
+                  className={styles.secondsInput}
+                  aria-label={t(
+                    field === 'rate' ? 'messages.listening.fields.defaultRate' : `messages.listening.fields.${field}`
+                  )}
+                  placeholder={t('messages.listening.fields.prosodyDefault')}
+                  suffix={field === 'pitch' ? 'Hz' : '%'}
+                  step={5}
+                  precision={0}
+                  disabled={disabled}
+                  value={segment[field] === undefined ? undefined : Number.parseFloat(segment[field])}
+                  onChange={(value) =>
+                    onChange({
+                      ...segment,
+                      [field]:
+                        value === undefined
+                          ? undefined
+                          : `${value >= 0 ? '+' : ''}${value}${field === 'pitch' ? 'Hz' : '%'}`,
+                    })
+                  }
+                />
+              ))}
+            </Space>
+          </Collapse.Item>
+        </Collapse>
       </div>
     );
   if (segment.type === 'pause')
@@ -194,6 +227,9 @@ export function SegmentRow(props: SegmentRowProps): React.ReactElement {
         <QaStatus {...props} />
       </div>
       <div className={styles.segmentActions}>
+        {segment.type === 'speech' && (
+          <GenerateButton id={segment.id} generated={!!state?.cached} context={props.generation} />
+        )}
         {url && <AudioPlayer url={url} compact />}
         <Button
           size='mini'

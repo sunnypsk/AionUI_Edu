@@ -230,7 +230,11 @@
       "voice": "Voix",
       "voiceDefault": "Voix par défaut",
       "clipPath": "Fichier audio (chemin dans l’espace de travail)",
-      "internalNote": "Note interne (non lue)"
+      "internalNote": "Note interne (non lue)",
+      "volume": "Volume",
+      "pitch": "Hauteur",
+      "voiceSettings": "Réglages de la voix",
+      "prosodyDefault": "Valeur du projet"
     },
     "lexicon": {
       "add": "Ajouter une correction",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "L'audio n'a pas pu être chargé.",
       "pause": "Pause",
-      "play": "Lire"
+      "play": "Lire",
+      "prevSection": "Section précédente",
+      "nextSection": "Section suivante",
+      "buffering": "Chargement audio…",
+      "loudnessNote": "Le volume de l’aperçu peut différer du MP3 final.",
+      "sourceError": "Certains sons n’ont pas pu être chargés ; ces passages seront silencieux."
     },
     "qa": {
       "accept": "Correct",
@@ -393,7 +402,9 @@
       "render": "Création audio indisponible",
       "noKey": "La transcription automatique est désactivée (pas de clé Vercel). Vous pouvez toujours conserver l’audio original, marquer et remplacer des parties à la main et créer le MP3.",
       "openSettings": "Ouvrir les paramètres",
-      "transcriptionUnavailable": "La transcription automatique est indisponible."
+      "transcriptionUnavailable": "La transcription automatique est indisponible.",
+      "show": "Afficher l’état des outils",
+      "hide": "Masquer l’état des outils"
     },
     "analysis": {
       "blockedTitle": "Certaines parties n’ont pas pu être transcrites",
@@ -443,6 +454,18 @@
       "split": "Couper",
       "zoom": "Zoom",
       "notGenerated": "Non généré"
+    },
+    "generate": {
+      "one": "Générer",
+      "all": "Tout générer ({{count}})",
+      "retry": "Réessayer",
+      "running": "Génération…",
+      "stop": "Arrêter la génération"
+    },
+    "export": {
+      "title": "Exporter",
+      "qa": "Vérification de la prononciation",
+      "noQaIssues": "Aucune ligne signalée. Les lignes non générées ou non vérifiées doivent encore être écoutées."
     }
   }
 }

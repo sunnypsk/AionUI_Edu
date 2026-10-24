@@ -230,7 +230,11 @@
       "voice": "Voice",
       "voiceDefault": "Default voice",
       "clipPath": "Recording file (workspace path)",
-      "internalNote": "Internal note (not spoken)"
+      "internalNote": "Internal note (not spoken)",
+      "volume": "Volume",
+      "pitch": "Pitch",
+      "voiceSettings": "Voice settings",
+      "prosodyDefault": "Project default"
     },
     "lexicon": {
       "add": "Add fix",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "Audio could not be loaded.",
       "pause": "Pause",
-      "play": "Play"
+      "play": "Play",
+      "prevSection": "Previous section",
+      "nextSection": "Next section",
+      "buffering": "Buffering…",
+      "loudnessNote": "Preview loudness may differ from the final MP3.",
+      "sourceError": "Some audio could not be loaded; that part plays as silence."
     },
     "qa": {
       "accept": "Sounds right",
@@ -393,7 +402,9 @@
       "render": "Audio rendering unavailable",
       "noKey": "Automatic transcription is off (no Vercel key). You can still keep the original audio, mark and replace parts by hand, and make the MP3.",
       "openSettings": "Open settings",
-      "transcriptionUnavailable": "Automatic transcription is unavailable."
+      "transcriptionUnavailable": "Automatic transcription is unavailable.",
+      "show": "Show tool availability",
+      "hide": "Hide tool availability"
     },
     "analysis": {
       "blockedTitle": "Some parts could not be transcribed",
@@ -443,6 +454,18 @@
       "split": "Split",
       "zoom": "Zoom",
       "notGenerated": "Not generated"
+    },
+    "generate": {
+      "one": "Generate",
+      "all": "Generate all ({{count}})",
+      "retry": "Retry",
+      "running": "Generating…",
+      "stop": "Stop generation"
+    },
+    "export": {
+      "title": "Export",
+      "qa": "Pronunciation review",
+      "noQaIssues": "No flagged lines to review. Ungenerated or unchecked lines still need listening."
     }
   }
 }

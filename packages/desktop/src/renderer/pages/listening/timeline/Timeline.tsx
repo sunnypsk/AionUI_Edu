@@ -1,13 +1,16 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
-import { layoutTimeline, sequenceTrack, type DurationLookup } from '@/common/types/platform/listeningTimeline';
+import { layoutTimeline, sequenceTrack } from '@/common/types/platform/listeningTimeline';
 import type { ListeningTarget } from '@/renderer/pages/listening/data/api';
+import { formatTimestamp, generationStatus } from '@/renderer/pages/listening/data/status';
+import type { GenerationContext } from '@/renderer/pages/listening/panels/GenerateButton';
 import { moveSectionTo, moveSegment, resizePause, trimClip } from '@/renderer/pages/listening/editing/operations';
 import type { Selection } from '@/renderer/pages/listening/editing/useSelection';
 import {
   authoredBlocks,
   authoredToTime,
+  stateDurations,
   timeToAuthored,
   type TimelineBlock,
 } from '@/renderer/pages/listening/timeline/blocks';
@@ -31,31 +34,13 @@ export type TimelineProps = {
   playhead: number;
   /** Ungenerated line the preview is currently playing silence for. */
   flashing?: string;
+  generation?: GenerationContext;
   onSeek: (seconds: number) => void;
   onWheel: (event: React.WheelEvent) => void;
   onSelect: (selection: Selection) => void;
   onSelectSegment: (sectionId: string, segmentId: string, extend: boolean) => void;
   onEdit: (change: (project: ListeningProject) => ListeningProject) => void;
 };
-
-/** Generated line lengths from the editor state; everything else uses its own length or an estimate. */
-export const stateDurations =
-  (state: ListeningState): DurationLookup =>
-  (segment) =>
-    segment.type === 'speech' ? state.segments[segment.id]?.duration : undefined;
-
-/** Ids of lines a running or failed `segments` task covers, for per-block status. */
-function generationStatus(state: ListeningState): Map<string, 'running' | 'failed'> {
-  const status = new Map<string, 'running' | 'failed'>();
-  const tasks = state.tasks.filter((task) => task.kind === 'segments').toSorted((a, b) => a.createdAt - b.createdAt);
-  for (const task of tasks)
-    for (const id of task.segmentIds ?? []) {
-      if (task.status === 'queued' || task.status === 'running') status.set(id, 'running');
-      else if (task.status === 'failed') status.set(id, 'failed');
-      else status.delete(id);
-    }
-  return status;
-}
 
 /** Drop position for a block dragged to content x: the section and index (counted after removal). */
 function dropTarget(
@@ -94,6 +79,16 @@ export function Timeline(props: TimelineProps): React.ReactElement {
   const visible = blocks.filter(
     (block) => block.x + block.width >= viewport.left - viewport.width && block.x <= viewport.left + 2 * viewport.width
   );
+  const tickStep = [0.5, 1, 2, 5, 10, 30, 60, 120, 300].find((step) => step * pxPerSec >= 80) ?? 300;
+  const firstTick = Math.max(0, Math.floor(viewport.left / pxPerSec / tickStep));
+  const lastTick = Math.min(
+    Math.ceil(width / pxPerSec / tickStep),
+    Math.ceil((viewport.left + viewport.width) / pxPerSec / tickStep)
+  );
+  const ticks = Array.from(
+    { length: Math.max(0, lastTick - firstTick + 1) },
+    (_, index) => (firstTick + index) * tickStep
+  );
   const playhead = timeToAuthored(props.playhead, entries, blocks, pxPerSec);
   const contentX = (clientX: number) =>
     clientX - (scroller.current?.getBoundingClientRect().left ?? 0) + (scroller.current?.scrollLeft ?? 0);
@@ -122,7 +117,13 @@ export function Timeline(props: TimelineProps): React.ReactElement {
         <div
           className={styles.ruler}
           onMouseDown={(event) => props.onSeek(authoredToTime(contentX(event.clientX), entries, blocks, pxPerSec))}
-        />
+        >
+          {ticks.map((seconds) => (
+            <span key={seconds} className={styles.rulerTick} style={{ left: `${seconds * pxPerSec}px` }}>
+              {formatTimestamp(seconds)}
+            </span>
+          ))}
+        </div>
         <div className={styles.bands}>
           {bands.map(({ section, start, width: bandWidth }, index) => (
             <div
@@ -170,6 +171,7 @@ export function Timeline(props: TimelineProps): React.ReactElement {
                   return !!qa && !qa.accepted && qa.similarity < state.qaThreshold;
                 })()}
                 flashing={props.flashing === block.segment.id}
+                generation={props.generation}
                 drag={drag}
                 onSelect={(extend) => props.onSelectSegment(block.sectionId, block.segment.id, extend)}
                 onRange={(start, end) => props.onSelect({ kind: 'range', clipId: block.segment.id, start, end })}

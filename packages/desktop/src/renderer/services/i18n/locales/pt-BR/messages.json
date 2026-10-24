@@ -230,7 +230,11 @@
       "voice": "Voz",
       "voiceDefault": "Voz padrão",
       "clipPath": "Arquivo de gravação (caminho no espaço de trabalho)",
-      "internalNote": "Nota interna (não é falada)"
+      "internalNote": "Nota interna (não é falada)",
+      "volume": "Volume",
+      "pitch": "Tom",
+      "voiceSettings": "Configurações de voz",
+      "prosodyDefault": "Padrão do projeto"
     },
     "lexicon": {
       "add": "Adicionar correção",
@@ -242,7 +246,12 @@
     "player": {
       "loadFailed": "Não foi possível carregar o áudio.",
       "pause": "Pausar",
-      "play": "Reproduzir"
+      "play": "Reproduzir",
+      "prevSection": "Seção anterior",
+      "nextSection": "Próxima seção",
+      "buffering": "Carregando áudio…",
+      "loudnessNote": "O volume da prévia pode diferir do MP3 final.",
+      "sourceError": "Parte do áudio não pôde ser carregada; esse trecho será reproduzido em silêncio."
     },
     "qa": {
       "accept": "Está certo",
@@ -393,7 +402,9 @@
       "render": "Criação de áudio indisponível",
       "noKey": "A transcrição automática está desligada (sem chave da Vercel). Você ainda pode manter o áudio original, marcar e substituir partes manualmente e criar o MP3.",
       "openSettings": "Abrir configurações",
-      "transcriptionUnavailable": "A transcrição automática está indisponível."
+      "transcriptionUnavailable": "A transcrição automática está indisponível.",
+      "show": "Mostrar estado das ferramentas",
+      "hide": "Ocultar estado das ferramentas"
     },
     "analysis": {
       "blockedTitle": "Algumas partes não puderam ser transcritas",
@@ -443,6 +454,18 @@
       "split": "Dividir",
       "zoom": "Zoom",
       "notGenerated": "Não gerado"
+    },
+    "generate": {
+      "one": "Gerar",
+      "all": "Gerar tudo ({{count}})",
+      "retry": "Tentar novamente",
+      "running": "Gerando…",
+      "stop": "Parar geração"
+    },
+    "export": {
+      "title": "Exportar",
+      "qa": "Revisão de pronúncia",
+      "noQaIssues": "Nenhuma linha sinalizada. Linhas não geradas ou não verificadas ainda precisam ser ouvidas."
     }
   }
 }

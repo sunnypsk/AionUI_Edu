@@ -7,6 +7,7 @@ import type { TimelineBlock } from '@/renderer/pages/listening/timeline/blocks';
 import { usePeaks } from '@/renderer/pages/listening/timeline/peaks';
 import type { DragHandlers } from '@/renderer/pages/listening/timeline/useTimelineDrag';
 import { Waveform } from '@/renderer/pages/listening/timeline/Waveform';
+import { GenerateButton, type GenerationContext } from '@/renderer/pages/listening/panels/GenerateButton';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 type SegmentTimelineBlock = Extract<TimelineBlock, { kind: 'segment' }>;
@@ -25,6 +26,7 @@ export type SegmentBlockProps = {
   qaWarning: boolean;
   /** Briefly highlighted while the preview plays silence for this ungenerated line. */
   flashing?: boolean;
+  generation?: GenerationContext;
   drag: (event: React.MouseEvent, handlers: DragHandlers) => void;
   onSelect: (extend: boolean) => void;
   onRange: (start: number, end: number) => void;
@@ -105,6 +107,12 @@ export function SegmentBlock(props: SegmentBlockProps): React.ReactElement {
         <span className={styles.blockLabel}>{label}</span>
       </div>
       <div className={styles.blockBody} data-body onMouseDown={body}>
+        {segment.type === 'speech' && block.estimated && (
+          <div className={styles.blockGenerate}>
+            <GenerateButton id={segment.id} generated={false} context={props.generation} />
+            {props.flashing && <span>{t('messages.listening.segment.notRendered')}</span>}
+          </div>
+        )}
         {clip && (
           <Waveform peaks={peaks} start={clip.start} end={clip.end} width={block.width} height={props.height - 18} />
         )}

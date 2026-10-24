@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ListeningProject } from '@/common/types/platform/listeningProject';
+import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
+import { previewState, ungeneratedIds } from '@/renderer/pages/listening/data/status';
 import {
   CHIME_SECONDS,
   estimateSpeechSeconds,
@@ -35,6 +36,56 @@ const project = (): ListeningProject => ({
       ],
     },
   ],
+});
+
+describe('working-copy speech cache', () => {
+  const saved = (): ListeningState => ({
+    path: 'listening/unit.listening.json',
+    revision: 'r1',
+    project: project(),
+    qaThreshold: 0.9,
+    tasks: [],
+    segments: {
+      a: { key: 'ka', cached: true, duration: 2, qa: { heard: '你好', similarity: 1, accepted: true } },
+      b: { key: 'kb', cached: true, duration: 1 },
+    },
+  });
+
+  it('drops cached duration and QA only for a line whose speech changed', () => {
+    const state = saved();
+    const draft = structuredClone(state.project!);
+    const line = draft.sections[0].segments[0];
+    if (line.type === 'speech') line.text = '再見';
+    const next = previewState(draft, state);
+    expect(next.segments.a).toEqual({ key: '', cached: false });
+    expect(next.segments.b).toBe(state.segments.b);
+  });
+
+  it('invalidates effective prosody changes but retains audio for metadata edits', () => {
+    const state = saved();
+    const metadata = { ...state.project!, title: 'New title' };
+    expect(previewState(metadata, state).segments.a.cached).toBe(true);
+    const draft = { ...metadata, defaults: { ...metadata.defaults, rate: '+10%' } };
+    expect(previewState(draft, state).segments.a.cached).toBe(false);
+  });
+
+  it('invalidates only lines affected by a pronunciation fix', () => {
+    const state = saved();
+    const draft = { ...state.project!, lexicon: [{ match: '你好', speak: '您好' }] };
+    const next = previewState(draft, state);
+    expect(next.segments.a.cached).toBe(false);
+    expect(next.segments.b.cached).toBe(true);
+  });
+
+  it('generates identical missing speech only once, leaving cached lines alone', () => {
+    const state = saved();
+    const draft = structuredClone(state.project!);
+    draft.sections[0].segments.push(
+      { id: 'c', type: 'speech', text: '再見' },
+      { id: 'd', type: 'speech', text: '再見' }
+    );
+    expect(ungeneratedIds(draft, previewState(draft, state))).toEqual(['c']);
+  });
 });
 
 const label = (item: ReturnType<typeof sequenceTrack>[number]): string =>

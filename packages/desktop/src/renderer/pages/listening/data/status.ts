@@ -42,6 +42,70 @@ export const warningKey = (code: string): string => WARNING_KEYS[code] ?? 'messa
 export const latestTask = (tasks: AudioTaskView[], kind: AudioTaskView['kind']): AudioTaskView | undefined =>
   tasks.find((task) => task.kind === kind);
 
+type Speech = Extract<ListeningSegment, { type: 'speech' }>;
+
+/** Browser-side identity of the spoken content, matching the host's effective speech request. */
+function speechIdentity(project: ListeningProject, segment: Speech): string {
+  let text = segment.text.trim();
+  for (const entry of project.lexicon.toSorted((a, b) => b.match.length - a.match.length)) {
+    if (entry.match) text = text.replaceAll(entry.match, entry.speak);
+  }
+  return JSON.stringify([
+    segment.voice ?? project.defaults.voice,
+    segment.rate ?? project.defaults.rate,
+    segment.volume ?? project.defaults.volume,
+    segment.pitch ?? project.defaults.pitch,
+    text,
+  ]);
+}
+
+/** Invalidate stale speech audio and QA as soon as the working copy changes, before autosave. */
+export function previewState(project: ListeningProject, state: ListeningState): ListeningState {
+  if (!state.project || project === state.project) return state;
+  const saved = new Map(
+    state.project.sections.flatMap((section) => section.segments).map((segment) => [segment.id, segment])
+  );
+  const segments = { ...state.segments };
+  for (const segment of project.sections.flatMap((section) => section.segments)) {
+    if (segment.type !== 'speech') continue;
+    const previous = saved.get(segment.id);
+    if (previous?.type !== 'speech' || speechIdentity(project, segment) !== speechIdentity(state.project, previous))
+      segments[segment.id] = { key: '', cached: false };
+  }
+  return { ...state, segments };
+}
+
+/** Missing speech, de-duplicated by synthesis key so identical lines are generated only once. */
+export function ungeneratedIds(project: ListeningProject, state: ListeningState): string[] {
+  const keys = new Set<string>();
+  return project.sections
+    .flatMap((section) => section.segments)
+    .flatMap((segment) => {
+      if (segment.type !== 'speech' || state.segments[segment.id]?.cached || !segment.text.trim()) return [];
+      const key = speechIdentity(project, segment);
+      if (keys.has(key)) return [];
+      keys.add(key);
+      return [segment.id];
+    });
+}
+
+/** Current generation state per line; old revisions and successfully cached lines never show failures. */
+export function generationStatus(state: ListeningState): Map<string, 'running' | 'failed'> {
+  const status = new Map<string, 'running' | 'failed'>();
+  const tasks = state.tasks
+    .filter((task) => task.kind === 'segments' && task.projectRevision === state.revision)
+    .toSorted((a, b) => a.createdAt - b.createdAt);
+  for (const task of tasks) {
+    for (const id of task.segmentIds ?? []) {
+      if (state.segments[id]?.cached || state.segments[id]?.key === '') continue;
+      if (isActive(task)) status.set(id, 'running');
+      else if (task.status === 'failed') status.set(id, 'failed');
+      else status.delete(id);
+    }
+  }
+  return status;
+}
+
 /**
  * The full-length track for exactly what is saved now. Section previews, older revisions and any
  * unsaved edits never count, so a stale MP3 is never offered as the finished result.

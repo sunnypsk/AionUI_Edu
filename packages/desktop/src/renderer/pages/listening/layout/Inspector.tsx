@@ -7,6 +7,7 @@ import { formatTimestamp } from '@/renderer/pages/listening/data/status';
 import type { Selection, ViewMode } from '@/renderer/pages/listening/editing/useSelection';
 import { ReplacementPanel } from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
 import { SegmentRow, type SegmentRowProps } from '@/renderer/pages/listening/script/SegmentRow';
+import { GenerateButton } from '@/renderer/pages/listening/panels/GenerateButton';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
 export type InspectorProps = {
@@ -107,6 +108,9 @@ export function Inspector(props: InspectorProps): React.ReactElement {
         <Space direction='vertical' size={4}>
           <div className={styles.inspectorTitle}>{t(`messages.listening.types.${segment.type}`)}</div>
           {segmentState?.duration !== undefined && <div>{formatTimestamp(segmentState.duration)}</div>}
+          {segment.type === 'speech' && (
+            <GenerateButton id={id} generated={!!segmentState?.cached} context={props.row.generation} />
+          )}
         </Space>
       ) : (
         <SegmentRow
