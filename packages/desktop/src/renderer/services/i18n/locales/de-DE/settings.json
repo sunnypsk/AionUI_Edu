@@ -1384,6 +1384,7 @@
     "ttsDescription": "Edge TTS: HiuMaan (weiblich), WanLung (männlich). Tempo, Lautstärke, Tonhöhe und Untertitel sind einstellbar.",
     "loadFailed": "Audioeinstellungen konnten nicht geladen werden.",
     "catalogFailed": "Modelle konnten nicht aktualisiert werden. Die Auswahl bleibt erhalten.",
-    "saveFailed": "Speichern fehlgeschlagen. Bitte Modell-ID prüfen."
+    "saveFailed": "Speichern fehlgeschlagen. Bitte Modell-ID prüfen.",
+    "withoutKey": "Auch ohne Schlüssel können Sie Originalaudio behalten, Teile von Hand ersetzen und Hör-MP3s erstellen."
   }
 }

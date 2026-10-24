@@ -12,17 +12,18 @@ describe('reference analysis tasks', () => {
   let owner: AudioOwner;
   let manager: AudioManager;
   const silences = vi.fn(async () => [{ start: 3, end: 7 }]);
-  const transcribe = vi.fn(async (options: TranscriptionOptions) => {
+  const transcribeRecording = async (options: TranscriptionOptions) => {
     await options.progress(1, 1, { chunk: 1, costUsd: 0.003 });
     return { segments: [{ text: '同學請留意下一題。', startSecond: 0, endSecond: 3 }] };
-  });
+  };
+  const transcribe = vi.fn(transcribeRecording);
   beforeEach(async () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'reference-tasks-'));
     owner = { userId: 'teacher', conversationId: 'lesson', workspace: path.join(root, 'workspace') };
     await mkdir(owner.workspace);
     await writeFile(path.join(owner.workspace, 'recording.wav'), 'original');
     silences.mockReset().mockResolvedValue([{ start: 3, end: 7 }]);
-    transcribe.mockClear();
+    transcribe.mockReset().mockImplementation(transcribeRecording);
     manager = new AudioManager(root, {
       catalog: { resolve: async (id) => ({ id, name: id, audioInput: true, parameters: [], reasoning: [] }) },
       media: {
@@ -74,6 +75,25 @@ describe('reference analysis tasks', () => {
     expect(JSON.stringify(agentTask(task))).not.toMatch(/fixture-secret|costUsd|usage/);
   });
 
+  it('includes partial-analysis diagnostics in the editor task list without crossing ownership', async () => {
+    await manager.store.saveSettings(owner.userId, { model: 'fixture/model', apiKey: 'fixture-secret' });
+    transcribe.mockImplementation(async (options) => {
+      if (options.source.includes('region-0-')) throw new Error('AUDIO_CONTENT_FILTERED');
+      return transcribeRecording(options);
+    });
+    const task = await wait(await call({ audio_path: 'recording.wav', mode: 'clip' }));
+    const tasks = await manager.listTracks(owner, task.projectPath!);
+    expect(tasks).toMatchObject([
+      {
+        id: task.id,
+        kind: 'analysis',
+        status: 'completed',
+        issues: [{ code: 'AUDIO_CONTENT_FILTERED', startSecond: 0, endSecond: 3, segmentId: 'part-1-c1' }],
+      },
+    ]);
+    expect(await manager.listTracks({ ...owner, userId: 'other' }, task.projectPath!)).toEqual([]);
+  });
+
   it('rejects missing input, explicit speech without a key and cross-owner access', async () => {
     await expect(call({})).rejects.toThrow('INVALID_REQUEST');
     await expect(call({ audio_path: 'recording.wav', mode: 'speech' })).rejects.toThrow('AUDIO_KEY_REQUIRED');
@@ -109,10 +129,12 @@ describe('reference analysis tasks', () => {
     expect(await readdir(path.join(root, 'audio', 'work'))).toEqual([]);
   });
 
-  it('fails cleanly for silence and leaves existing files untouched', async () => {
+  it('preserves an entirely quiet original as an editable clip without altering the input', async () => {
     silences.mockResolvedValue([{ start: 0, end: 12 }]);
     const task = await wait(await call({ audio_path: 'recording.wav' }));
-    expect(task).toMatchObject({ status: 'failed', error: 'AUDIO_NO_SPEECH', files: [] });
+    expect(task).toMatchObject({ status: 'completed' });
+    const project = await loadProject(owner.workspace, task.projectPath!);
+    expect(project.sections[0].segments[0]).toMatchObject({ type: 'clip', start: 0, end: 12 });
     expect(await readFile(path.join(owner.workspace, 'recording.wav'), 'utf8')).toBe('original');
   });
 });

@@ -1384,6 +1384,7 @@
     "ttsDescription": "Edge TTS: HiuMaan (mujer) y WanLung (hombre). Permite ajustar velocidad, volumen, tono y subtítulos.",
     "loadFailed": "No se pudo cargar la configuración de audio.",
     "catalogFailed": "No se pudieron actualizar los modelos. Se conserva la selección guardada.",
-    "saveFailed": "No se pudo guardar. Comprueba el ID del modelo."
+    "saveFailed": "No se pudo guardar. Comprueba el ID del modelo.",
+    "withoutKey": "Sin clave puedes conservar el audio original, reemplazar partes a mano y crear MP3 de comprensión auditiva."
   }
 }

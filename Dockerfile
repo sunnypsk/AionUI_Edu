@@ -56,6 +56,7 @@ RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY --from=builder /app/packages/web-host/src ./packages/web-host/src
 COPY --from=builder /app/packages/desktop/src/common/types/platform/cliModels.ts ./packages/desktop/src/common/types/platform/cliModels.ts
 COPY --from=builder /app/packages/desktop/src/common/types/platform/audioTools.ts ./packages/desktop/src/common/types/platform/audioTools.ts
+COPY --from=builder /app/packages/desktop/src/common/types/platform/listeningProject.ts ./packages/desktop/src/common/types/platform/listeningProject.ts
 COPY --from=builder /app/packages/web-host/openui ./packages/web-host/openui
 COPY --from=builder /app/packages/web-host/docker ./packages/web-host/docker
 COPY --from=builder /app/scripts/webui.ts /app/scripts/resetpass.ts ./scripts/

@@ -1386,6 +1386,7 @@
     "ttsDescription": "Edge TTS：HiuMaan（女性）と WanLung（男性）。速度、音量、音程、字幕を指定できます。",
     "loadFailed": "音声設定を読み込めませんでした。",
     "catalogFailed": "モデルを更新できません。保存済みの選択は保持されます。",
-    "saveFailed": "保存できません。モデル ID を確認してください。"
+    "saveFailed": "保存できません。モデル ID を確認してください。",
+    "withoutKey": "キーがなくても、元の音声の保持、手動での置き換え、リスニング MP3 の作成ができます。"
   }
 }

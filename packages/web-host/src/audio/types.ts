@@ -12,12 +12,20 @@ export type {
   AudioTaskView,
   AudioVoice,
 } from '../../../desktop/src/common/types/platform/audioTools.js';
-import type { AudioTask, AudioTaskView } from '../../../desktop/src/common/types/platform/audioTools.js';
+import type {
+  AudioTask,
+  AudioTaskView,
+  AudioReplacementInput,
+} from '../../../desktop/src/common/types/platform/audioTools.js';
 import { AUDIO_VOICES, HERTZ_OFFSET, PERCENT_OFFSET } from '../../../desktop/src/common/types/platform/audioTools.ts';
 
 export const ownerId = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/);
 export type AudioOwner = { userId: string; conversationId: string; workspace: string };
-export type StoredAudioTask = AudioTask & { owner: AudioOwner; epoch: number };
+export type StoredAudioTask = AudioTask & {
+  owner: AudioOwner;
+  epoch: number;
+  replacementInput?: AudioReplacementInput;
+};
 const common = {
   action: z.enum(['start', 'status', 'wait', 'cancel']).default('start'),
   task_id: z.string().uuid().optional(),
@@ -62,6 +70,7 @@ export const toolSchemas = {
       ...common,
       audio_path: z.string().min(1).max(4096).optional(),
       mode: z.enum(['speech', 'clip']).optional(),
+      transcribe: z.boolean().default(true),
       title: z.string().trim().min(1).max(200).optional(),
       noise_db: z.number().min(-80).max(-10).default(-35),
       merge_gap: z.number().min(0.2).max(10).default(1),
@@ -101,7 +110,7 @@ export const audioError = (error: unknown): string =>
     ? error.message
     : 'AUDIO_FAILED';
 export function publicTask(task: StoredAudioTask): AudioTask {
-  const { owner: _owner, epoch: _epoch, ...value } = task;
+  const { owner: _owner, epoch: _epoch, replacementInput: _replacementInput, ...value } = task;
   return structuredClone(value);
 }
 /** Agent-facing task view: usage and cost stay host-side so they never reach teachers through chat. */

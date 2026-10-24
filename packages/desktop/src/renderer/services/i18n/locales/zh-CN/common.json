@@ -163,5 +163,10 @@
   },
   "selectedCount": "已选 {{count}}",
   "selectedSkills": "已选技能",
-  "aiAssistant": "AI 助手"
+  "aiAssistant": "AI 助手",
+  "fileAttach.tooLarge": "文件 {{size}}，太大无法上传。",
+  "fileAttach.tooLargeLimit": "文件 {{size}}，超过上传上限 {{max}}。系统不会压缩原文件；请改用较小的文件。",
+  "fileAttach.failedRetry": "上传失败，请重试。",
+  "fileAttach.retry": "重试",
+  "fileAttach.remove": "移除"
 }

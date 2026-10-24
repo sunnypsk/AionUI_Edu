@@ -163,5 +163,10 @@
   "goBack": "Zurück",
   "selectedCount": "{{count}} ausgewählt",
   "selectedSkills": "Ausgewählte Skills",
-  "aiAssistant": "KI-Assistent"
+  "aiAssistant": "KI-Assistent",
+  "fileAttach.tooLarge": "{{size}} ist zu groß zum Hochladen.",
+  "fileAttach.tooLargeLimit": "{{size}} überschreitet die Upload-Grenze von {{max}}. Das Original wird nie komprimiert; bitte wählen Sie eine kleinere Datei.",
+  "fileAttach.failedRetry": "Hochladen fehlgeschlagen. Bitte erneut versuchen.",
+  "fileAttach.retry": "Erneut versuchen",
+  "fileAttach.remove": "Entfernen"
 }

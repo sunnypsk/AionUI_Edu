@@ -163,5 +163,10 @@
   },
   "selectedCount": "{{count}} انتخاب‌شده",
   "selectedSkills": "مهارت‌های انتخاب‌شده",
-  "aiAssistant": "دستیار هوش مصنوعی"
+  "aiAssistant": "دستیار هوش مصنوعی",
+  "fileAttach.tooLarge": "فایل {{size}} برای بارگذاری بیش از حد بزرگ است.",
+  "fileAttach.tooLargeLimit": "فایل {{size}} از سقف بارگذاری {{max}} بیشتر است. فایل اصلی هرگز فشرده نمی‌شود؛ فایل کوچک‌تری انتخاب کنید.",
+  "fileAttach.failedRetry": "بارگذاری ناموفق بود. دوباره تلاش کنید.",
+  "fileAttach.retry": "تلاش دوباره",
+  "fileAttach.remove": "حذف"
 }

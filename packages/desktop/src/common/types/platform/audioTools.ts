@@ -8,6 +8,30 @@ export const HERTZ_OFFSET = /^[+-]\d{1,4}Hz$/;
 export type AudioFormat = 'srt' | 'txt' | 'vtt' | 'json';
 export type AudioSettings = { model: string; hasApiKey: boolean };
 export type AudioSettingsInput = { model: string; apiKey?: string; clearApiKey?: boolean };
+export type AudioReadiness = { available: boolean; reason?: string };
+export type AudioCapabilities = {
+  uploadMaxBytes: number;
+  tools: AudioReadiness;
+  transcription: AudioReadiness & { hasKey: boolean };
+  tts: AudioReadiness;
+  render: AudioReadiness;
+};
+export type AudioIssue = { code: string; startSecond: number; endSecond: number; segmentId?: string };
+export type AudioReplacementInput = {
+  revision: string;
+  clipId: string;
+  start: number;
+  end: number;
+  text: string;
+  voice: AudioVoice;
+};
+export type AudioReplacementPreview = {
+  beforePath: string;
+  afterPath: string;
+  originalSeconds: number;
+  replacementSeconds: number;
+  deltaSeconds: number;
+};
 export type AudioModel = {
   id: string;
   name: string;
@@ -28,7 +52,7 @@ export type AudioUsage = {
 export type AudioTaskView = Omit<AudioTask, 'usage' | 'costUsd'>;
 export type AudioTask = {
   id: string;
-  kind: 'transcription' | 'speech' | 'track' | 'analysis';
+  kind: 'transcription' | 'speech' | 'track' | 'analysis' | 'replacement' | 'export';
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
   createdAt: number;
   updatedAt: number;
@@ -40,6 +64,10 @@ export type AudioTask = {
   summary?: string;
   /** Workspace-relative listening project rendered by a track task, or drafted by an analysis task. */
   projectPath?: string;
+  /** Revision of the project snapshot used by this task; previews never count as complete tracks. */
+  projectRevision?: string;
+  issues?: AudioIssue[];
+  preview?: AudioReplacementPreview;
   /** Section ids when a track task rendered only part of the project as a preview. */
   previewSections?: string[];
   /** `user` when the teacher started the task from the editor rather than the agent. */

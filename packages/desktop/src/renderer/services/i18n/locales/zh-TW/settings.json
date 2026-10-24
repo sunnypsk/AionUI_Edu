@@ -1386,6 +1386,7 @@
     "ttsDescription": "Edge TTS 提供 HiuMaan 女聲及 WanLung 男聲；agent 可調整聲速、音量、音高及附加字幕。",
     "loadFailed": "無法載入音訊設定。",
     "catalogFailed": "無法更新模型清單，已保留原有選擇。",
-    "saveFailed": "無法儲存，請確認 model ID 後重試。"
+    "saveFailed": "無法儲存，請確認 model ID 後重試。",
+    "withoutKey": "沒有 key 仍可保留原音、手動替換及製作聆聽 MP3。"
   }
 }

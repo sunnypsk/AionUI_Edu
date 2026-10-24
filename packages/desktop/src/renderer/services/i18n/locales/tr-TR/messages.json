@@ -180,7 +180,8 @@
       "render": "Ses oluştur",
       "retry": "Yeniden dene",
       "save": "Kaydet",
-      "stop": "Durdur"
+      "stop": "Durdur",
+      "jump": "Git"
     },
     "conflict": {
       "content": "Bu proje siz açtıktan sonra başka bir yerde (örneğin asistan tarafından) değiştirildi.",
@@ -198,7 +199,12 @@
       "model": "Ayarlar → Tools içindeki döküm modeli sesi desteklemiyor.",
       "projectMissing": "Proje dosyası artık yok.",
       "restarted": "Ses oluşturulurken sunucu yeniden başlatıldı. Yeniden oluşturun.",
-      "tooLong": "Ses 90 dakikadan uzun olur."
+      "tooLong": "Ses 90 dakikadan uzun olur.",
+      "keyRequired": "Döküm için Vercel anahtarı gerekir. Ayarlar → Tools bölümünden ekleyin veya anahtarsız devam edin.",
+      "unavailable": "Ses araçları şu anda kullanılamıyor. Hizmeti yeniden başlatıp tekrar deneyin.",
+      "contentFiltered": "Bulut hizmeti bu sesi işlemeyi reddetti. Otomatik olarak yeniden denenmeyecek.",
+      "truncated": "Bulut hizmeti eksik bir yanıt döndürdü. Otomatik olarak yeniden denenmeyecek.",
+      "conflict": "Proje başka bir yerde değiştirildi. Yeniden yükleyip tekrar deneyin."
     },
     "fields": {
       "chimeEnd": "Bitiş sinyali",
@@ -221,7 +227,8 @@
       "text": "Söylenen",
       "voice": "Ses",
       "voiceDefault": "Varsayılan ses",
-      "clipPath": "Kayıt dosyası (çalışma alanı yolu)"
+      "clipPath": "Kayıt dosyası (çalışma alanı yolu)",
+      "internalNote": "Dahili not (seslendirilmez)"
     },
     "lexicon": {
       "add": "Düzeltme ekle",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}} satır yanlış okunmuş olabilir",
       "issues_other": "{{count}} satır yanlış okunmuş olabilir",
       "skipped": "Telaffuz kontrolü atlandı. Etkinleştirmek için Ayarlar → Tools içinde bir Vercel anahtarı ekleyin.",
-      "unaccept": "Geri al"
+      "unaccept": "Geri al",
+      "notChecked": "Dinleyerek kontrol (QA) yapılmadı.",
+      "incomplete": "Dinleme kontrolü (QA) tamamlanmadı; bazı satırlar kontrol edilmedi."
     },
     "segment": {
       "notRendered": "Yeni",
-      "notRenderedTooltip": "Son ses oluşturulduktan sonra değişti"
+      "notRenderedTooltip": "Son ses oluşturulduktan sonra değişti",
+      "replaces": "Orijinal {{range}} yerine",
+      "replacesTooltip": "Orijinal kaydın bu aralığının yerine geçen sentetik konuşma."
     },
     "status": {
       "byAssistant": "asistan başlattı",
@@ -259,7 +270,9 @@
       "never": "Henüz ses oluşturulmadı. Metni düzenleyin, ardından Ses oluştur’u seçin.",
       "preview": "Bölüm önizlemesi · {{duration}}",
       "queued": "Başlaması bekleniyor…",
-      "running": "Ses oluşturuluyor… {{completed}}/{{total}}"
+      "running": "Ses oluşturuluyor… {{completed}}/{{total}}",
+      "outdated": "Eski sürüm · {{duration}} (proje o zamandan beri değişti)",
+      "noAutoRetry": "Hiçbir şey otomatik yeniden denenmez. Bölümü bulmak için “Git”i kullanın, sonra elle değiştirin."
     },
     "types": {
       "chime": "Sinyal",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan (kadın)",
       "WanLung": "WanLung (erkek)"
+    },
+    "warnings": {
+      "approximate": "Süreler yaklaşıktır; kesmeden önce dinleyin.",
+      "incomplete": "Bu bölümün dökümü eksik.",
+      "contentFiltered": "Bulut hizmeti bu bölümün dökümünü reddetti.",
+      "generic": "Bu bölümü dinleyerek kontrol edin."
+    },
+    "clip": {
+      "expand": "{{range}} kesitini göster",
+      "collapse": "{{range}} kesitini gizle",
+      "source": "Orijinal ses",
+      "noText": "Henüz metin yok",
+      "noTextHelp": "Bu kesitin dökümü yok. Orijinal ses olduğu gibi korunur.",
+      "verified": "Onaylandı",
+      "unverified": "Kontrol edilmedi",
+      "warnings": "{{count}} not",
+      "transcriptAuto": "Otomatik döküm · kontrol edilmedi (yalnızca referans)",
+      "transcriptTeacher": "Öğretmenin girdiği metin · kontrol edilmedi",
+      "transcriptVerified": "Öğretmen tarafından onaylanan döküm",
+      "verify": "Onaylandı olarak işaretle",
+      "unverify": "Kontrol edilmedi olarak işaretle"
+    },
+    "advanced": {
+      "title": "Gelişmiş: dosya yolu, tam saniyeler, dahili not"
+    },
+    "section": {
+      "expand": "{{name}} göster",
+      "collapse": "{{name}} gizle",
+      "items": "{{count}} öğe",
+      "unverified": "{{count}} kontrol edilmedi"
+    },
+    "nav": {
+      "title": "Bölümler",
+      "jump": "Bölüme git"
+    },
+    "replace": {
+      "title": "Orijinal sesin bir kısmını değiştir",
+      "disclosure": "Yeni sözcükler, orijinal konuşmacıdan farklı duyulan sentetik bir ses (HiuMaan veya WanLung) kullanır. Aralığı siz seçersiniz; hiçbir şey otomatik hizalanmaz. Orijinal sesin geri kalanı korunur.",
+      "markerLabel": "Aralık işaretlemek için orijinal ses oynatıcısı",
+      "sourceLabel": "orijinal ses",
+      "now": "Şu an {{time}}",
+      "markStart": "Başlangıcı işaretle",
+      "markEnd": "Bitişi işaretle",
+      "markStartShortcut": "Geçerli konumu başlangıç yap ( [ )",
+      "markEndShortcut": "Geçerli konumu bitiş yap ( ] )",
+      "unmarked": "İşaretlenmedi",
+      "startEarlier": "Başlangıcı 0,1 sn öne al",
+      "startLater": "Başlangıcı 0,1 sn geri al",
+      "endEarlier": "Bitişi 0,1 sn öne al",
+      "endLater": "Bitişi 0,1 sn geri al",
+      "loop": "İşaretli aralığı döngüde çal",
+      "invalidRange": "Bitiş, başlangıçtan sonra olmalıdır.",
+      "shortcuts": "Tuşlar (önce oynatıcı alanına tıklayın): Boşluk oynat/duraklat · [ başlangıç · ] bitiş · Alt+←/→ son işareti 0,1 sn kaydır",
+      "text": "Yeni sözcükler",
+      "textPlaceholder": "örn. 二零二六年",
+      "preview": "Önizleme oluştur",
+      "running": "Önizleme oluşturuluyor…",
+      "status": {
+        "cancelled": "Önizleme durduruldu.",
+        "interrupted": "Önizleme kesildi. Yeniden oluşturun."
+      },
+      "before": "Önce (orijinal)",
+      "after": "Sonra (değiştirilmiş)",
+      "duration": "Orijinal kısım {{original}} sn → yeni konuşma {{replacement}} sn ({{delta}} sn).",
+      "shiftLater": "{{time}} sonrasındaki her şey {{seconds}} sn geç çalınacak.",
+      "shiftEarlier": "{{time}} sonrasındaki her şey {{seconds}} sn erken çalınacak.",
+      "stale": "Bu önizlemeden sonra proje değişti. Uygulamadan önce önizlemeyi yeniden oluşturun.",
+      "apply": "Projeye uygula",
+      "discard": "Vazgeç"
+    },
+    "summary": {
+      "title": "Proje durumu",
+      "output": {
+        "ready": "Bu sürüm için tam MP3 hazır",
+        "outdated": "Tam MP3 güncel değil",
+        "missing": "Tam MP3 henüz oluşturulmadı"
+      },
+      "outputHint": {
+        "ready": "Aşağıdan indirin.",
+        "outdated": "Son MP3'ten sonra proje değişti. “Ses oluştur”a yeniden basın.",
+        "missing": "Kesitlerde orijinal kaydı duyarsınız. Tam MP3 için “Ses oluştur”a basın."
+      },
+      "sourceClips": "Orijinal kesitler: {{count}}",
+      "unverified": "Kontrol edilmemiş kesitler: {{count}}",
+      "verified": "Onaylanan: {{count}}",
+      "replacements": "Değiştirmeler: {{count}}",
+      "warnings": "Dikkat gereken: {{count}}",
+      "unverifiedHint": "Kontrol edilmemiş kesitler orijinal sesi korur. Varsa otomatik metin yalnızca rehberdir ve seslendirilmez. Sözcükleri değiştirmek için “Orijinal sesin bir kısmını değiştir”i kullanın."
+    },
+    "download": {
+      "mp3": "MP3 indir",
+      "zip": "Taşınabilir projeyi (ZIP) indir",
+      "prepareZip": "Taşınabilir projeyi (ZIP) hazırla",
+      "json": "Gelişmiş: proje JSON",
+      "preparing": "ZIP hazırlanıyor…",
+      "mp3Unavailable": "Bu sürüm için tam MP3 oluşturulduktan sonra MP3 indirilebilir."
+    },
+    "capability": {
+      "tools": "Ses araçları kullanılamıyor",
+      "tts": "Konuşma sentezi kullanılamıyor",
+      "render": "Ses oluşturma kullanılamıyor",
+      "noKey": "Otomatik döküm kapalı (Vercel anahtarı yok). Yine de orijinal sesi koruyabilir, bölümleri elle işaretleyip değiştirebilir ve MP3 oluşturabilirsiniz.",
+      "openSettings": "Ayarları aç",
+      "transcriptionUnavailable": "Otomatik döküm kullanılamıyor."
+    },
+    "analysis": {
+      "blockedTitle": "Bazı bölümlerin dökümü yapılamadı",
+      "blocked": "Analiz sırasında bazı bölümlerin dökümü yapılamadı. Kaynak kayıt korunuyor; aşağıdaki aralıkları kontrol edin veya elle değiştirme ile düzenleyin."
     }
   }
 }

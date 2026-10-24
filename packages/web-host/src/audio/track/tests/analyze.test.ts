@@ -170,7 +170,10 @@ describe('reference analysis bundle', () => {
   });
 
   it('uses the copied source and retains original audio when a transcript chunk fails', async () => {
-    options.services.transcribe = vi.fn().mockRejectedValueOnce(new Error('AUDIO_API_FAILED')).mockResolvedValue(line);
+    options.services.transcribe = vi.fn(async (file: string) => {
+      if (file.includes('region-0-')) throw new Error('AUDIO_API_FAILED');
+      return line;
+    });
     const result = await analyzeReference(options);
     const project = listeningProjectSchema.parse(JSON.parse(await readFile(result.files[0], 'utf8')));
     expect(project.sections[0].segments[0]).toMatchObject({ type: 'clip', path: 'audio/task/reference.wav' });
@@ -191,6 +194,33 @@ describe('reference analysis bundle', () => {
     const report = JSON.parse(await readFile(result.files[1], 'utf8')) as { regions: { text: string }[] };
     expect(directories.size).toBe(3);
     expect(report.regions[0].text).toBe([line, line, line].join('\n'));
+  });
+
+  it('retains text after a filtered middle chunk and records only that failed range with a clip target', async () => {
+    options.mode = 'clip';
+    options.services.probe = async () => 610;
+    options.services.silences = async () => [];
+    const calls: string[] = [];
+    options.services.transcribe = async (_file, directory) => {
+      calls.push(directory);
+      if (directory.endsWith('region-0-1')) throw new Error('AUDIO_CONTENT_FILTERED');
+      return directory.endsWith('region-0-0') ? '開始。' : '結束。';
+    };
+    const result = await analyzeReference(options);
+    const report = JSON.parse(await readFile(result.files[1], 'utf8'));
+    expect(calls).toHaveLength(3);
+    expect(report.regions[0]).toMatchObject({ text: '開始。\n結束。', warnings: ['AUDIO_CONTENT_FILTERED'] });
+    expect(result.issues).toEqual([
+      { code: 'AUDIO_CONTENT_FILTERED', startSecond: 295, endSecond: 590, segmentId: 'part-1-c1' },
+    ]);
+  });
+
+  it('distinguishes a valid empty transcription from malformed provider output', async () => {
+    options.mode = 'clip';
+    options.services.silences = async () => [];
+    options.services.transcribe = async () => '';
+    const result = await analyzeReference(options);
+    expect(result.issues).toMatchObject([{ code: 'AUDIO_NO_SPEECH', startSecond: 0, endSecond: 20 }]);
   });
 
   it('creates clips without a key and reports that no transcript was produced', async () => {

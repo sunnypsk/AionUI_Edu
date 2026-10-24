@@ -8,7 +8,7 @@ import {
 
 export const MAX_REGIONS = 200;
 export type Interval = { start: number; end: number };
-export type Region = Interval & { text?: string };
+export type Region = Interval & { text?: string; warnings?: string[] };
 export type StructureOptions = {
   title: string;
   audioPath: string;
@@ -88,9 +88,32 @@ const transcript = (group: Group): string =>
 
 /** Build an editable draft; only complete, identical speech transcripts qualify as repeated plays. */
 export function buildProject(regions: Region[], options: StructureOptions): ListeningProject {
+  if (options.mode === 'clip') {
+    // Silence detection is navigation only: every source sample, including room noise,
+    // belongs to exactly one clip. Never regenerate original pauses as digital silence.
+    const sections: ListeningSection[] = [];
+    let cursor = 0;
+    regions.forEach((region, index) => {
+      if (!sections.length || region.start - (regions[index - 1]?.end ?? 0) >= options.sectionGap)
+        sections.push({ id: `part-${sections.length + 1}`, plays: 1, gapBetweenPlays: 0, gapAfter: 0, segments: [] });
+      const section = sections[sections.length - 1];
+      const end = index === regions.length - 1 ? options.duration : region.end;
+      section.segments.push({
+        id: `${section.id}-c${section.segments.length + 1}`,
+        type: 'clip',
+        path: options.audioPath,
+        start: cursor,
+        end,
+        ...(region.text?.trim() ? { transcript: { text: region.text.trim(), source: 'auto', verified: false } } : {}),
+        ...(region.warnings?.length ? { warnings: region.warnings } : {}),
+      });
+      cursor = end;
+    });
+    return listeningProjectSchema.parse({ version: 1, title: options.title, sourceAudio: options.audioPath, sections });
+  }
   const prepared: PreparedRegion[] = regions.map((region) => ({
     ...region,
-    speech: options.mode === 'speech' ? splitText(region.text ?? '') : [],
+    speech: options.mode === 'speech' && !region.warnings?.length ? splitText(region.text ?? '') : [],
   }));
   // Reserve room for all pauses. Oversized transcripts remain intact in the report and original audio.
   let count = prepared.reduce((sum, region) => sum + Math.max(1, region.speech.length), 0);
@@ -160,7 +183,8 @@ export function buildProject(regions: Region[], options: StructureOptions): List
           path: options.audioPath,
           start: region.start,
           end: region.end,
-          ...(region.text?.trim() ? { note: region.text.trim().slice(0, 200) } : {}),
+          ...(region.text?.trim() ? { transcript: { text: region.text.trim(), source: 'auto', verified: false } } : {}),
+          ...(region.warnings?.length ? { warnings: region.warnings } : {}),
         });
       }
     });

@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { media, runProcess } from '../providers/media.js';
 
@@ -57,6 +57,8 @@ export async function detectSilences(
 }
 
 export type TrackMedia = {
+  /** Select the source recording's PCM/MP3 profile instead of the teaching-track normalization profile. */
+  forSource?: (source: string, signal: AbortSignal) => Promise<TrackMedia>;
   probe: (file: string, signal: AbortSignal) => Promise<number>;
   silence: (destination: string, seconds: number, signal: AbortSignal) => Promise<void>;
   tone: (destination: string, preset: 'start' | 'end', signal: AbortSignal) => Promise<void>;
@@ -72,6 +74,7 @@ export type TrackMedia = {
 };
 
 export const trackMedia: TrackMedia = {
+  forSource: sourceTrackMedia,
   probe: media.probe,
   async silence(destination, seconds, signal) {
     await ffmpeg(
@@ -151,3 +154,137 @@ export const trackMedia: TrackMedia = {
     );
   },
 };
+
+/** Keep original channels, sample rate and MP3 bitrate, without global loudness processing. */
+export async function sourceTrackMedia(source: string, signal: AbortSignal): Promise<TrackMedia> {
+  const result = JSON.parse(
+    await runProcess(
+      process.env.AIONUI_FFPROBE ?? 'ffprobe',
+      [
+        '-v',
+        'error',
+        '-protocol_whitelist',
+        'file,pipe',
+        '-select_streams',
+        'a:0',
+        '-show_entries',
+        'stream=sample_rate,channels,bit_rate,codec_name',
+        '-of',
+        'json',
+        source,
+      ],
+      signal
+    )
+  ) as { streams?: { sample_rate?: string; channels?: number; bit_rate?: string; codec_name?: string }[] };
+  const stream = result.streams?.[0];
+  const rate = Number(stream?.sample_rate);
+  const channels = stream?.channels ?? 0;
+  if (![8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000].includes(rate) || ![1, 2].includes(channels))
+    throw new Error('AUDIO_SOURCE_FORMAT_UNSUPPORTED');
+  const bitrate =
+    stream?.codec_name === 'mp3' && Number(stream.bit_rate) > 0
+      ? Math.min(320, Math.max(8, Math.round(Number(stream.bit_rate) / 1000)))
+      : 192;
+  const profile = ['-ac', String(channels), '-ar', String(rate)];
+  const pcm = [...profile, '-c:a', 'pcm_f32le'];
+  const decodedSources = new Map<string, Promise<string>>();
+  // Decode compressed sources once. Independent MP3 seeks can change the decoder's filter history.
+  const sourcePcm = (file: string, destination: string, abort: AbortSignal): Promise<string> => {
+    let pending = decodedSources.get(file);
+    if (!pending) {
+      const output = path.join(path.dirname(destination), `.source-${decodedSources.size}.wav`);
+      pending = ffmpeg(
+        ['-protocol_whitelist', 'file,pipe', '-i', file, '-map', '0:a:0', '-vn', ...pcm, output],
+        abort
+      ).then(() => output);
+      decodedSources.set(file, pending);
+    }
+    return pending;
+  };
+  const decode: TrackMedia['decode'] = async (file, destination, abort, window) => {
+    if (window) {
+      const decoded = await sourcePcm(file, destination, abort);
+      const start = Math.round(window.start * rate);
+      const end = Math.round(window.end * rate);
+      const seekSecond = Math.floor(start / rate);
+      const base = seekSecond * rate;
+      await ffmpeg(
+        [
+          '-protocol_whitelist',
+          'file,pipe',
+          '-ss',
+          String(seekSecond),
+          '-i',
+          decoded,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-af',
+          `atrim=start_sample=${start - base}:end_sample=${end - base},asetpts=PTS-STARTPTS`,
+          '-t',
+          String((end - start + 1) / rate),
+          ...pcm,
+          destination,
+        ],
+        abort
+      );
+      return;
+    }
+    await ffmpeg(['-protocol_whitelist', 'file,pipe', '-i', file, '-map', '0:a:0', '-vn', ...pcm, destination], abort);
+  };
+  return {
+    probe: media.probe,
+    decode,
+    async silence(destination, seconds, abort) {
+      await ffmpeg(
+        [
+          '-f',
+          'lavfi',
+          '-i',
+          `anullsrc=r=${rate}:cl=${channels === 1 ? 'mono' : 'stereo'}`,
+          '-t',
+          String(seconds),
+          ...pcm,
+          destination,
+        ],
+        abort
+      );
+    },
+    async tone(destination, preset, abort) {
+      const temporary = destination + '.tone.wav';
+      try {
+        await trackMedia.tone(temporary, preset, abort);
+        await decode(temporary, destination, abort);
+      } finally {
+        await rm(temporary, { force: true });
+      }
+    },
+    async assemble(pieces, destination, abort) {
+      const list = path.join(path.dirname(destination), path.basename(destination) + '.pieces.txt');
+      await writeFile(list, pieces.map((piece) => `file '${piece.replaceAll("'", "'\\''")}'`).join('\n') + '\n', {
+        flag: 'wx',
+        mode: 0o600,
+      });
+      await ffmpeg(
+        [
+          '-protocol_whitelist',
+          'file,pipe',
+          '-f',
+          'concat',
+          '-safe',
+          '0',
+          '-i',
+          list,
+          ...profile,
+          '-c:a',
+          'libmp3lame',
+          '-b:a',
+          `${bitrate}k`,
+          destination,
+        ],
+        abort,
+        1200000
+      );
+    },
+  };
+}

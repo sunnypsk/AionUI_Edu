@@ -163,5 +163,10 @@
   },
   "selectedCount": "Selected {{count}}",
   "selectedSkills": "Selected skills",
-  "aiAssistant": "AI Assistant"
+  "aiAssistant": "AI Assistant",
+  "fileAttach.tooLarge": "{{size}} is too large to upload.",
+  "fileAttach.tooLargeLimit": "{{size}} is over the upload limit of {{max}}. The original is never compressed; please choose a smaller file.",
+  "fileAttach.failedRetry": "Upload failed. Try again.",
+  "fileAttach.retry": "Retry",
+  "fileAttach.remove": "Remove"
 }

@@ -136,7 +136,9 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
       if (!fileList || fileList.length === 0) return;
       setUploading(true);
       try {
-        const processed = await FileService.processDroppedFiles(fileList);
+        const processed = await FileService.processDroppedFiles(fileList, undefined, 'sendbox', (late) =>
+          onFilesUploaded(late.map((f) => f.path))
+        );
         if (processed.length > 0) {
           onFilesUploaded(processed.map((f) => f.path));
         }

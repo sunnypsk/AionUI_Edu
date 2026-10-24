@@ -44,6 +44,7 @@ export type TrackResult = { files: string[]; durationSeconds: number; qaIssues: 
 const boundariesSchema = z
   .array(z.object({ text: z.string(), startSecond: z.number().finite(), endSecond: z.number().finite() }))
   .max(20000);
+const synthesis = new Map<string, Promise<unknown>>();
 
 /** Run `task` over `items` with at most `limit` in flight, failing fast on the first error. */
 async function pool<T>(
@@ -59,7 +60,9 @@ async function pool<T>(
       await task(items[next++]);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  const settled = await Promise.allSettled(Array.from({ length: Math.min(limit, items.length) }, worker));
+  const failure = settled.find((result) => result.status === 'rejected');
+  if (failure?.status === 'rejected') throw failure.reason;
 }
 
 /** Content-addressed per-workspace cache; writes land via temp file + rename so readers never see partial files. */
@@ -85,6 +88,17 @@ class SegmentCache {
     const parsed = schema.safeParse(JSON.parse(await readFile(file, 'utf8').catch(() => 'null')));
     return parsed.success ? parsed.data : undefined;
   }
+  /** Prevent another preview/render from overwriting the take already heard by a teacher. */
+  async synthesize<T>(key: string, action: () => Promise<T>): Promise<T> {
+    const name = `${this.root}\0${key}`;
+    const pending = (synthesis.get(name) ?? Promise.resolve()).catch(() => {}).then(action);
+    synthesis.set(name, pending);
+    try {
+      return await pending;
+    } finally {
+      if (synthesis.get(name) === pending) synthesis.delete(name);
+    }
+  }
   async put(name: string, source: string | { json: unknown }): Promise<string> {
     const destination = path.join(this.root, name);
     const temporary = `${destination}.${randomUUID()}.tmp`;
@@ -105,31 +119,35 @@ async function synthesizeAll(
 ) {
   const speeches = new Map<string, Speech>();
   await pool(requests, 2, options.signal, async (request) => {
-    let file = await cache.file(`${request.key}.mp3`);
-    let boundaries = file ? await cache.json(`${request.key}.json`, boundariesSchema) : undefined;
-    if (!file || !boundaries) {
-      const directory = path.join(options.directory, `tts-${request.key}`);
-      await mkdir(directory, { mode: 0o700 });
-      const output = path.join(directory, 'speech.mp3');
-      const result = await options.services.speak({
-        action: 'start',
-        wait_sec: 50,
-        text: request.text,
-        voice: request.voice,
-        rate: request.rate,
-        volume: request.volume,
-        pitch: request.pitch,
-        subtitles: true,
-        boundary: 'SentenceBoundary',
-        output,
-        directory,
-        signal: options.signal,
-      });
-      boundaries = result.segments;
-      await cache.put(`${request.key}.json`, { json: boundaries });
-      file = await cache.put(`${request.key}.mp3`, output);
-    }
-    speeches.set(request.key, { request, file, boundaries });
+    const speech = await cache.synthesize(request.key, async () => {
+      options.signal.throwIfAborted();
+      let file = await cache.file(`${request.key}.mp3`);
+      let boundaries = file ? await cache.json(`${request.key}.json`, boundariesSchema) : undefined;
+      if (!file || !boundaries) {
+        const directory = path.join(options.directory, `tts-${request.key}`);
+        await mkdir(directory, { mode: 0o700 });
+        const output = path.join(directory, 'speech.mp3');
+        const result = await options.services.speak({
+          action: 'start',
+          wait_sec: 50,
+          text: request.text,
+          voice: request.voice,
+          rate: request.rate,
+          volume: request.volume,
+          pitch: request.pitch,
+          subtitles: true,
+          boundary: 'SentenceBoundary',
+          output,
+          directory,
+          signal: options.signal,
+        });
+        boundaries = result.segments;
+        await cache.put(`${request.key}.json`, { json: boundaries });
+        file = await cache.put(`${request.key}.mp3`, output);
+      }
+      return { request, file, boundaries };
+    });
+    speeches.set(request.key, speech);
     await tick();
   });
   return speeches;
@@ -169,6 +187,10 @@ async function verifyAll(
 /** Render a listening project into track.mp3 plus subtitles, timeline, printable script and QA report. */
 export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
   const { project, directory, signal, services } = options;
+  const media =
+    project.sourceAudio && services.media.forSource
+      ? await services.media.forSource(await workspaceFile(options.workspace, project.sourceAudio), signal)
+      : services.media;
   const plan = planTrack(project, options.onlySections);
   const requests = [
     ...new Map(
@@ -201,18 +223,18 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
     const existing = pieces.get(name);
     if (existing) return existing;
     const file = path.join(pcm, `${name}.wav`);
-    if (item.kind === 'speech') await services.media.decode(speeches.get(item.request.key)!.file, file, signal);
-    else if (item.kind === 'silence') await services.media.silence(file, item.seconds, signal);
-    else if (item.kind === 'tone') await services.media.tone(file, item.preset, signal);
+    if (item.kind === 'speech') await media.decode(speeches.get(item.request.key)!.file, file, signal);
+    else if (item.kind === 'silence') await media.silence(file, item.seconds, signal);
+    else if (item.kind === 'tone') await media.tone(file, item.preset, signal);
     else {
       const source = await workspaceFile(options.workspace, item.path).catch((error: Error) => {
         throw new AudioProjectError([`${item.segmentId}.path: ${error.message}`]);
       });
-      if (item.end > (await services.media.probe(source, signal)) + 0.05)
+      if (item.end > (await media.probe(source, signal)) + 0.05)
         throw new AudioProjectError([`${item.segmentId}.end: beyond the end of ${item.path}`]);
-      await services.media.decode(source, file, signal, { start: item.start, end: item.end });
+      await media.decode(source, file, signal, { start: item.start, end: item.end });
     }
-    const value = { file, duration: await services.media.probe(file, signal) };
+    const value = { file, duration: await media.probe(file, signal) };
     pieces.set(name, value);
     return value;
   };
@@ -256,8 +278,8 @@ export async function renderTrack(options: TrackOptions): Promise<TrackResult> {
   }
 
   const track = path.join(directory, 'track.mp3');
-  await services.media.assemble(order, track, signal);
-  const durationSeconds = await services.media.probe(track, signal);
+  await media.assemble(order, track, signal);
+  const durationSeconds = await media.probe(track, signal);
   await tick();
 
   const files = [track];

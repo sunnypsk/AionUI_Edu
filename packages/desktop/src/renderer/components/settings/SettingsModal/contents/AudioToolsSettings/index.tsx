@@ -88,6 +88,9 @@ function UserAudioToolsSettings({ userId }: { userId?: string }): React.ReactEle
             placeholder={t('settings.audioTools.keyPlaceholder')}
           />
         </Form.Item>
+        {saved && !saved.hasApiKey && (
+          <Alert type='info' className='mb-12px' content={t('settings.audioTools.withoutKey')} />
+        )}
         <Typography.Paragraph type='secondary'>{t('settings.audioTools.newTasks')}</Typography.Paragraph>
         <Space wrap>
           <Button

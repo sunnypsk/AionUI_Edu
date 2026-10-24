@@ -6,7 +6,58 @@ import { expect, it } from 'vitest';
 import { AudioManager } from '../../manager.js';
 import { media, runProcess } from '../../providers/media.js';
 import { MultimodalTranscriber } from '../../providers/gemini.js';
-import { detectSilences } from '../ffmpeg.js';
+import { detectSilences, sourceTrackMedia } from '../ffmpeg.js';
+
+it.runIf(process.env.AIONUI_AUDIO_REFERENCE_TEST === '1')(
+  'keeps every MP3 sample across fractional contiguous clip boundaries',
+  async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'mp3-sample-boundaries-'));
+    const signal = AbortSignal.timeout(30000);
+    const command = process.env.AIONUI_FFMPEG ?? 'ffmpeg';
+    try {
+      const source = path.join(root, 'source.mp3');
+      await runProcess(
+        command,
+        [
+          '-v',
+          'error',
+          '-nostdin',
+          '-n',
+          '-f',
+          'lavfi',
+          '-i',
+          'aevalsrc=0.1*sin(2*PI*443*t)|0.03*sin(2*PI*661*t):s=44100:d=3',
+          '-c:a',
+          'libmp3lame',
+          '-b:a',
+          '320k',
+          source,
+        ],
+        signal
+      );
+      const profile = await sourceTrackMedia(source, signal);
+      const raw = async (file: string, name: string): Promise<Buffer> => {
+        const output = path.join(root, name + '.raw');
+        await runProcess(command, ['-v', 'error', '-nostdin', '-n', '-i', file, '-f', 'f32le', output], signal);
+        return readFile(output);
+      };
+      const original = await raw(source, 'original');
+      const boundaries = [0, 0.987654, 1.234567, 2.876543, 3];
+      const pieces: Buffer[] = [];
+      for (let i = 1; i < boundaries.length; i++) {
+        const file = path.join(root, `clip-${i}.wav`);
+        await profile.decode(source, file, signal, { start: boundaries[i - 1], end: boundaries[i] });
+        pieces.push(await raw(file, `clip-${i}`));
+      }
+      expect(Buffer.concat(pieces).equals(original)).toBe(true);
+      const start = Math.round(boundaries[2] * 44100) * 8;
+      expect(pieces[2].equals(original.subarray(start, Math.round(boundaries[3] * 44100) * 8))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+  40000
+);
 
 it.runIf(process.env.AIONUI_AUDIO_REFERENCE_TEST === '1')(
   'transcribes a real five-minute boundary without an extra encoder-padding request',
@@ -143,4 +194,122 @@ it.runIf(process.env.AIONUI_AUDIO_REFERENCE_TEST === '1')(
     }
   },
   40000
+);
+
+it.runIf(process.env.AIONUI_AUDIO_REFERENCE_TEST === '1')(
+  'retains stereo source PCM outside a natural-duration replacement and encodes its source profile',
+  async () => {
+    const { renderTrack } = await import('../render.js');
+    const { trackMedia } = await import('../ffmpeg.js');
+    const { parseProject } = await import('../project.js');
+    const root = await mkdtemp(path.join(os.tmpdir(), 'source-preserving-'));
+    const signal = AbortSignal.timeout(60000);
+    const command = process.env.AIONUI_FFMPEG ?? 'ffmpeg';
+    try {
+      const source = path.join(root, 'source.wav');
+      await runProcess(
+        command,
+        [
+          '-v',
+          'error',
+          '-nostdin',
+          '-n',
+          '-f',
+          'lavfi',
+          '-i',
+          'aevalsrc=0.1*sin(2*PI*440*t)|0.03*sin(2*PI*660*t):s=44100:d=3',
+          source,
+        ],
+        signal
+      );
+      const project = parseProject({
+        version: 1,
+        title: 'source',
+        sourceAudio: 'source.wav',
+        sections: [
+          {
+            id: 'one',
+            plays: 1,
+            gapAfter: 0,
+            segments: [
+              { id: 'before', type: 'clip', path: 'source.wav', start: 0, end: 1.25 },
+              {
+                id: 'year',
+                type: 'speech',
+                text: '二零二六年',
+                replaces: { path: 'source.wav', start: 1.25, end: 1.75 },
+              },
+              { id: 'after', type: 'clip', path: 'source.wav', start: 1.75, end: 3 },
+            ],
+          },
+        ],
+      });
+      const directory = path.join(root, 'render');
+      await mkdir(directory);
+      const result = await renderTrack({
+        project,
+        workspace: root,
+        directory,
+        signal,
+        services: {
+          media: trackMedia,
+          speak: async (options) => {
+            await runProcess(
+              command,
+              [
+                '-v',
+                'error',
+                '-nostdin',
+                '-n',
+                '-f',
+                'lavfi',
+                '-i',
+                'sine=frequency=880:sample_rate=24000:duration=2.25',
+                '-c:a',
+                'libmp3lame',
+                options.output,
+              ],
+              signal
+            );
+            return { segments: [{ text: options.text!, startSecond: 0, endSecond: 2.25 }] };
+          },
+        },
+        progress: async () => {},
+      });
+      const raw = async (file: string, name: string): Promise<Buffer> => {
+        const destination = path.join(root, name + '.raw');
+        await runProcess(command, ['-v', 'error', '-nostdin', '-n', '-i', file, '-f', 'f32le', destination], signal);
+        return readFile(destination);
+      };
+      const original = await raw(source, 'original');
+      const before = await raw(path.join(directory, 'pcm', 'clip-before.wav'), 'before');
+      const after = await raw(path.join(directory, 'pcm', 'clip-after.wav'), 'after');
+      expect(before.equals(original.subarray(0, Math.round(1.25 * 44100) * 8))).toBe(true);
+      expect(after.equals(original.subarray(Math.round(1.75 * 44100) * 8))).toBe(true);
+      const metadata = JSON.parse(
+        await runProcess(
+          process.env.AIONUI_FFPROBE ?? 'ffprobe',
+          [
+            '-v',
+            'error',
+            '-select_streams',
+            'a:0',
+            '-show_entries',
+            'stream=sample_rate,channels,bit_rate',
+            '-of',
+            'json',
+            result.files[0],
+          ],
+          signal
+        )
+      );
+      expect(metadata.streams[0]).toMatchObject({ sample_rate: '44100', channels: 2, bit_rate: '192000' });
+      const timeline = JSON.parse(await readFile(path.join(directory, 'timeline.json'), 'utf8'));
+      expect(timeline.entries.at(-1).end).toBeCloseTo(4.75, 2);
+      expect(Math.abs(result.durationSeconds - 4.75)).toBeLessThan(0.08);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+  70000
 );

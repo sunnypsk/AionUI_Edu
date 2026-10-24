@@ -5,6 +5,8 @@ import { z } from 'zod';
 import type { ListeningState } from '../../../desktop/src/common/types/platform/listeningProject.ts';
 import { verifyBrowserCapability } from '../runtime/browser/types.js';
 import { AudioManager } from './manager.js';
+import { audioCapabilities } from './providers/readiness.js';
+import { AUDIO_VOICES } from '../../../desktop/src/common/types/platform/audioTools.ts';
 import {
   agentTask,
   audioError,
@@ -34,7 +36,7 @@ async function body(req: IncomingMessage): Promise<unknown> {
   for await (const value of req) {
     const chunk = Buffer.from(value);
     bytes += chunk.length;
-    if (bytes > 1000000) throw new Error('INVALID_REQUEST');
+    if (bytes > 2 * 1024 * 1024 + 65536) throw new Error('INVALID_REQUEST');
     chunks.push(chunk);
   }
   try {
@@ -87,7 +89,7 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
       throw new Error('UNAUTHORIZED');
     }
     const result = record(await response.json());
-    return result.data ? record(result.data) : result;
+    return Array.isArray(result.data) ? { items: result.data } : result.data ? record(result.data) : result;
   };
   const owner = async (
     userId: string,
@@ -118,11 +120,60 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
     url: URL,
     userId: string,
     headers: Record<string, string>
-  ): Promise<ListeningState> => {
+  ): Promise<ListeningState | { taskId: string; state: ListeningState }> => {
     const route = url.pathname.slice('/api/edu/audio/listening'.length);
     const input = req.method === 'GET' ? Object.fromEntries(url.searchParams) : record(await body(req));
     const target = listeningTarget.parse({ conversation_id: input.conversation_id, path: input.path });
     const context = await conversationOwner(userId, target.conversation_id, headers);
+    const state = async (): Promise<ListeningState> => {
+      const current = await readProjectState(context.workspace, target.path);
+      const segments = current.project?.sections.flatMap((section) => section.segments) ?? [];
+      const tasks = (await manager.listTracks(context, target.path)).map(agentTask).map((task) => {
+        if (task.kind !== 'analysis' || !task.issues?.length) return task;
+        const source = task.files.find((file) => file.format !== 'json')?.path;
+        return {
+          ...task,
+          issues: task.issues.map((issue) => ({
+            ...issue,
+            // Applying a replacement creates new ids. Keep diagnostics linked to the current source ranges.
+            segmentId: segments.find((segment) => {
+              const range =
+                segment.type === 'clip' ? segment : segment.type === 'speech' ? segment.replaces : undefined;
+              return range && range.path === source && range.start < issue.endSecond && range.end > issue.startSecond;
+            })?.id,
+          })),
+        };
+      });
+      return { ...current, tasks };
+    };
+    if (route === '/replacements/preview' && req.method === 'POST') {
+      const value = z
+        .object({
+          revision: z.string().max(64),
+          clipId: z.string().max(64),
+          start: z.number().finite().min(0),
+          end: z.number().finite().positive(),
+          text: z.string().trim().min(1).max(2000),
+          voice: z.enum(AUDIO_VOICES),
+        })
+        .parse(input);
+      const task = await manager.startEditorTask(context, 'replacement', {
+        project_path: target.path,
+        revision: value.revision,
+        replacement: value,
+      });
+      return { taskId: task.id, state: await state() };
+    }
+    if (route === '/bundle' && req.method === 'POST') {
+      const { revision } = z.object({ revision: z.string().max(64) }).parse(input);
+      const task = await manager.startEditorTask(context, 'export', { project_path: target.path, revision });
+      return { taskId: task.id, state: await state() };
+    }
+    if (route === '/replacements/apply' && req.method === 'POST') {
+      const value = z.object({ revision: z.string().max(64), previewId: z.string().uuid() }).parse(input);
+      await manager.applyReplacement(context, target.path, value.revision, value.previewId);
+      return state();
+    }
     if (route === '' && req.method === 'PUT') {
       const p = z.object({ project: z.unknown(), revision: z.string().max(64) }).parse(input);
       await saveProject(context.workspace, target.path, p.project, p.revision);
@@ -135,10 +186,7 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
       const p = z.object({ segment_id: z.string().max(64), accepted: z.boolean() }).parse(input);
       await setQaAccepted(context.workspace, target.path, p.segment_id, p.accepted);
     } else if (route !== '' || req.method !== 'GET') throw new Error('INVALID_REQUEST');
-    return {
-      ...(await readProjectState(context.workspace, target.path)),
-      tasks: (await manager.listTracks(context, target.path)).map(agentTask),
-    };
+    return state();
   };
   const failure = (res: ServerResponse, error: unknown): void => {
     const code = error instanceof z.ZodError ? 'INVALID_REQUEST' : audioError(error);
@@ -240,7 +288,32 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
         const identity = await backend('/api/auth/user', headers);
         const userId = ownerId.parse(record(identity.user ?? identity).id);
         if (req.method !== 'GET') validateWrite(req);
-        if (url.pathname === '/api/edu/audio/settings' && req.method === 'GET')
+        if (url.pathname === '/api/edu/audio/capabilities' && req.method === 'GET') {
+          const conversation = url.searchParams.get('conversation_id');
+          const context = conversation ? await conversationOwner(userId, conversation, headers) : undefined;
+          const limits = await backend('/api/fs/upload/limits', headers);
+          const maxBytes = z.number().int().positive().parse(limits.maxBytes);
+          const capabilities = await audioCapabilities((await manager.store.settings(userId)).hasApiKey, maxBytes);
+          if (context) {
+            const current = await backend(`/api/conversations/${encodeURIComponent(context.conversationId)}`, headers);
+            const extra = record(current.extra);
+            const selectedBackend = record(current.assistant).backend ?? extra.backend;
+            if (selectedBackend && selectedBackend !== 'codex')
+              capabilities.tools = { available: false, reason: 'AUDIO_UNAVAILABLE' };
+            else if (extra.agent_id) {
+              const management = await backend('/api/agents/management', headers).catch(
+                (): Record<string, unknown> => ({ items: [] })
+              );
+              const entries = Array.isArray(management.items) ? management.items : [];
+              const agent = entries.map(record).find((entry) => entry.id === extra.agent_id);
+              if (!agent || agent.has_command_override === true)
+                capabilities.tools = manager.hasAudioRuntime(context)
+                  ? { available: true }
+                  : { available: false, reason: 'AUDIO_UNAVAILABLE' };
+            }
+          }
+          send(res, 200, { data: capabilities });
+        } else if (url.pathname === '/api/edu/audio/settings' && req.method === 'GET')
           send(res, 200, { data: await manager.store.settings(userId) });
         else if (url.pathname === '/api/edu/audio/settings' && req.method === 'POST') {
           const value = settingsSchema.parse(await body(req));

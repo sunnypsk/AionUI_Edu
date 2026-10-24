@@ -165,5 +165,10 @@
   },
   "selectedCount": "Выбрано {{count}}",
   "selectedSkills": "Выбранные навыки",
-  "aiAssistant": "ИИ-ассистент"
+  "aiAssistant": "ИИ-ассистент",
+  "fileAttach.tooLarge": "Файл {{size}} слишком большой для загрузки.",
+  "fileAttach.tooLargeLimit": "Файл {{size}} превышает лимит загрузки {{max}}. Оригинал никогда не сжимается; выберите файл поменьше.",
+  "fileAttach.failedRetry": "Не удалось загрузить. Попробуйте снова.",
+  "fileAttach.retry": "Повторить",
+  "fileAttach.remove": "Удалить"
 }

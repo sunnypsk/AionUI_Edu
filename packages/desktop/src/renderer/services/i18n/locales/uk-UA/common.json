@@ -145,7 +145,7 @@
   },
   "fileAttach.addFiles": "Додати файли",
   "fileAttach.myDevice": "Мій пристрій",
-  "fileAttach.tooLarge": "Файл перевищує ліміт {{max}} МБ",
+  "fileAttach.tooLarge": "Файл {{size}} завеликий для завантаження.",
   "fileAttach.failed": "Помилка завантаження",
   "fileAttach.uploading": "Завантаження...",
   "fileAttach.uploadSuccess": "Завантажено успішно",
@@ -166,5 +166,9 @@
   },
   "selectedCount": "Вибрано {{count}}",
   "selectedSkills": "Вибрані навички",
-  "aiAssistant": "ШІ-асистент"
+  "aiAssistant": "ШІ-асистент",
+  "fileAttach.tooLargeLimit": "Файл {{size}} перевищує ліміт завантаження {{max}}. Оригінал ніколи не стискається; виберіть менший файл.",
+  "fileAttach.failedRetry": "Не вдалося завантажити. Спробуйте знову.",
+  "fileAttach.retry": "Повторити",
+  "fileAttach.remove": "Вилучити"
 }

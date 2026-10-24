@@ -180,7 +180,8 @@
       "render": "Create audio",
       "retry": "Retry",
       "save": "Save",
-      "stop": "Stop"
+      "stop": "Stop",
+      "jump": "Go to"
     },
     "conflict": {
       "content": "This project was changed elsewhere (for example by the assistant) after you opened it.",
@@ -198,7 +199,12 @@
       "model": "The transcription model in Settings → Tools does not support audio.",
       "projectMissing": "The project file no longer exists.",
       "restarted": "The server restarted while creating the audio. Create it again.",
-      "tooLong": "The track would be longer than 90 minutes."
+      "tooLong": "The track would be longer than 90 minutes.",
+      "keyRequired": "Transcription needs a Vercel key. Add one in Settings → Tools, or continue without it.",
+      "unavailable": "The audio tools are not available right now. Restart the service, then try again.",
+      "contentFiltered": "The cloud service declined to process this audio. It will not be retried automatically.",
+      "truncated": "The cloud service returned an incomplete answer. It will not be retried automatically.",
+      "conflict": "The project changed elsewhere. Reload it, then try again."
     },
     "fields": {
       "chimeEnd": "End chime",
@@ -221,7 +227,8 @@
       "text": "What is said",
       "voice": "Voice",
       "voiceDefault": "Default voice",
-      "clipPath": "Recording file (workspace path)"
+      "clipPath": "Recording file (workspace path)",
+      "internalNote": "Internal note (not spoken)"
     },
     "lexicon": {
       "add": "Add fix",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}} line may be misread",
       "issues_other": "{{count}} lines may be misread",
       "skipped": "Pronunciation check skipped. Add a Vercel key under Settings → Tools to enable it.",
-      "unaccept": "Undo"
+      "unaccept": "Undo",
+      "notChecked": "Not checked by listening (QA).",
+      "incomplete": "Listening check (QA) did not finish; some lines were not checked."
     },
     "segment": {
       "notRendered": "New",
-      "notRenderedTooltip": "Changed since the last audio was created"
+      "notRenderedTooltip": "Changed since the last audio was created",
+      "replaces": "Replaces original {{range}}",
+      "replacesTooltip": "Synthesized speech that stands in for this range of the original recording."
     },
     "status": {
       "byAssistant": "started by the assistant",
@@ -259,7 +270,9 @@
       "never": "No audio has been created yet. Edit the script, then select Create audio.",
       "preview": "Section preview · {{duration}}",
       "queued": "Waiting to start…",
-      "running": "Creating audio… {{completed}}/{{total}}"
+      "running": "Creating audio… {{completed}}/{{total}}",
+      "outdated": "Older version · {{duration}} (the project has changed since)",
+      "noAutoRetry": "Nothing is retried automatically. Use “Go to” to find the part, then replace it by hand."
     },
     "types": {
       "chime": "Chime",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan (female)",
       "WanLung": "WanLung (male)"
+    },
+    "warnings": {
+      "approximate": "Times are approximate; listen before cutting.",
+      "incomplete": "Transcription is incomplete for this part.",
+      "contentFiltered": "The cloud service declined to transcribe this part.",
+      "generic": "Check this part by listening."
+    },
+    "clip": {
+      "expand": "Show clip {{range}}",
+      "collapse": "Hide clip {{range}}",
+      "source": "Original audio",
+      "noText": "No text yet",
+      "noTextHelp": "No transcript for this clip. The original audio is kept as it is.",
+      "verified": "Confirmed",
+      "unverified": "Unchecked",
+      "warnings": "{{count}} notes",
+      "transcriptAuto": "Automatic transcript · not checked (for reference only)",
+      "transcriptTeacher": "Text entered by teacher · not checked",
+      "transcriptVerified": "Transcript confirmed by teacher",
+      "verify": "Mark as confirmed",
+      "unverify": "Mark as unchecked"
+    },
+    "advanced": {
+      "title": "Advanced: file path, exact seconds, internal note"
+    },
+    "section": {
+      "expand": "Show {{name}}",
+      "collapse": "Hide {{name}}",
+      "items": "{{count}} items",
+      "unverified": "{{count}} unchecked"
+    },
+    "nav": {
+      "title": "Sections",
+      "jump": "Jump to section"
+    },
+    "replace": {
+      "title": "Replace part of the original audio",
+      "disclosure": "The new words use a synthesized voice (HiuMaan or WanLung) that sounds different from the original speaker. You choose the range; nothing is aligned automatically. The rest of the original audio is kept.",
+      "markerLabel": "Original audio player for marking a range",
+      "sourceLabel": "original audio",
+      "now": "Now at {{time}}",
+      "markStart": "Mark start",
+      "markEnd": "Mark end",
+      "markStartShortcut": "Mark start at the current position ( [ )",
+      "markEndShortcut": "Mark end at the current position ( ] )",
+      "unmarked": "Not marked",
+      "startEarlier": "Move start 0.1 s earlier",
+      "startLater": "Move start 0.1 s later",
+      "endEarlier": "Move end 0.1 s earlier",
+      "endLater": "Move end 0.1 s later",
+      "loop": "Loop the marked range",
+      "invalidRange": "The end must be after the start.",
+      "shortcuts": "Keys (click the player area first): Space play/pause · [ mark start · ] mark end · Alt+←/→ move the last mark by 0.1 s",
+      "text": "Replacement words",
+      "textPlaceholder": "e.g. 二零二六年",
+      "preview": "Make preview",
+      "running": "Making preview…",
+      "status": {
+        "cancelled": "The preview was stopped.",
+        "interrupted": "The preview was interrupted. Make it again."
+      },
+      "before": "Before (original)",
+      "after": "After (with replacement)",
+      "duration": "Original part {{original}} s → new speech {{replacement}} s ({{delta}} s).",
+      "shiftLater": "Everything after {{time}} will play {{seconds}} s later.",
+      "shiftEarlier": "Everything after {{time}} will play {{seconds}} s earlier.",
+      "stale": "The project changed after this preview was made. Make the preview again before applying.",
+      "apply": "Apply to project",
+      "discard": "Discard"
+    },
+    "summary": {
+      "title": "Project status",
+      "output": {
+        "ready": "Full MP3 ready for this version",
+        "outdated": "Full MP3 is out of date",
+        "missing": "Full MP3 not made yet"
+      },
+      "outputHint": {
+        "ready": "Download it below.",
+        "outdated": "The project changed after the last MP3. Press “Make audio” again.",
+        "missing": "What you hear in clips is the original recording. Press “Make audio” to build the full MP3."
+      },
+      "sourceClips": "Original clips: {{count}}",
+      "unverified": "Unreviewed clips: {{count}}",
+      "verified": "Confirmed: {{count}}",
+      "replacements": "Replacements: {{count}}",
+      "warnings": "Need attention: {{count}}",
+      "unverifiedHint": "Unreviewed clips keep the original audio. Any automatic text is only a guide and is never spoken. To change words, use “Replace part of the original audio”."
+    },
+    "download": {
+      "mp3": "Download MP3",
+      "zip": "Download portable project (ZIP)",
+      "prepareZip": "Prepare portable project (ZIP)",
+      "json": "Advanced: project JSON",
+      "preparing": "Preparing ZIP…",
+      "mp3Unavailable": "MP3 download is available after a full MP3 is made for this version."
+    },
+    "capability": {
+      "tools": "Audio tools unavailable",
+      "tts": "Speech synthesis unavailable",
+      "render": "Audio rendering unavailable",
+      "noKey": "Automatic transcription is off (no Vercel key). You can still keep the original audio, mark and replace parts by hand, and make the MP3.",
+      "openSettings": "Open settings",
+      "transcriptionUnavailable": "Automatic transcription is unavailable."
+    },
+    "analysis": {
+      "blockedTitle": "Some parts could not be transcribed",
+      "blocked": "Some parts could not be transcribed during analysis. The source recording is still kept; check the ranges below, or change them with manual replacement."
     }
   }
 }

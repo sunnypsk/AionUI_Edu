@@ -4,11 +4,73 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getBaseUrl, resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
-import { trackUpload, type UploadSource } from '@/renderer/hooks/file/useUploadState';
+import { getBaseUrl, httpRequest, resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
+import {
+  reportUploadFailure,
+  trackUpload,
+  type UploadFailure,
+  type UploadSource,
+} from '@/renderer/hooks/file/useUploadState';
 
 /** Sentinel error message used when an upload is cancelled by the caller. */
 export const UPLOAD_ABORTED_ERROR = 'Upload aborted';
+
+/** A rejected upload. `message` stays `FILE_TOO_LARGE` for oversized files so older callers keep working. */
+export class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly failure: UploadFailure,
+    readonly status?: number
+  ) {
+    super(message);
+    this.name = 'UploadError';
+  }
+}
+
+/** Find `maxBytes` in a structured error body, wherever the server nests it. */
+function readMaxBytes(text: string): number | undefined {
+  try {
+    const body = JSON.parse(text) as Record<string, unknown>;
+    for (const candidate of [body, body.details, body.error, body.data]) {
+      const value =
+        candidate && typeof candidate === 'object' ? (candidate as { maxBytes?: unknown }).maxBytes : undefined;
+      if (typeof value === 'number' && value > 0) return value;
+    }
+  } catch {
+    /* not JSON */
+  }
+  return undefined;
+}
+
+let uploadLimit: Promise<number | undefined> | undefined;
+
+/**
+ * The server's upload size limit in bytes, fetched once. Undefined when it cannot be read; the
+ * server still enforces its limit, so uploads then proceed and a 413 is reported per file.
+ */
+export function getUploadLimit(): Promise<number | undefined> {
+  uploadLimit ??= httpRequest<{ maxBytes?: unknown }>('GET', '/api/fs/upload/limits', undefined, {
+    silentStatuses: [404],
+  })
+    .then((limits) => (typeof limits?.maxBytes === 'number' && limits.maxBytes > 0 ? limits.maxBytes : undefined))
+    .catch((): undefined => {
+      uploadLimit = undefined;
+      return undefined;
+    });
+  return uploadLimit;
+}
+
+/** Reset the cached limit (tests). */
+export function resetUploadLimit(): void {
+  uploadLimit = undefined;
+}
+
+/** A one-file `FileList` stand-in for re-uploading a file. */
+const singleFileList = (file: File): FileList =>
+  Object.assign([file], { item: (index: number) => (index === 0 ? file : null) }) as unknown as FileList;
+
+/** Called with files that finish uploading after `processDroppedFiles` returned, i.e. retries. */
+export type LateFilesHandler = (files: FileMetadata[]) => void;
 
 export interface UploadFileOptions {
   /** Cancel the upload from the outside. Closing the XHR also frees the backend connection. */
@@ -90,11 +152,15 @@ export async function uploadFileViaHttp(
     xhr.addEventListener('load', () => {
       detachSignal();
       if (xhr.status === 413) {
-        reject(new Error('FILE_TOO_LARGE'));
+        reject(
+          new UploadError('FILE_TOO_LARGE', { code: 'FILE_TOO_LARGE', maxBytes: readMaxBytes(xhr.responseText) }, 413)
+        );
         return;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+        reject(
+          new UploadError(`Upload failed: ${xhr.status} ${xhr.statusText}`, { code: 'UPLOAD_FAILED' }, xhr.status)
+        );
         return;
       }
       try {
@@ -312,16 +378,34 @@ class FileServiceClass {
    * behaviour) now fails with "uploaded file path is outside the managed upload
    * directory", so we always route through the upload endpoint to obtain a
    * managed path.
+   *
+   * Files over the server limit are rejected before sending; any failure stays listed in the upload
+   * state with its reason (never silently dropped). Pass `onLateFiles` to offer retry: a file that
+   * succeeds on retry is delivered there, since this call has already returned.
    */
   async processDroppedFiles(
     files: FileList,
     conversation_id?: string,
-    source: UploadSource = 'sendbox'
+    source: UploadSource = 'sendbox',
+    onLateFiles?: LateFilesHandler
   ): Promise<FileMetadata[]> {
     const processedFiles: FileMetadata[] = [];
+    const maxBytes = await getUploadLimit();
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const upload = { name: file.name, size: file.size, source, conversationId: conversation_id || undefined };
+      const retry = onLateFiles
+        ? (): void =>
+            void this.processDroppedFiles(singleFileList(file), conversation_id, source, onLateFiles).then((late) => {
+              if (late.length) onLateFiles(late);
+            })
+        : undefined;
+      if (maxBytes !== undefined && file.size > maxBytes) {
+        // Original audio must reach the server unchanged, so oversized files are refused, never re-encoded.
+        reportUploadFailure(upload, { code: 'FILE_TOO_LARGE', maxBytes });
+        continue;
+      }
 
       // Each upload owns its own AbortController; the tracker exposes an `abort()`
       // that triggers the signal so user-driven cancel and conversation-switch
@@ -339,15 +423,14 @@ class FileServiceClass {
           signal: controller.signal,
         });
       } catch (error) {
-        // Re-throw size errors so caller can show user-facing toast
-        if (error instanceof Error && error.message === 'FILE_TOO_LARGE') {
-          throw error;
-        }
         if (error instanceof Error && error.message === UPLOAD_ABORTED_ERROR) {
           // User-initiated abort: drop this file silently (the UI already reflects it).
           continue;
         }
         console.error('Failed to upload file:', error);
+        const failure: UploadFailure = error instanceof UploadError ? error.failure : { code: 'UPLOAD_FAILED' };
+        // Retrying an oversized file cannot succeed; only offer retry for other failures.
+        reportUploadFailure(upload, failure, failure.code === 'FILE_TOO_LARGE' ? undefined : retry);
         continue;
       } finally {
         tracker.finish();

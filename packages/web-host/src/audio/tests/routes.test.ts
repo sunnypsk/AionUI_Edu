@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAudioRuntime } from '../routes.js';
 import { agentTask } from '../types.js';
 import { signBrowserCapability } from '../../runtime/browser/types.js';
+import { AudioStore } from '../store.js';
 
 describe('audio settings authentication and CSRF', () => {
   let directory: string;
@@ -13,8 +14,10 @@ describe('audio settings authentication and CSRF', () => {
   let backend: http.Server;
   let host: http.Server;
   let url: string;
+  let customOverride: boolean;
   beforeEach(async () => {
     directory = await mkdtemp(path.join(os.tmpdir(), 'audio-routes-'));
+    customOverride = false;
     await mkdir(path.join(directory, 'workspace'));
     backend = http.createServer((req, res) => {
       const valid =
@@ -32,9 +35,16 @@ describe('audio settings authentication and CSRF', () => {
           data:
             req.url === '/api/auth/user'
               ? { user: { id: 'alice' } }
-              : req.url === '/api/system/current-user'
-                ? { id: 'alice' }
-                : { id: 'lesson', extra: { workspace: path.join(directory, 'workspace') } },
+              : req.url === '/api/agents/management'
+                ? [{ id: 'fixture', has_command_override: customOverride }]
+                : req.url === '/api/fs/upload/limits'
+                  ? { maxBytes: 256 * 1024 * 1024 }
+                  : req.url === '/api/system/current-user'
+                    ? { id: 'alice' }
+                    : {
+                        id: 'lesson',
+                        extra: { workspace: path.join(directory, 'workspace'), backend: 'codex', agent_id: 'fixture' },
+                      },
         })
       );
     });
@@ -89,6 +99,138 @@ describe('audio settings authentication and CSRF', () => {
       body: JSON.stringify({ model: 'google/gemini-3.8-flash', clearApiKey: true }),
     });
     expect(await response.json()).toMatchObject({ data: { hasApiKey: false } });
+  });
+  it('reports authoritative upload limits and separate readiness without exposing the saved key', async () => {
+    const request = () =>
+      fetch(`${url}/api/edu/audio/capabilities?conversation_id=lesson`, { headers: { authorization: 'Bearer alice' } });
+    const first = await (await request()).json();
+    expect(first).toMatchObject({
+      data: {
+        uploadMaxBytes: 268435456,
+        transcription: { available: false, hasKey: false, reason: 'AUDIO_KEY_REQUIRED' },
+        tts: { available: expect.any(Boolean) },
+        render: { available: expect.any(Boolean) },
+      },
+    });
+    await save(url, 'rotated');
+    const second = await (await request()).text();
+    expect(JSON.parse(second)).toMatchObject({ data: { transcription: { hasKey: true } } });
+    expect(second).not.toContain('fixture-private-key');
+  });
+  it('enforces CSRF and revision guards on replacement and bundle endpoints', async () => {
+    await writeFile(
+      path.join(directory, 'workspace', 'original.listening.json'),
+      JSON.stringify({
+        version: 1,
+        title: 'source',
+        sections: [{ id: 'a', segments: [{ id: 'clip', type: 'clip', path: 'source.mp3', start: 0, end: 10 }] }],
+      })
+    );
+    const target = { conversation_id: 'lesson', path: 'original.listening.json', revision: 'outdated' };
+    const post = (route: string, csrf: string, input: object) =>
+      fetch(`${url}/api/edu/audio/listening/${route}`, {
+        method: 'POST',
+        headers: {
+          cookie: 'session=alice; aionui-csrf-token=token',
+          'content-type': 'application/json',
+          'x-csrf-token': csrf,
+        },
+        body: JSON.stringify(input),
+      });
+    const preview = { ...target, clipId: 'clip', start: 1, end: 2, text: '二零二六年', voice: 'HiuMaan' };
+    expect((await post('replacements/preview', 'wrong', preview)).status).toBe(403);
+    expect(await (await post('replacements/preview', 'token', preview)).json()).toEqual({
+      error: { code: 'AUDIO_PROJECT_CONFLICT' },
+    });
+    expect(await (await post('bundle', 'token', target)).json()).toEqual({ error: { code: 'AUDIO_PROJECT_CONFLICT' } });
+    expect(
+      (await post('replacements/apply', 'wrong', { ...target, previewId: '00000000-0000-4000-8000-000000000000' }))
+        .status
+    ).toBe(403);
+  });
+  it('keeps analysis jump targets valid after replacing or removing the original clip', async () => {
+    const projectPath = 'edited.listening.json';
+    const project = {
+      version: 1,
+      title: 'edited',
+      sourceAudio: 'source.mp3',
+      sections: [
+        {
+          id: 'a',
+          segments: [
+            {
+              id: 'replacement',
+              type: 'speech',
+              text: '二零二六年',
+              replaces: { path: 'source.mp3', start: 0, end: 2 },
+            },
+            { id: 'remaining', type: 'clip', path: 'source.mp3', start: 2, end: 6 },
+          ],
+        },
+      ],
+    };
+    const file = path.join(directory, 'workspace', projectPath);
+    await writeFile(file, JSON.stringify(project));
+    await writeFile(path.join(directory, 'workspace', 'source.mp3'), 'fixture');
+    await runtime.close();
+    await new AudioStore(directory).saveTask({
+      id: '00000000-0000-4000-8000-000000000001',
+      owner: { userId: 'alice', conversationId: 'lesson', workspace: path.join(directory, 'workspace') },
+      epoch: 0,
+      kind: 'analysis',
+      status: 'completed',
+      createdAt: 1,
+      updatedAt: 1,
+      projectPath,
+      files: [{ path: 'source.mp3', format: 'mp3' }],
+      completedChunks: 1,
+      totalChunks: 1,
+      warnings: [],
+      usage: [],
+      issues: [{ code: 'AUDIO_CONTENT_FILTERED', startSecond: 0, endSecond: 2, segmentId: 'removed' }],
+    });
+    runtime = await createAudioRuntime({ dataDir: directory });
+    runtime.setBackendPort((backend.address() as { port: number }).port);
+    const load = async () =>
+      (
+        await (
+          await fetch(
+            `${url}/api/edu/audio/listening?${new URLSearchParams({
+              conversation_id: 'lesson',
+              path: projectPath,
+            })}`,
+            { headers: { authorization: 'Bearer alice' } }
+          )
+        ).json()
+      ).data;
+    expect((await load()).tasks[0].issues[0].segmentId).toBe('replacement');
+    project.sections[0].segments.shift();
+    await writeFile(file, JSON.stringify(project));
+    expect((await load()).tasks[0].issues[0].segmentId).toBeUndefined();
+  });
+  it('reports a custom CLI as audio-capable only after its signed launcher actually connects', async () => {
+    customOverride = true;
+    const capabilities = async () =>
+      (
+        await (
+          await fetch(`${url}/api/edu/audio/capabilities?conversation_id=lesson`, {
+            headers: { authorization: 'Bearer alice' },
+          })
+        ).json()
+      ).data;
+    expect((await capabilities()).tools).toMatchObject({ available: false });
+    const capability = signBrowserCapability(runtime.env.AIONUI_AUDIO_SIGNING_KEY, 'alice', 'lesson');
+    const response = await fetch(`${runtime.env.AIONUI_AUDIO_GATEWAY}/lifecycle`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-aionui-audio-capability': capability,
+        'x-aionui-runtime-token': 'fixture-runtime-token',
+      },
+      body: JSON.stringify({ event: 'start', event_id: 'custom', thread_id: 'thread' }),
+    });
+    expect(response.status).toBe(200);
+    expect((await capabilities()).tools).toEqual({ available: true });
   });
   it('requires both a valid conversation capability and Core runtime identity', async () => {
     const capability = signBrowserCapability(runtime.env.AIONUI_AUDIO_SIGNING_KEY, 'alice', 'lesson');

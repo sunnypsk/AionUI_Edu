@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
-import { listeningApi, listeningError, type ListeningError, type ListeningTarget } from './api';
+import {
+  listeningApi,
+  listeningError,
+  type ListeningError,
+  type ListeningTarget,
+  type ListeningTaskStart,
+  type ReplacementRequest,
+} from './api';
 
 const ACTIVE_POLL_MS = 1500;
 const IDLE_POLL_MS = 5000;
@@ -19,6 +26,12 @@ export type ListeningEditorModel = {
   render: (onlySections?: string[]) => Promise<void>;
   cancel: (taskId: string) => Promise<void>;
   acceptQa: (segmentId: string, accepted: boolean) => Promise<void>;
+  /** Save pending edits, then synthesize a before/after preview; resolves to the preview task id. */
+  previewReplacement: (request: ReplacementRequest) => Promise<string | undefined>;
+  /** Splice a completed preview into the saved project. */
+  applyReplacement: (previewId: string) => Promise<boolean>;
+  /** Save pending edits, then package the project with its source audio; resolves to the export task id. */
+  bundle: () => Promise<string | undefined>;
   reload: () => Promise<void>;
 };
 
@@ -41,12 +54,15 @@ export function useListeningProject(
   const [conflict, setConflict] = useState(false);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
+  /** Latest adopted state, so actions that save first can read the new revision. */
+  const stateRef = useRef<ListeningState | undefined>(undefined);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
   const key = target ? `${target.conversation_id}\0${target.path}` : '';
 
   /** Adopt a fresh server state; the working copy follows it unless the teacher is mid-edit. */
   const adopt = useCallback((next: ListeningState, replaceDraft = !dirtyRef.current) => {
+    stateRef.current = next;
     setState(next);
     if (replaceDraft) {
       setDraft(next.project);
@@ -74,21 +90,33 @@ export function useListeningProject(
   }, [reload]);
 
   const active = isActive(state);
+  /** Bumped when a background poll fails, so the next poll is still scheduled. */
+  const [pollFailures, setPollFailures] = useState(0);
   useEffect(() => {
     if (!target || loadError) return;
+    // Ignore a response that arrives after the target changed or the editor closed.
+    let cancelled = false;
     const timer = setTimeout(
       () => {
         listeningApi
           .load(target)
-          .then((next) => adopt(next))
-          .catch(() => {});
+          .then((next) => {
+            if (!cancelled) adopt(next);
+          })
+          .catch(() => {
+            // A transient failure must not stop polling, or a finished render would look stuck.
+            if (!cancelled) setPollFailures((count) => count + 1);
+          });
       },
       active ? ACTIVE_POLL_MS : IDLE_POLL_MS
     );
-    return () => clearTimeout(timer);
-    // Re-arm after every state change so polling continues for as long as the editor is open.
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // Re-arm after every state change or failed poll so polling continues while the editor is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` identifies the target.
-  }, [key, state, active, loadError, adopt]);
+  }, [key, state, active, loadError, adopt, pollFailures]);
 
   const run = useCallback(
     async (action: () => Promise<ListeningState>, replaceDraft: boolean): Promise<boolean> => {
@@ -128,6 +156,23 @@ export function useListeningProject(
     [key, draft, state, run]
   );
 
+  /** Start a host task against the saved project, saving the teacher's edits first like `render`. */
+  const startTask = async (
+    begin: (target: ListeningTarget, revision: string) => Promise<ListeningTaskStart>
+  ): Promise<string | undefined> => {
+    if (!target || !state) return undefined;
+    // A successful save adopts the new state, so `stateRef` then holds the saved revision.
+    if (dirty && !(await save())) return undefined;
+    let taskId: string | undefined;
+    const revision = stateRef.current?.revision ?? state.revision;
+    await run(async () => {
+      const started = await begin(target, revision);
+      taskId = started.taskId;
+      return started.state;
+    }, false);
+    return taskId;
+  };
+
   return {
     state,
     draft,
@@ -152,6 +197,13 @@ export function useListeningProject(
     acceptQa: async (segmentId, accepted) => {
       if (target) await run(() => listeningApi.acceptQa(target, segmentId, accepted), false);
     },
+    previewReplacement: (request) =>
+      startTask((current, revision) => listeningApi.previewReplacement(current, revision, request)),
+    applyReplacement: async (previewId) => {
+      if (!target || !state) return false;
+      return run(() => listeningApi.applyReplacement(target, state.revision, previewId), true);
+    },
+    bundle: () => startTask((current, revision) => listeningApi.bundle(current, revision)),
     reload,
   };
 }

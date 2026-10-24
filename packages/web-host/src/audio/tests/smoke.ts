@@ -70,7 +70,12 @@ export async function runAudioSmoke(source: string, root: string): Promise<void>
     });
     await client.connect(transport);
     const inventory = await client.listTools();
-    assert.deepEqual(inventory.tools.map((tool) => tool.name).toSorted(), ['synthesize_speech', 'transcribe_audio']);
+    assert.deepEqual(inventory.tools.map((tool) => tool.name).toSorted(), [
+      'analyze_reference_audio',
+      'render_listening_track',
+      'synthesize_speech',
+      'transcribe_audio',
+    ]);
     const call = async (name: string, args: Record<string, unknown>): Promise<AudioTask> => {
       const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 65000 });
       const content = Array.isArray(result.content)

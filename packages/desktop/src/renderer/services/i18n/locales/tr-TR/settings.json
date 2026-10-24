@@ -1384,6 +1384,7 @@
     "ttsDescription": "Edge TTS: HiuMaan (kadın), WanLung (erkek). Hız, ses seviyesi, perde ve altyazılar ayarlanabilir.",
     "loadFailed": "Ses ayarları yüklenemedi.",
     "catalogFailed": "Modeller yenilenemedi. Kayıtlı seçim korundu.",
-    "saveFailed": "Kaydedilemedi. Model kimliğini kontrol edin."
+    "saveFailed": "Kaydedilemedi. Model kimliğini kontrol edin.",
+    "withoutKey": "Anahtar olmadan da orijinal sesi koruyabilir, bölümleri elle değiştirebilir ve dinleme MP3'leri oluşturabilirsiniz."
   }
 }

@@ -163,5 +163,10 @@
   "goBack": "Back",
   "selectedCount": "{{count}} seleccionado(s)",
   "selectedSkills": "Habilidades seleccionadas",
-  "aiAssistant": "Asistente de IA"
+  "aiAssistant": "Asistente de IA",
+  "fileAttach.tooLarge": "{{size}} es demasiado grande para subirlo.",
+  "fileAttach.tooLargeLimit": "{{size}} supera el límite de subida de {{max}}. El original nunca se comprime; elige un archivo más pequeño.",
+  "fileAttach.failedRetry": "Error al subir. Inténtalo de nuevo.",
+  "fileAttach.retry": "Reintentar",
+  "fileAttach.remove": "Quitar"
 }

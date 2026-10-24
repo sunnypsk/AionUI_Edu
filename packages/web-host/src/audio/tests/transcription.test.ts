@@ -114,12 +114,56 @@ describe('segmented multimodal transcription', () => {
       },
     };
     const input = options(directory, 20);
-    await expect(new MultimodalTranscriber(fetcher, files).transcribe(input)).rejects.toThrow('AUDIO_RESPONSE_INVALID');
+    await expect(new MultimodalTranscriber(fetcher, files).transcribe(input)).rejects.toThrow('AUDIO_OUTPUT_TRUNCATED');
     expect(input.progress).toHaveBeenCalledWith(
       0,
       1,
       expect.objectContaining({ chunk: 1, costUsd: 0.004, generationId: 'gen_truncated' })
     );
+  });
+  it('retains a successful later chunk and identifies a filtered range without retrying it', async () => {
+    const files: MediaServices = {
+      probe: vi.fn(),
+      chunk: async (_source, file, start) => {
+        await writeFile(file, String(start));
+      },
+    };
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const start = Number(Buffer.from(body.messages[0].content[1].file.file_data.split(',')[1], 'base64').toString());
+      return Response.json({
+        choices: [
+          {
+            finish_reason: start === 0 ? 'content-filter' : 'stop',
+            message: {
+              content:
+                start === 0 ? '' : JSON.stringify({ segments: [{ text: '下一段', startSecond: 0, endSecond: 1 }] }),
+            },
+          },
+        ],
+      });
+    });
+    const result = await new MultimodalTranscriber(fetcher, files).transcribe(options(directory, 302));
+    expect(result.segments).toEqual([{ text: '下一段', startSecond: 300, endSecond: 301 }]);
+    expect(result.issues).toEqual([{ code: 'AUDIO_CONTENT_FILTERED', startSecond: 0, endSecond: 300 }]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it.each([
+    ['stop', '{', 'AUDIO_RESPONSE_INVALID'],
+    ['stop', '{"segments":[]}', 'AUDIO_NO_SPEECH'],
+    ['content_filter', '', 'AUDIO_CONTENT_FILTERED'],
+  ])('distinguishes %s/%s', async (finish_reason, content, code) => {
+    const files: MediaServices = {
+      probe: vi.fn(),
+      chunk: async (_source, file) => {
+        await writeFile(file, 'audio');
+      },
+    };
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ choices: [{ finish_reason, message: { content } }] })
+    );
+    await expect(new MultimodalTranscriber(fetcher, files).transcribe(options(directory, 2))).rejects.toThrow(code);
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
   it('uses the selected model capabilities without sending unsupported reasoning parameters', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(

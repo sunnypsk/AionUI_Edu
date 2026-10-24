@@ -3,6 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { mergeSegments, normalizeSegments } from '../formats.js';
 import type { AudioModel, AudioSegment, AudioUsage } from '../types.js';
+import type { AudioIssue } from '../../../../desktop/src/common/types/platform/audioTools.ts';
 import { media, type MediaServices } from './media.js';
 
 const transcriptSchema = z.object({
@@ -22,7 +23,13 @@ export type TranscriptionOptions = {
   signal: AbortSignal;
   progress: (completed: number, total: number, usage: AudioUsage) => Promise<void>;
 };
-export type TranscriptionResult = { segments: AudioSegment[] };
+export type TranscriptionResult = { segments: AudioSegment[]; issues?: AudioIssue[] };
+/** Safe structured failure retained even when no chunk produced usable text. */
+export class AudioTranscriptionError extends Error {
+  constructor(readonly issues: AudioIssue[]) {
+    super(issues[0]?.code ?? 'AUDIO_NO_SPEECH');
+  }
+}
 const number = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 
@@ -37,6 +44,7 @@ export class MultimodalTranscriber {
     const chunks: { start: number; segments: AudioSegment[] }[] = [];
     let next = 0;
     let completed = 0;
+    const issues: AudioIssue[] = [];
     const controller = new AbortController();
     const signal = AbortSignal.any([options.signal, controller.signal]);
     const worker = async (): Promise<void> => {
@@ -53,6 +61,11 @@ export class MultimodalTranscriber {
             await options.progress(completed, total, { chunk: index + 1, ...usage });
           });
           chunks[index] = { start, segments };
+        } catch (error) {
+          if (signal.aborted) throw error;
+          const code =
+            error instanceof Error && /^AUDIO_[A-Z_]+$/.test(error.message) ? error.message : 'AUDIO_API_FAILED';
+          issues.push({ code, startSecond: start, endSecond: Math.min(options.duration, start + 300) });
         } finally {
           await unlink(file).catch(() => {});
         }
@@ -67,9 +80,15 @@ export class MultimodalTranscriber {
     const settled = await Promise.allSettled(pending);
     const failure = settled.find((result) => result.status === 'rejected');
     if (failure?.status === 'rejected') throw failure.reason;
-    const segments = mergeSegments(chunks, options.duration);
-    if (!segments.length) throw new Error('AUDIO_RESPONSE_INVALID');
-    return { segments };
+    const segments = mergeSegments(chunks.filter(Boolean), options.duration);
+    const orderedIssues = issues.toSorted((a, b) => a.startSecond - b.startSecond);
+    if (!segments.length)
+      throw new AudioTranscriptionError(
+        orderedIssues.length
+          ? orderedIssues
+          : [{ code: 'AUDIO_NO_SPEECH', startSecond: 0, endSecond: options.duration }]
+      );
+    return { segments, ...(issues.length ? { issues: orderedIssues } : {}) };
   }
   private async request(
     file: string,
@@ -142,6 +161,9 @@ export class MultimodalTranscriber {
     let success = false;
     try {
       const choice = result.choices?.[0];
+      if (choice?.finish_reason === 'content-filter' || choice?.finish_reason === 'content_filter')
+        throw new Error('AUDIO_CONTENT_FILTERED');
+      if (choice?.finish_reason === 'length') throw new Error('AUDIO_OUTPUT_TRUNCATED');
       if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string')
         throw new Error('AUDIO_RESPONSE_INVALID');
       let parsed;
@@ -153,7 +175,7 @@ export class MultimodalTranscriber {
         throw new Error('AUDIO_RESPONSE_INVALID');
       }
       const segments = normalizeSegments(parsed.segments, duration);
-      if (!segments.length) throw new Error('AUDIO_RESPONSE_INVALID');
+      if (!segments.length && parsed.segments.length) throw new Error('AUDIO_RESPONSE_INVALID');
       success = true;
       return segments;
     } finally {

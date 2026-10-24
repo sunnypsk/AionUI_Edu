@@ -25,6 +25,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startWebHost, readWebUiAdminUsername, resetWebUiPassword } from '@aionui/web-host';
+import { ensureAudioTools } from '../packages/web-host/src/audio/providers/setup.js';
 import { openBrowserUrl, shouldAutoOpenBrowser } from '../packages/web-host/src/browser.js';
 
 // Aligned with packages/desktop/src/common/config/constants.ts WEBUI_DEFAULT_PORT.
@@ -141,6 +142,9 @@ function augmentPathWithNvm(): void {
 }
 
 async function main(): Promise<void> {
+  await ensureAudioTools().catch(() =>
+    console.warn('[audio] Local audio dependency setup failed; see Audio tools readiness in Settings.')
+  );
   augmentPathWithNvm();
   // Prefer this fork's pinned Codex CLI over a different global installation.
   process.env.PATH = [path.join(repoRoot, 'node_modules', '.bin'), process.env.PATH || ''].join(path.delimiter);
@@ -166,6 +170,7 @@ async function main(): Promise<void> {
     }
     process.env.AIONUI_CODEX_RUNTIME_ROOT = path.join(workDir, 'runtime', 'codex-cli');
     process.env.AIONUI_BUNDLED_CODEX = path.join(repoRoot, 'node_modules', '.bin', 'codex');
+    process.env.AIONUI_MANAGED_CODEX_LAUNCHER = path.join(repoRoot, 'packages/web-host/src/runtime/codex/codex');
     process.env.PATH = [
       path.join(repoRoot, 'packages', 'web-host', 'src', 'runtime', 'codex'),
       process.env.PATH || '',

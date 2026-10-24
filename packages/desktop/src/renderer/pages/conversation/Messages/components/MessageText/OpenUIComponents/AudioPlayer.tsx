@@ -1,24 +1,44 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Button, Slider } from '@arco-design/web-react';
 import { PauseOne, PlayOne } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { formatDuration } from './ListeningEditor/draft';
 import styles from './OpenUIComponents.module.css';
 
+/** Imperative controls for keyboard shortcuts and range marking; times are seconds in the file. */
+export type AudioPlayerHandle = {
+  toggle: () => Promise<void>;
+  /** Current playback position, or `start` before anything has loaded. */
+  currentTime: () => number;
+  seek: (seconds: number) => void;
+};
+
 /**
  * Minimal audio player built from Arco controls. The file is fetched on first play and kept as a blob
  * URL, so seeking works without relying on HTTP range support from the file stream endpoint.
+ * Changing `start`/`end` keeps the downloaded file, so moving a marked range never re-downloads it.
  */
 export function AudioPlayer({
   url,
   compact = false,
   start = 0,
   end,
+  loop = false,
+  label,
+  playerRef,
+  onTime,
 }: {
   url: string;
   compact?: boolean;
   start?: number;
   end?: number;
+  /** Restart from `start` instead of stopping at `end`. */
+  loop?: boolean;
+  /** Accessible name for the play button when several players sit side by side. */
+  label?: string;
+  playerRef?: React.Ref<AudioPlayerHandle>;
+  /** Reports the absolute playback position in seconds. */
+  onTime?: (seconds: number) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const audio = useRef<HTMLAudioElement>(null);
@@ -49,7 +69,20 @@ export function AudioPlayer({
       request.current?.abort();
       if (element?.getAttribute('src')) element.pause();
     };
-  }, [url, start, end]);
+  }, [url]);
+  // A new window over the same file: keep the download, stop playback and rewind into the window.
+  useEffect(() => {
+    const element = audio.current;
+    if (!element?.getAttribute('src')) return;
+    element.pause();
+    setFailed(false);
+    setPosition(0);
+    if (!valid) return;
+    element.currentTime = start;
+    const stop = bounds(element);
+    setDuration(Number.isFinite(stop) ? stop - start : 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the window bounds trigger this.
+  }, [start, end]);
   useEffect(() => () => void (blobUrl && URL.revokeObjectURL(blobUrl)), [blobUrl]);
 
   const toggle = async (): Promise<void> => {
@@ -87,13 +120,27 @@ export function AudioPlayer({
     });
   };
 
+  useImperativeHandle(playerRef, () => ({
+    toggle,
+    currentTime: () => audio.current?.currentTime ?? start,
+    seek: (seconds) => {
+      const element = audio.current;
+      if (!element?.getAttribute('src')) return;
+      element.currentTime = Math.max(start, Math.min(seconds, bounds(element)));
+    },
+  }));
+
   const updatePosition = (element: HTMLAudioElement): void => {
     const stop = bounds(element);
     if (element.currentTime >= stop) {
-      element.pause();
-      if (element.currentTime > stop) element.currentTime = stop;
+      if (loop && !element.paused) element.currentTime = start;
+      else {
+        element.pause();
+        if (element.currentTime > stop) element.currentTime = stop;
+      }
     } else if (element.currentTime < start) element.currentTime = start;
     setPosition(Math.max(0, Math.min(element.currentTime, stop) - start));
+    onTime?.(element.currentTime);
   };
 
   return (
@@ -127,7 +174,11 @@ export function AudioPlayer({
         size='mini'
         shape='circle'
         type={compact ? 'text' : 'secondary'}
-        aria-label={t(playing ? 'messages.listening.player.pause' : 'messages.listening.player.play')}
+        aria-label={
+          label
+            ? `${t(playing ? 'messages.listening.player.pause' : 'messages.listening.player.play')} · ${label}`
+            : t(playing ? 'messages.listening.player.pause' : 'messages.listening.player.play')
+        }
         icon={playing ? <PauseOne /> : <PlayOne />}
         loading={loading}
         disabled={!valid}

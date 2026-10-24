@@ -3,7 +3,7 @@ import { Button, Input, Typography } from '@arco-design/web-react';
 import { Delete, Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
-import styles from './ListeningEditor.module.css';
+import styles from '../ListeningEditor.module.css';
 
 type Lexicon = ListeningProject['lexicon'];
 

@@ -180,7 +180,8 @@
       "render": "音声を作成",
       "retry": "再試行",
       "save": "保存",
-      "stop": "停止"
+      "stop": "停止",
+      "jump": "ここへ移動"
     },
     "conflict": {
       "content": "開いた後に、このプロジェクトが別の場所（アシスタントなど）で変更されました。",
@@ -198,7 +199,12 @@
       "model": "「設定 → Tools」の文字起こしモデルは音声に対応していません。",
       "projectMissing": "プロジェクトファイルが存在しません。",
       "restarted": "音声の作成中にサーバーが再起動しました。もう一度作成してください。",
-      "tooLong": "音声が90分を超えます。"
+      "tooLong": "音声が90分を超えます。",
+      "keyRequired": "文字起こしには Vercel キーが必要です。「設定 → Tools」で追加するか、そのまま続けてください。",
+      "unavailable": "音声ツールは現在利用できません。サービスを再起動してからもう一度お試しください。",
+      "contentFiltered": "クラウドサービスがこの音声の処理を拒否しました。自動では再試行しません。",
+      "truncated": "クラウドサービスの応答が不完全でした。自動では再試行しません。",
+      "conflict": "プロジェクトが別の場所で変更されました。再読み込みしてからお試しください。"
     },
     "fields": {
       "chimeEnd": "終了チャイム",
@@ -221,7 +227,8 @@
       "text": "内容",
       "voice": "声",
       "voiceDefault": "既定の声",
-      "clipPath": "録音ファイル（ワークスペース内のパス）"
+      "clipPath": "録音ファイル（ワークスペース内のパス）",
+      "internalNote": "内部メモ（音声には影響しません）"
     },
     "lexicon": {
       "add": "修正を追加",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}} 件のセリフが読み間違いの可能性あり",
       "issues_other": "{{count}} 件のセリフが読み間違いの可能性あり",
       "skipped": "読み方チェックは行われていません。「設定 → Tools」で Vercel キーを追加すると有効になります。",
-      "unaccept": "元に戻す"
+      "unaccept": "元に戻す",
+      "notChecked": "聞き取りチェック（QA）は未実施です。",
+      "incomplete": "聞き取りチェック（QA）が完了していません。一部の文は未確認です。"
     },
     "segment": {
       "notRendered": "未作成",
-      "notRenderedTooltip": "前回の音声作成後に変更されました"
+      "notRenderedTooltip": "前回の音声作成後に変更されました",
+      "replaces": "元の音声 {{range}} を置き換え",
+      "replacesTooltip": "元の録音のこの範囲の代わりに流れる合成音声です。"
     },
     "status": {
       "byAssistant": "アシスタントが開始",
@@ -259,7 +270,9 @@
       "never": "まだ音声はありません。台本を編集して「音声を作成」を選んでください。",
       "preview": "セクション試聴 · {{duration}}",
       "queued": "開始待ち…",
-      "running": "音声を作成中… {{completed}}/{{total}}"
+      "running": "音声を作成中… {{completed}}/{{total}}",
+      "outdated": "古いバージョン · {{duration}}（その後プロジェクトが変更されました）",
+      "noAutoRetry": "自動では再試行しません。「ここへ移動」で該当箇所を開き、手動で置き換えてください。"
     },
     "types": {
       "chime": "チャイム",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan（女性）",
       "WanLung": "WanLung（男性）"
+    },
+    "warnings": {
+      "approximate": "時間はおおよそです。切り取る前に聞いて確認してください。",
+      "incomplete": "この部分の文字起こしは不完全です。",
+      "contentFiltered": "クラウドサービスがこの部分の文字起こしを拒否しました。",
+      "generic": "聞いて確認してください。"
+    },
+    "clip": {
+      "expand": "クリップ {{range}} を表示",
+      "collapse": "クリップ {{range}} を閉じる",
+      "source": "元の音声",
+      "noText": "テキストなし",
+      "noTextHelp": "このクリップには文字起こしがありません。元の音声はそのまま残ります。",
+      "verified": "確認済み",
+      "unverified": "未確認",
+      "warnings": "注意 {{count}} 件",
+      "transcriptAuto": "自動文字起こし・未確認（参考用）",
+      "transcriptTeacher": "教員が入力したテキスト・未確認",
+      "transcriptVerified": "教員が確認した文字起こし",
+      "verify": "確認済みにする",
+      "unverify": "未確認に戻す"
+    },
+    "advanced": {
+      "title": "詳細：ファイルパス、正確な秒数、内部メモ"
+    },
+    "section": {
+      "expand": "{{name}} を表示",
+      "collapse": "{{name}} を閉じる",
+      "items": "{{count}} 項目",
+      "unverified": "未確認 {{count}} 件"
+    },
+    "nav": {
+      "title": "セクション",
+      "jump": "セクションへ移動"
+    },
+    "replace": {
+      "title": "元の音声の一部を置き換える",
+      "disclosure": "新しい言葉は合成音声（HiuMaan または WanLung）で、元の話者とは声が異なります。範囲は自分で指定し、自動で位置合わせはしません。その他の元の音声はすべて残ります。",
+      "markerLabel": "範囲を指定するための元音声プレーヤー",
+      "sourceLabel": "元の音声",
+      "now": "現在 {{time}}",
+      "markStart": "開始を指定",
+      "markEnd": "終了を指定",
+      "markStartShortcut": "現在位置を開始にする（[）",
+      "markEndShortcut": "現在位置を終了にする（]）",
+      "unmarked": "未指定",
+      "startEarlier": "開始を 0.1 秒早める",
+      "startLater": "開始を 0.1 秒遅らせる",
+      "endEarlier": "終了を 0.1 秒早める",
+      "endLater": "終了を 0.1 秒遅らせる",
+      "loop": "指定範囲をループ再生",
+      "invalidRange": "終了は開始より後にしてください。",
+      "shortcuts": "キー（先にプレーヤー領域をクリック）：Space 再生／一時停止 · [ 開始 · ] 終了 · Alt+←/→ 最後の指定を 0.1 秒移動",
+      "text": "置き換える言葉",
+      "textPlaceholder": "例：二零二六年",
+      "preview": "プレビューを作成",
+      "running": "プレビュー作成中…",
+      "status": {
+        "cancelled": "プレビューを停止しました。",
+        "interrupted": "プレビューが中断されました。もう一度作成してください。"
+      },
+      "before": "置き換え前（元の音声）",
+      "after": "置き換え後",
+      "duration": "元の部分 {{original}} 秒 → 新しい音声 {{replacement}} 秒（{{delta}} 秒）。",
+      "shiftLater": "{{time}} 以降は {{seconds}} 秒遅れて再生されます。",
+      "shiftEarlier": "{{time}} 以降は {{seconds}} 秒早く再生されます。",
+      "stale": "プレビュー作成後にプロジェクトが変更されました。もう一度作成してから適用してください。",
+      "apply": "プロジェクトに適用",
+      "discard": "破棄"
+    },
+    "summary": {
+      "title": "プロジェクトの状態",
+      "output": {
+        "ready": "このバージョンの完全な MP3 があります",
+        "outdated": "完全な MP3 は古くなっています",
+        "missing": "完全な MP3 はまだありません"
+      },
+      "outputHint": {
+        "ready": "下からダウンロードできます。",
+        "outdated": "前回の MP3 作成後に変更がありました。もう一度「音声を作成」を押してください。",
+        "missing": "クリップで聞こえるのは元の録音です。「音声を作成」で完全な MP3 を作ります。"
+      },
+      "sourceClips": "元の音声クリップ：{{count}}",
+      "unverified": "未確認のクリップ：{{count}}",
+      "verified": "確認済み：{{count}}",
+      "replacements": "置き換え：{{count}}",
+      "warnings": "要確認：{{count}}",
+      "unverifiedHint": "未確認のクリップも元の音声のまま残ります。自動テキストがあっても参考用で、読み上げられません。言葉を変えるには「元の音声の一部を置き換える」を使ってください。"
+    },
+    "download": {
+      "mp3": "MP3 をダウンロード",
+      "zip": "持ち運び用プロジェクト（ZIP）をダウンロード",
+      "prepareZip": "持ち運び用プロジェクト（ZIP）を準備",
+      "json": "詳細：プロジェクト JSON",
+      "preparing": "ZIP を準備中…",
+      "mp3Unavailable": "このバージョンの完全な MP3 を作成すると、ダウンロードできます。"
+    },
+    "capability": {
+      "tools": "音声ツールを利用できません",
+      "tts": "音声合成を利用できません",
+      "render": "音声の作成を利用できません",
+      "noKey": "自動文字起こしはオフです（Vercel キー未設定）。元の音声の保持、手動での指定と置き換え、MP3 の作成は引き続き行えます。",
+      "openSettings": "設定を開く",
+      "transcriptionUnavailable": "自動文字起こしは現在利用できません。"
+    },
+    "analysis": {
+      "blockedTitle": "一部を文字起こしできませんでした",
+      "blocked": "分析時に一部を文字起こしできませんでした。元の録音は保持されています。以下の範囲を確認するか、手動の置き換えで修正してください。"
     }
   }
 }

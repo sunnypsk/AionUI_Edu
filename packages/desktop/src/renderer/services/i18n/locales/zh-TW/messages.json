@@ -180,7 +180,8 @@
       "render": "製作音檔",
       "retry": "重試",
       "save": "儲存",
-      "stop": "停止"
+      "stop": "停止",
+      "jump": "跳到此處"
     },
     "conflict": {
       "content": "你開啟此項目後，它在其他地方（例如助手）被修改了。",
@@ -198,7 +199,12 @@
       "model": "「設定 → Tools」中的轉錄模型不支援音訊。",
       "projectMissing": "項目檔案已不存在。",
       "restarted": "製作音檔期間伺服器重新啟動，請再製作一次。",
-      "tooLong": "音檔會超過 90 分鐘。"
+      "tooLong": "音檔會超過 90 分鐘。",
+      "keyRequired": "轉錄需要 Vercel key。可在「設定 → Tools」加入，或不用轉錄繼續。",
+      "unavailable": "音訊工具暫時未能使用。請重新啟動服務後再試。",
+      "contentFiltered": "雲端服務拒絕處理這段音訊，系統不會自動重試。",
+      "truncated": "雲端服務回傳的結果不完整，系統不會自動重試。",
+      "conflict": "項目已在其他地方被修改。請重新載入後再試。"
     },
     "fields": {
       "chimeEnd": "結束提示音",
@@ -221,7 +227,8 @@
       "text": "內容",
       "voice": "聲線",
       "voiceDefault": "預設聲線",
-      "clipPath": "錄音檔案（工作區路徑）"
+      "clipPath": "錄音檔案（工作區路徑）",
+      "internalNote": "內部備註（不影響聲音）"
     },
     "lexicon": {
       "add": "新增修正",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}} 句可能讀錯",
       "issues_other": "{{count}} 句可能讀錯",
       "skipped": "未做讀音檢查。在「設定 → Tools」加入 Vercel key 即可啟用。",
-      "unaccept": "復原"
+      "unaccept": "復原",
+      "notChecked": "未做聽寫核對（QA）。",
+      "incomplete": "聽寫核對（QA）未完成，部分句子未經核對。"
     },
     "segment": {
       "notRendered": "未製作",
-      "notRenderedTooltip": "上次製作音檔後有修改"
+      "notRenderedTooltip": "上次製作音檔後有修改",
+      "replaces": "替換原音 {{range}}",
+      "replacesTooltip": "這句合成讀音取代原錄音中的這段範圍。"
     },
     "status": {
       "byAssistant": "由助手開始",
@@ -259,7 +270,9 @@
       "never": "尚未製作音檔。修改稿件後按「製作音檔」。",
       "preview": "段落試聽 · {{duration}}",
       "queued": "等待開始…",
-      "running": "製作音檔中… {{completed}}/{{total}}"
+      "running": "製作音檔中… {{completed}}/{{total}}",
+      "outdated": "舊版本 · {{duration}}（之後項目已有修改）",
+      "noAutoRetry": "系統不會自動重試。可按「跳到此處」找出該段，再手動替換。"
     },
     "types": {
       "chime": "提示音",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan（女聲）",
       "WanLung": "WanLung（男聲）"
+    },
+    "warnings": {
+      "approximate": "時間只是約數，剪接前請先聽清楚。",
+      "incomplete": "這部分的轉錄不完整。",
+      "contentFiltered": "雲端服務拒絕轉錄這部分。",
+      "generic": "請聽一次核對這部分。"
+    },
+    "clip": {
+      "expand": "展開片段 {{range}}",
+      "collapse": "收起片段 {{range}}",
+      "source": "原音",
+      "noText": "未有文字",
+      "noTextHelp": "此片段沒有轉錄文字；原音會照樣保留。",
+      "verified": "已確認",
+      "unverified": "未核實",
+      "warnings": "{{count}} 項提示",
+      "transcriptAuto": "自動轉錄・未核實（只供參考）",
+      "transcriptTeacher": "老師輸入的文字・未核實",
+      "transcriptVerified": "老師已確認轉錄",
+      "verify": "標為已確認",
+      "unverify": "改回未核實"
+    },
+    "advanced": {
+      "title": "進階：檔案路徑、精確秒數、內部備註"
+    },
+    "section": {
+      "expand": "展開{{name}}",
+      "collapse": "收起{{name}}",
+      "items": "{{count}} 項",
+      "unverified": "{{count}} 項未核實"
+    },
+    "nav": {
+      "title": "段落",
+      "jump": "跳到段落"
+    },
+    "replace": {
+      "title": "替換一段原音",
+      "disclosure": "新字句會用合成聲音（HiuMaan 或 WanLung），聲音與原講者不同。範圍由你標記，系統不會自動對齊；其餘原音全部保留。",
+      "markerLabel": "用於標記範圍的原音播放器",
+      "sourceLabel": "原音",
+      "now": "目前 {{time}}",
+      "markStart": "標記開始",
+      "markEnd": "標記結束",
+      "markStartShortcut": "以目前位置作開始（[）",
+      "markEndShortcut": "以目前位置作結束（]）",
+      "unmarked": "未標記",
+      "startEarlier": "開始提早 0.1 秒",
+      "startLater": "開始延後 0.1 秒",
+      "endEarlier": "結束提早 0.1 秒",
+      "endLater": "結束延後 0.1 秒",
+      "loop": "循環播放標記範圍",
+      "invalidRange": "結束要遲過開始。",
+      "shortcuts": "快捷鍵（先點一下播放器區域）：Space 播放／暫停 · [ 標記開始 · ] 標記結束 · Alt+←/→ 將最後標記移 0.1 秒",
+      "text": "替換字句",
+      "textPlaceholder": "例如：二零二六年",
+      "preview": "生成試聽",
+      "running": "生成試聽中…",
+      "status": {
+        "cancelled": "已停止生成試聽。",
+        "interrupted": "生成試聽被中斷，請再生成一次。"
+      },
+      "before": "替換前（原音）",
+      "after": "替換後",
+      "duration": "原段 {{original}} 秒 → 新讀音 {{replacement}} 秒（{{delta}} 秒）。",
+      "shiftLater": "{{time}} 之後的內容會順延 {{seconds}} 秒。",
+      "shiftEarlier": "{{time}} 之後的內容會提早 {{seconds}} 秒。",
+      "stale": "試聽生成後項目已有修改，請重新生成試聽再套用。",
+      "apply": "套用到項目",
+      "discard": "放棄"
+    },
+    "summary": {
+      "title": "項目狀態",
+      "output": {
+        "ready": "完整 MP3 已製作（對應目前版本）",
+        "outdated": "完整 MP3 已過時",
+        "missing": "完整 MP3 尚未製作"
+      },
+      "outputHint": {
+        "ready": "可在下面下載。",
+        "outdated": "上次製作 MP3 後項目已有修改，請再按「製作音檔」。",
+        "missing": "片段播放的是原錄音；按「製作音檔」才會產生完整 MP3。"
+      },
+      "sourceClips": "保留原音片段：{{count}}",
+      "unverified": "未核實片段：{{count}}",
+      "verified": "已確認：{{count}}",
+      "replacements": "替換：{{count}}",
+      "warnings": "需要留意：{{count}}",
+      "unverifiedHint": "未核實片段照樣保留原音；如有自動文字，只供參考，不會被讀出。要修改字句，請用「替換一段原音」。"
+    },
+    "download": {
+      "mp3": "下載 MP3",
+      "zip": "下載可攜專案（ZIP）",
+      "prepareZip": "準備可攜專案（ZIP）",
+      "json": "進階：項目 JSON",
+      "preparing": "準備 ZIP 中…",
+      "mp3Unavailable": "為目前版本製作完整 MP3 後才可下載。"
+    },
+    "capability": {
+      "tools": "音訊工具未能使用",
+      "tts": "語音合成未能使用",
+      "render": "音檔製作未能使用",
+      "noKey": "未開啟自動轉錄（未設定 Vercel key）。你仍可保留原音、手動標記及替換，並製作 MP3。",
+      "openSettings": "開啟設定",
+      "transcriptionUnavailable": "自動轉錄暫時未能使用。"
+    },
+    "analysis": {
+      "blockedTitle": "部分內容未能轉錄",
+      "blocked": "分析時有部分內容未能轉錄。來源錄音仍保留；請檢查以下範圍，或用手動替換修改。"
     }
   }
 }

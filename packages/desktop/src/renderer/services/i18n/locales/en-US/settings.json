@@ -1384,6 +1384,7 @@
     "ttsDescription": "Edge TTS: HiuMaan (female) and WanLung (male). The agent can adjust rate, volume and pitch, and include subtitles.",
     "loadFailed": "Could not load audio settings.",
     "catalogFailed": "Could not refresh models. Your saved selection is preserved.",
-    "saveFailed": "Could not save. Check the model ID and try again."
+    "saveFailed": "Could not save. Check the model ID and try again.",
+    "withoutKey": "Without a key you can still keep original audio, replace parts by hand and make listening MP3s."
   }
 }

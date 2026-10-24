@@ -3,6 +3,9 @@ import path from 'node:path';
 import { LISTENING_LIMITS } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
 import { workspaceFile } from '../providers/media.js';
 import { buildProject, speechRegions, type Interval, type Region } from './structure.js';
+import { audioError } from '../types.js';
+import type { AudioIssue } from '../../../../desktop/src/common/types/platform/audioTools.ts';
+import { AudioTranscriptionError } from '../providers/gemini.js';
 
 // Leave room for MP3 encoder padding so the transcriber never sees an extra near-empty five-minute chunk.
 const TRANSCRIBE_WINDOW = 295;
@@ -37,6 +40,7 @@ export type AnalysisResult = {
   durationSeconds: number;
   warnings: string[];
   summary: string;
+  issues: AudioIssue[];
 };
 
 async function transcribeRegions(
@@ -44,36 +48,48 @@ async function transcribeRegions(
   source: string,
   regions: Region[],
   warnings: Set<string>
-): Promise<void> {
+): Promise<AudioIssue[]> {
   const transcribe = options.services.transcribe!;
   const controller = new AbortController();
   const signal = AbortSignal.any([options.signal, controller.signal]);
   let next = 0;
   let completed = 0;
+  const issues: AudioIssue[] = [];
   const worker = async (): Promise<void> => {
     while (next < regions.length) {
       signal.throwIfAborted();
       const index = next++;
       const region = regions[index];
       const parts: string[] = [];
-      try {
-        // Two region workers bound concurrency; chunks within a region retain their spoken order.
-        for (let start = region.start; start < region.end; start += TRANSCRIBE_WINDOW) {
-          signal.throwIfAborted();
-          const directory = path.join(options.directory, 'region-' + index + '-' + parts.length);
+      let part = 0;
+      // Two region workers bound concurrency; a failed chunk never discards its successful neighbours.
+      for (let start = region.start; start < region.end; start += TRANSCRIBE_WINDOW) {
+        signal.throwIfAborted();
+        const end = Math.min(region.end, start + TRANSCRIBE_WINDOW);
+        try {
+          const directory = path.join(options.directory, 'region-' + index + '-' + part++);
           await mkdir(directory, { mode: 0o700 });
           const file = path.join(directory, 'part.mp3');
-          await options.services.cut(source, file, start, Math.min(TRANSCRIBE_WINDOW, region.end - start), signal);
+          await options.services.cut(source, file, start, end - start, signal);
           const text = await transcribe(file, directory, signal);
-          if (!text.trim()) throw new Error('AUDIO_RESPONSE_INVALID');
+          if (!text.trim()) throw new Error('AUDIO_NO_SPEECH');
           parts.push(text);
+        } catch (error) {
+          if (signal.aborted) throw error;
+          const failures =
+            error instanceof AudioTranscriptionError
+              ? error.issues.map((issue) => ({
+                  code: issue.code,
+                  startSecond: Math.max(start, Math.min(end, start + issue.startSecond)),
+                  endSecond: Math.max(start, Math.min(end, start + issue.endSecond)),
+                }))
+              : [{ code: audioError(error), startSecond: start, endSecond: end }];
+          issues.push(...failures);
+          region.warnings = [...new Set([...(region.warnings ?? []), ...failures.map((issue) => issue.code)])];
+          warnings.add('AUDIO_ANALYSIS_TRANSCRIPT_INCOMPLETE');
         }
-        region.text = parts.join('\n');
-      } catch (error) {
-        if (signal.aborted) throw error;
-        // Preserve the entire original region when even one of its chunks cannot be transcribed.
-        warnings.add('AUDIO_ANALYSIS_TRANSCRIPT_INCOMPLETE');
       }
+      if (parts.length) region.text = parts.join('\n');
       signal.throwIfAborted();
       await options.progress(++completed, regions.length + 1);
     }
@@ -88,6 +104,7 @@ async function transcribeRegions(
   const settled = await Promise.allSettled(pending);
   const failure = settled.find((result) => result.status === 'rejected');
   if (failure?.status === 'rejected') throw failure.reason;
+  return issues.toSorted((a, b) => a.startSecond - b.startSecond);
 }
 
 /** Analyze into a private draft bundle, ready for the manager's cancellation-safe publication. */
@@ -105,11 +122,14 @@ export async function analyzeReference(options: AnalysisOptions): Promise<Analys
   const silences = await services.silences(source, { noiseDb: options.noiseDb, minSeconds: 0.5, duration }, signal);
   signal.throwIfAborted();
   const regions: Region[] = speechRegions(silences, duration, Math.min(options.mergeGap, options.sectionGap));
-  if (!regions.length) throw new Error('AUDIO_NO_SPEECH');
+  if (!regions.length) {
+    if (options.mode === 'speech') throw new Error('AUDIO_NO_SPEECH');
+    regions.push({ start: 0, end: duration });
+  }
   const warnings = new Set<string>(['AUDIO_APPROXIMATE_TIMESTAMPS']);
   await options.progress(0, regions.length + 1);
-  if (services.transcribe) await transcribeRegions(options, source, regions, warnings);
-  else warnings.add('AUDIO_ANALYSIS_NO_TRANSCRIPT');
+  const failures = services.transcribe ? await transcribeRegions(options, source, regions, warnings) : [];
+  if (!services.transcribe) warnings.add('AUDIO_ANALYSIS_NO_TRANSCRIPT');
   signal.throwIfAborted();
   const title = (
     options.title?.trim() ||
@@ -124,6 +144,11 @@ export async function analyzeReference(options: AnalysisOptions): Promise<Analys
     sectionGap: options.sectionGap,
     padding: 0.15,
   });
+  const clips = project.sections.flatMap((section) => section.segments).filter((segment) => segment.type === 'clip');
+  const issues = failures.map((issue) => ({
+    ...issue,
+    segmentId: clips.find((clip) => clip.start < issue.endSecond && clip.end > issue.startSecond)?.id,
+  }));
   if (
     options.mode === 'speech' &&
     project.sections.some((section) => section.segments.some((segment) => segment.type === 'clip'))
@@ -138,6 +163,7 @@ export async function analyzeReference(options: AnalysisOptions): Promise<Analys
         sourcePath: options.audioPath,
         silences,
         regions,
+        issues,
         sections: project.sections.map((section) => ({ id: section.id, plays: section.plays })),
         warnings: [...warnings],
       },
@@ -157,5 +183,6 @@ export async function analyzeReference(options: AnalysisOptions): Promise<Analys
     durationSeconds: duration,
     warnings: [...warnings],
     summary: title,
+    issues,
   };
 }

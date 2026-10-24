@@ -13,6 +13,7 @@
  * - show an aggregated progress indicator
  * - render a per-file list with a cancel/abort affordance
  * - bulk-abort uploads when the active conversation switches or unmounts
+ * - keep failed uploads visible with a reason, retry and remove, instead of dropping them silently
  */
 
 import { useSyncExternalStore } from 'react';
@@ -28,7 +29,10 @@ interface UploadStateSnapshot {
   overallPercent: number;
 }
 
-/** Public, read-only view of a single in-flight upload (rendered by the UI). */
+/** Why an upload did not finish; `maxBytes` is the server limit when the file was too large. */
+export type UploadFailure = { code: 'FILE_TOO_LARGE' | 'UPLOAD_FAILED'; maxBytes?: number };
+
+/** Public, read-only view of a single upload (rendered by the UI). */
 export interface ActiveUpload {
   id: number;
   name: string;
@@ -36,6 +40,11 @@ export interface ActiveUpload {
   percent: number;
   source: UploadSource;
   conversationId?: string;
+  /** `failed` uploads stay listed until the user retries or removes them. */
+  status: 'uploading' | 'failed';
+  failure?: UploadFailure;
+  /** Whether the failed upload can be tried again. */
+  retryable: boolean;
 }
 
 interface UploadEntry {
@@ -46,6 +55,8 @@ interface UploadEntry {
   conversationId?: string;
   /** Per-upload aborter — fires when user clicks cancel or conversation switches. */
   abort: () => void;
+  failure?: UploadFailure;
+  retry?: () => void;
 }
 
 // ── Internal store ─────────────────────────────────────────────────────────
@@ -74,6 +85,8 @@ function calcSnapshot(filter?: UploadSource): UploadStateSnapshot {
   let count = 0;
   for (const u of uploads.values()) {
     if (filter && u.source !== filter) continue;
+    // Failed uploads are listed but must not keep the send button disabled.
+    if (u.failure) continue;
     count++;
     totalBytes += u.size;
     loadedBytes += u.size * (u.percent / 100);
@@ -97,6 +110,9 @@ function buildList(filter?: UploadSource): ActiveUpload[] {
       percent: u.percent,
       source: u.source,
       conversationId: u.conversationId,
+      status: u.failure ? 'failed' : 'uploading',
+      failure: u.failure,
+      retryable: !!u.retry,
     });
   }
   return list;
@@ -195,7 +211,46 @@ export function trackUpload(
   };
 }
 
-/** Cancel a single upload by id. Safe to call after the upload has completed. */
+/**
+ * Keep a failed upload visible. `retry` (when given) is called after the entry is removed, so a
+ * new attempt appears as a fresh upload. Conversation switches clear failures like active uploads.
+ */
+export function reportUploadFailure(
+  upload: { name: string; size: number; source?: UploadSource; conversationId?: string },
+  failure: UploadFailure,
+  retry?: () => void
+): number {
+  const id = nextId++;
+  const dismiss = (): void => {
+    uploads.delete(id);
+    recalcSnapshot();
+    notify();
+  };
+  uploads.set(id, {
+    percent: 0,
+    size: upload.size,
+    source: upload.source ?? 'sendbox',
+    name: upload.name,
+    conversationId: upload.conversationId,
+    abort: dismiss,
+    failure,
+    retry,
+  });
+  recalcSnapshot();
+  notify();
+  return id;
+}
+
+/** Remove a failed upload from the list and start it again. */
+export function retryUpload(id: number): void {
+  const entry = uploads.get(id);
+  if (!entry?.failure || !entry.retry) return;
+  const retry = entry.retry;
+  entry.abort();
+  retry();
+}
+
+/** Cancel a single upload by id, or remove a failed one. Safe to call after the upload has completed. */
 export function abortUpload(id: number): void {
   const entry = uploads.get(id);
   if (!entry) return;

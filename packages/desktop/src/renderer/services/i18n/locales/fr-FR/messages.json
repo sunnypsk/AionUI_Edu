@@ -180,7 +180,8 @@
       "render": "Créer l'audio",
       "retry": "Réessayer",
       "save": "Enregistrer",
-      "stop": "Arrêter"
+      "stop": "Arrêter",
+      "jump": "Aller à"
     },
     "conflict": {
       "content": "Ce projet a été modifié ailleurs (par exemple par l'assistant) après son ouverture.",
@@ -198,7 +199,12 @@
       "model": "Le modèle de transcription de Paramètres → Tools ne prend pas en charge l'audio.",
       "projectMissing": "Le fichier du projet n'existe plus.",
       "restarted": "Le serveur a redémarré pendant la création de l'audio. Recréez-le.",
-      "tooLong": "L'audio dépasserait 90 minutes."
+      "tooLong": "L'audio dépasserait 90 minutes.",
+      "keyRequired": "La transcription nécessite une clé Vercel. Ajoutez-la dans Paramètres → Tools, ou continuez sans.",
+      "unavailable": "Les outils audio sont indisponibles pour le moment. Redémarrez le service puis réessayez.",
+      "contentFiltered": "Le service cloud a refusé de traiter cet audio. Aucune nouvelle tentative automatique.",
+      "truncated": "Le service cloud a renvoyé une réponse incomplète. Aucune nouvelle tentative automatique.",
+      "conflict": "Le projet a été modifié ailleurs. Rechargez-le puis réessayez."
     },
     "fields": {
       "chimeEnd": "Signal de fin",
@@ -221,7 +227,8 @@
       "text": "Texte prononcé",
       "voice": "Voix",
       "voiceDefault": "Voix par défaut",
-      "clipPath": "Fichier audio (chemin dans l’espace de travail)"
+      "clipPath": "Fichier audio (chemin dans l’espace de travail)",
+      "internalNote": "Note interne (non lue)"
     },
     "lexicon": {
       "add": "Ajouter une correction",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}} réplique peut-être mal lue",
       "issues_other": "{{count}} répliques peut-être mal lues",
       "skipped": "Vérification de prononciation ignorée. Ajoutez une clé Vercel dans Paramètres → Tools pour l’activer.",
-      "unaccept": "Annuler"
+      "unaccept": "Annuler",
+      "notChecked": "Non vérifié à l’écoute (QA).",
+      "incomplete": "La vérification à l’écoute (QA) n’est pas terminée ; certaines phrases n’ont pas été vérifiées."
     },
     "segment": {
       "notRendered": "Nouveau",
-      "notRenderedTooltip": "Modifié depuis la dernière création audio"
+      "notRenderedTooltip": "Modifié depuis la dernière création audio",
+      "replaces": "Remplace l’original {{range}}",
+      "replacesTooltip": "Voix de synthèse qui remplace cette plage de l’enregistrement original."
     },
     "status": {
       "byAssistant": "lancé par l'assistant",
@@ -259,7 +270,9 @@
       "never": "Aucun audio créé pour l'instant. Modifiez le script, puis choisissez Créer l'audio.",
       "preview": "Aperçu de la section · {{duration}}",
       "queued": "En attente de démarrage…",
-      "running": "Création de l'audio… {{completed}}/{{total}}"
+      "running": "Création de l'audio… {{completed}}/{{total}}",
+      "outdated": "Ancienne version · {{duration}} (le projet a changé depuis)",
+      "noAutoRetry": "Aucune nouvelle tentative automatique. Utilisez « Aller à » pour trouver la partie, puis remplacez-la à la main."
     },
     "types": {
       "chime": "Signal sonore",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan (féminine)",
       "WanLung": "WanLung (masculine)"
+    },
+    "warnings": {
+      "approximate": "Les temps sont approximatifs ; écoutez avant de couper.",
+      "incomplete": "La transcription de cette partie est incomplète.",
+      "contentFiltered": "Le service cloud a refusé de transcrire cette partie.",
+      "generic": "Vérifiez cette partie à l’écoute."
+    },
+    "clip": {
+      "expand": "Afficher l’extrait {{range}}",
+      "collapse": "Masquer l’extrait {{range}}",
+      "source": "Audio original",
+      "noText": "Pas encore de texte",
+      "noTextHelp": "Aucune transcription pour cet extrait. L’audio original est conservé tel quel.",
+      "verified": "Confirmé",
+      "unverified": "Non vérifié",
+      "warnings": "{{count}} remarques",
+      "transcriptAuto": "Transcription automatique · non vérifiée (à titre indicatif)",
+      "transcriptTeacher": "Texte saisi par l’enseignant · non vérifié",
+      "transcriptVerified": "Transcription confirmée par l’enseignant",
+      "verify": "Marquer comme confirmé",
+      "unverify": "Marquer comme non vérifié"
+    },
+    "advanced": {
+      "title": "Avancé : chemin du fichier, secondes exactes, note interne"
+    },
+    "section": {
+      "expand": "Afficher {{name}}",
+      "collapse": "Masquer {{name}}",
+      "items": "{{count}} éléments",
+      "unverified": "{{count}} non vérifiés"
+    },
+    "nav": {
+      "title": "Sections",
+      "jump": "Aller à la section"
+    },
+    "replace": {
+      "title": "Remplacer une partie de l’audio original",
+      "disclosure": "Les nouveaux mots utilisent une voix de synthèse (HiuMaan ou WanLung), différente de celle de l’orateur d’origine. Vous choisissez la plage ; rien n’est aligné automatiquement. Le reste de l’audio original est conservé.",
+      "markerLabel": "Lecteur de l’audio original pour marquer une plage",
+      "sourceLabel": "audio original",
+      "now": "Position {{time}}",
+      "markStart": "Marquer le début",
+      "markEnd": "Marquer la fin",
+      "markStartShortcut": "Marquer le début à la position actuelle ( [ )",
+      "markEndShortcut": "Marquer la fin à la position actuelle ( ] )",
+      "unmarked": "Non marqué",
+      "startEarlier": "Avancer le début de 0,1 s",
+      "startLater": "Reculer le début de 0,1 s",
+      "endEarlier": "Avancer la fin de 0,1 s",
+      "endLater": "Reculer la fin de 0,1 s",
+      "loop": "Lire la plage en boucle",
+      "invalidRange": "La fin doit être après le début.",
+      "shortcuts": "Touches (cliquez d’abord dans le lecteur) : Espace lecture/pause · [ début · ] fin · Alt+←/→ déplacer la dernière marque de 0,1 s",
+      "text": "Mots de remplacement",
+      "textPlaceholder": "ex. 二零二六年",
+      "preview": "Créer un aperçu",
+      "running": "Création de l’aperçu…",
+      "status": {
+        "cancelled": "L’aperçu a été arrêté.",
+        "interrupted": "L’aperçu a été interrompu. Recréez-le."
+      },
+      "before": "Avant (original)",
+      "after": "Après (avec remplacement)",
+      "duration": "Partie originale {{original}} s → nouvelle voix {{replacement}} s ({{delta}} s).",
+      "shiftLater": "Tout ce qui suit {{time}} sera lu {{seconds}} s plus tard.",
+      "shiftEarlier": "Tout ce qui suit {{time}} sera lu {{seconds}} s plus tôt.",
+      "stale": "Le projet a changé depuis cet aperçu. Recréez l’aperçu avant d’appliquer.",
+      "apply": "Appliquer au projet",
+      "discard": "Abandonner"
+    },
+    "summary": {
+      "title": "État du projet",
+      "output": {
+        "ready": "MP3 complet prêt pour cette version",
+        "outdated": "MP3 complet obsolète",
+        "missing": "MP3 complet pas encore créé"
+      },
+      "outputHint": {
+        "ready": "Téléchargez-le ci-dessous.",
+        "outdated": "Le projet a changé depuis le dernier MP3. Cliquez à nouveau sur « Créer l’audio ».",
+        "missing": "Les extraits font entendre l’enregistrement original. « Créer l’audio » produit le MP3 complet."
+      },
+      "sourceClips": "Extraits originaux : {{count}}",
+      "unverified": "Extraits non vérifiés : {{count}}",
+      "verified": "Confirmés : {{count}}",
+      "replacements": "Remplacements : {{count}}",
+      "warnings": "À vérifier : {{count}}",
+      "unverifiedHint": "Les extraits non vérifiés gardent l’audio original. Le texte automatique éventuel est indicatif et n’est jamais lu. Pour changer des mots, utilisez « Remplacer une partie de l’audio original »."
+    },
+    "download": {
+      "mp3": "Télécharger le MP3",
+      "zip": "Télécharger le projet portable (ZIP)",
+      "prepareZip": "Préparer le projet portable (ZIP)",
+      "json": "Avancé : JSON du projet",
+      "preparing": "Préparation du ZIP…",
+      "mp3Unavailable": "Le MP3 pourra être téléchargé une fois le MP3 complet créé pour cette version."
+    },
+    "capability": {
+      "tools": "Outils audio indisponibles",
+      "tts": "Synthèse vocale indisponible",
+      "render": "Création audio indisponible",
+      "noKey": "La transcription automatique est désactivée (pas de clé Vercel). Vous pouvez toujours conserver l’audio original, marquer et remplacer des parties à la main et créer le MP3.",
+      "openSettings": "Ouvrir les paramètres",
+      "transcriptionUnavailable": "La transcription automatique est indisponible."
+    },
+    "analysis": {
+      "blockedTitle": "Certaines parties n’ont pas pu être transcrites",
+      "blocked": "Certaines parties n’ont pas pu être transcrites lors de l’analyse. L’enregistrement source est conservé ; vérifiez les plages ci-dessous ou modifiez-les par remplacement manuel."
     }
   }
 }

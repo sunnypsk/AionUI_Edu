@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button, Input, InputNumber, Select, Space, Tag, Tooltip } from '@arco-design/web-react';
 import { ArrowDown, ArrowUp, Delete } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { AUDIO_VOICES } from '@/common/types/platform/audioTools';
 import type { ListeningSegment, ListeningSegmentState } from '@/common/types/platform/listeningProject';
-import { AudioPlayer } from '../AudioPlayer';
-import styles from './ListeningEditor.module.css';
+import { AudioPlayer } from '../../AudioPlayer';
+import type { ReplacementContext } from '../replacement/ReplacementPanel';
+import { formatTimestamp } from '../status';
+import { ClipRow } from './ClipRow';
+import styles from '../ListeningEditor.module.css';
 
 export type SegmentRowProps = {
   segment: ListeningSegment;
@@ -22,6 +25,9 @@ export type SegmentRowProps = {
   onRemove: () => void;
   onAcceptQa: (accepted: boolean) => void;
   onAddLexicon: () => void;
+  replacement: ReplacementContext;
+  /** Segment to expand and scroll to. */
+  focusedId?: string;
 };
 
 /** QA badge: misread lines get accept / pronunciation-fix actions; accepted lines can be reopened. */
@@ -122,8 +128,8 @@ function SegmentFields({ segment, disabled, onChange }: Pick<SegmentRowProps, 's
         />
         <Input
           size='small'
-          aria-label={t('messages.listening.fields.note')}
-          placeholder={t('messages.listening.fields.note')}
+          aria-label={t('messages.listening.fields.internalNote')}
+          placeholder={t('messages.listening.fields.internalNote')}
           value={segment.note ?? ''}
           disabled={disabled}
           maxLength={200}
@@ -146,62 +152,35 @@ function SegmentFields({ segment, disabled, onChange }: Pick<SegmentRowProps, 's
         onChange={(value: 'start' | 'end') => onChange({ ...segment, preset: value })}
       />
     );
-  return (
-    <Space size={8} wrap>
-      <Input
-        size='small'
-        className={styles.clipPath}
-        aria-label={t('messages.listening.fields.clipPath')}
-        placeholder={t('messages.listening.fields.clipPath')}
-        value={segment.path}
-        disabled={disabled}
-        status={segment.path.trim() ? undefined : 'error'}
-        maxLength={4096}
-        onChange={(value) => onChange({ ...segment, path: value })}
-      />
-      {(['start', 'end'] as const).map((field) => (
-        <InputNumber
-          key={field}
-          size='small'
-          className={styles.secondsInput}
-          aria-label={t(`messages.listening.fields.clip${field === 'start' ? 'Start' : 'End'}`)}
-          prefix={t(`messages.listening.fields.clip${field === 'start' ? 'Start' : 'End'}`)}
-          min={0}
-          step={0.5}
-          precision={2}
-          value={segment[field]}
-          error={segment.end <= segment.start}
-          disabled={disabled}
-          onChange={(value) => onChange({ ...segment, [field]: value ?? segment[field] })}
-        />
-      ))}
-      <Input
-        size='small'
-        aria-label={t('messages.listening.fields.note')}
-        placeholder={t('messages.listening.fields.note')}
-        value={segment.note ?? ''}
-        disabled={disabled}
-        maxLength={200}
-        onChange={(value) => onChange({ ...segment, note: value || undefined })}
-      />
-    </Space>
-  );
+  // Clips render through ClipRow.
+  return null;
 }
 
 /** One editable segment: type label, fields, per-line preview and QA, plus reorder/delete actions. */
 export function SegmentRow(props: SegmentRowProps): React.ReactElement {
   const { t } = useTranslation();
   const { segment, state, disabled } = props;
+  const row = useRef<HTMLDivElement>(null);
+  const focused = props.focusedId === segment.id;
+  useEffect(() => {
+    if (focused && segment.type !== 'clip') row.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, [focused, segment.type]);
+  if (segment.type === 'clip') return <ClipRow {...props} segment={segment} focused={props.focusedId === segment.id} />;
   const url =
-    segment.type === 'clip' && segment.path.trim()
-      ? props.fileUrl(segment.path)
-      : segment.type === 'speech' && state?.cached
-        ? props.fileUrl(`${props.cacheDirectory}/${state.key}.mp3`)
-        : undefined;
+    segment.type === 'speech' && state?.cached ? props.fileUrl(`${props.cacheDirectory}/${state.key}.mp3`) : undefined;
   return (
-    <div className={styles.segment}>
+    <div ref={row} className={styles.segment} data-segment-id={segment.id}>
       <div className={styles.segmentType}>
         <Tag size='small'>{t(`messages.listening.types.${segment.type}`)}</Tag>
+        {segment.type === 'speech' && segment.replaces && (
+          <Tooltip content={t('messages.listening.segment.replacesTooltip')}>
+            <Tag size='small' color='purple'>
+              {t('messages.listening.segment.replaces', {
+                range: `${formatTimestamp(segment.replaces.start)}–${formatTimestamp(segment.replaces.end)}`,
+              })}
+            </Tag>
+          </Tooltip>
+        )}
         {segment.type === 'speech' && !state?.cached && segment.text.trim() && (
           <Tooltip content={t('messages.listening.segment.notRenderedTooltip')}>
             <Tag size='small' color='gray'>
@@ -215,14 +194,7 @@ export function SegmentRow(props: SegmentRowProps): React.ReactElement {
         <QaStatus {...props} />
       </div>
       <div className={styles.segmentActions}>
-        {url && (
-          <AudioPlayer
-            url={url}
-            compact
-            start={segment.type === 'clip' ? segment.start : undefined}
-            end={segment.type === 'clip' ? segment.end : undefined}
-          />
-        )}
+        {url && <AudioPlayer url={url} compact />}
         <Button
           size='mini'
           type='text'

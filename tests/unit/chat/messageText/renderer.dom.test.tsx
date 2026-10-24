@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { defaultLightTheme } from '@openuidev/react-ui';
 import OpenUIMessage, {
@@ -15,6 +15,7 @@ import {
 } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/draft';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
 import { AudioPlayer } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/AudioPlayer';
+import { useListeningProject } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUIComponents/ListeningEditor/useListeningProject';
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('@/common/adapter/httpBridge', async (original) => ({
   ...(await original<object>()),
@@ -672,6 +673,7 @@ describe('listening track files', () => {
     totalChunks: 3,
     durationSeconds: 75,
     projectPath: 'listening/unit.listening.json',
+    projectRevision: 'r1',
     files: [{ path: 'audio/t1/track.mp3', format: 'mp3' }],
     qaIssues: 1,
     warnings: [],
@@ -732,6 +734,32 @@ describe('listening track files', () => {
     expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(2);
   });
 
+  it('jumps from the QA summary to the misread line inside a collapsed section', async () => {
+    const second = { ...project.sections[0], id: 'part2', label: '第二段' };
+    transport.request.mockImplementation(async (_method: string, path: string) =>
+      String(path).startsWith('/api/edu/audio/listening')
+        ? state({
+            project: {
+              ...project,
+              sections: [{ ...second, segments: [{ id: 'z1', type: 'pause', seconds: 2 }] }, project.sections[0]],
+            },
+          })
+        : {}
+    );
+    display('root = Stack([FileCard("listening/unit.listening.json", "聆聽項目")])');
+    fireEvent.click(
+      await waitFor(() => {
+        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
+        expect(button).not.toBeDisabled();
+        return button;
+      })
+    );
+    await screen.findByText('messages.listening.qa.issues');
+    expect(screen.queryByDisplayValue('請問銀行在哪裏？')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.jump' }));
+    expect(await screen.findByDisplayValue('請問銀行在哪裏？')).toBeTruthy();
+  });
+
   it('saves edits against the loaded revision', async () => {
     const line = await open();
     fireEvent.change(line, { target: { value: '請問郵局在哪裏？' } });
@@ -743,7 +771,7 @@ describe('listening track files', () => {
     expect(body.project.sections[0].segments[1]).toEqual({ id: 'p1', type: 'pause', seconds: 10 });
   });
 
-  it('edits and previews original clips and prevents invalid clip saves', async () => {
+  it('keeps original clips collapsed with advanced fields and reveals an invalid clip on save', async () => {
     const withClip = {
       ...project,
       sections: [
@@ -760,8 +788,13 @@ describe('listening track files', () => {
       String(path).startsWith('/api/edu/audio/listening') ? state({ project: withClip }) : {}
     );
     await open();
-    expect(screen.getAllByRole('button', { name: 'messages.listening.player.play' })).toHaveLength(3);
-    fireEvent.change(screen.getByLabelText('messages.listening.fields.clipPath'), { target: { value: '' } });
+    // Collapsed clip: one-line range and a play button, but no raw path field.
+    expect(screen.getByText('0:03.0–0:08.0')).toBeTruthy();
+    expect(screen.queryByLabelText('messages.listening.fields.clipPath')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /messages\.listening\.player\.play/ })).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.clip.expand' }));
+    fireEvent.click(screen.getByText('messages.listening.advanced.title'));
+    fireEvent.change(await screen.findByLabelText('messages.listening.fields.clipPath'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
     expect(calls('PUT')).toHaveLength(0);
     fireEvent.change(screen.getByLabelText('messages.listening.fields.clipPath'), { target: { value: 'another.wav' } });
@@ -828,12 +861,16 @@ describe('listening track files', () => {
   });
 });
 
+/** Minimal fetch response; jsdom's Blob cannot be wrapped in Node's `Response`. */
+const audioResponse = (body: string, status = 200) =>
+  ({ ok: status >= 200 && status < 300, status, blob: async () => new Blob([body]) }) as unknown as Response;
+
 describe('audio playback windows', () => {
   const fetchAudio = vi.fn();
   const objectUrl = vi.fn(() => 'blob:fixture');
   const revoke = vi.fn();
   beforeEach(() => {
-    fetchAudio.mockReset().mockResolvedValue(new Response(new Blob(['fixture'])));
+    fetchAudio.mockReset().mockResolvedValue(audioResponse('fixture'));
     objectUrl.mockClear();
     revoke.mockClear();
     vi.stubGlobal('fetch', fetchAudio);
@@ -887,14 +924,14 @@ describe('audio playback windows', () => {
     const signal = fetchAudio.mock.calls[0][1].signal as AbortSignal;
     rerender(<AudioPlayer url='/new.wav' start={5} end={8} />);
     await act(async () => {
-      finish(new Response(new Blob(['stale'])));
+      finish(audioResponse('stale'));
     });
     expect(signal.aborted).toBe(true);
     expect(objectUrl).not.toHaveBeenCalled();
   });
 
   it('reports a failed download and lets the teacher retry', async () => {
-    fetchAudio.mockResolvedValueOnce(new Response('', { status: 404 }));
+    fetchAudio.mockResolvedValueOnce(audioResponse('', 404));
     render(<AudioPlayer url='/reference.wav' />);
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.player.play' }));
     expect(await screen.findByText('messages.listening.player.loadFailed')).toBeTruthy();
@@ -923,5 +960,492 @@ describe('audio playback windows', () => {
     render(<AudioPlayer url='/reference.wav' start={10} end={5} />);
     expect(screen.getByRole('button', { name: 'messages.listening.player.play' })).toBeDisabled();
     expect(fetchAudio).not.toHaveBeenCalled();
+  });
+});
+
+describe('listening drafts from original recordings', () => {
+  const clip = (id: string, start: number, end: number, extra: Record<string, unknown> = {}) => ({
+    id,
+    type: 'clip',
+    path: 'audio/a1/reference.mp3',
+    start,
+    end,
+    ...extra,
+  });
+  const draftProject = {
+    version: 1,
+    title: '2022 DSE 聆聽',
+    sourceAudio: 'audio/a1/reference.mp3',
+    defaults: { voice: 'HiuMaan', rate: '+0%', volume: '+0%', pitch: '+0Hz' },
+    lexicon: [],
+    sections: [
+      {
+        id: 'intro',
+        label: '開場',
+        plays: 1,
+        gapBetweenPlays: 5,
+        gapAfter: 3,
+        segments: [
+          clip('c1', 294.6, 308.6, {
+            transcript: { text: '2022年香港中學文憑考試', verified: false, source: 'auto' },
+            warnings: ['AUDIO_APPROXIMATE_TIMESTAMPS'],
+          }),
+          { id: 'p1', type: 'pause', seconds: 0.8 },
+        ],
+      },
+      {
+        id: 'part2',
+        label: '第二段',
+        plays: 1,
+        gapBetweenPlays: 5,
+        gapAfter: 3,
+        segments: [
+          clip('c2', 309.38, 317.7, { transcript: { text: '在考試開始前', verified: true, source: 'teacher' } }),
+        ],
+      },
+    ],
+  };
+  const task = (overrides: Record<string, unknown>) => ({
+    id: 't',
+    kind: 'track',
+    status: 'completed',
+    createdAt: 1,
+    updatedAt: 2,
+    completedChunks: 1,
+    totalChunks: 1,
+    files: [],
+    warnings: [],
+    ...overrides,
+  });
+  const state = (overrides: Record<string, unknown> = {}) => ({
+    path: 'audio/a1/reference.listening.json',
+    revision: 'r1',
+    project: draftProject,
+    qaThreshold: 0.9,
+    segments: {},
+    tasks: [],
+    ...overrides,
+  });
+  const capabilities = (overrides: Record<string, unknown> = {}) => ({
+    uploadMaxBytes: 268435456,
+    tools: { available: true },
+    transcription: { available: false, hasKey: false },
+    tts: { available: true },
+    render: { available: true },
+    ...overrides,
+  });
+  let current = state();
+  let caps: Record<string, unknown> = capabilities();
+  const calls = (method: string, route = '') =>
+    transport.request.mock.calls.filter(
+      ([verb, path]) => verb === method && String(path).startsWith('/api/edu/audio/listening' + route)
+    );
+  const open = async () => {
+    display('root = Stack([FileCard("audio/a1/reference.listening.json", "聆聽項目")])');
+    fireEvent.click(
+      await waitFor(() => {
+        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
+        expect(button).not.toBeDisabled();
+        return button;
+      })
+    );
+    return screen.findByRole('region', { name: 'messages.listening.summary.title' });
+  };
+  const expandFirstClip = async () => {
+    fireEvent.click(screen.getAllByRole('button', { name: 'messages.listening.section.expand' })[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'messages.listening.clip.expand' }));
+  };
+  beforeEach(() => {
+    host.preview = null;
+    host.workspace = '/ws';
+    host.download.mockReset().mockResolvedValue(undefined);
+    current = state();
+    caps = capabilities();
+    transport.request
+      .mockReset()
+      .mockImplementation(async (method: string, path: string, body?: Record<string, unknown>) => {
+        const url = String(path);
+        if (url.startsWith('/api/edu/audio/capabilities')) return caps;
+        if (!url.startsWith('/api/edu/audio/listening')) return {};
+        if (method === 'PUT') return (current = state({ revision: 'r2', project: body?.project }));
+        return current;
+      });
+  });
+
+  it('summarizes kept original audio and unchecked text without claiming a finished MP3', async () => {
+    const summary = await open();
+    expect(within(summary).getByText('messages.listening.summary.output.missing')).toBeTruthy();
+    expect(within(summary).getByText('messages.listening.summary.unverifiedHint')).toBeTruthy();
+    expect(within(summary).getByRole('button', { name: 'messages.listening.download.mp3' })).toBeDisabled();
+    expect(within(summary).getByRole('button', { name: 'messages.listening.download.prepareZip' })).not.toBeDisabled();
+  });
+
+  it('labels a full track from an older revision as outdated and keeps its MP3 out of the download', async () => {
+    current = state({
+      tasks: [
+        task({ projectRevision: 'r0', durationSeconds: 2074, files: [{ path: 'audio/t/track.mp3', format: 'mp3' }] }),
+      ],
+    });
+    const summary = await open();
+    expect(within(summary).getByText('messages.listening.summary.output.outdated')).toBeTruthy();
+    expect(within(summary).getByRole('button', { name: 'messages.listening.download.mp3' })).toBeDisabled();
+    expect(screen.getByText('messages.listening.status.outdated')).toBeTruthy();
+    expect(screen.getByText('messages.listening.qa.notChecked')).toBeTruthy();
+  });
+
+  it('never shows incomplete QA as passed, even when the task reports zero issues', async () => {
+    current = state({
+      tasks: [
+        task({
+          projectRevision: 'r1',
+          qaIssues: 0,
+          warnings: ['AUDIO_QA_INCOMPLETE'],
+          files: [{ path: 'audio/t/track.mp3', format: 'mp3' }],
+        }),
+      ],
+    });
+    await open();
+    expect(screen.getByText('messages.listening.qa.incomplete')).toBeTruthy();
+    expect(screen.queryByText('messages.listening.qa.clean')).toBeNull();
+  });
+
+  it('offers the MP3 only for a full track of the saved revision, never a section preview', async () => {
+    current = state({
+      tasks: [
+        task({
+          id: 'pv',
+          projectRevision: 'r1',
+          previewSections: ['intro'],
+          files: [{ path: 'audio/pv/track.mp3', format: 'mp3' }],
+        }),
+        task({ id: 'full', projectRevision: 'r1', files: [{ path: 'audio/full/track.mp3', format: 'mp3' }] }),
+      ],
+    });
+    const summary = await open();
+    fireEvent.click(within(summary).getByRole('button', { name: 'messages.listening.download.mp3' }));
+    await waitFor(() => expect(host.download).toHaveBeenCalledOnce());
+    expect(host.download.mock.calls[0][1]).toBe('track.mp3');
+    expect(host.download.mock.calls[0][0]).toMatchObject({ path: '/ws/audio/full/track.mp3' });
+  });
+
+  it('collapses sections behind a navigator that expands the chosen section', async () => {
+    await open();
+    expect(screen.queryByText('在考試開始前')).toBeNull();
+    const nav = screen.getByRole('navigation', { name: 'messages.listening.nav.title' });
+    fireEvent.click(within(nav).getByText('第二段'));
+    expect(await screen.findByText('在考試開始前')).toBeTruthy();
+  });
+
+  it('shows automatic text read-only and saves a teacher confirmation without changing the clip', async () => {
+    await open();
+    await expandFirstClip();
+    expect(screen.getByText('messages.listening.clip.transcriptAuto')).toBeTruthy();
+    expect(screen.queryByDisplayValue('2022年香港中學文憑考試')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.clip.verify' }));
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
+    await waitFor(() => expect(calls('PUT')).toHaveLength(1));
+    const saved = (calls('PUT')[0][2] as { project: typeof draftProject }).project.sections[0].segments[0];
+    expect(saved).toMatchObject({
+      start: 294.6,
+      end: 308.6,
+      transcript: { text: '2022年香港中學文憑考試', verified: true, source: 'teacher' },
+    });
+  });
+
+  it('marks a source range by keyboard, previews before and after, then applies against the revision', async () => {
+    await open();
+    await expandFirstClip();
+    const marker = screen.getByRole('group', { name: 'messages.listening.replace.markerLabel' });
+    // Nothing is loaded in jsdom, so the playhead sits at the clip start.
+    fireEvent.keyDown(marker, { key: '[' });
+    fireEvent.keyDown(marker, { key: ']' });
+    expect(within(marker).getByRole('alert')).toHaveTextContent('messages.listening.replace.invalidRange');
+    fireEvent.keyDown(marker, { key: 'ArrowRight', altKey: true });
+    fireEvent.keyDown(marker, { key: 'ArrowRight', altKey: true });
+    fireEvent.change(screen.getByLabelText('messages.listening.replace.text'), { target: { value: '二零二六年' } });
+    const preview = task({
+      id: 'rp1',
+      kind: 'replacement',
+      projectRevision: 'r1',
+      preview: {
+        beforePath: 'audio/rp1/before.mp3',
+        afterPath: 'audio/rp1/after.mp3',
+        originalSeconds: 0.2,
+        replacementSeconds: 1.1,
+        deltaSeconds: 0.9,
+      },
+    });
+    transport.request.mockImplementation(async (method: string, path: string) => {
+      const url = String(path);
+      if (url.startsWith('/api/edu/audio/capabilities')) return caps;
+      if (url.endsWith('/replacements/preview'))
+        return { taskId: 'rp1', state: (current = state({ tasks: [preview] })) };
+      if (url.endsWith('/replacements/apply')) return (current = state({ revision: 'r3' }));
+      return url.startsWith('/api/edu/audio/listening') ? current : {};
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.preview' }));
+    await waitFor(() => expect(calls('POST', '/replacements/preview')).toHaveLength(1));
+    expect(calls('POST', '/replacements/preview')[0][2]).toMatchObject({
+      conversation_id: 'conversation',
+      path: 'audio/a1/reference.listening.json',
+      revision: 'r1',
+      clipId: 'c1',
+      start: 294.6,
+      end: 294.8,
+      text: '二零二六年',
+      voice: 'HiuMaan',
+    });
+    expect(await screen.findByText(/messages\.listening\.replace\.shiftLater/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /play · messages\.listening\.replace\.before/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /play · messages\.listening\.replace\.after/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.apply' }));
+    await waitFor(() => expect(calls('POST', '/replacements/apply')).toHaveLength(1));
+    expect(calls('POST', '/replacements/apply')[0][2]).toMatchObject({ revision: 'r1', previewId: 'rp1' });
+  });
+
+  it('keeps marks inside fractional clip bounds so the host never receives an escaped range', async () => {
+    current = state({
+      project: {
+        ...draftProject,
+        sections: [{ ...draftProject.sections[0], segments: [clip('c1', 307.994, 308.449138)] }],
+      },
+    });
+    await open();
+    fireEvent.click(await screen.findByRole('button', { name: 'messages.listening.clip.expand' }));
+    const marker = screen.getByRole('group', { name: 'messages.listening.replace.markerLabel' });
+    // The jsdom playhead is 0, so `[` lands on the start bound; `]` then walks right past the end bound.
+    fireEvent.keyDown(marker, { key: '[' });
+    fireEvent.keyDown(marker, { key: ']' });
+    for (let step = 0; step < 6; step++) fireEvent.keyDown(marker, { key: 'ArrowRight', altKey: true });
+    fireEvent.change(screen.getByLabelText('messages.listening.replace.text'), { target: { value: '二零二六年' } });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.preview' }));
+    await waitFor(() => expect(calls('POST', '/replacements/preview')).toHaveLength(1));
+    expect(calls('POST', '/replacements/preview')[0][2]).toMatchObject({ start: 307.994, end: 308.449138 });
+  });
+
+  it('ignores player shortcuts while typing the replacement words', async () => {
+    await open();
+    await expandFirstClip();
+    fireEvent.keyDown(screen.getByLabelText('messages.listening.replace.text'), { key: '[' });
+    expect(screen.getAllByText('messages.listening.replace.unmarked')).toHaveLength(2);
+  });
+
+  it('blocks applying a preview made from an older revision', async () => {
+    await open();
+    await expandFirstClip();
+    const marker = screen.getByRole('group', { name: 'messages.listening.replace.markerLabel' });
+    fireEvent.keyDown(marker, { key: '[' });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.endLater' }));
+    fireEvent.keyDown(marker, { key: ']' });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.endLater' }));
+    fireEvent.change(screen.getByLabelText('messages.listening.replace.text'), { target: { value: '二零二六年' } });
+    const stale = task({
+      id: 'rp2',
+      kind: 'replacement',
+      projectRevision: 'r0',
+      preview: { beforePath: 'b.mp3', afterPath: 'a.mp3', originalSeconds: 1, replacementSeconds: 1, deltaSeconds: 0 },
+    });
+    transport.request.mockImplementation(async (_method: string, path: string) => {
+      const url = String(path);
+      if (url.startsWith('/api/edu/audio/capabilities')) return caps;
+      if (url.endsWith('/replacements/preview')) return { taskId: 'rp2', state: (current = state({ tasks: [stale] })) };
+      return url.startsWith('/api/edu/audio/listening') ? current : {};
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.replace.preview' }));
+    expect(await screen.findByText('messages.listening.replace.stale')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'messages.listening.replace.apply' })).toBeDisabled();
+  });
+
+  it('explains a content-filter failure without a retry and jumps to the affected clip', async () => {
+    current = state({
+      tasks: [
+        task({
+          id: 'an',
+          kind: 'analysis',
+          status: 'failed',
+          error: 'AUDIO_CONTENT_FILTERED',
+          issues: [{ code: 'AUDIO_CONTENT_FILTERED', startSecond: 309.38, endSecond: 317.7, segmentId: 'c2' }],
+        }),
+        task({ id: 'tr', status: 'failed', error: 'AUDIO_CONTENT_FILTERED' }),
+      ],
+    });
+    await open();
+    expect(screen.getByText('messages.listening.errors.contentFiltered')).toBeTruthy();
+    expect(screen.getByText('messages.listening.status.noAutoRetry')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'messages.listening.actions.retry' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.jump' }));
+    expect(await screen.findByText('messages.listening.clip.transcriptVerified')).toBeTruthy();
+  });
+
+  it('describes analysis gaps neutrally and jumps to the speech that replaced the failed clip', async () => {
+    current = state({
+      project: {
+        ...draftProject,
+        sections: [
+          {
+            ...draftProject.sections[0],
+            segments: [
+              clip('c1a', 294.6, 296.76),
+              {
+                id: 'r1',
+                type: 'speech',
+                text: '二零二六年',
+                replaces: { path: 'audio/a1/reference.mp3', start: 296.76, end: 297.56 },
+              },
+              clip('c1b', 297.56, 308.6),
+            ],
+          },
+          draftProject.sections[1],
+        ],
+      },
+      tasks: [
+        task({
+          id: 'an',
+          kind: 'analysis',
+          issues: [{ code: 'AUDIO_RESPONSE_INVALID', startSecond: 296.76, endSecond: 297.56, segmentId: 'r1' }],
+        }),
+      ],
+    });
+    await open();
+    const alert = screen.getByText('messages.listening.analysis.blockedTitle').closest('[role="alert"]') as HTMLElement;
+    expect(within(alert).getByText(/messages\.listening\.analysis\.blocked$/)).toBeTruthy();
+    expect(within(alert).getByText(/messages\.listening\.errors\.generic/)).toBeTruthy();
+    expect(within(alert).queryByText(/contentFiltered/)).toBeNull();
+    fireEvent.click(within(alert).getByRole('button', { name: 'messages.listening.actions.jump' }));
+    expect(await screen.findByDisplayValue('二零二六年')).toBeTruthy();
+  });
+
+  it('words the analysis preamble without claiming the source is unchanged or that the service refused', async () => {
+    const { readFileSync } = await import('node:fs');
+    const preamble = (lang: string) =>
+      JSON.parse(readFileSync(`packages/desktop/src/renderer/services/i18n/locales/${lang}/messages.json`, 'utf8'))
+        .listening.analysis.blocked as string;
+    expect(preamble('zh-TW')).not.toMatch(/拒絕|保留原音/);
+    expect(preamble('en-US')).not.toMatch(/declined|keep the original audio/);
+  });
+
+  it('keeps manual editing available without a transcription key but disables synthesis when TTS is down', async () => {
+    caps = capabilities({ tts: { available: false, reason: 'AUDIO_UNAVAILABLE' } });
+    await open();
+    expect(await screen.findByText('messages.listening.capability.noKey')).toBeTruthy();
+    expect(screen.getByText('messages.listening.capability.tts')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'messages.listening.actions.render' })).not.toBeDisabled();
+    await expandFirstClip();
+    expect(screen.getByRole('button', { name: 'messages.listening.replace.preview' })).toBeDisabled();
+  });
+
+  it('prepares the portable ZIP and downloads it once it matches the saved revision', async () => {
+    const summary = await open();
+    transport.request.mockImplementation(async (_method: string, path: string) => {
+      const url = String(path);
+      if (url.startsWith('/api/edu/audio/capabilities')) return caps;
+      if (url.endsWith('/bundle'))
+        return {
+          taskId: 'ex1',
+          state: (current = state({
+            tasks: [
+              task({
+                id: 'ex1',
+                kind: 'export',
+                projectRevision: 'r1',
+                files: [{ path: 'audio/ex1/project.zip', format: 'zip' }],
+              }),
+            ],
+          })),
+        };
+      return url.startsWith('/api/edu/audio/listening') ? current : {};
+    });
+    fireEvent.click(within(summary).getByRole('button', { name: 'messages.listening.download.prepareZip' }));
+    await waitFor(() => expect(calls('POST', '/bundle')).toHaveLength(1));
+    expect(calls('POST', '/bundle')[0][2]).toMatchObject({ revision: 'r1' });
+    fireEvent.click(await within(summary).findByRole('button', { name: 'messages.listening.download.zip' }));
+    await waitFor(() => expect(host.download).toHaveBeenCalledOnce());
+    expect(host.download.mock.calls[0][1]).toBe('project.zip');
+  });
+});
+
+describe('listening state polling', () => {
+  const project = {
+    version: 1,
+    title: '聆聽',
+    defaults: { voice: 'HiuMaan', rate: '+0%', volume: '+0%', pitch: '+0Hz' },
+    lexicon: [],
+    sections: [
+      { id: 's1', plays: 1, gapBetweenPlays: 5, gapAfter: 3, segments: [{ id: 'l1', type: 'speech', text: '你好' }] },
+    ],
+  } as ListeningProject;
+  const track = (status: string, completedChunks: number) => ({
+    id: 'tr',
+    kind: 'track',
+    status,
+    createdAt: 1,
+    updatedAt: 2,
+    completedChunks,
+    totalChunks: 3,
+    projectRevision: 'r1',
+    files: [],
+    warnings: [],
+  });
+  const state = (task: ReturnType<typeof track>) => ({
+    path: 'p.listening.json',
+    revision: 'r1',
+    project,
+    qaThreshold: 0.9,
+    segments: {},
+    tasks: [task],
+  });
+  const target = { conversation_id: 'conversation', path: 'p.listening.json' };
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    transport.request.mockReset();
+  });
+
+  it('keeps polling after a failed load, then shows completion without replacing an unsaved draft', async () => {
+    transport.request
+      .mockReset()
+      .mockResolvedValueOnce(state(track('running', 1)))
+      .mockRejectedValueOnce(new Error('network blip'))
+      .mockResolvedValue(state(track('completed', 3)));
+    const onError = vi.fn();
+    const { result } = renderHook(() => useListeningProject(target, onError));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.state?.tasks[0].status).toBe('running');
+    act(() => result.current.edit((current) => ({ ...current, title: '未儲存標題' })));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(result.current.state?.tasks[0].status).toBe('running');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(result.current.state?.tasks[0].status).toBe('completed');
+    expect(result.current.draft?.title).toBe('未儲存標題');
+    expect(result.current.dirty).toBe(true);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('stops polling and ignores late responses after unmount', async () => {
+    let finish!: (value: unknown) => void;
+    transport.request
+      .mockReset()
+      .mockResolvedValueOnce(state(track('running', 1)))
+      .mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const { unmount } = renderHook(() => useListeningProject(target, vi.fn()));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(transport.request).toHaveBeenCalledTimes(2);
+    unmount();
+    finish(state(track('completed', 3)));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(transport.request).toHaveBeenCalledTimes(2);
   });
 });

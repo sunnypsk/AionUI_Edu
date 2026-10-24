@@ -132,7 +132,8 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
           )}
           {preview && !audio && !listening && <PreviewButton path={path} disabled={disabled} onError={reportPreview} />}
           <Button size='small' icon={<Download />} disabled={disabled} onClick={() => void download()}>
-            {t('messages.openui.file.download')}
+            {/* A listening card holds only the project file; the MP3 and portable ZIP live in the editor. */}
+            {t(listening ? 'messages.listening.download.json' : 'messages.openui.file.download')}
           </Button>
         </div>
       )}

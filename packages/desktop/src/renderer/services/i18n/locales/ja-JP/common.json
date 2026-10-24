@@ -163,5 +163,10 @@
   },
   "selectedCount": "選択済み {{count}}",
   "selectedSkills": "選択済みスキル",
-  "aiAssistant": "AI アシスタント"
+  "aiAssistant": "AI アシスタント",
+  "fileAttach.tooLarge": "{{size}} は大きすぎてアップロードできません。",
+  "fileAttach.tooLargeLimit": "{{size}} はアップロード上限 {{max}} を超えています。元のファイルは圧縮されません。小さいファイルを選んでください。",
+  "fileAttach.failedRetry": "アップロードに失敗しました。もう一度お試しください。",
+  "fileAttach.retry": "再試行",
+  "fileAttach.remove": "削除"
 }

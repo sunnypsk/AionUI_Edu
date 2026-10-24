@@ -180,7 +180,8 @@
       "render": "음원 만들기",
       "retry": "다시 시도",
       "save": "저장",
-      "stop": "중지"
+      "stop": "중지",
+      "jump": "이동"
     },
     "conflict": {
       "content": "프로젝트를 연 뒤 다른 곳(예: 어시스턴트)에서 변경되었습니다.",
@@ -198,7 +199,12 @@
       "model": "설정 → Tools의 전사 모델이 오디오를 지원하지 않습니다.",
       "projectMissing": "프로젝트 파일이 더 이상 없습니다.",
       "restarted": "음원을 만드는 중 서버가 다시 시작되었습니다. 다시 만들어 주세요.",
-      "tooLong": "음원이 90분을 넘습니다."
+      "tooLong": "음원이 90분을 넘습니다.",
+      "keyRequired": "전사에는 Vercel 키가 필요합니다. 설정 → Tools에서 추가하거나 키 없이 계속하세요.",
+      "unavailable": "지금은 오디오 도구를 사용할 수 없습니다. 서비스를 다시 시작한 뒤 다시 시도하세요.",
+      "contentFiltered": "클라우드 서비스가 이 오디오 처리를 거부했습니다. 자동으로 다시 시도하지 않습니다.",
+      "truncated": "클라우드 서비스가 불완전한 결과를 반환했습니다. 자동으로 다시 시도하지 않습니다.",
+      "conflict": "프로젝트가 다른 곳에서 변경되었습니다. 다시 불러온 뒤 시도하세요."
     },
     "fields": {
       "chimeEnd": "종료 알림음",
@@ -221,7 +227,8 @@
       "text": "내용",
       "voice": "음성",
       "voiceDefault": "기본 음성",
-      "clipPath": "녹음 파일 (작업 공간 경로)"
+      "clipPath": "녹음 파일 (작업 공간 경로)",
+      "internalNote": "내부 메모(음성에 영향 없음)"
     },
     "lexicon": {
       "add": "수정 추가",
@@ -245,11 +252,15 @@
       "issues_one": "{{count}}개 문장을 잘못 읽었을 수 있음",
       "issues_other": "{{count}}개 문장을 잘못 읽었을 수 있음",
       "skipped": "발음 검사를 건너뛰었습니다. 설정 → Tools에서 Vercel 키를 추가하면 사용할 수 있습니다.",
-      "unaccept": "되돌리기"
+      "unaccept": "되돌리기",
+      "notChecked": "듣기 검사(QA)를 하지 않았습니다.",
+      "incomplete": "듣기 검사(QA)가 끝나지 않아 일부 문장은 확인되지 않았습니다."
     },
     "segment": {
       "notRendered": "새 항목",
-      "notRenderedTooltip": "마지막으로 음원을 만든 뒤 변경됨"
+      "notRenderedTooltip": "마지막으로 음원을 만든 뒤 변경됨",
+      "replaces": "원본 {{range}} 대체",
+      "replacesTooltip": "원본 녹음의 이 범위를 대신하는 합성 음성입니다."
     },
     "status": {
       "byAssistant": "어시스턴트가 시작함",
@@ -259,7 +270,9 @@
       "never": "아직 만든 음원이 없습니다. 대본을 편집한 뒤 음원 만들기를 선택하세요.",
       "preview": "구간 미리 듣기 · {{duration}}",
       "queued": "시작 대기 중…",
-      "running": "음원 만드는 중… {{completed}}/{{total}}"
+      "running": "음원 만드는 중… {{completed}}/{{total}}",
+      "outdated": "이전 버전 · {{duration}}(이후 프로젝트가 변경됨)",
+      "noAutoRetry": "자동으로 다시 시도하지 않습니다. '이동'으로 해당 부분을 찾아 직접 바꾸세요."
     },
     "types": {
       "chime": "알림음",
@@ -275,6 +288,114 @@
     "voices": {
       "HiuMaan": "HiuMaan (여성)",
       "WanLung": "WanLung (남성)"
+    },
+    "warnings": {
+      "approximate": "시간은 대략적입니다. 자르기 전에 들어 보세요.",
+      "incomplete": "이 부분의 전사가 완전하지 않습니다.",
+      "contentFiltered": "클라우드 서비스가 이 부분의 전사를 거부했습니다.",
+      "generic": "들어서 확인하세요."
+    },
+    "clip": {
+      "expand": "클립 {{range}} 펼치기",
+      "collapse": "클립 {{range}} 접기",
+      "source": "원본 오디오",
+      "noText": "텍스트 없음",
+      "noTextHelp": "이 클립에는 전사 텍스트가 없습니다. 원본 오디오는 그대로 유지됩니다.",
+      "verified": "확인됨",
+      "unverified": "미확인",
+      "warnings": "알림 {{count}}개",
+      "transcriptAuto": "자동 전사 · 미확인(참고용)",
+      "transcriptTeacher": "교사가 입력한 텍스트 · 미확인",
+      "transcriptVerified": "교사가 확인한 전사",
+      "verify": "확인됨으로 표시",
+      "unverify": "미확인으로 되돌리기"
+    },
+    "advanced": {
+      "title": "고급: 파일 경로, 정확한 초, 내부 메모"
+    },
+    "section": {
+      "expand": "{{name}} 펼치기",
+      "collapse": "{{name}} 접기",
+      "items": "{{count}}개 항목",
+      "unverified": "미확인 {{count}}개"
+    },
+    "nav": {
+      "title": "구간",
+      "jump": "구간으로 이동"
+    },
+    "replace": {
+      "title": "원본 오디오 일부 바꾸기",
+      "disclosure": "새 문구는 합성 음성(HiuMaan 또는 WanLung)으로, 원래 화자와 목소리가 다릅니다. 범위는 직접 지정하며 자동 정렬은 하지 않습니다. 나머지 원본 오디오는 모두 유지됩니다.",
+      "markerLabel": "범위 지정을 위한 원본 오디오 플레이어",
+      "sourceLabel": "원본 오디오",
+      "now": "현재 {{time}}",
+      "markStart": "시작 지정",
+      "markEnd": "끝 지정",
+      "markStartShortcut": "현재 위치를 시작으로 지정([)",
+      "markEndShortcut": "현재 위치를 끝으로 지정(])",
+      "unmarked": "지정 안 됨",
+      "startEarlier": "시작을 0.1초 앞으로",
+      "startLater": "시작을 0.1초 뒤로",
+      "endEarlier": "끝을 0.1초 앞으로",
+      "endLater": "끝을 0.1초 뒤로",
+      "loop": "지정 범위 반복 재생",
+      "invalidRange": "끝은 시작보다 뒤여야 합니다.",
+      "shortcuts": "단축키(먼저 플레이어 영역 클릭): Space 재생/일시정지 · [ 시작 · ] 끝 · Alt+←/→ 마지막 지정을 0.1초 이동",
+      "text": "바꿀 문구",
+      "textPlaceholder": "예: 二零二六年",
+      "preview": "미리 듣기 만들기",
+      "running": "미리 듣기 만드는 중…",
+      "status": {
+        "cancelled": "미리 듣기를 중지했습니다.",
+        "interrupted": "미리 듣기가 중단되었습니다. 다시 만드세요."
+      },
+      "before": "바꾸기 전(원본)",
+      "after": "바꾼 후",
+      "duration": "원래 부분 {{original}}초 → 새 음성 {{replacement}}초({{delta}}초).",
+      "shiftLater": "{{time}} 이후 내용은 {{seconds}}초 늦게 재생됩니다.",
+      "shiftEarlier": "{{time}} 이후 내용은 {{seconds}}초 일찍 재생됩니다.",
+      "stale": "미리 듣기를 만든 뒤 프로젝트가 바뀌었습니다. 다시 만든 뒤 적용하세요.",
+      "apply": "프로젝트에 적용",
+      "discard": "취소"
+    },
+    "summary": {
+      "title": "프로젝트 상태",
+      "output": {
+        "ready": "이 버전의 전체 MP3 준비됨",
+        "outdated": "전체 MP3가 오래됨",
+        "missing": "전체 MP3 아직 없음"
+      },
+      "outputHint": {
+        "ready": "아래에서 내려받을 수 있습니다.",
+        "outdated": "마지막 MP3 이후 프로젝트가 바뀌었습니다. '오디오 만들기'를 다시 누르세요.",
+        "missing": "클립에서 들리는 것은 원본 녹음입니다. '오디오 만들기'를 눌러 전체 MP3를 만드세요."
+      },
+      "sourceClips": "원본 클립: {{count}}",
+      "unverified": "미확인 클립: {{count}}",
+      "verified": "확인됨: {{count}}",
+      "replacements": "대체: {{count}}",
+      "warnings": "주의 필요: {{count}}",
+      "unverifiedHint": "미확인 클립도 원본 오디오를 그대로 유지합니다. 자동 텍스트가 있어도 참고용이며 읽히지 않습니다. 문구를 바꾸려면 '원본 오디오 일부 바꾸기'를 사용하세요."
+    },
+    "download": {
+      "mp3": "MP3 내려받기",
+      "zip": "휴대용 프로젝트(ZIP) 내려받기",
+      "prepareZip": "휴대용 프로젝트(ZIP) 준비",
+      "json": "고급: 프로젝트 JSON",
+      "preparing": "ZIP 준비 중…",
+      "mp3Unavailable": "이 버전의 전체 MP3를 만든 뒤 내려받을 수 있습니다."
+    },
+    "capability": {
+      "tools": "오디오 도구 사용 불가",
+      "tts": "음성 합성 사용 불가",
+      "render": "오디오 제작 사용 불가",
+      "noKey": "자동 전사가 꺼져 있습니다(Vercel 키 없음). 원본 오디오 유지, 직접 지정·바꾸기, MP3 만들기는 계속 할 수 있습니다.",
+      "openSettings": "설정 열기",
+      "transcriptionUnavailable": "지금은 자동 전사를 사용할 수 없습니다."
+    },
+    "analysis": {
+      "blockedTitle": "일부를 전사하지 못했습니다",
+      "blocked": "분석할 때 일부 내용을 전사하지 못했습니다. 원본 녹음은 그대로 보관됩니다. 아래 범위를 확인하거나 직접 바꾸기로 수정하세요."
     }
   }
 }

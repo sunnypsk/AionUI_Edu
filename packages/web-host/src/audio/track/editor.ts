@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { readFile, rename, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { LISTENING_LIMITS } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
 import type {
   ListeningProject,
   ListeningSegmentState,
@@ -13,6 +14,7 @@ import { QA_THRESHOLD, qaRecordSchema, speechSimilarity, type QaRecord } from '.
 
 export const PROJECT_SUFFIX = '.listening.json';
 const revisionOf = (text: string): string => createHash('sha256').update(text).digest('hex').slice(0, 16);
+const writes = new Map<string, Promise<unknown>>();
 
 /** Only listening project files are editable through this API; other workspace files stay agent/preview-owned. */
 async function projectText(workspace: string, projectPath: string): Promise<{ file: string; text: string }> {
@@ -34,8 +36,12 @@ async function qaRecord(workspace: string, key: string): Promise<{ file: string;
 /** Replace a file atomically in its own directory so readers and renders never see partial JSON. */
 async function replace(file: string, content: string): Promise<void> {
   const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${randomUUID()}.tmp`);
-  await writeFile(temporary, content, { flag: 'wx' });
-  await rename(temporary, file);
+  try {
+    await writeFile(temporary, content, { flag: 'wx', mode: 0o600 });
+    await rename(temporary, file);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 async function segmentStates(
@@ -45,6 +51,15 @@ async function segmentStates(
   const states: Record<string, ListeningSegmentState> = {};
   for (const section of project.sections)
     for (const segment of section.segments) {
+      if (segment.type === 'clip') {
+        states[segment.id] = {
+          key: revisionOf(JSON.stringify(segment)),
+          cached: true,
+          transcript: segment.transcript,
+          warnings: segment.warnings,
+        };
+        continue;
+      }
       if (segment.type !== 'speech') continue;
       const request = speechRequest(project, segment);
       // Sequential on purpose: a project has at most 500 segments and each check is two small stats.
@@ -90,11 +105,34 @@ export async function saveProject(
   value: unknown,
   revision: string
 ): Promise<Omit<ListeningState, 'tasks'>> {
-  const project = parseProject(value);
-  const { file, text } = await projectText(workspace, projectPath);
-  if (revisionOf(text) !== revision) throw new Error('AUDIO_PROJECT_CONFLICT');
-  await replace(file, JSON.stringify(project, null, 2) + '\n');
-  return readProjectState(workspace, projectPath);
+  return editProject(workspace, projectPath, revision, () => parseProject(value));
+}
+
+/** Serialize revision-guarded edits, including applying a completed replacement preview. */
+export async function editProject(
+  workspace: string,
+  projectPath: string,
+  revision: string,
+  change: (project: ListeningProject) => ListeningProject
+): Promise<Omit<ListeningState, 'tasks'>> {
+  const { file } = await projectText(workspace, projectPath);
+  const pending = (writes.get(file) ?? Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      const current = await projectText(workspace, projectPath);
+      if (revisionOf(current.text) !== revision) throw new Error('AUDIO_PROJECT_CONFLICT');
+      const project = parseProject(change(parseProjectText(current.text)));
+      const content = JSON.stringify(project, null, 2) + '\n';
+      if (Buffer.byteLength(content) > LISTENING_LIMITS.PROJECT_BYTES) throw new Error('AUDIO_PROJECT_TOO_LARGE');
+      await replace(file, content);
+      return readProjectState(workspace, projectPath);
+    });
+  writes.set(file, pending);
+  try {
+    return await pending;
+  } finally {
+    if (writes.get(file) === pending) writes.delete(file);
+  }
 }
 
 /** Record that the teacher accepts a segment's current QA reading; editing its text or voice resets this. */

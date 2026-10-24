@@ -2,17 +2,23 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Button, Collapse, Drawer, Input, Message, Modal, Select, Space, Spin } from '@arco-design/web-react';
 import { Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 import { joinPath } from '@/common/chat/chatLib';
 import { AUDIO_VOICES, type AudioVoice } from '@/common/types/platform/audioTools';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
 import { localFileRef } from '@/common/types/chatFile';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
+import { downloadFileFromRef } from '@/renderer/utils/file/download';
 import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
-import type { ListeningError } from './api';
+import { listeningApi, type ListeningError } from './api';
 import { draft as edits, RATE_OPTIONS } from './draft';
-import { LexiconPanel } from './LexiconPanel';
-import { errorKey, RenderPanel } from './RenderPanel';
-import { SectionCard } from './SectionCard';
+import { CapabilityBanner } from './panels/CapabilityBanner';
+import { LexiconPanel } from './panels/LexiconPanel';
+import { RenderPanel, TaskIssues } from './panels/RenderPanel';
+import { StatusSummary } from './panels/StatusSummary';
+import { SectionCard } from './sections/SectionCard';
+import { SectionNav } from './sections/SectionNav';
+import { currentTrack, errorKey, latestTask, readCapabilities, summarize } from './status';
 import { useListeningProject } from './useListeningProject';
 import styles from './ListeningEditor.module.css';
 
@@ -25,6 +31,26 @@ const hasBlankFields = (project: ListeningProject): boolean =>
   project.sections.some((section) =>
     section.segments.some((segment) => segment.type === 'speech' && !segment.text.trim())
   );
+
+/** The app uses a hash router; setting the hash also works where the editor renders outside it. */
+const openToolSettings = (): void => {
+  window.location.hash = '#/settings/tools';
+};
+
+/** First clip with a missing path or an empty range, so the editor can reveal it. */
+const invalidClip = (project: ListeningProject): string | undefined =>
+  project.sections
+    .flatMap((section) => section.segments)
+    .find(
+      (segment) =>
+        segment.type === 'clip' && (!segment.path.trim() || segment.start < 0 || segment.end <= segment.start)
+    )?.id;
+
+/** First blank speech line, so the editor can reveal it. */
+const blankLine = (project: ListeningProject): string | undefined =>
+  project.sections
+    .flatMap((section) => section.segments)
+    .find((segment) => segment.type === 'speech' && !segment.text.trim())?.id;
 
 /** Drawer editor for a `*.listening.json` project: script table, preview, render progress and QA review. */
 export function ListeningEditorDrawer({
@@ -64,37 +90,58 @@ export function ListeningEditorDrawer({
     (relative: string) => (workspace ? buildFileStreamUrl(localFileRef(joinPath(workspace, relative))) : undefined),
     [workspace]
   );
+  const { data: reported } = useSWR(
+    target ? ['edu.audio.capabilities', target.conversation_id] : null,
+    ([, conversationId]) => listeningApi.capabilities(conversationId),
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+  const capabilities = readCapabilities(reported);
+  const [focus, setFocus] = useState<{ id: string; nonce: number }>();
+  const jump = useCallback((id: string) => setFocus((previous) => ({ id, nonce: (previous?.nonce ?? 0) + 1 })), []);
   const { state, draft: project, busy } = model;
-  const rendering = !!state?.tasks.some((task) => task.status === 'queued' || task.status === 'running');
+  const rendering = !!state?.tasks.some(
+    (task) => task.kind === 'track' && (task.status === 'queued' || task.status === 'running')
+  );
   const disabled = busy;
-  const openIssues = Object.values(state?.segments ?? {}).filter(
-    (segment) => segment.qa && segment.qa.similarity < (state?.qaThreshold ?? 1) && !segment.qa.accepted
-  ).length;
+  const issueIds = Object.entries(state?.segments ?? {})
+    .filter(([, segment]) => segment.qa && segment.qa.similarity < (state?.qaThreshold ?? 1) && !segment.qa.accepted)
+    .map(([id]) => id);
+  const openIssues = issueIds.length;
+  const current = state ? currentTrack(state, model.dirty) : undefined;
+  const analysis = state ? latestTask(state.tasks, 'analysis') : undefined;
+  const ttsUnavailable =
+    capabilities && !capabilities.tts.available ? (capabilities.tts.reason ?? 'AUDIO_UNAVAILABLE') : undefined;
+  const renderUnavailable = capabilities ? !capabilities.render.available : false;
 
   const guarded = async (action: () => Promise<unknown>): Promise<void> => {
-    if (
-      project?.sections.some((section) =>
-        section.segments.some(
-          (segment) =>
-            segment.type === 'clip' && (!segment.path.trim() || segment.start < 0 || segment.end <= segment.start)
-        )
-      )
-    ) {
+    const invalid = project && invalidClip(project);
+    if (invalid) {
+      jump(invalid);
       message.warning?.(t('messages.listening.errors.invalid'));
       return;
     }
     if (project && hasBlankFields(project)) {
+      const blank = blankLine(project);
+      if (blank) jump(blank);
       message.warning?.(t('messages.listening.errors.blankFields'));
       return;
     }
     await action();
   };
+  const download = async (relative: string, name: string) => {
+    if (!workspace) throw new Error('workspace unavailable');
+    await downloadFileFromRef(localFileRef(joinPath(workspace, relative)), name);
+  };
   const save = () =>
     guarded(async () => {
       if (await model.save()) message.success?.(t('messages.listening.saved'));
     });
-  const close = () => {
-    if (!model.dirty) return onClose();
+  const close = (then?: () => void) => {
+    const leave = () => {
+      onClose();
+      then?.();
+    };
+    if (!model.dirty) return leave();
     modal.confirm?.({
       title: t('messages.listening.unsaved.title'),
       content: t('messages.listening.unsaved.content'),
@@ -102,7 +149,7 @@ export function ListeningEditorDrawer({
       okButtonProps: { status: 'danger' },
       onOk: () => {
         void model.reload();
-        onClose();
+        leave();
       },
     });
   };
@@ -119,17 +166,17 @@ export function ListeningEditorDrawer({
         width='min(820px, 100vw)'
         title={t('messages.listening.title')}
         visible={visible}
-        onCancel={close}
+        onCancel={() => close()}
         unmountOnExit
         footer={
           <Space>
-            <Button onClick={close}>{t('messages.listening.actions.close')}</Button>
+            <Button onClick={() => close()}>{t('messages.listening.actions.close')}</Button>
             <Button disabled={!model.dirty || disabled} loading={busy && model.dirty} onClick={() => void save()}>
               {t('messages.listening.actions.save')}
             </Button>
             <Button
               type='primary'
-              disabled={!project || disabled || rendering}
+              disabled={!project || disabled || rendering || renderUnavailable}
               onClick={() => void guarded(() => model.render())}
             >
               {t('messages.listening.actions.render')}
@@ -161,6 +208,7 @@ export function ListeningEditorDrawer({
           />
         ) : (
           <div className={styles.editor}>
+            <CapabilityBanner capabilities={capabilities} onOpenSettings={() => close(openToolSettings)} />
             {model.conflict && (
               <Alert
                 type='warning'
@@ -177,12 +225,46 @@ export function ListeningEditorDrawer({
                 }
               />
             )}
+            <StatusSummary
+              summary={summarize(project, state)}
+              state={state}
+              dirty={model.dirty}
+              current={current}
+              hasOlderTrack={state.tasks.some(
+                (task) => task.kind === 'track' && task.status === 'completed' && !task.previewSections?.length
+              )}
+              disabled={disabled}
+              onBundle={async () => {
+                let taskId: string | undefined;
+                await guarded(async () => {
+                  taskId = await model.bundle();
+                });
+                return taskId;
+              }}
+              onCancel={(taskId) => void model.cancel(taskId)}
+              onDownload={download}
+            />
+            {analysis?.issues?.length ? (
+              <Alert
+                type='warning'
+                title={t('messages.listening.analysis.blockedTitle')}
+                content={
+                  <>
+                    {t('messages.listening.analysis.blocked')}
+                    <TaskIssues issues={analysis.issues} onJump={jump} />
+                  </>
+                }
+              />
+            ) : null}
             <RenderPanel
               tasks={state.tasks}
+              current={current}
               openIssues={openIssues}
+              firstIssue={issueIds[0]}
               fileUrl={fileUrl}
               disabled={disabled}
               onCancel={(taskId) => void model.cancel(taskId)}
+              onJump={jump}
             />
             <div className={styles.projectSettings}>
               <Input
@@ -239,35 +321,70 @@ export function ListeningEditorDrawer({
                 />
               </Collapse.Item>
             </Collapse>
-            {project.sections.map((section, index) => (
-              <SectionCard
-                key={section.id}
-                section={section}
-                index={index}
-                count={project.sections.length}
-                state={state}
-                disabled={disabled}
-                rowContext={{ fileUrl, cacheDirectory: CACHE_DIRECTORY, onAddLexicon: addLexicon }}
-                onChange={(patch) => model.edit((current) => edits.updateSection(current, section.id, patch))}
-                onMove={(offset) => model.edit((current) => edits.moveSection(current, section.id, offset))}
-                onRemove={() => model.edit((current) => edits.removeSection(current, section.id))}
-                onPreview={() => void guarded(() => model.render([section.id]))}
-                onAddSegment={(type) => model.edit((current) => edits.addSegment(current, section.id, type))}
-                onSegmentChange={(segment) =>
-                  model.edit((current) => edits.updateSegment(current, section.id, segment))
-                }
-                onSegmentMove={(segmentId, offset) =>
-                  model.edit((current) => edits.moveSegment(current, section.id, segmentId, offset))
-                }
-                onSegmentRemove={(segmentId) =>
-                  model.edit((current) => edits.removeSegment(current, section.id, segmentId))
-                }
-                onAcceptQa={(segmentId, accepted) => void model.acceptQa(segmentId, accepted)}
-              />
-            ))}
-            <Button type='dashed' long icon={<Plus />} disabled={disabled} onClick={() => model.edit(edits.addSection)}>
-              {t('messages.listening.actions.addSection')}
-            </Button>
+            <div className={styles.workArea}>
+              {project.sections.length > 1 && <SectionNav project={project} state={state} onJump={jump} />}
+              <div className={styles.sections}>
+                {project.sections.map((section, index) => (
+                  <SectionCard
+                    key={section.id}
+                    section={section}
+                    index={index}
+                    count={project.sections.length}
+                    state={state}
+                    disabled={disabled}
+                    focus={focus}
+                    defaultOpen={project.sections.length === 1}
+                    rowContext={{
+                      fileUrl,
+                      cacheDirectory: CACHE_DIRECTORY,
+                      onAddLexicon: addLexicon,
+                      replacement: {
+                        tasks: state.tasks,
+                        revision: state.revision,
+                        dirty: model.dirty,
+                        disabled,
+                        unavailable: ttsUnavailable,
+                        defaultVoice: project.defaults.voice,
+                        fileUrl,
+                        onPreview: async (request) => {
+                          let taskId: string | undefined;
+                          await guarded(async () => {
+                            taskId = await model.previewReplacement(request);
+                          });
+                          return taskId;
+                        },
+                        onApply: (previewId) => model.applyReplacement(previewId),
+                        onCancel: (taskId) => void model.cancel(taskId),
+                      },
+                    }}
+                    onChange={(patch) => model.edit((current) => edits.updateSection(current, section.id, patch))}
+                    onMove={(offset) => model.edit((current) => edits.moveSection(current, section.id, offset))}
+                    onRemove={() => model.edit((current) => edits.removeSection(current, section.id))}
+                    onPreview={() => void guarded(() => model.render([section.id]))}
+                    onAddSegment={(type) => model.edit((current) => edits.addSegment(current, section.id, type))}
+                    onSegmentChange={(segment) =>
+                      model.edit((current) => edits.updateSegment(current, section.id, segment))
+                    }
+                    onSegmentMove={(segmentId, offset) =>
+                      model.edit((current) => edits.moveSegment(current, section.id, segmentId, offset))
+                    }
+                    onSegmentRemove={(segmentId) =>
+                      model.edit((current) => edits.removeSegment(current, section.id, segmentId))
+                    }
+                    onAcceptQa={(segmentId, accepted) => void model.acceptQa(segmentId, accepted)}
+                  />
+                ))}
+                <Button
+                  type='dashed'
+                  long
+                  icon={<Plus />}
+                  disabled={disabled}
+                  onClick={() => model.edit(edits.addSection)}
+                >
+                  {t('messages.listening.actions.addSection')}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </Drawer>

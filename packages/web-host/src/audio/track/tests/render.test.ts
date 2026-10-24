@@ -77,11 +77,29 @@ describe('listening track rendering', () => {
   ];
 
   it('assembles plays, gaps and speakers in order with offset subtitles in script wording', async () => {
+    const synthesize = speak.getMockImplementation()!;
+    let release!: () => void;
+    const secondFinished = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const completion: string[] = [];
+    speak.mockImplementation(async (options) => {
+      if (options.voice === 'WanLung') await secondFinished;
+      const result = await synthesize(options);
+      completion.push(options.voice);
+      if (options.voice === 'HiuMaan') release();
+      return result;
+    });
     const { result, read } = await render(dialogue, { lexicon: [{ match: '重新', speak: '蟲新' }] });
-    expect(speak.mock.calls.map(([options]) => [options.voice, options.text])).toEqual([
-      ['WanLung', '請蟲新排隊。'],
-      ['HiuMaan', '好的。'],
-    ]);
+    expect(completion).toEqual(['HiuMaan', 'WanLung']);
+    expect(speak.mock.calls.map(([options]) => [options.voice, options.text])).toEqual(
+      expect.arrayContaining([
+        ['WanLung', '請蟲新排隊。'],
+        ['HiuMaan', '好的。'],
+      ])
+    );
+    expect(speak).toHaveBeenCalledTimes(2);
+    expect(await read('track.mp3')).toContain('decoded:tts:WanLung:請蟲新排隊。\ndecoded:tts:HiuMaan:好的。');
     const timeline = JSON.parse(await read('timeline.json')) as ListeningTimeline;
     expect(timeline.entries.map((entry) => [entry.type, entry.segmentId ?? null, entry.start, entry.end])).toEqual([
       ['speech', 'a', 0, 2],
@@ -119,6 +137,11 @@ describe('listening track rendering', () => {
     const cached = await readdir(path.join(workspace, ...SEGMENT_CACHE.split('/')));
     expect(cached.filter((name) => name.endsWith('.mp3'))).toHaveLength(3);
     expect(cached.some((name) => name.endsWith('.tmp'))).toBe(false);
+  });
+  it('shares immutable takes across simultaneous previews and renders', async () => {
+    const [first, second] = await Promise.all([render(dialogue), render(dialogue)]);
+    expect(speak).toHaveBeenCalledTimes(2);
+    expect(await first.read('track.mp3')).toBe(await second.read('track.mp3'));
   });
 
   it('reports misheard speech and reuses cached QA transcripts', async () => {

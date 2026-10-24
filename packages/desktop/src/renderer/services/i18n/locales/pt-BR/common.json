@@ -163,5 +163,10 @@
   },
   "selectedCount": "{{count}} selecionado(s)",
   "selectedSkills": "Habilidades selecionadas",
-  "aiAssistant": "Assistente de IA"
+  "aiAssistant": "Assistente de IA",
+  "fileAttach.tooLarge": "{{size}} é grande demais para enviar.",
+  "fileAttach.tooLargeLimit": "{{size}} passa do limite de envio de {{max}}. O original nunca é comprimido; escolha um arquivo menor.",
+  "fileAttach.failedRetry": "Falha no envio. Tente novamente.",
+  "fileAttach.retry": "Tentar novamente",
+  "fileAttach.remove": "Remover"
 }

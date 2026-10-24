@@ -83,8 +83,24 @@
   gap: 8px;
 }
 .sectionLabel {
-  flex: 1;
   font-weight: 600;
+}
+.sectionSummary {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.sectionTitle {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sectionMeta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .sectionSettings {
   color: var(--text-secondary);
@@ -147,6 +163,263 @@
   background: var(--color-warning-light-1);
   color: var(--warning);
   font-size: 13px;
+}
+
+/* Status summary, capability banners and task issues */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.summaryOutput {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.summaryCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+.summaryHint {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.banners:empty {
+  display: none;
+}
+.issueList {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.issue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section navigation: side list on wide drawers, Select on narrow screens */
+.workArea {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+.workArea > .sections:only-child {
+  grid-column: 1 / -1;
+}
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.nav {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+.navSelect {
+  display: none;
+}
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.navItem {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  height: auto !important;
+  padding: 4px 8px !important;
+  text-align: left;
+  white-space: normal;
+}
+.navName {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.navRange {
+  width: 100%;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Original-recording clips */
+.clip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-base);
+}
+.clipHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.clipRange,
+.clipRangeInvalid {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.clipRangeInvalid {
+  color: var(--danger);
+}
+.clipPreview {
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clipHeader .segmentActions {
+  margin-left: auto;
+}
+.clipBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 28px;
+}
+.transcript {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-2);
+}
+.transcriptLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.transcriptText {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.warningList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warning);
+  font-size: 12px;
+}
+.advanced :global(.arco-collapse-item-header) {
+  padding-left: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Manual range replacement */
+.replacement {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--border-base);
+  border-radius: 8px;
+}
+.replacementTitle {
+  font-weight: 600;
+}
+.replacementInputs {
+  width: 100%;
+}
+.replacementText {
+  width: 220px;
+}
+.marker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  outline: none;
+}
+.marker:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.markRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.markValue,
+.markNow {
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
+}
+.markHint {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.markError {
+  color: var(--danger);
+  font-size: 12px;
+}
+.comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.comparisonPlayers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .workArea {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nav {
+    position: static;
+    max-height: none;
+  }
+  .navSelect {
+    display: block;
+    width: 100%;
+  }
+  .navList {
+    display: none;
+  }
+  .comparisonPlayers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .clipBody {
+    padding-left: 0;
+  }
+  .replacementText {
+    width: 100%;
+  }
 }
 
 @media (max-width: 600px) {

@@ -113,7 +113,22 @@ if (!flags.has('--prepare-only')) {
   if (flags.has('--test'))
     run(
       'cargo',
-      ['test', '--locked', '-p', 'aionui-db', '-p', 'aionui-conversation', '-p', 'aionui-mcp', '-p', 'aionui-team'],
+      [
+        'test',
+        '--locked',
+        '-p',
+        'aionui-db',
+        '-p',
+        'aionui-conversation',
+        '-p',
+        'aionui-mcp',
+        '-p',
+        'aionui-team',
+        '-p',
+        'aionui-file',
+        '-p',
+        'aionui-runtime',
+      ],
       source,
       env
     );

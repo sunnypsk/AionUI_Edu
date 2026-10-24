@@ -163,5 +163,10 @@
   },
   "selectedCount": "{{count}} seçili",
   "selectedSkills": "Seçili beceriler",
-  "aiAssistant": "Yapay Zekâ Asistanı"
+  "aiAssistant": "Yapay Zekâ Asistanı",
+  "fileAttach.tooLarge": "{{size}} yüklenemeyecek kadar büyük.",
+  "fileAttach.tooLargeLimit": "{{size}}, {{max}} yükleme sınırını aşıyor. Orijinal asla sıkıştırılmaz; daha küçük bir dosya seçin.",
+  "fileAttach.failedRetry": "Yükleme başarısız. Tekrar deneyin.",
+  "fileAttach.retry": "Tekrar dene",
+  "fileAttach.remove": "Kaldır"
 }

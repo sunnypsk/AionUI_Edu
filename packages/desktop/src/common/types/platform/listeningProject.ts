@@ -16,6 +16,13 @@ const prosody = {
   volume: z.string().regex(PERCENT_OFFSET).optional(),
   pitch: z.string().regex(HERTZ_OFFSET).optional(),
 };
+const sourceRange = z
+  .object({ path: z.string().min(1).max(4096), start: z.number().min(0), end: z.number().positive() })
+  .strict()
+  .refine((range) => range.end > range.start, { message: 'end must be after start', path: ['end'] });
+const transcriptSchema = z
+  .object({ text: z.string().max(50000), verified: z.boolean().default(false), source: z.enum(['auto', 'teacher']) })
+  .strict();
 const segmentSchema = z.discriminatedUnion('type', [
   z
     .object({
@@ -24,6 +31,7 @@ const segmentSchema = z.discriminatedUnion('type', [
       speaker: z.string().trim().min(1).max(40).optional(),
       text: z.string().trim().min(1).max(LISTENING_LIMITS.SPEECH_CHARS),
       ...prosody,
+      replaces: sourceRange.optional(),
     })
     .strict(),
   z
@@ -43,6 +51,8 @@ const segmentSchema = z.discriminatedUnion('type', [
       start: z.number().min(0),
       end: z.number().positive(),
       note: z.string().max(200).optional(),
+      transcript: transcriptSchema.optional(),
+      warnings: z.array(z.string().max(100)).max(100).optional(),
     })
     .strict()
     .refine((clip) => clip.end > clip.start, { message: 'end must be after start', path: ['end'] }),
@@ -62,6 +72,8 @@ export const listeningProjectSchema = z
   .object({
     version: z.literal(1),
     title: z.string().trim().min(1).max(200),
+    /** Original recording whose audio format is retained; clip ranges include all original pauses. */
+    sourceAudio: z.string().min(1).max(4096).optional(),
     defaults: z
       .object({
         voice: z.enum(AUDIO_VOICES).default('HiuMaan'),
@@ -124,6 +136,8 @@ export type ListeningQaIssue = { segmentId: string; expected: string; heard: str
 export type ListeningSegmentState = {
   key: string;
   cached: boolean;
+  transcript?: z.infer<typeof transcriptSchema>;
+  warnings?: string[];
   qa?: { heard: string; similarity: number; accepted: boolean };
 };
 /** Everything the listening editor needs for one project file. `revision` guards concurrent saves. */
