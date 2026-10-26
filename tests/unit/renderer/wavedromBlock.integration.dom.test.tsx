@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const openPreviewMock = vi.hoisted(() => vi.fn());
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ openPreview: openPreviewMock }),
 }));
 

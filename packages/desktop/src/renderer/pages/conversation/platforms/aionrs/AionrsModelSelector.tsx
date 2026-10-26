@@ -15,7 +15,7 @@ import {
   type RuntimeSelectorModelGroup,
   RuntimeSelectorSubMenuTitle,
 } from '@/renderer/components/agent/runtimeSelectorOptions';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { getModelDisplayLabel } from '@/renderer/utils/model/agentLogo';
 import { iconColors } from '@/renderer/styles/colors';

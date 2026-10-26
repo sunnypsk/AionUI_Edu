@@ -16,7 +16,7 @@ import waveSkinDefault from 'wavedrom/skins/default.js';
 
 import { Message } from '@arco-design/web-react';
 import { Copy, PreviewOpen, Refresh, ZoomIn, ZoomOut } from '@icon-park/react';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { copyText } from '@/renderer/utils/ui/clipboard';
 import DiagramZoomOverlay from './DiagramZoomOverlay';
 import { withResponsiveSvg } from './markdownUtils';

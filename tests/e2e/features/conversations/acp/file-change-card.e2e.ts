@@ -64,7 +64,8 @@ async function openConversationPage(page: Page, conversationId: string): Promise
 
   const baseUrl = page.url().split('#')[0];
   await page.goto(`${baseUrl}#/conversation/${conversationId}`);
-  await page.waitForSelector('[data-testid="message-list-scroller"]', { timeout: 30_000 });
+  // The message scroller mounts only after the first row is added.
+  await page.locator('textarea:visible').last().waitFor({ state: 'visible', timeout: 30_000 });
 }
 
 test('shows one compact row for an ACP file change', async ({ page }) => {

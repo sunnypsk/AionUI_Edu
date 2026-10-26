@@ -39,7 +39,7 @@ import {
   ensureConversationRuntime,
   getConversationRuntimeSnapshot,
 } from '@/renderer/pages/conversation/utils/ensureConversationRuntime';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { useTeamPermission } from '@/renderer/pages/team/hooks/TeamPermissionContext';
 import type { TeamSendBoxRuntime } from '@/renderer/pages/team/components/teamSendRuntime';
 import { allSupportedExts } from '@/renderer/services/FileService';

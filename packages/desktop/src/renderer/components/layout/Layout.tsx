@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { setGlobalNavigate } from '@/renderer/utils/navigation';
-import { usePreviewContext } from '@renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@renderer/pages/conversation/Preview/context/PreviewContext';
 import { ProjectPanelHost } from '@renderer/components/layout/ProjectPanelHost';
 import { ProjectPanelMobileOverlay } from '@renderer/components/layout/ProjectPanelMobileOverlay';
 import { setCurrentProject, useCurrentProject } from '@renderer/pages/conversation/explorer/currentProjectStore';
@@ -26,7 +26,7 @@ import { useProjectPreviewRegionWidth } from '@renderer/hooks/ui/useProjectPrevi
 import { useProjectPanelCollapse } from '@renderer/hooks/ui/useProjectPanelCollapse';
 import { dispatchWorkspaceToggleEvent } from '@renderer/utils/workspace/workspaceEvents';
 import { MIN_PREVIEW_PANEL_PX } from '@renderer/pages/conversation/utils/layoutCalc';
-import { PreviewPanel } from '@renderer/pages/conversation/Preview';
+import LazyPreviewPanel from '@renderer/pages/conversation/Preview/components/LazyPreviewPanel';
 import { LayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { NavigationHistoryProvider } from '@renderer/hooks/context/NavigationHistoryContext';
 import { useDeepLink } from '@renderer/hooks/system/useDeepLink';
@@ -459,7 +459,7 @@ const Layout: React.FC<{
                       lineStyle: { width: '2px' },
                     })}
                   <div className='h-full w-full overflow-hidden'>
-                    <PreviewPanel />
+                    <LazyPreviewPanel />
                   </div>
                 </div>
               )}

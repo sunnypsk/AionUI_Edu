@@ -27,7 +27,7 @@ import { dispatchWorkspaceHasFilesEvent } from '@/renderer/utils/workspace/works
 import { ipcBridge } from '@/common';
 import { isBackendHttpError } from '@/common/adapter/httpBridge';
 import { PROJECT_ERROR_DUPLICATE, PROJECT_ERROR_OVERLAP } from '@/common/types/project';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import WorkspaceOpenButton from '@/renderer/pages/conversation/components/ChatLayout/WorkspaceOpenButton';
 import { getFileTypeInfo } from '@/renderer/utils/file/fileType';
 import { classifyPreviewError, previewErrorToI18nKey } from '@/renderer/utils/previewError';

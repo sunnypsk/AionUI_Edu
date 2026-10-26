@@ -27,7 +27,7 @@ vi.mock('@/renderer/pages/conversation/SourceControl/scmTransport', () => ({
 // without a real PreviewProvider, so we mock the Preview module and capture the
 // `openPreview` calls to assert what tab the panel would open.
 const openPreviewMock = vi.fn();
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ openPreview: openPreviewMock }),
 }));
 

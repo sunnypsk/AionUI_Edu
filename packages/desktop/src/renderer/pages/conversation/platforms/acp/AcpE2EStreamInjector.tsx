@@ -21,6 +21,9 @@ type RunScenarioOptions = {
   historyPairs?: number;
   lines?: number;
   seedHistoryOnly?: boolean;
+  chunks?: string[];
+  intervalMs?: number;
+  onChunk?: (sequence: number) => void;
 };
 
 type StreamController = {
@@ -168,7 +171,7 @@ const AcpE2EStreamInjector: React.FC<{ conversationId: string }> = ({ conversati
           return;
         }
 
-        const chunks = createStreamChunks(lines);
+        const chunks = options?.chunks ?? createStreamChunks(lines);
         await new Promise<void>((resolve) => {
           let chunkIndex = 0;
 
@@ -178,6 +181,7 @@ const AcpE2EStreamInjector: React.FC<{ conversationId: string }> = ({ conversati
               return;
             }
 
+            options?.onChunk?.(chunkIndex);
             addOrUpdateMessage({
               id: `${streamMsgId}-${chunkIndex}`,
               msg_id: streamMsgId,
@@ -190,7 +194,7 @@ const AcpE2EStreamInjector: React.FC<{ conversationId: string }> = ({ conversati
               },
             });
             chunkIndex += 1;
-            window.setTimeout(pushNextChunk, STREAM_TICK_MS);
+            window.setTimeout(pushNextChunk, options?.intervalMs ?? STREAM_TICK_MS);
           };
 
           pushNextChunk();

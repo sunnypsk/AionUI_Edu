@@ -19,7 +19,9 @@ const h = vi.hoisted(() => ({ readContent: vi.fn(), getContentMetadata: vi.fn() 
 // Isolate the container module from React/UI + WS/IPC side effects; the builder
 // under test is a pure async fn needing only fs.readContent + fs.getContentMetadata.
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({ usePreviewContext: () => ({ openPreview: () => {} }) }));
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
+  usePreviewContext: () => ({ openPreview: () => {} }),
+}));
 vi.mock('@/common', () => ({
   ipcBridge: {
     project: { get: { invoke: () => Promise.resolve() } },

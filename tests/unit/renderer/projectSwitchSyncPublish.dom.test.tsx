@@ -33,7 +33,7 @@ vi.mock('react-router-dom', () => ({ useParams: () => ({ id: currentId }), useNa
 vi.mock('@/renderer/pages/conversation/components/ChatConversation', () => ({
   default: () => <div data-testid='chat' />,
 }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ closePreviewIfScopeChanged: vi.fn() }),
 }));
 vi.mock('@/renderer/hooks/chat/useAutoTitle', () => ({ useAutoTitle: () => ({ syncTitleFromHistory: vi.fn() }) }));

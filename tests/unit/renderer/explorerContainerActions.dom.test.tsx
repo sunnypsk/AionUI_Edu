@@ -15,7 +15,10 @@ import type { ProjectDetailDto, ProjectEntryDto } from '@/common/types/project';
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
 const openPreview = vi.fn();
-vi.mock('@/renderer/pages/conversation/Preview', () => ({ usePreviewContext: () => ({ openPreview }) }));
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
+  useOptionalPreviewContext: () => null,
+  usePreviewContext: () => ({ openPreview }),
+}));
 
 const fsRead = vi.fn();
 vi.mock('@/renderer/pages/conversation/explorer/monitorTransport', () => ({

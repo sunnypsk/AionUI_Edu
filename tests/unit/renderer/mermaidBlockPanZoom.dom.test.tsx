@@ -5,16 +5,16 @@
  */
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
-const renderMock = vi.hoisted(() => vi.fn());
+const { renderMock, initializeMock } = vi.hoisted(() => ({ renderMock: vi.fn(), initializeMock: vi.fn() }));
 
 vi.mock('mermaid', () => ({
-  default: { initialize: vi.fn(), render: renderMock },
+  default: { initialize: initializeMock, render: renderMock },
 }));
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ openPreview: vi.fn() }),
 }));
 
@@ -84,6 +84,7 @@ beforeAll(() => {
 describe('MermaidBlock pan/zoom', () => {
   beforeEach(() => {
     renderMock.mockReset().mockResolvedValue({ svg: '<svg width="120" height="80"></svg>' });
+    initializeMock.mockClear();
     document.documentElement.setAttribute('data-theme', 'light');
   });
 
@@ -161,5 +162,56 @@ describe('MermaidBlock pan/zoom', () => {
     const inner = diagram.firstElementChild as HTMLElement;
     expect(inner.style.transform).toContain('translate(50px, 30px)');
     expect(screen.queryByTestId('mermaid-zoom-overlay')).toBeNull();
+  });
+
+  it('keeps readable source when rendering a diagram fails', async () => {
+    renderMock.mockRejectedValueOnce(new Error('invalid diagram'));
+    render(<MermaidBlock code='invalid diagram source' />);
+    expect(await screen.findByTestId('mermaid-source')).toHaveTextContent('invalid diagram source');
+    expect(screen.queryByTestId('mermaid-diagram')).toBeNull();
+  });
+
+  it('discards an older render as soon as its source changes', async () => {
+    let complete: (value: { svg: string }) => void = () => {};
+    renderMock.mockReturnValueOnce(
+      new Promise<{ svg: string }>((resolve) => {
+        complete = resolve;
+      })
+    );
+    const { rerender } = render(<MermaidBlock code='graph TD; Old-->Result' />);
+    await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(1));
+    rerender(<MermaidBlock code='graph TD; New-->Result' />);
+    await act(async () => {
+      complete({ svg: '<svg><text>stale diagram</text></svg>' });
+    });
+    expect(screen.queryByTestId('mermaid-diagram')).toBeNull();
+    expect(await screen.findByTestId('mermaid-diagram')).not.toHaveTextContent('stale diagram');
+  });
+
+  it('serializes simultaneous diagrams and reapplies a changed theme with unique render IDs', async () => {
+    let complete: (value: { svg: string }) => void = () => {};
+    renderMock.mockReturnValueOnce(
+      new Promise<{ svg: string }>((resolve) => {
+        complete = resolve;
+      })
+    );
+    render(
+      <>
+        <MermaidBlock code='graph TD; A-->B' />
+        <MermaidBlock code='graph TD; C-->D' />
+      </>
+    );
+    await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    });
+    await act(async () => {
+      complete({ svg: '<svg><text>old theme</text></svg>' });
+    });
+    await screen.findAllByTestId('mermaid-diagram');
+    expect(initializeMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ theme: 'dark', securityLevel: 'strict' })
+    );
+    expect(new Set(renderMock.mock.calls.map(([id]) => id)).size).toBe(renderMock.mock.calls.length);
   });
 });

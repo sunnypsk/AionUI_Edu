@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-type WebUiFixture = { url: string; dataDir: string; password: string };
+type WebUiFixture = { url: string; dataDir: string; password: string; startupMs: number };
 
 async function stopServer(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return;
@@ -32,6 +32,8 @@ export const test = base.extend<{ page: Page }, { webui: WebUiFixture }>({
       const env = {
         ...process.env,
         CODEX_HOME: path.join(dataDir, 'codex'),
+        AIONUI_APP_ROOT: root,
+        AIONUI_STATIC_DIR: path.join(root, 'out', 'renderer'),
         AIONUI_NO_BUILD: '1',
         AIONUI_HOST: '127.0.0.1',
         AIONUI_ALLOW_REMOTE: '0',
@@ -44,6 +46,7 @@ export const test = base.extend<{ page: Page }, { webui: WebUiFixture }>({
           env,
           stdio: ['pipe', 'pipe', 'pipe'],
         });
+        const startupAt = Date.now();
         const child = spawn(
           'bun',
           ['scripts/webui.ts', '--no-build', '--no-open', '--port', '0', '--data-dir', dataDir],
@@ -77,7 +80,7 @@ export const test = base.extend<{ page: Page }, { webui: WebUiFixture }>({
             });
             child.stderr?.on('data', () => {});
           });
-          await use({ url: url.replace(/\/$/, ''), dataDir, password });
+          await use({ url: url.replace(/\/$/, ''), dataDir, password, startupMs: Date.now() - startupAt });
         } finally {
           await stopServer(child);
         }

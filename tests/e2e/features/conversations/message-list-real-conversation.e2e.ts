@@ -3,12 +3,12 @@
  *
  * Creates a real persisted conversation, navigates to /conversation/:id, then
  * drives a synthetic streaming reply through a test-only injector mounted
- * inside the actual Claude ACP chat tree.
+ * inside the actual ACP chat tree without invoking a provider.
  */
 
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures';
-import { findAssistantIdForBackend, goToGuid } from '../../helpers';
+import { findAssistantIdForBackend, goToGuid, httpPost, httpDelete } from '../../helpers';
 
 type ScrollProbeSample = {
   aiTextLength: number;
@@ -49,56 +49,21 @@ function createFakeClaudeConversation(id: string, assistantId: string) {
 
 async function createConversation(page: Page, conversationId: string): Promise<string> {
   await goToGuid(page);
-  const assistantId = await findAssistantIdForBackend(page, 'claude', { requireAvailable: true });
-  test.skip(!assistantId, 'No available Claude assistant for message list conversation');
+  const assistantId =
+    (await findAssistantIdForBackend(page, 'codex')) ?? (await findAssistantIdForBackend(page, 'claude'));
+  test.skip(!assistantId, 'No ACP assistant for message list conversation');
   if (!assistantId) return '';
 
-  return page.evaluate(
-    async ({ conversation }) => {
-      const port = (window as unknown as { __backendPort?: number }).__backendPort;
-      if (!port) {
-        throw new Error('window.__backendPort is not available in renderer context');
-      }
-
-      const response = await fetch(`http://127.0.0.1:${port}/api/conversations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(conversation),
-      });
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`POST /api/conversations failed (${response.status}): ${body}`);
-      }
-
-      const json = (await response.json()) as { data?: { id?: string } };
-      const id = json?.data?.id;
-      if (!id) {
-        throw new Error('POST /api/conversations succeeded but did not return a conversation id');
-      }
-
-      return id;
-    },
-    {
-      conversation: createFakeClaudeConversation(conversationId, assistantId),
-    }
+  const created = await httpPost<{ id: string }>(
+    page,
+    '/api/conversations',
+    createFakeClaudeConversation(conversationId, assistantId)
   );
+  return created.id;
 }
 
 async function removeConversation(page: Page, conversationId: string): Promise<void> {
-  await page.evaluate(
-    async ({ id }) => {
-      const port = (window as unknown as { __backendPort?: number }).__backendPort;
-      if (!port) return;
-
-      await fetch(`http://127.0.0.1:${port}/api/conversations/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      }).catch(() => {});
-    },
-    { id: conversationId }
-  );
+  await httpDelete(page, `/api/conversations/${encodeURIComponent(conversationId)}`).catch(() => {});
 }
 
 async function installScrollProbe(page: Page): Promise<void> {
@@ -192,7 +157,8 @@ async function openConversationPage(page: Page, targetConversationId: string): P
   const baseUrl = page.url().split('#')[0];
   await page.goto(`${baseUrl}#/conversation/${targetConversationId}`);
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForSelector('[data-testid="message-list-scroller"]', { timeout: 30_000 });
+  // Empty conversations show a greeting until the first injected row arrives.
+  await page.locator('textarea:visible').last().waitFor({ state: 'visible', timeout: 30_000 });
 }
 
 async function waitForStreamController(page: Page, targetConversationId: string): Promise<void> {

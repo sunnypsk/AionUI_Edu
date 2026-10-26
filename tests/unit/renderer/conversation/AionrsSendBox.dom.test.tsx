@@ -234,7 +234,7 @@ vi.mock('@/renderer/pages/conversation/utils/ensureConversationRuntime', () => (
   ensureConversationRuntime: ensureConversationRuntimeMock,
   getConversationRuntimeSnapshot: getRuntimeSnapshotMock,
 }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({
     setSendBoxHandler: setSendBoxHandlerMock,
   }),

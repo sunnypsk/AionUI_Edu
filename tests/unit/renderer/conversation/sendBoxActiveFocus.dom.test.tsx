@@ -46,7 +46,7 @@ vi.mock('@/renderer/hooks/context/LayoutContext', () => ({
   useLayoutContext: () => ({ isMobile: layoutState.isMobile }),
 }));
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({
     setSendBoxHandler: vi.fn(),
     domSnippets: [],

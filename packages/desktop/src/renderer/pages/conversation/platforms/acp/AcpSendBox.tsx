@@ -31,7 +31,7 @@ import {
   useConversationCommandQueue,
   type ConversationCommandQueueItem,
 } from '@/renderer/pages/conversation/platforms/useConversationCommandQueue';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { useConversationRuntimeView } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
 import { getConversationRuntimeWorkspaceErrorMessage } from '@/renderer/pages/conversation/utils/conversationCreateError';
 import { getChatSurfaceWidthClass } from '@/renderer/pages/conversation/utils/chatSurfaceWidth';

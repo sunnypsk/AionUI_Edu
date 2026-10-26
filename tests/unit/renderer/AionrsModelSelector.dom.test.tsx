@@ -42,7 +42,7 @@ const makeSelection = (overrides: Partial<AionrsModelSelection> = {}): AionrsMod
   ...overrides,
 });
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ isOpen: false }),
 }));
 

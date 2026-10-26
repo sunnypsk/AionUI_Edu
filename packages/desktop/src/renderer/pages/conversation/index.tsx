@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 import ChatConversation from './components/ChatConversation';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { previewScopeKey } from '@/renderer/pages/conversation/Preview/context/previewScope';
 import { setCurrentProject } from '@/renderer/pages/conversation/explorer/currentProjectStore';
 import { setCurrentConversation } from '@/renderer/pages/conversation/explorer/currentConversationStore';

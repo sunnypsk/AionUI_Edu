@@ -1,5 +1,5 @@
 import type { GoogleModelSelection } from '@/renderer/pages/conversation/platforms/gemini/useGoogleModelSelection';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { getModelDisplayLabel } from '@/renderer/utils/model/agentLogo';
 import { iconColors } from '@/renderer/styles/colors';

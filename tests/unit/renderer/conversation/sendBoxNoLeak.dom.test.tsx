@@ -94,7 +94,9 @@ vi.mock('@/renderer/pages/conversation/platforms/useConversationCommandQueue', (
     resetActiveExecution: vi.fn(),
   }),
 }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({ usePreviewContext: () => ({ setSendBoxHandler: vi.fn() }) }));
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
+  usePreviewContext: () => ({ setSendBoxHandler: vi.fn() }),
+}));
 vi.mock('@/renderer/pages/conversation/platforms/aionrs/useAionrsMessage', () => ({
   useAionrsMessage: () => ({
     thought: null,

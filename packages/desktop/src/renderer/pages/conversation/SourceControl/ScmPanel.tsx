@@ -32,7 +32,7 @@ import { BranchTwo, FolderCode, FolderCodeOne, Plus, RightBranchOne, TreeList, U
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { usePreviewContext } from '../Preview';
+import { usePreviewContext } from '../Preview/context/PreviewContext';
 import { discardAllTargets, ScmChangesView, stageAllTargets } from './ScmChangesView';
 import { ScmSection, ScmSectionDivider } from './ScmSection';
 import {

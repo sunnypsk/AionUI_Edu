@@ -296,7 +296,7 @@ vi.mock('@/renderer/pages/conversation/platforms/useConversationCommandQueue', (
 vi.mock('@/renderer/pages/conversation/runtime/useConversationRuntimeView', () => ({
   useConversationRuntimeView: () => runtimeViewMock,
 }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({
     setSendBoxHandler: setSendBoxHandlerMock,
   }),

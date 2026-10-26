@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import mermaid from 'mermaid';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/light-async';
 import vs from 'react-syntax-highlighter/dist/esm/styles/hljs/vs';
 import vs2015 from 'react-syntax-highlighter/dist/esm/styles/hljs/vs2015';
@@ -12,11 +11,12 @@ import vs2015 from 'react-syntax-highlighter/dist/esm/styles/hljs/vs2015';
 import { copyText } from '@/renderer/utils/ui/clipboard';
 import { Message } from '@arco-design/web-react';
 import { Copy, PreviewOpen, Refresh, ZoomIn, ZoomOut } from '@icon-park/react';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
-import React, { useEffect, useRef, useState } from 'react';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DiagramZoomOverlay from './DiagramZoomOverlay';
 import { withResponsiveSvg } from './markdownUtils';
+import { renderMermaid } from './mermaidRenderer';
 
 type MermaidBlockProps = {
   code: string;
@@ -36,23 +36,13 @@ const MERMAID_ZOOM_STEP = 0.25;
 // overlay) instead of a pan, when drag-to-pan is enabled.
 const PAN_CLICK_THRESHOLD = 4;
 
-let initializedTheme: 'light' | 'dark' | null = null;
-const ensureMermaidInitialized = (theme: 'light' | 'dark') => {
-  if (initializedTheme === theme) return;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: 'strict',
-    suppressErrorRendering: true,
-    theme: theme === 'dark' ? 'dark' : 'default',
-    fontFamily: 'inherit',
-  });
-  initializedTheme = theme;
-};
-
 function MermaidBlock({ code, style, showOpenInPanelButton = true, enablePanZoom = false }: MermaidBlockProps) {
   const { t } = useTranslation();
   const { openPreview } = usePreviewContext();
-  const blockIdRef = useRef(`mermaid-${Math.random().toString(36).slice(2, 10)}`);
+  const blockId = useId();
+  const renderVersion = useRef(0);
+  const latestCode = useRef(code);
+  latestCode.current = code;
   const preferredViewModeRef = useRef<'preview' | 'source' | null>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -159,6 +149,7 @@ function MermaidBlock({ code, style, showOpenInPanelButton = true, enablePanZoom
   useEffect(() => {
     let cancelled = false;
     const source = debouncedCode.trim();
+    const isStale = () => cancelled || latestCode.current.trim() !== source;
 
     if (!source) {
       setSvg(null);
@@ -174,17 +165,20 @@ function MermaidBlock({ code, style, showOpenInPanelButton = true, enablePanZoom
 
     const renderDiagram = async () => {
       try {
-        ensureMermaidInitialized(currentTheme);
+        const renderedSvg = await renderMermaid(
+          `mermaid-${blockId.replace(/:/g, '')}-${++renderVersion.current}`,
+          source,
+          currentTheme,
+          isStale
+        );
 
-        const { svg: renderedSvg } = await mermaid.render(`${blockIdRef.current}-${Date.now()}`, source);
-
-        if (!cancelled) {
+        if (!isStale() && renderedSvg !== undefined) {
           setSvg(withResponsiveSvg(renderedSvg));
           setIsRendering(false);
           setViewMode(preferredViewModeRef.current === 'source' ? 'source' : 'preview');
         }
       } catch {
-        if (!cancelled) {
+        if (!isStale()) {
           setSvg(null);
           setIsRendering(false);
           setViewMode('source');
@@ -197,7 +191,7 @@ function MermaidBlock({ code, style, showOpenInPanelButton = true, enablePanZoom
     return () => {
       cancelled = true;
     };
-  }, [debouncedCode, currentTheme]);
+  }, [blockId, debouncedCode, currentTheme]);
 
   const codeTheme = currentTheme === 'dark' ? vs2015 : vs;
   const shouldShowLoading = isRendering && preferredViewModeRef.current !== 'source';

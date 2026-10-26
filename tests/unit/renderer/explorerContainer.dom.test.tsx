@@ -14,7 +14,10 @@ import type { ProjectDetailDto, ProjectEntryDto } from '@/common/types/project';
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
-vi.mock('@/renderer/pages/conversation/Preview', () => ({ usePreviewContext: () => ({ openPreview: () => {} }) }));
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
+  usePreviewContext: () => ({ openPreview: () => {} }),
+  useOptionalPreviewContext: () => null,
+}));
 
 // Isolate the container from the real WS runtime.
 const initExplorerRuntime = vi.fn(() => ({}));

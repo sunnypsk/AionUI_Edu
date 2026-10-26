@@ -8,7 +8,7 @@ import { joinPath } from '@/common/chat/chatLib';
 import { localFileRef } from '@/common/types/chatFile';
 import type { PreviewContentType } from '@/common/types/office/preview';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import { resolvePreviewPayload, upgradeFileRef } from '@/renderer/utils/file/previewPayload';
 import { getCurrentProject } from '@/renderer/pages/conversation/explorer/currentProjectStore';
 import { classifyPreviewError, type PreviewErrorKind } from '@/renderer/utils/previewError';

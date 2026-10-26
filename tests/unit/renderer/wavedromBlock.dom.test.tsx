@@ -39,7 +39,7 @@ vi.mock('wavedrom/skins/dark.js', () => ({
   },
 }));
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ openPreview: openPreviewMock }),
 }));
 

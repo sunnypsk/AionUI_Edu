@@ -15,7 +15,7 @@ import { getFuzzyMatchIndices, useSlashCommandController } from '@/renderer/hook
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { appendPromptToDraft, useConversationSendBoxPrefill } from '@/renderer/hooks/chat/useSendBoxDraft';
-import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
+import { usePreviewContext } from '@/renderer/pages/conversation/Preview/context/PreviewContext';
 import {
   buildAtFileInsertion,
   getActiveAtFileQuery,

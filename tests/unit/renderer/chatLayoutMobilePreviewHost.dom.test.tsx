@@ -20,9 +20,12 @@ vi.mock('@/renderer/hooks/context/LayoutContext', () => ({
   useLayoutContext: () => ({ isMobile: mockIsMobile }),
 }));
 
-vi.mock('@/renderer/pages/conversation/Preview', () => ({
+vi.mock('@/renderer/pages/conversation/Preview/context/PreviewContext', () => ({
   usePreviewContext: () => ({ isOpen: true }),
-  PreviewPanel: () => <div data-testid='preview-panel'>preview</div>,
+}));
+
+vi.mock('@/renderer/pages/conversation/Preview/components/LazyPreviewPanel', () => ({
+  default: () => <div data-testid='preview-panel'>preview</div>,
 }));
 
 vi.mock('@/renderer/pages/conversation/components/ChatLayout/MobileWorkspaceOverlay', () => ({
