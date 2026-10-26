@@ -71,7 +71,7 @@ describe('authenticated WebUI runtime controls', () => {
         healthProbe ? (backendHealthy ? 200 : 503) : req.headers.cookie === 'test-session=valid' ? 200 : 401,
         { 'content-type': 'application/json' }
       );
-      res.end('{}');
+      res.end(JSON.stringify({ data: { user: { id: 'test-user' } } }));
     });
     const backendPort = await listen(backend);
     controls = createRuntimeControls({

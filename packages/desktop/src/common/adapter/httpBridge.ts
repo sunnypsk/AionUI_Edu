@@ -6,7 +6,7 @@
  * so existing renderer code works without changes.
  */
 
-import { refreshSession, WS_CLOSE_POLICY_VIOLATION } from './sessionRefresh';
+import { refreshSession, sessionRefreshFailure, WS_CLOSE_POLICY_VIOLATION } from './sessionRefresh';
 
 // ---------------------------------------------------------------------------
 // Base URL
@@ -93,8 +93,9 @@ export class BackendHttpError extends Error {
   readonly details: unknown;
   /** Raw parsed body (object on JSON response, string on text/non-JSON). */
   readonly body: unknown;
+  readonly retryAfterMs?: number;
 
-  constructor(params: { method: string; path: string; status: number; body: unknown }) {
+  constructor(params: { method: string; path: string; status: number; body: unknown; retryAfter?: string | null }) {
     const { method, path, status, body } = params;
     let code = '';
     let backendMessage = '';
@@ -104,6 +105,12 @@ export class BackendHttpError extends Error {
       if (typeof b.code === 'string') code = b.code;
       if (typeof b.error === 'string') backendMessage = b.error;
       details = b.details;
+      if (b.error && typeof b.error === 'object') {
+        const nested = b.error as { code?: unknown; message?: unknown; details?: unknown };
+        if (typeof nested.code === 'string') code = nested.code;
+        if (typeof nested.message === 'string') backendMessage = nested.message;
+        details ??= nested.details;
+      }
     } else if (typeof body === 'string') {
       backendMessage = body;
     }
@@ -114,8 +121,22 @@ export class BackendHttpError extends Error {
     this.backendMessage = backendMessage;
     this.details = details;
     this.body = body;
+    if (status === 429) this.retryAfterMs = retryAfterMs(params.retryAfter);
   }
 }
+
+/** Retry-After accepts seconds or an HTTP date; unusable values use a short backoff. */
+export function retryAfterMs(value?: string | null): number {
+  if (!value?.trim()) return 5000;
+  const seconds = Number(value);
+  const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(value) - Date.now();
+  return Number.isFinite(delay) && delay > 0 ? delay : 5000;
+}
+
+// Public runtimes share Core's auth limit. Suppress network polls across modules
+// during its cooldown rather than queueing stale actions for later execution.
+let runtimeRateLimit: { until: number; body: unknown } | undefined;
+const usesRuntimeAuth = (path: string): boolean => path.startsWith('/api/edu/') || path === '/api/auth/user';
 
 export function isBackendHttpError(error: unknown): error is BackendHttpError {
   // Prefer instanceof — fast path in production/bundled contexts.
@@ -248,6 +269,15 @@ export async function httpRequest<T>(
   body?: unknown,
   options?: HttpRequestOptions
 ): Promise<T> {
+  if (runtimeRateLimit && runtimeRateLimit.until <= Date.now()) runtimeRateLimit = undefined;
+  if (usesRuntimeAuth(path) && runtimeRateLimit && runtimeRateLimit.until > Date.now())
+    throw new BackendHttpError({
+      method,
+      path,
+      status: 429,
+      body: runtimeRateLimit.body,
+      retryAfter: String((runtimeRateLimit.until - Date.now()) / 1000),
+    });
   if (
     isWebUiBrowserMode() &&
     method === 'POST' &&
@@ -285,6 +315,8 @@ export async function httpRequest<T>(
   if (response.status === 401 && !isAuthEndpoint(path)) {
     console.debug(`[httpBridge] ${method} ${path} → 401, attempting session refresh`);
     const refreshed = await refreshSession();
+    const refreshFailure = sessionRefreshFailure();
+    if (!refreshed && refreshFailure) throw refreshFailure;
     if (refreshed) {
       console.debug(`[httpBridge] session refreshed, replaying ${method} ${path}`);
       response = await sendHttpRequest(method, path, headers, body, options?.signal);
@@ -305,7 +337,16 @@ export async function httpRequest<T>(
     } else {
       console.error(`[httpBridge] ${method} ${path} → ${response.status}`, errorBody);
     }
-    throw new BackendHttpError({ method, path, status: response.status, body: errorBody });
+    const error = new BackendHttpError({
+      method,
+      path,
+      status: response.status,
+      body: errorBody,
+      retryAfter: response.headers.get('retry-after'),
+    });
+    if (response.status === 429 && usesRuntimeAuth(path))
+      runtimeRateLimit = { until: Date.now() + error.retryAfterMs!, body: errorBody };
+    throw error;
   }
 
   if (!sensitive) console.debug(`[httpBridge] ${method} ${path} → ${response.status} OK`);
@@ -543,6 +584,13 @@ async function handleWsAuthClose(): Promise<void> {
   if (refreshed) {
     wsReconnectAttempt = 0;
     ensureWs();
+  } else {
+    const failure = sessionRefreshFailure();
+    if (failure && !wsReconnectTimer)
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        void handleWsAuthClose();
+      }, failure.retryAfterMs ?? 5000);
   }
 }
 

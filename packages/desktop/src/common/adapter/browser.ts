@@ -6,7 +6,7 @@
 
 import { bridge } from '@/common/platform/bridge';
 import { WEBUI_DEFAULT_PORT } from '@/common/config/constants';
-import { refreshSession } from './sessionRefresh';
+import { refreshSession, sessionRefreshFailure } from './sessionRefresh';
 import type { ElectronBridgeAPI } from '@/common/types/platform/electron';
 
 interface CustomWindow extends Window {
@@ -208,6 +208,13 @@ if (win.electronAPI) {
               shouldReconnect = true;
               reconnectDelay = 500;
               connect();
+              return;
+            }
+            const failure = sessionRefreshFailure();
+            if (failure) {
+              shouldReconnect = true;
+              reconnectDelay = failure.retryAfterMs ?? 5000;
+              scheduleReconnect();
               return;
             }
             redirectToLogin();

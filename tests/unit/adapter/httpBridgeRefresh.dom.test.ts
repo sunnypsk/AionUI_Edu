@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { httpRequest, resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
+import { sessionRefreshFailure } from '@/common/adapter/sessionRefresh';
 
 type WindowWithPort = { __backendPort?: number };
 
@@ -38,6 +39,8 @@ describe('httpRequest 401 → refresh → replay (WebUI #4124 fix)', () => {
   });
 
   afterEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60000);
+    sessionRefreshFailure();
     vi.restoreAllMocks();
     delete (window as WindowWithPort).__backendPort;
     document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
@@ -85,6 +88,21 @@ describe('httpRequest 401 → refresh → replay (WebUI #4124 fix)', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/refresh', expect.anything());
+  });
+
+  it('preserves a throttled refresh as 429 instead of reporting the original 401', async () => {
+    const request = vi.fn(async (url: string) =>
+      url === '/api/auth/refresh'
+        ? new Response('{}', { status: 429, headers: { 'retry-after': '9' } })
+        : errorResponse(401, { code: 'UNAUTHORIZED' })
+    );
+    vi.stubGlobal('fetch', request);
+    await expect(httpRequest('GET', '/api/conversations')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+      retryAfterMs: 9000,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
   });
 
   it('does not recurse when the refresh endpoint itself returns 401', async () => {

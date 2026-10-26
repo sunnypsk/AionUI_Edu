@@ -351,8 +351,7 @@ const MessageText: React.FC<{
                   <OpenUIMessage
                     content={data}
                     conversation={message.conversation_id}
-                    message={message.id}
-                    sourceMessage={message.msg_id}
+                    message={message.persisted_id}
                     streaming={message.status === 'work' || (isLastMessage && runtime.isProcessing)}
                     onLocalFileLink={handleLocalFileLink}
                   />

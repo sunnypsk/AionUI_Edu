@@ -26,22 +26,27 @@ export type { BackendDirConfig, BackendLaunchOptions, BackendHandle, BackendStar
  * of truth (Electron ProcessConfig, CLI flags, env vars).
  */
 export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle> {
+  const { SessionValidator } = await import('./runtime/sessionAuth.js');
+  let sessionBackendPort = 0;
+  const sessionAuth = new SessionValidator(() => sessionBackendPort);
   const { startBackend } = await import('./backend-launcher.js');
   const { startStaticServer } = await import('./static-server.js');
   const browser =
     opts.enableRuntimeControls && opts.dataDir
-      ? await (await import('./runtime/browser/index.js')).createBrowserRuntime({ dataDir: opts.dataDir })
+      ? await (await import('./runtime/browser/index.js')).createBrowserRuntime({ dataDir: opts.dataDir, sessionAuth })
       : undefined;
   let specialists;
   let audio;
   try {
     specialists =
       opts.enableRuntimeControls && opts.dataDir
-        ? await (await import('./runtime/droid/index.js')).createSpecialistRuntime({ dataDir: opts.dataDir })
+        ? await (
+            await import('./runtime/droid/index.js')
+          ).createSpecialistRuntime({ dataDir: opts.dataDir, sessionAuth })
         : undefined;
     audio =
       opts.enableRuntimeControls && opts.dataDir
-        ? await (await import('./audio/index.js')).createAudioRuntime({ dataDir: opts.dataDir })
+        ? await (await import('./audio/index.js')).createAudioRuntime({ dataDir: opts.dataDir, sessionAuth })
         : undefined;
   } catch (error) {
     await Promise.allSettled([browser?.close(), specialists?.close(), audio?.close()]);
@@ -73,6 +78,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
       },
     };
   }
+  sessionBackendPort = backendHandle.port;
   browser?.setBackendPort(backendHandle.port);
   specialists?.setBackendPort(backendHandle.port);
   audio?.setBackendPort(backendHandle.port);
@@ -81,6 +87,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     opts.enableRuntimeControls && opts.dataDir
       ? (await import('./runtime/index.js')).createRuntimeControls({
           backendPort: backendHandle.port,
+          sessionAuth,
           dataDir: opts.dataDir,
         })
       : undefined;
@@ -99,6 +106,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
         return (await controls?.handleRequest(req, res)) ?? false;
       },
       onBackendResponse: async (req, status) => {
+        sessionAuth.onBackendResponse(req, status);
         await Promise.all([specialists?.onBackendResponse(req, status), audio?.onBackendResponse(req, status)]);
       },
     });
@@ -119,6 +127,7 @@ export async function startWebHost(opts: WebHostOptions): Promise<WebHostHandle>
     networkUrl: staticHandle.networkUrl,
     lanIP: staticHandle.lanIP,
     async stop() {
+      sessionAuth.clear();
       controls?.close();
       await Promise.all([browser?.close(), specialists?.close(), audio?.close()]);
       await staticHandle.stop();

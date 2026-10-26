@@ -138,7 +138,10 @@ export type IMessageText = IMessage<
     /** Sender teammate's conversation id — lets the renderer resolve preset avatars via their conversation extras. */
     senderConversationId?: string;
   }
->;
+> & {
+  /** Canonical database row ID, assigned only by persisted-message normalization. */
+  persisted_id?: string;
+};
 
 export type AgentErrorOwnership = 'aionui' | 'user_agent' | 'user_llm_provider' | 'unknown_upstream';
 

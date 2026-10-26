@@ -5,8 +5,8 @@
  */
 
 import React, { type PropsWithChildren } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   IMessageAcpToolCall,
   IMessageText,
@@ -19,14 +19,24 @@ import {
   MessageListLoadingProvider,
   MessageListProvider,
   MessagePaginationProvider,
+  type MessagePaginationState,
   useUpdateMessageList,
 } from '@/renderer/pages/conversation/Messages/hooks';
 import MessageList, { interleaveArtifacts } from '@/renderer/pages/conversation/Messages/MessageList';
 
-const { parseDiffMock, useTeamPermissionMock, toolSummaryRender } = vi.hoisted(() => ({
-  parseDiffMock: vi.fn(),
-  useTeamPermissionMock: vi.fn(),
-  toolSummaryRender: vi.fn(),
+const { parseDiffMock, useTeamPermissionMock, toolSummaryRender, loadMessagePageMock, loadAnchorWindowMock } =
+  vi.hoisted(() => ({
+    parseDiffMock: vi.fn(),
+    useTeamPermissionMock: vi.fn(),
+    toolSummaryRender: vi.fn(),
+    loadMessagePageMock: vi.fn(),
+    loadAnchorWindowMock: vi.fn(),
+  }));
+
+vi.mock('@/renderer/utils/chat/messagePagination', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/renderer/utils/chat/messagePagination')>()),
+  loadConversationMessagePage: loadMessagePageMock,
+  loadConversationAnchorWindow: loadAnchorWindowMock,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -35,10 +45,11 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+let mockTargetMessageId: string | undefined;
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({
     key: 'location-key',
-    state: {},
+    state: { targetMessageId: mockTargetMessageId },
   }),
 }));
 
@@ -172,6 +183,10 @@ vi.mock('@/renderer/pages/conversation/Messages/components/SelectionReplyButton'
   default: () => null,
 }));
 
+vi.mock('@/renderer/pages/conversation/Messages/anchorRail', () => ({
+  MessageAnchorRail: () => null,
+}));
+
 vi.mock('@icon-park/react', () => ({
   Down: () => <span>down</span>,
 }));
@@ -249,12 +264,15 @@ function Wrapper({
   children,
   messages = [createTextMessage()],
   loading = false,
-}: PropsWithChildren<{ messages?: TMessage[]; loading?: boolean }>): JSX.Element {
+  pagination = { hasMoreBefore: false, hasMoreAfter: false, isLoadingBefore: false, isLoadingAnchor: false },
+}: PropsWithChildren<{
+  messages?: TMessage[];
+  loading?: boolean;
+  pagination?: MessagePaginationState;
+}>): JSX.Element {
   return (
     <MessageListLoadingProvider value={loading}>
-      <MessagePaginationProvider
-        value={{ hasMoreBefore: false, hasMoreAfter: false, isLoadingBefore: false, isLoadingAnchor: false }}
-      >
+      <MessagePaginationProvider value={pagination}>
         <MessageListProvider value={messages}>{children}</MessageListProvider>
       </MessagePaginationProvider>
     </MessageListLoadingProvider>
@@ -280,6 +298,7 @@ const createApprovalTip = (id: string): IMessageTips => ({
 
 describe('MessageList', () => {
   beforeEach(() => {
+    mockTargetMessageId = undefined;
     mockIsProcessing = false;
     toolSummaryRender.mockClear();
     parseDiffMock.mockReset();
@@ -291,6 +310,176 @@ describe('MessageList', () => {
       diff: 'diff',
     });
     useTeamPermissionMock.mockReturnValue(null);
+  });
+
+  describe('history pagination', () => {
+    let clientHeight: number;
+    let scrollHeight: number;
+    let contentHeight: number;
+    const resizeCallbacks = new Set<() => void>();
+
+    const notifyResize = () => {
+      act(() => {
+        for (const callback of Array.from(resizeCallbacks)) callback();
+      });
+    };
+
+    const renderPagedList = (pagination: Partial<MessagePaginationState> = {}) =>
+      render(<MessageList />, {
+        wrapper: ({ children }) => (
+          <Wrapper
+            messages={[createAcpToolCall({ id: 'latest-tool' })]}
+            pagination={{
+              oldestCursor: 'latest-page',
+              hasMoreBefore: true,
+              hasMoreAfter: false,
+              isLoadingBefore: false,
+              isLoadingAnchor: false,
+              ...pagination,
+            }}
+          >
+            {children}
+          </Wrapper>
+        ),
+      });
+
+    beforeEach(() => {
+      clientHeight = 632;
+      scrollHeight = 632;
+      contentHeight = 100;
+      loadMessagePageMock.mockReset();
+      loadAnchorWindowMock.mockReset();
+      resizeCallbacks.clear();
+      vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: Element) {
+        return this.getAttribute('data-testid') === 'message-list-scroller' ? clientHeight : 0;
+      });
+      vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+        if (this.getAttribute('data-testid') === 'message-list-content') return contentHeight;
+        return this.getAttribute('data-testid') === 'message-list-scroller' ? scrollHeight : 0;
+      });
+      vi.stubGlobal(
+        'ResizeObserver',
+        class implements ResizeObserver {
+          private readonly notify: () => void;
+
+          constructor(callback: ResizeObserverCallback) {
+            this.notify = () => callback([], this);
+            resizeCallbacks.add(this.notify);
+          }
+
+          observe() {}
+          unobserve() {}
+          disconnect() {
+            resizeCallbacks.delete(this.notify);
+          }
+        }
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    it('loads earlier pages until collapsed tool history has enough content to scroll', async () => {
+      loadMessagePageMock
+        .mockResolvedValueOnce({
+          items: [createAcpToolCall({ id: 'earlier-tool' })],
+          oldest_cursor: 'earlier-page',
+          has_more_before: true,
+        })
+        .mockImplementationOnce(async () => {
+          scrollHeight = 900;
+          return {
+            items: [createTextMessage()],
+            oldest_cursor: 'oldest-page',
+            has_more_before: true,
+          };
+        });
+
+      renderPagedList();
+
+      expect(await screen.findByText('streaming reply')).toBeInTheDocument();
+      expect(loadMessagePageMock.mock.calls.map(([, options]) => options.before)).toEqual([
+        'latest-page',
+        'earlier-page',
+      ]);
+    });
+
+    it('stops at the beginning of history even when the content still fits', async () => {
+      loadMessagePageMock.mockResolvedValue({ items: [createTextMessage()], has_more_before: false });
+      renderPagedList();
+
+      expect(await screen.findByText('streaming reply')).toBeInTheDocument();
+      notifyResize();
+      expect(loadMessagePageMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves the visible content when auto-filling prepends a taller history page', async () => {
+      loadMessagePageMock.mockImplementationOnce(async () => {
+        contentHeight = 900;
+        scrollHeight = 900;
+        return { items: [createTextMessage()], has_more_before: false };
+      });
+      renderPagedList();
+      await waitFor(() => expect(screen.getByTestId('message-list-scroller').scrollTop).toBe(800));
+      expect(loadMessagePageMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('loads earlier messages when resizing or collapsing content removes the scroll range', async () => {
+      scrollHeight = 900;
+      loadMessagePageMock.mockResolvedValue({ items: [createTextMessage()], has_more_before: false });
+      renderPagedList();
+      expect(loadMessagePageMock).not.toHaveBeenCalled();
+
+      scrollHeight = 632;
+      notifyResize();
+
+      expect(await screen.findByText('streaming reply')).toBeInTheDocument();
+      expect(loadMessagePageMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([{ isLoadingBefore: true }, { isLoadingAnchor: true }])(
+      'waits for an existing history request: %j',
+      (pagination) => {
+        renderPagedList(pagination);
+        notifyResize();
+        expect(loadMessagePageMock).not.toHaveBeenCalled();
+      }
+    );
+
+    it('does not load history while the conversation is hidden', () => {
+      clientHeight = 0;
+      renderPagedList();
+      notifyResize();
+      expect(loadMessagePageMock).not.toHaveBeenCalled();
+    });
+
+    it('lets search load its target window before filling the viewport', () => {
+      mockTargetMessageId = 'searched-message';
+      loadAnchorWindowMock.mockReturnValue(new Promise(() => {}));
+      renderPagedList();
+      notifyResize();
+
+      expect(loadAnchorWindowMock).toHaveBeenCalledTimes(1);
+      expect(loadMessagePageMock).not.toHaveBeenCalled();
+    });
+
+    it('avoids automatic retries after a failed page while allowing a manual retry', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      loadMessagePageMock
+        .mockRejectedValueOnce(new Error('History request failed'))
+        .mockResolvedValueOnce({ items: [createTextMessage()], has_more_before: false });
+      renderPagedList();
+
+      await waitFor(() => expect(consoleError).toHaveBeenCalled());
+      notifyResize();
+      notifyResize();
+      expect(loadMessagePageMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.wheel(screen.getByTestId('message-list-scroller'), { deltaY: -120 });
+      expect(await screen.findByText('streaming reply')).toBeInTheDocument();
+    });
   });
 
   it('groups persisted approval successes with the surrounding tool steps without blank warning rows', () => {

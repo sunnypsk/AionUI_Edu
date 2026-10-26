@@ -134,6 +134,24 @@ async function loadBrowserAdapter() {
 }
 
 describe('browser WebSocket realtime error handling', () => {
+  it('backs off a throttled silent refresh without redirecting to login', async () => {
+    const { adapter, location, socket } = await loadBrowserAdapter();
+    adapter.on({ emit: vi.fn() });
+    vi.stubGlobal('document', { cookie: '' });
+    const request = vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: { 'retry-after': '7' } }));
+    vi.stubGlobal('fetch', request);
+    socket.dispatchMessage({ name: 'realtime.error', data: { code: 'REALTIME_AUTH_EXPIRED', recoverable: false } });
+    socket.dispatchClose(1008);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(1);
+    const { sessionRefreshFailure } = await import('@/common/adapter/sessionRefresh');
+    expect(sessionRefreshFailure()).toMatchObject({ status: 429, retryAfterMs: 7000 });
+    await vi.advanceTimersByTimeAsync(6999);
+    expect(location.hash).toBe('');
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     vi.spyOn(console, 'log').mockImplementation(() => {});

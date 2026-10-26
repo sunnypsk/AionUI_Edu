@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
@@ -45,6 +45,37 @@ const renderInConversation = (workspace: string | undefined, src: string) =>
   );
 
 describe('LocalImageView workspace root from ConversationContext', () => {
+  it('shows a missing-file hint once and does not request the raw filesystem path as an image', async () => {
+    hoisted.getImageBase64.mockRejectedValueOnce(new Error('FILE_NOT_FOUND'));
+    const view = renderInConversation('/workspace/demo', '/tmp/aionui/general/missing.png');
+    expect(await screen.findByRole('status')).toHaveTextContent('preview.refresh.unavailable');
+    view.rerender(
+      <ConversationProvider value={{ conversation_id: 'conv-1', workspace: '/workspace/demo', type: 'acp' }}>
+        <LocalImageView src='/tmp/aionui/general/missing.png' alt='demo' />
+      </ConversationProvider>
+    );
+    expect(hoisted.getImageBase64).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('ignores a late failure from the previous image after the source changes', async () => {
+    let reject!: (error: Error) => void;
+    hoisted.getImageBase64
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, fail) => {
+            reject = fail;
+          })
+      )
+      .mockResolvedValueOnce('data:image/png;base64,fixture');
+    const view = render(<LocalImageView src='/old.png' alt='demo' />);
+    view.rerender(<LocalImageView src='/new.png' alt='demo' />);
+    await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'data:image/png;base64,fixture'));
+    await act(async () => {
+      reject(new Error('FILE_NOT_FOUND'));
+    });
+    expect(screen.queryByRole('status')).toBeNull();
+  });
   it('joins a relative src onto the conversation workspace and forwards it as the fs workspace', async () => {
     renderInConversation('/workspace/demo', './material.jpeg');
     await waitFor(() => expect(hoisted.getImageBase64).toHaveBeenCalled());

@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { refreshSession } from '@/common/adapter/sessionRefresh';
+import { refreshSession, sessionRefreshFailure } from '@/common/adapter/sessionRefresh';
 
 type WindowWithPort = { __backendPort?: number };
 
@@ -18,6 +18,9 @@ describe('refreshSession (WebUI session refresh)', () => {
   });
 
   afterEach(() => {
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 60000);
+    sessionRefreshFailure();
     vi.restoreAllMocks();
     delete (window as WindowWithPort).__backendPort;
     document.cookie = 'aionui-csrf-token=; Max-Age=0; Path=/';
@@ -63,6 +66,23 @@ describe('refreshSession (WebUI session refresh)', () => {
   it('resolves false (never throws) on network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
     await expect(refreshSession()).resolves.toBe(false);
+  });
+
+  it('retains a transient 429 separately from an expired session and waits before retrying', async () => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 429, headers: { 'retry-after': '7' } }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', request);
+    await expect(refreshSession()).resolves.toBe(false);
+    expect(sessionRefreshFailure()).toMatchObject({ status: 429, code: 'RATE_LIMITED', retryAfterMs: 7000 });
+    await refreshSession();
+    expect(request).toHaveBeenCalledTimes(1);
+    now += 7001;
+    await expect(refreshSession()).resolves.toBe(true);
+    expect(sessionRefreshFailure()).toBeUndefined();
   });
 
   it('single-flights concurrent callers into one POST, then refreshes anew afterwards', async () => {

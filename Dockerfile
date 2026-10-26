@@ -74,6 +74,7 @@ ENV NODE_ENV=production \
     AIONUI_CODEX_IDLE_TTL_MS=1800000 \
     TOKIO_WORKER_THREADS=4 \
     AIONUI_DATA_DIR=/data \
+    AIONUI_UPLOAD_DIR=/data/uploads \
     AIONUI_BACKEND_BIN=/usr/local/bin/aioncore \
     AIONUI_NO_BUILD=1 \
     AIONUI_BROWSER_EXECUTABLE=/usr/bin/chromium \

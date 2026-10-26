@@ -1,3 +1,4 @@
+import { SessionValidator, sendSessionAuthError } from './sessionAuth.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CodexAuthService } from './codexAuth.js';
 import { CodexUpdateService, CodexInstaller, CodexRetention, isInstallId } from './codex/index.js';
@@ -6,6 +7,7 @@ import { CodexModelCatalog } from './codex/catalog.js';
 
 type RuntimeControlsOptions = {
   backendPort: number;
+  sessionAuth?: SessionValidator;
   dataDir: string;
   sourceCommit?: string;
   releaseSequence?: string;
@@ -35,6 +37,7 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 
 /** The host reuses AionCore's session validation; no parallel password/auth store. */
 export function createRuntimeControls(options: RuntimeControlsOptions) {
+  const sessionAuth = options.sessionAuth ?? new SessionValidator(() => options.backendPort);
   const auth = options.auth ?? new CodexAuthService();
   const catalog = options.catalog ?? new CodexModelCatalog();
   const proxy = options.proxy ?? new NetworkProxyStore(options.dataDir);
@@ -81,15 +84,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
           send(res, 401, { error: { code: 'UNAUTHORIZED' } });
           return true;
         }
-        const identity = await fetch(`http://127.0.0.1:${options.backendPort}/api/auth/user`, {
-          headers: credentials,
-          signal: AbortSignal.timeout(5000),
-        });
-        await identity.arrayBuffer();
-        if (!identity.ok) {
-          send(res, 401, { error: { code: 'UNAUTHORIZED' } });
-          return true;
-        }
+        await sessionAuth.validate(credentials);
         if (req.method !== 'GET') {
           const origin = req.headers.origin;
           if (
@@ -158,6 +153,7 @@ export function createRuntimeControls(options: RuntimeControlsOptions) {
         }
         send(res, 200, { data: result });
       } catch (error) {
+        if (sendSessionAuthError(res, error)) return true;
         const code = error instanceof Error ? error.message : '';
         const invalid = [
           'INVALID_REQUEST',

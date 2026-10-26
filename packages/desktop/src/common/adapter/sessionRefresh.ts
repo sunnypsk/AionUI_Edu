@@ -32,7 +32,7 @@
  * `browser.ts` can share it without bootstrapping each other's WebSocket.
  */
 
-import { resolveCoreCsrfToken } from './httpBridge';
+import { BackendHttpError, resolveCoreCsrfToken } from './httpBridge';
 
 /** WebSocket close code the backend uses for auth policy violations (RFC 6455 §7.4.1). */
 export const WS_CLOSE_POLICY_VIOLATION = 1008;
@@ -55,6 +55,13 @@ function isWebUiBrowserMode(): boolean {
 }
 
 let inFlight: Promise<boolean> | null = null;
+let transientFailure: { until: number; error: BackendHttpError } | undefined;
+
+/** A failed refresh can be retried without discarding a still-refreshable session. */
+export function sessionRefreshFailure(): BackendHttpError | undefined {
+  if (transientFailure && transientFailure.until <= Date.now()) transientFailure = undefined;
+  return transientFailure?.error;
+}
 
 /**
  * Attempt a single silent session refresh. Concurrent callers share one POST.
@@ -71,6 +78,7 @@ export function refreshSession(): Promise<boolean> {
   if (inFlight) {
     return inFlight;
   }
+  if (sessionRefreshFailure()) return Promise.resolve(false);
   inFlight = performRefresh().finally(() => {
     inFlight = null;
   });
@@ -93,6 +101,16 @@ async function performRefresh(): Promise<boolean> {
       credentials: 'include',
       headers,
     });
+    if (response.status === 429 || response.status >= 500) {
+      const error = new BackendHttpError({
+        method: 'POST',
+        path: REFRESH_ENDPOINT,
+        status: response.status,
+        body: { code: response.status === 429 ? 'RATE_LIMITED' : 'AUTH_UNAVAILABLE' },
+        retryAfter: response.headers.get('retry-after'),
+      });
+      transientFailure = { until: Date.now() + (error.retryAfterMs ?? 5000), error };
+    }
     return response.ok;
   } catch {
     // Network failure — treat as "not refreshed" so callers keep their existing

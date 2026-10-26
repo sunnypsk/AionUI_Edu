@@ -787,6 +787,7 @@ export function normalizeDbMessage(msg: TMessage): TMessage {
 
   return {
     ...msg,
+    persisted_id: msg.id,
     content: normalizeTextMessageContent((msg as IMessageText).content),
   };
 }

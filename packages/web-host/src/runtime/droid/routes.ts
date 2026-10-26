@@ -1,6 +1,7 @@
+import { SessionValidator, rateLimitError, sendSessionAuthError } from '../sessionAuth.js';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { verifyBrowserCapability } from '../browser/types.js';
 import { SpecialistManager } from './manager.js';
@@ -46,6 +47,7 @@ async function body(req: IncomingMessage): Promise<unknown> {
 /** Public cookie-authenticated controls and a private capability-scoped MCP gateway. */
 export async function createSpecialistRuntime(options: {
   dataDir: string;
+  sessionAuth?: SessionValidator;
   manager?: SpecialistManager;
   provider?: FactoryProvider;
   updates?: DroidUpdateService;
@@ -54,16 +56,20 @@ export async function createSpecialistRuntime(options: {
   const updates = options.updates ?? new DroidUpdateService(provider);
   const manager = options.manager ?? new SpecialistManager(options.dataDir, provider);
   const accounts = new Map<string, FactoryAccountService>();
-  const sessions = new Map<string, { until: number; promise: Promise<string> }>();
   const observations = new WeakMap<IncomingMessage, { conversationId: string; epoch: number; deleted: boolean }>();
   const key = randomBytes(32).toString('hex');
   let backendPort = 0;
+  const sessionAuth = options.sessionAuth ?? new SessionValidator(() => backendPort);
   const backend = async (route: string, headers: Record<string, string>): Promise<Record<string, unknown>> => {
     if (!backendPort) throw new Error('SPECIALIST_UNAVAILABLE');
     const response = await fetch(`http://127.0.0.1:${backendPort}${route}`, {
       headers,
       signal: AbortSignal.timeout(5000),
     });
+    if (response.status === 429) {
+      await response.body?.cancel();
+      throw rateLimitError(response);
+    }
     if (!response.ok)
       throw new Error(
         response.status === 401
@@ -90,19 +96,6 @@ export async function createSpecialistRuntime(options: {
       throw new Error('SPECIALIST_FORBIDDEN');
     return { userId: expectedUser, conversationId: id, workspace };
   };
-  const publicUser = async (headers: Record<string, string>): Promise<string> => {
-    if (!Object.keys(headers).length) throw new Error('UNAUTHORIZED');
-    const hash = createHash('sha256').update(JSON.stringify(headers)).digest('hex');
-    const cached = sessions.get(hash);
-    if (cached && cached.until > Date.now()) return cached.promise;
-    const promise = backend('/api/auth/user', headers).then((result) =>
-      idSchema.parse(record(result.user ?? result).id)
-    );
-    if (sessions.size >= 256) sessions.delete(sessions.keys().next().value!);
-    sessions.set(hash, { until: Date.now() + 15000, promise });
-    void promise.catch(() => sessions.delete(hash));
-    return promise;
-  };
   const account = (userId: string): FactoryAccountService => {
     let service = accounts.get(userId);
     if (!service) {
@@ -112,6 +105,7 @@ export async function createSpecialistRuntime(options: {
     return service;
   };
   const failure = (res: ServerResponse, error: unknown): void => {
+    if (sendSessionAuthError(res, error)) return;
     const code = error instanceof z.ZodError ? 'INVALID_REQUEST' : errorCode(error);
     if (res.destroyed || res.headersSent) return;
     send(
@@ -230,7 +224,7 @@ export async function createSpecialistRuntime(options: {
         const headers: Record<string, string> = {};
         if (req.headers.cookie) headers.cookie = req.headers.cookie;
         if (req.headers.authorization) headers.authorization = req.headers.authorization;
-        const userId = await publicUser(headers);
+        const userId = await sessionAuth.validate(headers);
         const identity = await backend('/api/system/current-user', headers);
         if (identity.id !== userId) throw new Error('UNAUTHORIZED');
         if (

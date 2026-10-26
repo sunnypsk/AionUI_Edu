@@ -1,3 +1,4 @@
+import { SessionValidator, SessionAuthError, rateLimitError, sendSessionAuthError } from '../runtime/sessionAuth.js';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
@@ -81,11 +82,16 @@ function validateWrite(req: IncomingMessage): void {
 }
 
 /** Cookie-authenticated settings and a private owner-capability MCP gateway. */
-export async function createAudioRuntime(options: { dataDir: string; manager?: AudioManager }) {
+export async function createAudioRuntime(options: {
+  dataDir: string;
+  manager?: AudioManager;
+  sessionAuth?: SessionValidator;
+}) {
   const manager = options.manager ?? new AudioManager(options.dataDir);
   await manager.ready;
   const key = randomBytes(32).toString('hex');
   let backendPort = 0;
+  const sessionAuth = options.sessionAuth ?? new SessionValidator(() => backendPort);
   const observations = new WeakMap<IncomingMessage, { conversationId: string; epoch: number; deleted: boolean }>();
   const backend = async (route: string, headers: Record<string, string>): Promise<Record<string, unknown>> => {
     if (!backendPort) throw new Error('AUDIO_UNAVAILABLE');
@@ -95,6 +101,8 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
     });
     if (!response.ok) {
       await response.body?.cancel();
+      if (response.status === 429) throw rateLimitError(response);
+      if (response.status >= 500) throw new SessionAuthError(503, 'AUDIO_UNAVAILABLE');
       throw new Error('UNAUTHORIZED');
     }
     const result = record(await response.json());
@@ -258,6 +266,7 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
     res.end(bytes);
   };
   const failure = (res: ServerResponse, error: unknown): void => {
+    if (sendSessionAuthError(res, error)) return;
     const code = error instanceof z.ZodError ? 'INVALID_REQUEST' : audioError(error);
     send(
       res,
@@ -354,8 +363,7 @@ export async function createAudioRuntime(options: { dataDir: string; manager?: A
         if (req.headers.cookie) headers.cookie = req.headers.cookie;
         if (req.headers.authorization) headers.authorization = req.headers.authorization;
         if (!Object.keys(headers).length) throw new Error('UNAUTHORIZED');
-        const identity = await backend('/api/auth/user', headers);
-        const userId = ownerId.parse(record(identity.user ?? identity).id);
+        const userId = await sessionAuth.validate(headers);
         if (req.method !== 'GET') validateWrite(req);
         if (url.pathname === '/api/edu/audio/capabilities' && req.method === 'GET') {
           const conversation = url.searchParams.get('conversation_id');

@@ -25,7 +25,46 @@ import {
   wsMappedEmitter,
   stubEmitter,
   httpRequest,
+  retryAfterMs,
 } from '@/common/adapter/httpBridge';
+
+describe('runtime rate-limit backoff', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('preserves nested RATE_LIMITED errors and suppresses mixed polling until Retry-After', async () => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'RATE_LIMITED' } }), {
+          status: 429,
+          headers: { 'retry-after': '7' },
+        })
+      )
+      .mockResolvedValue(Response.json({ data: { ok: true } }));
+    vi.stubGlobal('fetch', request);
+    await expect(httpRequest('GET', '/api/edu/browser/lesson/state')).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+      retryAfterMs: 7000,
+    });
+    await expect(httpRequest('GET', '/api/edu/audio/settings')).rejects.toMatchObject({ status: 429 });
+    expect(request).toHaveBeenCalledTimes(1);
+    now += 7001;
+    await expect(httpRequest('GET', '/api/edu/audio/settings')).resolves.toEqual({ ok: true });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses five seconds for missing or invalid deadlines and accepts HTTP dates', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-26T12:00:00Z'));
+    expect([undefined, '', 'bad', '-1'].map(retryAfterMs)).toEqual([5000, 5000, 5000, 5000]);
+    expect(retryAfterMs('Mon, 26 Oct 2026 12:00:09 GMT')).toBe(9000);
+  });
+});
 
 type FakeSocketEventMap = {
   open: () => void;

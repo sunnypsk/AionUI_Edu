@@ -385,6 +385,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
   const loadingTargetKeyRef = useRef<string>('');
   const scrollerElementRef = useRef<HTMLDivElement | null>(null);
   const contentElementRef = useRef<HTMLDivElement | null>(null);
+  const autoLoadedCursorRef = useRef<string>('');
   const previousToolSummaries = useRef(new Map<string, ToolSummary>());
 
   // Pre-process message list to group tool outputs into summary cards
@@ -624,11 +625,14 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     [handleContentRef]
   );
 
-  const handleMessageListScroll = useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      handleScroll(event);
-      const scroller = event.currentTarget;
-      if (!pagination.hasMoreBefore || pagination.isLoadingBefore || scroller.scrollTop > 160) {
+  const loadPreviousMessages = useCallback(
+    (scroller: HTMLDivElement) => {
+      if (
+        !pagination.hasMoreBefore ||
+        pagination.isLoadingBefore ||
+        pagination.isLoadingAnchor ||
+        scroller.scrollTop > 160
+      ) {
         return;
       }
 
@@ -641,8 +645,80 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         });
       });
     },
-    [handleScroll, loadPreviousMessagePage, pagination.hasMoreBefore, pagination.isLoadingBefore]
+    [loadPreviousMessagePage, pagination.hasMoreBefore, pagination.isLoadingBefore, pagination.isLoadingAnchor]
   );
+
+  const handleMessageListScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      handleScroll(event);
+      loadPreviousMessages(event.currentTarget);
+    },
+    [handleScroll, loadPreviousMessages]
+  );
+
+  const handleMessageListWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      handleWheel(event);
+      const scroller = event.currentTarget;
+      if (event.deltaY < 0 && scroller.scrollHeight <= scroller.clientHeight) {
+        loadPreviousMessages(scroller);
+      }
+    },
+    [handleWheel, loadPreviousMessages]
+  );
+
+  const isWaitingForTargetMessage = Boolean(
+    targetMessageId && !processedList.some((item) => matchesTargetMessage(item, targetMessageId))
+  );
+
+  useEffect(() => {
+    const scroller = scrollerElementRef.current;
+    const content = contentElementRef.current;
+    if (
+      !scroller ||
+      !content ||
+      isMessageListLoading ||
+      isWaitingForTargetMessage ||
+      !pagination.oldestCursor ||
+      !pagination.hasMoreBefore ||
+      pagination.isLoadingBefore ||
+      pagination.isLoadingAnchor
+    ) {
+      return;
+    }
+
+    // Collapsed tool pages can fit entirely in the viewport, so no scroll event
+    // can request older messages. Fill the viewport before relying on scrolling.
+    const loadIfNotScrollable = () => {
+      const cursorKey = `${conversationContext?.conversation_id}:${pagination.oldestCursor}`;
+      if (
+        scroller.clientHeight <= 0 ||
+        scroller.scrollHeight > scroller.clientHeight ||
+        autoLoadedCursorRef.current === cursorKey
+      ) {
+        return;
+      }
+      // A failed or non-advancing page must not cause an automatic retry loop.
+      autoLoadedCursorRef.current = cursorKey;
+      loadPreviousMessages(scroller);
+    };
+
+    const observer = new ResizeObserver(loadIfNotScrollable);
+    observer.observe(scroller);
+    observer.observe(content);
+    loadIfNotScrollable();
+    return () => observer.disconnect();
+  }, [
+    conversationContext?.conversation_id,
+    isMessageListLoading,
+    isWaitingForTargetMessage,
+    loadPreviousMessages,
+    pagination.hasMoreBefore,
+    pagination.isLoadingAnchor,
+    pagination.isLoadingBefore,
+    pagination.oldestCursor,
+    processedList.length,
+  ]);
 
   useEffect(() => {
     if (!targetMessageId || processedList.length === 0) {
@@ -829,7 +905,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
             style={{ overflowAnchor: 'none' }}
             onPointerDown={handlePointerDown}
             onScroll={handleMessageListScroll}
-            onWheel={handleWheel}
+            onWheel={handleMessageListWheel}
           >
             <div
               ref={setContentRef}

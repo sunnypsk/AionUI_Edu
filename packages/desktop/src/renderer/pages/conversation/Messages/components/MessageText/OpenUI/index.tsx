@@ -107,12 +107,11 @@ export const OPENUI_DARK_THEME: Theme = {
 type BlockProps = {
   block: OpenUiBlock;
   conversation: string;
-  message: string;
-  sourceMessage?: string;
+  message?: string;
   streaming: boolean;
 };
 
-function InterfaceBlock({ block, conversation, message, sourceMessage, streaming }: BlockProps) {
+function InterfaceBlock({ block, conversation, message, streaming }: BlockProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const preview = useOptionalPreviewContext();
@@ -145,8 +144,8 @@ function InterfaceBlock({ block, conversation, message, sourceMessage, streaming
     error: messageError,
     mutate: retryMessage,
   } = useSWR(
-    compatible && !streaming ? ['openui/message', user?.id, conversation, message, sourceMessage] : null,
-    () => resolveMessageId(conversation, message, sourceMessage),
+    compatible && !streaming && message ? ['openui/message', user?.id, conversation, message] : null,
+    () => resolveMessageId(conversation, message!),
     { errorRetryCount: 3, errorRetryInterval: 500 }
   );
   const {
@@ -414,14 +413,12 @@ export default function OpenUIMessage({
   content,
   conversation,
   message,
-  sourceMessage,
   streaming,
   onLocalFileLink,
 }: {
   content: string;
   conversation: string;
-  message: string;
-  sourceMessage?: string;
+  message?: string;
   streaming: boolean;
   onLocalFileLink?: React.ComponentProps<typeof MarkdownView>['onLocalFileLink'];
 }) {
@@ -440,7 +437,6 @@ export default function OpenUIMessage({
             block={segment}
             conversation={conversation}
             message={message}
-            sourceMessage={sourceMessage}
             streaming={streaming}
           />
         )

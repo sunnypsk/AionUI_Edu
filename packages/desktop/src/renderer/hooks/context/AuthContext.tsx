@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PREVIEW_SCOPE_KEY_PREFIX } from '@/renderer/pages/conversation/Preview/context/previewScope';
-import { refreshSession } from '@/common/adapter/sessionRefresh';
-import { resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
+import { refreshSession, sessionRefreshFailure } from '@/common/adapter/sessionRefresh';
+import { BackendHttpError, resolveCoreCsrfToken, retryAfterMs } from '@/common/adapter/httpBridge';
 // Legacy login-body helpers; Core's double-submit token is sent in a request header.
 const withCsrfToken = <T extends Record<string, unknown>>(data: T): T => data;
 const hasValidCsrfToken = (): boolean => true;
@@ -99,6 +99,8 @@ async function fetchCurrentUser(signal?: AbortSignal): Promise<AuthUser | null> 
     // refreshSession() single-flights with the httpBridge refresh path.
     if (response.status === 401) {
       const refreshed = await refreshSession();
+      const refreshFailure = sessionRefreshFailure();
+      if (!refreshed && refreshFailure) throw refreshFailure;
       if (refreshed) {
         response = await fetch(AUTH_USER_ENDPOINT, {
           method: 'GET',
@@ -109,6 +111,14 @@ async function fetchCurrentUser(signal?: AbortSignal): Promise<AuthUser | null> 
     }
 
     if (!response.ok) {
+      if (response.status === 429 || response.status >= 500)
+        throw new BackendHttpError({
+          method: 'GET',
+          path: AUTH_USER_ENDPOINT,
+          status: response.status,
+          body: { code: response.status === 429 ? 'RATE_LIMITED' : 'AUTH_UNAVAILABLE' },
+          retryAfter: response.headers.get('retry-after'),
+        });
       return null;
     }
 
@@ -124,6 +134,7 @@ async function fetchCurrentUser(signal?: AbortSignal): Promise<AuthUser | null> 
       return null;
     }
     console.error('Failed to fetch current user:', error);
+    throw error;
   }
 
   return null;
@@ -134,8 +145,12 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [status, setStatus] = useState<AuthStatus>('checking');
   const [ready, setReady] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const userRef = useRef(user);
+  userRef.current = user;
 
-  const refresh = useCallback(async () => {
+  const refresh: () => Promise<void> = useCallback(async () => {
+    clearTimeout(retryRef.current);
     if (isDesktopRuntime) {
       setStatus('authenticated');
       setUser(null);
@@ -146,9 +161,22 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setStatus('checking');
+    setStatus(userRef.current ? 'authenticated' : 'checking');
 
-    const currentUser = await fetchCurrentUser(controller.signal);
+    let currentUser: AuthUser | null;
+    try {
+      currentUser = await fetchCurrentUser(controller.signal);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      // Throttling and backend outages do not invalidate a known session.
+      setStatus(userRef.current ? 'authenticated' : 'checking');
+      retryRef.current = setTimeout(
+        () => void refresh(),
+        error instanceof BackendHttpError ? (error.retryAfterMs ?? retryAfterMs()) : retryAfterMs()
+      );
+      return;
+    }
+    if (controller.signal.aborted) return;
     if (currentUser) {
       setUser(currentUser);
       setStatus('authenticated');
@@ -163,6 +191,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     void refresh();
     return () => {
       abortRef.current?.abort();
+      clearTimeout(retryRef.current);
     };
   }, [refresh]);
 
@@ -270,6 +299,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, []);
 
   const logout = useCallback(async () => {
+    clearTimeout(retryRef.current);
+    abortRef.current?.abort();
     if (isDesktopRuntime) {
       setUser(null);
       setStatus('authenticated');

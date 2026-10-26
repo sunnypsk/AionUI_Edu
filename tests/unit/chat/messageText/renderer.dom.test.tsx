@@ -69,6 +69,7 @@ const initial = {
   library_version: '0.18.1',
 };
 beforeEach(() => {
+  api.resolveMessageId.mockClear();
   api.openUiCapabilities.mockReset().mockResolvedValue({ protocol: 'openui/1', hash: 'compatible', enabled: true });
   api.loadState.mockReset().mockResolvedValue(initial);
   api.saveState
@@ -102,6 +103,24 @@ const openExport = async () => {
   return screen.findByRole('region', { name: 'messages.listening.export.title' });
 };
 describe('official OpenUI renderer integration', () => {
+  it('waits for canonical reconciliation and never queries the renderer UUID or parent stream ID', async () => {
+    const wrap = (message?: string, streaming = false) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
+        <OpenUIMessage content={program} conversation='conversation' message={message} streaming={streaming} />
+      </SWRConfig>
+    );
+    const view = render(wrap());
+    expect(await screen.findByPlaceholderText('Enter topic')).toBeDisabled();
+    expect(api.resolveMessageId).not.toHaveBeenCalled();
+    expect(api.loadState).not.toHaveBeenCalled();
+    view.rerender(wrap('fork-row', true));
+    expect(api.resolveMessageId).not.toHaveBeenCalled();
+    view.rerender(wrap('fork-row'));
+    await waitFor(() => expect(api.loadState).toHaveBeenCalled());
+    expect(
+      api.resolveMessageId.mock.calls.every((args) => JSON.stringify(args) === '["conversation","fork-row"]')
+    ).toBe(true);
+  });
   it('traps modal keyboard focus and returns to the opening button on Escape', async () => {
     const modal =
       program.replace(

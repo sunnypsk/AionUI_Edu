@@ -19,6 +19,7 @@ import {
   useReplaceWithAnchorWindow,
   useAcceptUserMessage,
   mergeLoadedPageWithCurrent,
+  normalizeDbMessage,
 } from '@/renderer/pages/conversation/Messages/hooks';
 
 vi.mock('@/common', () => ({
@@ -45,6 +46,16 @@ vi.mock('@/common', () => ({
 }));
 
 const CONVERSATION_ID = 'conversation-1';
+
+describe('canonical text identity', () => {
+  it('retains a fork row identity independently of its parent stream identity during reconciliation', () => {
+    const live = { ...createTextMessage('parent-stream', 'Form'), id: 'renderer-uuid', status: 'finish' as const };
+    const saved = normalizeDbMessage({ ...live, id: 'fork-row' });
+    const merged = mergeLoadedPageWithCurrent(CONVERSATION_ID, [saved], [live]);
+    expect(merged[0]).toMatchObject({ id: 'fork-row', persisted_id: 'fork-row', msg_id: 'parent-stream' });
+    expect(live).not.toHaveProperty('persisted_id');
+  });
+});
 
 function createTextMessage(msgId: string, content: string): IMessageText {
   return {
@@ -312,7 +323,7 @@ describe('message merging', () => {
       });
     });
     expect(result.current.messages).toHaveLength(1);
-    expect(result.current.messages[0]).toMatchObject({ id: 'server-id', status: 'finish' });
+    expect(result.current.messages[0]).toMatchObject({ id: 'server-id', persisted_id: 'server-id', status: 'finish' });
   });
 
   it('loads the canonical user row for an older backend and ignores a row from another conversation', async () => {

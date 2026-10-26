@@ -22,6 +22,10 @@ Codex notifications are scoped to the bound thread before updating session bindi
 
 Office preview start and stop operations are serialized per user, resolved file and document type. Closing during startup waits for session registration before stopping the process; reopening waits for an earlier delayed stop instead of reusing a process that is about to be killed. Concurrent starts share one watch, while unrelated previews remain independent. Idle operation locks use weak references and are reclaimed on subsequent operations. The existing HTTP and preview status events provide lifecycle diagnostics without additional payload logging.
 
+Managed uploads use `AIONUI_UPLOAD_DIR` when set; otherwise Core retains the platform default `<tmp>/aionui`. The container sets `/data/uploads`, so new attachments survive replacement with the same `/data` volume. Upload creation, conversation/team sends, preview and office validation share that root. Existing files under the old managed root remain readable; missing old files are not restored. Canonical containment and the file sandbox remain enforced.
+
+Successful health, identity, conversation/message and OpenUI-state polling, plus active-lease heartbeats, use DEBUG access logs. Other successful operations remain INFO; 4xx and 5xx remain WARN and ERROR. Set the existing `AIONUI_LOG_LEVEL=debug` to include routine polling. Container log rotation remains unchanged.
+
 Prepare the source without starting a service:
 
 ```sh

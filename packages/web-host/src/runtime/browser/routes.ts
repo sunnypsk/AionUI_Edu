@@ -1,5 +1,6 @@
+import { SessionValidator, rateLimitError, sendSessionAuthError } from '../sessionAuth.js';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
@@ -67,17 +68,25 @@ function unwrap(value: unknown): Record<string, unknown> {
 }
 
 /** Authenticated public controls and a separate loopback-only MCP bridge share the same manager. */
-export async function createBrowserRuntime(options: { dataDir: string; manager?: SharedBrowserManager }) {
+export async function createBrowserRuntime(options: {
+  dataDir: string;
+  manager?: SharedBrowserManager;
+  sessionAuth?: SessionValidator;
+}) {
   const manager = options.manager ?? new SharedBrowserManager(options.dataDir);
   const key = randomBytes(32).toString('hex');
-  const sessions = new Map<string, { expiresAt: number; validation: Promise<string> }>();
   let backendPort = 0;
+  const sessionAuth = options.sessionAuth ?? new SessionValidator(() => backendPort);
   const backend = async (route: string, headers: Record<string, string>): Promise<Record<string, unknown>> => {
     if (!backendPort) throw new Error('BROWSER_UNAVAILABLE');
     const response = await fetch(`http://127.0.0.1:${backendPort}${route}`, {
       headers,
       signal: AbortSignal.timeout(5000),
     });
+    if (response.status === 429) {
+      await response.body?.cancel();
+      throw rateLimitError(response);
+    }
     if (!response.ok)
       throw new Error(
         response.status === 401
@@ -87,27 +96,6 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
             : 'BROWSER_UNAVAILABLE'
       );
     return unwrap(await response.json());
-  };
-  // The auth router rate-limits its endpoints. Share a short validation lease across
-  // frame/activity polls; never cache runtime tokens, cookies, or failed validations.
-  const validateSession = async (headers: Record<string, string>): Promise<string> => {
-    const hash = createHash('sha256').update(JSON.stringify(headers)).digest('hex');
-    const cached = sessions.get(hash);
-    if (cached && cached.expiresAt > Date.now()) return cached.validation;
-    if (sessions.size >= 256) sessions.delete(sessions.keys().next().value!);
-    const validation = backend('/api/auth/user', headers).then((identity) => {
-      const user =
-        identity.user && typeof identity.user === 'object' ? (identity.user as Record<string, unknown>) : identity;
-      if (typeof user.id !== 'string' || !ID.test(user.id)) throw new Error('UNAUTHORIZED');
-      return user.id;
-    });
-    sessions.set(hash, { expiresAt: Date.now() + 15000, validation });
-    try {
-      return await validation;
-    } catch (error) {
-      sessions.delete(hash);
-      throw error;
-    }
   };
   const owner = async (id: string, headers: Record<string, string>, expectedUser?: string): Promise<BrowserOwner> => {
     if (!ID.test(id)) throw new Error('INVALID_REQUEST');
@@ -122,6 +110,7 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
     return { userId: identity.id, conversationId: id, workspace };
   };
   const failure = (res: ServerResponse, error: unknown): void => {
+    if (sendSessionAuthError(res, error)) return;
     if (res.headersSent) {
       res.destroy();
       return;
@@ -204,7 +193,7 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
           if (req.headers.cookie) credentials.cookie = req.headers.cookie;
           if (req.headers.authorization) credentials.authorization = req.headers.authorization;
           if (!Object.keys(credentials).length) throw new Error('UNAUTHORIZED');
-          const sessionUser = await validateSession(credentials);
+          const sessionUser = await sessionAuth.validate(credentials);
           const user = await backend('/api/system/current-user', credentials);
           if (user.id !== sessionUser) throw new Error('BROWSER_FORBIDDEN');
           if (req.method === 'GET') send(res, 200, { data: await manager.getPreferences(user.id) });
@@ -233,7 +222,7 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
         if (req.headers.authorization) headers.authorization = req.headers.authorization;
         if (!Object.keys(headers).length) throw new Error('UNAUTHORIZED');
         // Local backend identity is intentionally insufficient: require a real WebUI session.
-        const sessionUser = await validateSession(headers);
+        const sessionUser = await sessionAuth.validate(headers);
         const context = await owner(id, headers, sessionUser);
         if (req.method === 'GET' && operation === 'state') send(res, 200, { data: manager.state(context) });
         else if (req.method === 'GET' && operation === 'frame') send(res, 200, { data: await manager.frame(context) });
@@ -273,7 +262,7 @@ export async function createBrowserRuntime(options: { dataDir: string; manager?:
       return true;
     },
     async close(): Promise<void> {
-      sessions.clear();
+      if (!options.sessionAuth) sessionAuth.clear();
       await new Promise<void>((resolve) => {
         privateServer.close(() => resolve());
         privateServer.closeAllConnections();
