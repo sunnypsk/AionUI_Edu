@@ -160,7 +160,7 @@ The viewer uses authenticated viewport snapshots; it is intended for website wor
 
 For standalone local development, use Node 22.14+ and set `AIONUI_BROWSER_EXECUTABLE` to an installed Chromium/Chrome executable before `bun run webui`. Docker includes Node 24, sets the browser path to `/usr/bin/chromium`, and includes Chinese fonts. The browser inherits the container's TUN routing and firewall. The browser control input bypasses HTTP bridge body logging because it may contain passwords or files. Viewport polls share an authenticated-session validation lease of at most 15 seconds to stay within the backend auth endpoint's rate limit.
 
-When upgrading a NAS installation created before this feature, review and replace the host-only updater and add its `browser/seccomp.json` together before applying the new image. Recreating an existing Unraid container through the updated template preserves the sandbox policy and shared-memory size. Keep the host-only policy outside `/data`.
+When upgrading a NAS installation created before this feature, review and replace the host-only updater and add its `browser/seccomp.json` together before applying the new image. The same paired update is required for Codex's bubblewrap filesystem sandbox: the policy permits `mount`, `pivot_root`, and `umount2` inside its unprivileged user namespace, without adding `SYS_ADMIN` or disabling seccomp. Recreate the container to load the updated policy; an image update alone does not replace the host policy. Recreating an existing Unraid container through the updated template preserves the sandbox policy and shared-memory size. Keep the host-only policy outside `/data`.
 
 ## Route container traffic through SOCKS5
 

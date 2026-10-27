@@ -46,6 +46,44 @@ def inspect(name):
     return json.loads(docker("inspect", name).stdout)[0]
 
 
+def check_codex_sandbox(app):
+    """Exercise the real CLI and write boundaries without credentials or inference."""
+    probe = r"""
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+with tempfile.TemporaryDirectory(prefix="codex-sandbox-", dir="/data") as directory:
+    root = Path(directory)
+    workspace = root / "workspace"
+    for path in [workspace / ".git", root / "home", root / "codex-home"]:
+        path.mkdir(parents=True)
+    protected = [root / "outside.txt", workspace / ".git" / "protected.txt"]
+    for path in protected:
+        path.write_text("preserved")
+    env = dict(os.environ, HOME=str(root / "home"), CODEX_HOME=str(root / "codex-home"), LC_ALL="C")
+    command = ["/app/node_modules/.bin/codex", "sandbox", "-c", 'sandbox_mode="workspace-write"', "--"]
+    writer = "from pathlib import Path; import sys; Path(sys.argv[1]).write_text('sandbox-probe')"
+
+    def write(path):
+        return subprocess.run([*command, "/usr/bin/python3", "-c", writer, str(path)],
+                              cwd=workspace, env=env, capture_output=True, text=True, timeout=30)
+
+    allowed = workspace / "allowed.txt"
+    result = write(allowed)
+    if result.returncode or not allowed.is_file() or allowed.read_text() != "sandbox-probe":
+        raise RuntimeError("Codex sandbox could not write its workspace: " + result.stderr)
+    for path in protected:
+        result = write(path)
+        if result.returncode == 0 or "Read-only file system" not in result.stderr or path.read_text() != "preserved":
+            raise RuntimeError("Codex sandbox did not enforce its write boundary for " + str(path) + ": " + result.stderr)
+print("Codex sandbox runs and preserves outside-workspace and .git write restrictions")
+"""
+    result = app_exec(app, "python3", "-c", probe)
+    print(result.stdout.strip())
+
+
 def check(image, revision):
     # Recovery must preserve real Unix owners; the hosted runner is not root.
     recovery = docker("run", "--rm", "--entrypoint", "python3", image, "-m", "unittest", "discover",
@@ -143,6 +181,7 @@ def check(image, revision):
         if not bubblewrap.stdout.strip().startswith("bubblewrap "):
             raise RuntimeError("System bubblewrap is not available on the application user's PATH")
         print(bubblewrap.stdout.strip())
+        check_codex_sandbox(app)
         result = app_exec(app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
@@ -191,7 +230,7 @@ def check(image, revision):
             time.sleep(1)
         else:
             raise RuntimeError("Tunnel exit did not stop the application")
-        print(json.dumps({"ok": True, "sourceCommit": revision, "checks": ["health", "TCP via SOCKS5", "DNS via SOCKS5", "bound-interface bypass blocked", "attached-subnet bypass blocked", "proxy outage blocked", "tunnel crash stops app"]}))
+        print(json.dumps({"ok": True, "sourceCommit": revision, "checks": ["health", "Codex sandbox write boundaries", "TCP via SOCKS5", "DNS via SOCKS5", "bound-interface bypass blocked", "attached-subnet bypass blocked", "proxy outage blocked", "tunnel crash stops app"]}))
     except Exception:
         if app in created:
             for args in [("ip", "rule"), ("ip", "route", "show", "table", "all"), ("iptables", "-w", "-nvL", "AIONUI_EGRESS")]:

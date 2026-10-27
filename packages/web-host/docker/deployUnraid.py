@@ -25,11 +25,11 @@ IMAGE = "ghcr.io/sunnypsk/aionui_edu"
 CODE = Path("/boot/config/plugins/aionui-edu-autodeploy")
 CRON = Path("/boot/config/plugins/dynamix/aionui-edu-autodeploy.cron")
 TEMPLATE = Path("/boot/config/plugins/dockerMan/templates-user/my-aionui-edu.xml")
-BROWSER_SECCOMP_SHA = "09293f2779f2611a01c58c56ee4a46f12e32c2cf3c96ccb055574f0dc13acabf"
+BROWSER_SECCOMP_SHA = "47d82cb37fc3bc973f02062baad42f8b751c1156cefcef80ae377b48f3c96912"
 
 
 def browser_seccomp_source():
-    """Only a reviewed, pinned policy can grant Chromium its user namespaces."""
+    """Only a reviewed, pinned policy can enable Chromium and Codex sandbox setup."""
     parent = Path(__file__).resolve().parent
     for source in (parent / "browser" / "seccomp.json", parent.parent / "src/runtime/browser/security/seccomp.json"):
         if source.is_file():

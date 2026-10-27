@@ -40,6 +40,14 @@
       "excludes": {}
     },
     {
+      "comment": "Allow bubblewrap to construct its filesystem inside an unprivileged user namespace",
+      "names": ["mount", "pivot_root", "umount2"],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [],
+      "includes": {},
+      "excludes": {}
+    },
+    {
       "names": [
         "accept",
         "accept4",
