@@ -46,6 +46,14 @@ def inspect(name):
     return json.loads(docker("inspect", name).stdout)[0]
 
 
+def apparmor_options():
+    """Use the loaded sandbox profile only on daemons enforcing AppArmor."""
+    options = json.loads(docker("info", "--format", "{{json .SecurityOptions}}").stdout)
+    if any(option.split(",", 1)[0] == "name=apparmor" for option in options):
+        return ["--security-opt", "apparmor=aionui-sandbox"]
+    return []
+
+
 def check_codex_sandbox(app):
     """Exercise the real CLI and write boundaries without credentials or inference."""
     probe = r"""
@@ -85,6 +93,7 @@ print("Codex sandbox runs and preserves outside-workspace and .git write restric
 
 
 def check(image, revision):
+    apparmor = apparmor_options()
     # Recovery must preserve real Unix owners; the hosted runner is not root.
     recovery = docker("run", "--rm", "--entrypoint", "python3", image, "-m", "unittest", "discover",
                       "-s", "/app/packages/web-host/docker", "-p", "testRelease.py", check=False)
@@ -131,10 +140,18 @@ def check(image, revision):
         docker("run", "-d", "--name", app, "--network", network,
                "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun:/dev/net/tun",
                "--security-opt", "no-new-privileges:true", "--security-opt", "seccomp=" + str(Path(__file__).resolve().parent.parent / "src/runtime/browser/security/seccomp.json"),
+               *apparmor,
                "--shm-size", "256m",
                "--mount", data_mount, "-p", "127.0.0.1::25808",
                "-e", "AIONUI_SOCKS5_PROXY=socks5://" + proxy_ip + ":1080", image)
         created.append(app)
+        if apparmor:
+            if inspect(app).get("AppArmorProfile") != "aionui-sandbox":
+                raise RuntimeError("Sandbox AppArmor profile was not applied")
+            confinement = app_exec(app, "cat", "/proc/self/attr/current").stdout.strip()
+            if confinement != "aionui-sandbox (enforce)":
+                raise RuntimeError("Sandbox AppArmor profile is not enforcing: " + confinement)
+            print("Sandbox AppArmor profile is enforcing.")
         port = inspect(app)["NetworkSettings"]["Ports"]["25808/tcp"][0]["HostPort"]
         for _ in range(90):
             try:

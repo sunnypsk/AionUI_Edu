@@ -80,8 +80,14 @@ jobs:
         run: |
           test -c /dev/net/tun || sudo install -d /dev/net
           test -c /dev/net/tun || sudo mknod /dev/net/tun c 10 200
+          PROFILE=packages/web-host/src/runtime/browser/security/apparmor.profile
+          sudo apparmor_parser -r "$PROFILE"
+          trap 'sudo apparmor_parser -R "$PROFILE"' EXIT
           python3 packages/web-host/docker/checkContainer.py \
             "$IMAGE:sha-$GITHUB_SHA-$GITHUB_RUN_NUMBER-$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA"
+      - name: Show sandbox AppArmor denials on failure
+        if: failure()
+        run: sudo dmesg | grep 'apparmor="DENIED".*profile="aionui-sandbox"' | tail -40 || true
       - name: Publish only the tested image
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

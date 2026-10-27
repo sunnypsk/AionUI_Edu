@@ -28,6 +28,21 @@ def image():
 
 
 class ContainerSmoke(unittest.TestCase):
+    def test_apparmor_hosts_require_the_named_sandbox_profile(self):
+        result = subprocess.CompletedProcess([], 0, '["name=apparmor", "name=seccomp,profile=builtin"]', "")
+        with patch.object(container_check, "docker", return_value=result):
+            self.assertEqual(container_check.apparmor_options(), ["--security-opt", "apparmor=aionui-sandbox"])
+
+    def test_hosts_without_apparmor_do_not_receive_an_unsupported_option(self):
+        result = subprocess.CompletedProcess([], 0, '["name=seccomp,profile=builtin", "name=cgroupns"]', "")
+        with patch.object(container_check, "docker", return_value=result):
+            self.assertEqual(container_check.apparmor_options(), [])
+
+    def test_security_detection_failure_does_not_silently_disable_apparmor(self):
+        with patch.object(container_check, "docker", side_effect=RuntimeError("daemon unavailable")):
+            with self.assertRaisesRegex(RuntimeError, "daemon unavailable"):
+                container_check.apparmor_options()
+
     def test_failed_commands_preserve_actionable_stderr(self):
         result = subprocess.CompletedProcess([], 1, "", "chrome_crashpad_handler: --database is required")
         with patch.object(container_check.subprocess, "run", return_value=result):
