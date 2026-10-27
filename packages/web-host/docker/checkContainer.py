@@ -139,12 +139,33 @@ def check(image, revision):
             "console.log('Production server dependencies only');"
         )
         print(runtime_packages.stdout.strip())
+        bubblewrap = app_exec(app, "bwrap", "--version")
+        if not bubblewrap.stdout.strip().startswith("bubblewrap "):
+            raise RuntimeError("System bubblewrap is not available on the application user's PATH")
+        print(bubblewrap.stdout.strip())
         result = app_exec(app, "curl", "--fail", "--silent", "--show-error", "--max-time", "15", f"http://{target_ip}:18080")
         if json.loads(result.stdout)["peer"] != proxy_remote_ip:
             raise RuntimeError("Application TCP traffic bypassed SOCKS5")
         browser_check = app_exec(app, "bun", "-e",
                                "const {createRequire}=await import('node:module'); const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core'); const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage','--disable-quic']}); try {const page=await browser.newPage(); await page.goto('http://" + target_ip + ":18080',{timeout:15000}); const result=JSON.parse(await page.locator('body').innerText()); if(result.peer!=='" + proxy_remote_ip + "') throw Error('browser route bypass'); console.log('Sandboxed Chromium uses SOCKS5'); await page.goto('https://example.com',{timeout:15000,waitUntil:'domcontentloaded'}); if(await page.title()!=='Example Domain') throw Error('browser HTTPS hostname failed'); console.log('Chromium HTTPS hostname uses tunneled DNS');} finally {await browser.close();}")
         print(browser_check.stdout.strip())
+        manifest_check = app_exec(
+            app, "bun", "-e",
+            "const {createRequire}=await import('node:module');"
+            "const {chromium}=createRequire('/app/packages/web-host/package.json')('playwright-core');"
+            "const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,chromiumSandbox:true,args:['--disable-dev-shm-usage']});"
+            "try {const context=await browser.newContext();"
+            "await context.addCookies([{name:'manifest-session-probe',value:'present',url:'http://127.0.0.1:25808'}]);"
+            "const page=await context.newPage();let authenticated=false;"
+            "await page.route('**/manifest.webmanifest',async route=>{"
+            "const headers=await route.request().allHeaders();authenticated=headers.cookie?.includes('manifest-session-probe=present')??false;"
+            "await route.fulfill({status:authenticated?200:401,contentType:'application/manifest+json',body:JSON.stringify({name:'Authenticated manifest',start_url:'/',display:'standalone'})});});"
+            "await page.goto('http://127.0.0.1:25808',{waitUntil:'domcontentloaded',timeout:15000});"
+            "const session=await context.newCDPSession(page);await session.send('Page.getAppManifest');"
+            "if(!authenticated)throw Error('PWA manifest request omitted its session cookie');"
+            "console.log('Authenticated PWA manifest includes session credentials');}finally{await browser.close();}"
+        )
+        print(manifest_check.stdout.strip())
         shared_browser = app_exec(app, "bun", "/app/packages/web-host/src/runtime/browser/smoke.ts",
                                   env={"AIONUI_BUNDLED_CODEX": "/app/node_modules/.bin/codex"})
         print(shared_browser.stdout.strip())

@@ -127,6 +127,8 @@ const PreviewPanel: React.FC = () => {
 
   // 确认对话框状态 / Confirmation dialog states
   const [closeTabConfirm, setCloseTabConfirm] = useState<CloseTabConfirmState>({ show: false, tabId: null });
+  const closeTabConfirmRef = useRef(closeTabConfirm);
+  closeTabConfirmRef.current = closeTabConfirm;
   const [refreshConfirm, setRefreshConfirm] = useState<RefreshConfirmState>({ show: false, tabId: null });
 
   // 右键菜单状态 / Context menu state
@@ -379,14 +381,13 @@ const PreviewPanel: React.FC = () => {
 
   /** Close everything the pending confirmation covers, then clear it. */
   const finishPendingClose = useCallback(() => {
-    setCloseTabConfirm((pending) => {
-      const ids = pending.batchTabIds?.length ? pending.batchTabIds : pending.tabId ? [pending.tabId] : [];
-      ids.forEach((id) => closeTab(id));
-      // A batch that came from collapsing the panel also has to hide it; with no
-      // tabs left closeTab already does that, so this only covers the case where
-      // the user kept some tabs.
-      return { show: false, tabId: null };
-    });
+    // Closing updates the provider. Keep it outside this component's state updater,
+    // which React can replay during render, and respect cancellation during a save.
+    const pending = closeTabConfirmRef.current;
+    const ids = pending.batchTabIds?.length ? pending.batchTabIds : pending.tabId ? [pending.tabId] : [];
+    closeTabConfirmRef.current = { show: false, tabId: null };
+    setCloseTabConfirm(closeTabConfirmRef.current);
+    ids.forEach((id) => closeTab(id));
   }, [closeTab]);
 
   // 保存并关闭tab / Save and close tab
@@ -437,7 +438,8 @@ const PreviewPanel: React.FC = () => {
 
   // 取消关闭tab / Cancel close tab
   const handleCancelCloseTab = useCallback(() => {
-    setCloseTabConfirm({ show: false, tabId: null });
+    closeTabConfirmRef.current = { show: false, tabId: null };
+    setCloseTabConfirm(closeTabConfirmRef.current);
   }, []);
 
   // 处理 tab 右键菜单 / Handle tab context menu

@@ -24,7 +24,7 @@
 // wrong test id, inert button, unmounted panel — would produce the same green.
 
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-i18next', () => ({
@@ -42,7 +42,10 @@ vi.mock('@/renderer/hooks/context/ThemeContext', () => ({
 // panel → context → IPC chain inside what is under test.
 //
 // `vi.hoisted` because the factory below is lifted above ordinary declarations.
-const { readContent } = vi.hoisted(() => ({ readContent: vi.fn(async () => 'disk contents') }));
+const { readContent, writeContent } = vi.hoisted(() => ({
+  readContent: vi.fn(async () => 'disk contents'),
+  writeContent: vi.fn(async () => true),
+}));
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -50,7 +53,7 @@ vi.mock('@/common', () => ({
     preview: { open: { on: () => () => {} } },
     shell: { openFile: { invoke: async () => undefined } },
     fs: {
-      writeContent: { invoke: async () => true },
+      writeContent: { invoke: writeContent },
       getContentMetadata: { invoke: async () => null },
       readContent: { invoke: readContent },
       openSystem: { invoke: async () => undefined },
@@ -118,10 +121,12 @@ beforeEach(() => {
 beforeEach(() => {
   localStorage.clear();
   readContent.mockClear();
+  writeContent.mockReset().mockResolvedValue(true);
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   localStorage.clear();
 });
 
@@ -223,6 +228,105 @@ describe('refreshing a tab with unsaved changes', () => {
         expect(ctx.activeTab?.content).toBe('disk contents');
         expect(ctx.activeTab?.isDirty).toBe(false);
       });
+    },
+    TIMEOUT_MS
+  );
+});
+
+describe('closing an edited tab while another preview remains open', () => {
+  const openCloseDialog = async (): Promise<void> => {
+    const title = screen.getByTitle('a.ts');
+    const close = title.closest('div.cursor-pointer')?.querySelector('.i-icon-close');
+    if (!close) throw new Error('The file tab close control was not rendered');
+    fireEvent.click(close);
+    await screen.findByRole('dialog', { name: 'preview.closeTabTitle' });
+  };
+
+  const openTabs = (): void => {
+    act(() => {
+      ctx.openPreview('retained body', 'code', {
+        title: 'b.ts',
+        file_name: 'b.ts',
+        fileRef: { kind: 'project', pe_id: 'peA', relative_path: 'src/b.ts' },
+      });
+    });
+    openProjectTab();
+  };
+
+  it(
+    'keeps the edited tab and its contents when the close is cancelled',
+    async () => {
+      const { rerender } = render(<Harness showPanel={false} />);
+      openTabs();
+      rerender(<Harness showPanel />);
+      act(() => ctx.updateContent('unsaved edit'));
+
+      await openCloseDialog();
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('common.cancel'));
+
+      expect(ctx.tabs).toHaveLength(2);
+      expect(ctx.activeTab?.content).toBe('unsaved edit');
+      expect(writeContent).not.toHaveBeenCalled();
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'removes the discarded tab and reopens the original without writing the edit',
+    async () => {
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { rerender } = render(
+        <React.StrictMode>
+          <Harness showPanel={false} />
+        </React.StrictMode>
+      );
+      openTabs();
+      rerender(
+        <React.StrictMode>
+          <Harness showPanel />
+        </React.StrictMode>
+      );
+      act(() => ctx.updateContent('unsaved edit'));
+      const editedId = ctx.activeTabId;
+
+      await openCloseDialog();
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('common.cancel'));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      await openCloseDialog();
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('preview.closeWithoutSave'));
+
+      await waitFor(() => expect(ctx.tabs.map((tab) => tab.id)).not.toContain(editedId));
+      expect(ctx.tabs.map((tab) => tab.title)).toEqual(['b.ts']);
+      openProjectTab();
+      expect(ctx.activeTab).toMatchObject({ content: 'original body', isDirty: false });
+      expect(writeContent).not.toHaveBeenCalled();
+      expect(
+        errors.mock.calls.filter((args) => args.some((arg) => String(arg).includes('Cannot update a component')))
+      ).toEqual([]);
+      errors.mockRestore();
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'keeps the tab open if its close is cancelled while saving',
+    async () => {
+      const write = Promise.withResolvers<boolean>();
+      writeContent.mockImplementationOnce(() => write.promise);
+      const { rerender } = render(<Harness showPanel={false} />);
+      openTabs();
+      rerender(<Harness showPanel />);
+      act(() => ctx.updateContent('edited body'));
+      const editedId = ctx.activeTabId;
+
+      await openCloseDialog();
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('preview.saveAndClose'));
+      await waitFor(() => expect(writeContent).toHaveBeenCalled());
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('common.cancel'));
+      await act(async () => write.resolve(true));
+
+      expect(ctx.tabs.map((tab) => tab.id)).toContain(editedId);
+      expect(ctx.tabs.find((tab) => tab.id === editedId)).toMatchObject({ content: 'edited body', isDirty: false });
     },
     TIMEOUT_MS
   );

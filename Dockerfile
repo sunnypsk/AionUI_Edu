@@ -27,7 +27,8 @@ FROM node:24-bookworm-slim AS runtime
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=proxy /usr/local/bin/sing-box /usr/local/bin/sing-box
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git bash python3 python3-venv ffmpeg libicu-dev iproute2 iptables nftables util-linux tini chromium fonts-noto-cjk fonts-noto-color-emoji tzdata \
+    && apt-get install -y --no-install-recommends ca-certificates curl git bash bubblewrap python3 python3-venv ffmpeg libicu-dev iproute2 iptables nftables util-linux tini chromium fonts-noto-cjk fonts-noto-color-emoji tzdata \
+    && bwrap --version \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY packages/web-host/src/audio/providers/requirements.txt /opt/aionui-audio-requirements.txt

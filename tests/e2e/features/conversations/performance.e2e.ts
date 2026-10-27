@@ -423,10 +423,43 @@ test('keeps diagram source readable on an engine load failure and renders after 
   }
 });
 
-test('keeps unsaved editor text when closing is cancelled and can reopen the preview', async ({ page }, testInfo) => {
+test('sends session credentials when loading an authenticated PWA manifest', async ({ page, webui }) => {
+  const session = await page.context().newCDPSession(page);
+  await page.context().addCookies([{ name: 'manifest-session-probe', value: 'present', url: webui.url }]);
+  let manifestStatus = 0;
+  await page.route('**/manifest.webmanifest', async (route) => {
+    const headers = await route.request().allHeaders();
+    manifestStatus = headers.cookie?.includes('manifest-session-probe=present') ? 200 : 401;
+    await route.fulfill({
+      status: manifestStatus,
+      contentType: 'application/manifest+json',
+      body: JSON.stringify({ name: 'Authenticated manifest', start_url: '/', display: 'standalone' }),
+    });
+  });
+  try {
+    await page.reload();
+    await session.send('Page.getAppManifest');
+    await expect.poll(() => manifestStatus).toBe(200);
+  } finally {
+    await page.unroute('**/manifest.webmanifest');
+    await session.detach();
+  }
+});
+
+test('discards an edited tab after cancelling a close while another preview remains open', async ({
+  page,
+}, testInfo) => {
   test.skip(process.env.AIONUI_PERF_EXPECT_LAZY !== '1', 'Candidate editor lifecycle acceptance');
   const id = await createFixtureConversation(page);
   try {
+    await page.evaluate(async (conversationId) => {
+      const controller = (window as unknown as { __AIONUI_E2E_MESSAGE_STREAM__: Registry })
+        .__AIONUI_E2E_MESSAGE_STREAM__.controllers[conversationId];
+      await controller.emitFileChange('/tmp/retained-check.txt', 'retained before', 'retained after');
+    }, id);
+    await page.getByTestId('message-acp_tool_call-left').last().getByText('Preview', { exact: true }).click();
+    const panel = page.locator('.preview-panel');
+    await expect(panel.locator('[title="retained-check.txt"]').first()).toBeVisible();
     await page.evaluate(async (conversationId) => {
       const controller = (window as unknown as { __AIONUI_E2E_MESSAGE_STREAM__: Registry })
         .__AIONUI_E2E_MESSAGE_STREAM__.controllers[conversationId];
@@ -434,7 +467,6 @@ test('keeps unsaved editor text when closing is cancelled and can reopen the pre
     }, id);
     const row = page.getByTestId('message-acp_tool_call-left').last();
     await row.getByText('Preview', { exact: true }).click();
-    const panel = page.locator('.preview-panel');
     const editor = panel.locator('.cm-content').first();
     await expect(editor).toBeVisible();
     await editor.click();
@@ -444,14 +476,15 @@ test('keeps unsaved editor text when closing is cancelled and can reopen the pre
       .locator('[title="editable-check.txt"]')
       .first()
       .locator('xpath=ancestor::div[contains(@class,"cursor-pointer")][1]');
-    await tab.click({ button: 'middle' });
+    await tab.locator('.i-icon-close').click();
     await expect(page.getByRole('button', { name: 'Save and Close', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(editor).toContainText('UNSAVED-CHECK');
     await page.screenshot({ path: testInfo.outputPath('editor-dirty-desktop.png') });
-    await tab.click({ button: 'middle' });
+    await tab.locator('.i-icon-close').click();
     await page.getByRole('button', { name: /Don't Save/, exact: true }).click();
-    await expect(panel).toBeHidden();
+    await expect(tab).toHaveCount(0);
+    await expect(panel.locator('[title="retained-check.txt"]').first()).toBeVisible();
     await row.getByText('Preview', { exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(editor).not.toContainText('UNSAVED-CHECK');
