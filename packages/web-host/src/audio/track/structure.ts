@@ -46,6 +46,39 @@ export function speechRegions(silences: Interval[], duration: number, mergeGap: 
   return merged;
 }
 
+export type BlockOptions = { minSeconds: number; maxSeconds: number; breakSeconds: number };
+
+/**
+ * Merge speech regions into editing blocks of roughly `minSeconds`–`maxSeconds`. Runs are cut recursively at
+ * their longest pause, preferring cuts that leave both sides at least `minSeconds`; a run that already fits is
+ * still cut at a paragraph-length pause (`breakSeconds`). A single region longer than the maximum stays whole.
+ */
+export function groupRegions(regions: Interval[], options: BlockOptions): Interval[] {
+  const split = (run: Interval[]): Interval[][] => {
+    if (run.length < 2) return [run];
+    const first = run[0].start;
+    const last = run[run.length - 1].end;
+    let best = -1;
+    let fallback = 1;
+    for (let index = 1; index < run.length; index++) {
+      const gap = run[index].start - run[index - 1].end;
+      if (gap > run[fallback].start - run[fallback - 1].end) fallback = index;
+      const balanced =
+        run[index - 1].end - first >= options.minSeconds && last - run[index].start >= options.minSeconds;
+      if (balanced && (best < 0 || gap > run[best].start - run[best - 1].end)) best = index;
+    }
+    const paragraph = best >= 0 && run[best].start - run[best - 1].end >= options.breakSeconds;
+    if (last - first <= options.maxSeconds && !paragraph) return [run];
+    const cut = best >= 0 ? best : fallback;
+    return [...split(run.slice(0, cut)), ...split(run.slice(cut))];
+  };
+  if (!regions.length) return [];
+  return split(regions.toSorted((a, b) => a.start - b.start)).map((run) => ({
+    start: run[0].start,
+    end: run[run.length - 1].end,
+  }));
+}
+
 /** Split at sentence ends, retaining punctuation and Unicode characters within the TTS limit. */
 export function splitText(text: string): string[] {
   const sentences = text.match(/[^。！？!?；;\n]*[。！？!?；;\n]+|[^。！？!?；;\n]+$/gu) ?? [];

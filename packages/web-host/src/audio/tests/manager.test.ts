@@ -439,6 +439,7 @@ describe('listening track tasks', () => {
     await expect(manager.command(owner, 'render_listening_track', {}, new AbortController().signal)).rejects.toThrow(
       'INVALID_REQUEST'
     );
+    // Empty sections are valid for editing (new studio projects) but have nothing to render.
     await writeProject([{ id: 'a', segments: [] }]);
     await expect(
       manager.command(
@@ -449,7 +450,7 @@ describe('listening track tasks', () => {
       )
     ).rejects.toMatchObject({
       message: 'AUDIO_PROJECT_INVALID',
-      details: [expect.stringMatching(/^sections\.0\.segments: /)],
+      details: ['sections: add at least one segment before rendering'],
     });
     await writeProject([{ id: 'a', segments: [{ id: 'k', type: 'clip', path: 'missing.mp3', start: 0, end: 1 }] }]);
     expect(await render({ project_path: 'listening/unit.listening.json' })).toMatchObject({

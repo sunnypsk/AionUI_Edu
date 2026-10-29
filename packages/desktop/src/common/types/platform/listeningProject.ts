@@ -64,7 +64,8 @@ const sectionSchema = z
     plays: z.number().int().min(1).max(5).default(1),
     gapBetweenPlays: z.number().min(0).max(600).default(5),
     gapAfter: z.number().min(0).max(600).default(3),
-    segments: z.array(segmentSchema).min(1),
+    // Empty sections are allowed so a new studio project can be opened before any audio is added.
+    segments: z.array(segmentSchema),
   })
   .strict();
 

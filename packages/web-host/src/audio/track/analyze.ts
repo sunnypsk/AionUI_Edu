@@ -43,8 +43,9 @@ export type AnalysisResult = {
   issues: AudioIssue[];
 };
 
-async function transcribeRegions(
-  options: AnalysisOptions,
+/** Transcribe each region in place (`region.text`), two at a time; failed chunks become issues and warnings. */
+export async function transcribeRegions(
+  options: Pick<AnalysisOptions, 'directory' | 'signal' | 'services' | 'progress'>,
   source: string,
   regions: Region[],
   warnings: Set<string>

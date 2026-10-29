@@ -27,6 +27,8 @@ import {
   sourceRange,
 } from './track/index.js';
 import { workspaceFile } from './providers/media.js';
+import { STUDIO_PROJECT_FILE, StudioProjects } from '../studio/projects.js';
+import { handleStudio, isStudioUpload, STUDIO_ROOT } from '../studio/routes.js';
 
 const listeningTarget = z.object({ conversation_id: z.string(), path: z.string().min(1).max(4096) });
 const record = (value: unknown): Record<string, unknown> =>
@@ -55,11 +57,12 @@ async function body(req: IncomingMessage): Promise<unknown> {
     throw new Error('INVALID_REQUEST');
   }
 }
-function validateWrite(req: IncomingMessage): void {
+function validateWrite(req: IncomingMessage, contentType = 'application/json'): void {
   if (
     req.headers['sec-fetch-site'] === 'cross-site' ||
     (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) ||
-    !req.headers['content-type']?.startsWith('application/json')
+    // Bodiless deletes carry no content type; origin and CSRF checks still apply.
+    (req.method !== 'DELETE' && !req.headers['content-type']?.startsWith(contentType))
   )
     throw new Error('UNAUTHORIZED');
   if (req.headers.cookie) {
@@ -88,6 +91,7 @@ export async function createAudioRuntime(options: {
   sessionAuth?: SessionValidator;
 }) {
   const manager = options.manager ?? new AudioManager(options.dataDir);
+  const studio = new StudioProjects(options.dataDir);
   await manager.ready;
   const key = randomBytes(32).toString('hex');
   let backendPort = 0;
@@ -131,6 +135,17 @@ export async function createAudioRuntime(options: {
       throw new Error('AUDIO_FILE_FORBIDDEN');
     return { userId, conversationId, workspace };
   };
+  /** Editor target: a studio project (by id) or a project file in a conversation workspace. */
+  const editorTarget = async (
+    input: Record<string, unknown>,
+    userId: string,
+    headers: Record<string, string>
+  ): Promise<{ context: AudioOwner; path: string }> => {
+    if (input.project_id !== undefined)
+      return { context: await studio.owner(userId, z.string().parse(input.project_id)), path: STUDIO_PROJECT_FILE };
+    const target = listeningTarget.parse({ conversation_id: input.conversation_id, path: input.path });
+    return { context: await conversationOwner(userId, target.conversation_id, headers), path: target.path };
+  };
   /** Teacher-facing listening editor API; every response carries the refreshed project state. */
   const listening = async (
     req: IncomingMessage,
@@ -140,8 +155,8 @@ export async function createAudioRuntime(options: {
   ): Promise<ListeningState | { taskId: string; state: ListeningState }> => {
     const route = url.pathname.slice('/api/edu/audio/listening'.length);
     const input = req.method === 'GET' ? Object.fromEntries(url.searchParams) : record(await body(req));
-    const target = listeningTarget.parse({ conversation_id: input.conversation_id, path: input.path });
-    const context = await conversationOwner(userId, target.conversation_id, headers);
+    const { context, path: projectPath } = await editorTarget(input, userId, headers);
+    const target = { path: projectPath };
     const state = async (): Promise<ListeningState> => {
       const current = await readProjectState(context.workspace, target.path);
       const segments = current.project?.sections.flatMap((section) => section.segments) ?? [];
@@ -229,12 +244,10 @@ export async function createAudioRuntime(options: {
     userId: string,
     headers: Record<string, string>
   ): Promise<void> => {
-    const input = z
-      .object({ conversation_id: z.string(), path: z.string().min(1).max(4096), source: z.string().min(1).max(4096) })
-      .parse(Object.fromEntries(url.searchParams));
-    const context = await conversationOwner(userId, input.conversation_id, headers);
-    if (!input.path.endsWith(PROJECT_SUFFIX)) throw new Error('AUDIO_FILE_FORBIDDEN');
-    await workspaceFile(context.workspace, input.path);
+    const input = z.object({ source: z.string().min(1).max(4096) }).parse(Object.fromEntries(url.searchParams));
+    const { context, path: projectPath } = await editorTarget(Object.fromEntries(url.searchParams), userId, headers);
+    if (!projectPath.endsWith(PROJECT_SUFFIX)) throw new Error('AUDIO_FILE_FORBIDDEN');
+    await workspaceFile(context.workspace, projectPath);
     const abort = new AbortController();
     res.once('close', () => abort.abort());
     let bytes: Buffer;
@@ -364,7 +377,8 @@ export async function createAudioRuntime(options: {
         if (req.headers.authorization) headers.authorization = req.headers.authorization;
         if (!Object.keys(headers).length) throw new Error('UNAUTHORIZED');
         const userId = await sessionAuth.validate(headers);
-        if (req.method !== 'GET') validateWrite(req);
+        if (req.method !== 'GET')
+          validateWrite(req, isStudioUpload(req, url) ? 'application/octet-stream' : 'application/json');
         if (url.pathname === '/api/edu/audio/capabilities' && req.method === 'GET') {
           const conversation = url.searchParams.get('conversation_id');
           const context = conversation ? await conversationOwner(userId, conversation, headers) : undefined;
@@ -404,6 +418,20 @@ export async function createAudioRuntime(options: {
           ['/api/edu/audio/listening/peaks', '/api/edu/audio/listening/range'].includes(url.pathname)
         )
           await listeningMedia(res, url, userId, headers);
+        else if (url.pathname.startsWith(STUDIO_ROOT))
+          await handleStudio(req, res, url, {
+            projects: studio,
+            manager,
+            userId,
+            maxUploadBytes: async () =>
+              z
+                .number()
+                .int()
+                .positive()
+                .parse((await backend('/api/fs/upload/limits', headers)).maxBytes),
+            readJson: async () => record(await body(req)),
+            send: (status, value) => send(res, status, value),
+          });
         else if (url.pathname.startsWith('/api/edu/audio/listening'))
           send(res, 200, { data: await listening(req, url, userId, headers) });
         else throw new Error('INVALID_REQUEST');

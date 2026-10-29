@@ -17,9 +17,10 @@ export type LaidOutEntry = ListeningTimelineEntry & { estimated: boolean };
 
 /** Flatten sections into playback order: repeated plays, gaps between plays, and gaps between sections. */
 export function sequenceTrack(project: ListeningProject, onlySections?: string[]): SequenceItem[] {
-  const sections = onlySections?.length
-    ? project.sections.filter((section) => onlySections.includes(section.id))
-    : project.sections;
+  // Empty sections (a new studio project, or one emptied while editing) contribute no audio and no gaps.
+  const sections = (
+    onlySections?.length ? project.sections.filter((section) => onlySections.includes(section.id)) : project.sections
+  ).filter((section) => section.segments.length);
   const items: SequenceItem[] = [];
   sections.forEach((section, index) => {
     for (let play = 1; play <= section.plays; play++) {

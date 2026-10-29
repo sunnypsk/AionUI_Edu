@@ -52,7 +52,7 @@ export type AudioUsage = {
 export type AudioTaskView = Omit<AudioTask, 'usage' | 'costUsd'>;
 export type AudioTask = {
   id: string;
-  kind: 'transcription' | 'speech' | 'track' | 'analysis' | 'replacement' | 'export' | 'segments';
+  kind: 'transcription' | 'speech' | 'track' | 'analysis' | 'replacement' | 'export' | 'segments' | 'import';
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
   createdAt: number;
   updatedAt: number;
@@ -70,6 +70,8 @@ export type AudioTask = {
   preview?: AudioReplacementPreview;
   /** Section ids when a track task rendered only part of the project as a preview. */
   previewSections?: string[];
+  /** Workspace-relative recording an `import` task splits into studio blocks. */
+  sourcePath?: string;
   /** Speech lines a `segments` task generates into the shared cache. */
   segmentIds?: string[];
   /** `user` when the teacher started the task from the editor rather than the agent. */

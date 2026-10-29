@@ -24,6 +24,7 @@ import {
   type TrackMedia,
 } from './track/index.js';
 import { planTrack } from './track/project.js';
+import { importMedia } from '../studio/importMedia.js';
 import { editProject, readProjectState } from './track/editor.js';
 import { previewReplacement, replaceRange, replacementClip, exportBundle } from './track/editing/index.js';
 import type { AudioReplacementInput } from '../../../desktop/src/common/types/platform/audioTools.ts';
@@ -68,6 +69,8 @@ type EditorInput = {
   replacement?: AudioReplacementInput;
   segmentIds?: string[];
 };
+/** Studio recording import: workspace-relative media file and the project whose editor tracks the task. */
+export type ImportInput = { project_path: string; media_path: string; transcribe: boolean; language: string };
 type Gate = { epoch: number; open: boolean; threadId?: string; turns: Map<string, number> };
 type Work = { controller: AbortController; done: Promise<void> };
 
@@ -163,6 +166,14 @@ export class AudioManager {
     if (!task) throw new Error('AUDIO_TASK_NOT_FOUND');
     return task;
   }
+  /** Editor lookup: any task of this user on this workspace, whichever conversation or studio started it. */
+  private findInWorkspace(owner: AudioOwner, id: string): StoredAudioTask {
+    const task = this.tasks.find(
+      (item) => item.id === id && item.owner.userId === owner.userId && item.owner.workspace === owner.workspace
+    );
+    if (!task) throw new Error('AUDIO_TASK_NOT_FOUND');
+    return task;
+  }
   private async persist(task: StoredAudioTask): Promise<void> {
     task.updatedAt = Date.now();
     await this.store.saveTask(structuredClone(task));
@@ -203,16 +214,18 @@ export class AudioManager {
     await this.ready;
     return this.start(owner, 'render_listening_track', toolSchemas.render_listening_track.parse(input), 'user');
   }
-  /** Recent editor jobs and the source analysis diagnostics for one project, newest first. */
+  /**
+   * Recent editor jobs and the source analysis diagnostics for one project, newest first. Tasks are matched by
+   * workspace rather than conversation, so a studio editor also shows renders an agent started in chat.
+   */
   async listTracks(owner: AudioOwner, projectPath: string): Promise<AudioTask[]> {
     await this.ready;
     const tasks = this.tasks
       .filter(
         (task) =>
-          ['track', 'replacement', 'export', 'analysis', 'segments'].includes(task.kind) &&
+          ['track', 'replacement', 'export', 'analysis', 'segments', 'import'].includes(task.kind) &&
           task.projectPath === projectPath &&
           task.owner.userId === owner.userId &&
-          task.owner.conversationId === owner.conversationId &&
           task.owner.workspace === owner.workspace
       )
       .toSorted((a, b) => b.createdAt - a.createdAt);
@@ -228,8 +241,9 @@ export class AudioManager {
   /** Cancel a track task from the editor, whoever started it. */
   async cancelTrack(owner: AudioOwner, id: string): Promise<AudioTask> {
     await this.ready;
-    const task = this.find(owner, id);
-    if (!['track', 'replacement', 'export', 'segments'].includes(task.kind)) throw new Error('AUDIO_TASK_NOT_FOUND');
+    const task = this.findInWorkspace(owner, id);
+    if (!['track', 'replacement', 'export', 'segments', 'import'].includes(task.kind))
+      throw new Error('AUDIO_TASK_NOT_FOUND');
     await this.stop(task, 'cancelled');
     return publicTask(task);
   }
@@ -257,26 +271,80 @@ export class AudioManager {
       Object.assign(snapshot, await this.qaSelection(owner, warnings));
     }
     this.assertCapacity(owner);
-    const task: StoredAudioTask = {
-      id: randomUUID(),
-      owner: { ...owner },
-      epoch: this.gate(owner).epoch,
-      kind,
-      status: 'queued',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      initiator: 'user',
-      projectPath: input.project_path,
-      projectRevision: state.revision,
-      summary: state.project.title,
-      ...(input.replacement ? { replacementInput: input.replacement } : {}),
-      ...(kind === 'segments' ? { segmentIds: input.segmentIds } : {}),
-      completedChunks: 0,
-      totalChunks: 0,
-      files: [],
-      usage: [],
-      warnings,
-    };
+    return this.launch(
+      {
+        id: randomUUID(),
+        owner: { ...owner },
+        epoch: this.gate(owner).epoch,
+        kind,
+        status: 'queued',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        initiator: 'user',
+        projectPath: input.project_path,
+        projectRevision: state.revision,
+        summary: state.project.title,
+        ...(input.replacement ? { replacementInput: input.replacement } : {}),
+        ...(kind === 'segments' ? { segmentIds: input.segmentIds } : {}),
+        completedChunks: 0,
+        totalChunks: 0,
+        files: [],
+        usage: [],
+        warnings,
+      },
+      input,
+      snapshot
+    );
+  }
+  /**
+   * Split a studio recording into contiguous blocks and transcribe each one into the recording's block sidecar.
+   * Without a transcription key, or when transcription is not requested, the recording is split only.
+   */
+  async startImport(owner: AudioOwner, input: ImportInput): Promise<AudioTask> {
+    await this.ready;
+    if (this.closed) throw new Error('AUDIO_UNAVAILABLE');
+    await workspaceFile(owner.workspace, input.media_path);
+    const snapshot: Snapshot = {};
+    const warnings: string[] = [];
+    const selection = input.transcribe ? await this.store.selection(owner.userId) : undefined;
+    if (selection?.apiKey) {
+      try {
+        Object.assign(snapshot, { selection, model: await this.services.catalog.resolve(selection.model) });
+      } catch {
+        warnings.push('AUDIO_ANALYSIS_TRANSCRIPT_INCOMPLETE');
+      }
+    }
+    this.assertCapacity(owner);
+    return this.launch(
+      {
+        id: randomUUID(),
+        owner: { ...owner },
+        epoch: this.gate(owner).epoch,
+        kind: 'import',
+        status: 'queued',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        initiator: 'user',
+        model: snapshot.selection?.model,
+        projectPath: input.project_path,
+        sourcePath: input.media_path,
+        summary: path.posix.basename(input.media_path),
+        completedChunks: 0,
+        totalChunks: 0,
+        files: [],
+        usage: [],
+        warnings,
+      },
+      input,
+      snapshot
+    );
+  }
+  /** Register and run an editor-started task; failures are recorded on the task rather than thrown. */
+  private async launch(
+    task: StoredAudioTask,
+    input: EditorInput | ImportInput,
+    snapshot: Snapshot
+  ): Promise<AudioTask> {
     const work: Work = { controller: new AbortController(), done: Promise.resolve() };
     this.tasks.push(task);
     this.work.set(task.id, work);
@@ -298,7 +366,7 @@ export class AudioManager {
   /** A preview id is owner-bound, completed, and tied to exactly one project revision. */
   async applyReplacement(owner: AudioOwner, projectPath: string, revision: string, previewId: string): Promise<void> {
     await this.ready;
-    const task = this.find(owner, previewId);
+    const task = this.findInWorkspace(owner, previewId);
     if (
       task.kind !== 'replacement' ||
       task.status !== 'completed' ||
@@ -468,7 +536,7 @@ export class AudioManager {
   }
   private async execute(
     task: StoredAudioTask,
-    input: TranscribeInput | SpeechInput | TrackInput | AnalysisInput | EditorInput,
+    input: TranscribeInput | SpeechInput | TrackInput | AnalysisInput | EditorInput | ImportInput,
     signal: AbortSignal,
     snapshot: Snapshot
   ): Promise<void> {
@@ -567,6 +635,38 @@ export class AudioManager {
         task.durationSeconds = result.durationSeconds;
         task.projectPath = result.projectPath;
         task.summary = result.summary;
+        task.warnings.push(...result.warnings);
+        task.issues = result.issues;
+      } else if (task.kind === 'import') {
+        const p = input as ImportInput;
+        format = 'json';
+        const result = await importMedia({
+          workspace: task.owner.workspace,
+          mediaPath: p.media_path,
+          directory,
+          signal,
+          services: {
+            probe: this.services.media.probe,
+            silences: this.services.silences,
+            cut: this.services.media.chunk,
+            transcribe: snapshot.model
+              ? (file, workDirectory, abort) =>
+                  this.transcribeFile(task, snapshot, file, workDirectory, abort, {
+                    language: p.language,
+                    instructions:
+                      'Transcribe exactly what is said, in order, as plain text. Keep spoken wording; do not summarize.',
+                  })
+              : undefined,
+          },
+          progress: async (completed, total) => {
+            task.completedChunks = completed;
+            task.totalChunks = total;
+            await this.persist(task);
+          },
+        });
+        // The block sidecar is written in place; nothing is published under audio/.
+        outputs = [];
+        task.durationSeconds = result.durationSeconds;
         task.warnings.push(...result.warnings);
         task.issues = result.issues;
       } else if (task.kind === 'segments') {

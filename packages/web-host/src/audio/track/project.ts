@@ -122,6 +122,8 @@ export function planTrack(project: ListeningProject, onlySections?: string[]): P
         .filter((id) => !project.sections.some((section) => section.id === id))
         .map((id) => `only_sections: unknown section ${id}`)
     );
+  if (!sections.some((section) => section.segments.length))
+    throw new AudioProjectError(['sections: add at least one segment before rendering']);
   const items = sequenceTrack(project, onlySections).map((item): PlanItem => {
     const base = { sectionId: item.sectionId, play: item.play };
     if (item.kind === 'gap') return { kind: 'silence', ...base, seconds: item.seconds };
