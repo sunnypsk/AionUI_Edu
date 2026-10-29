@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, Message, Popconfirm, Space, Spin, Tag, Tooltip, Upload } from '@arco-design/web-react';
-import { AudioFile, Delete, Plus, Text, Upload as UploadIcon } from '@icon-park/react';
+import {
+  Button,
+  Empty,
+  Message,
+  Popconfirm,
+  Space,
+  Spin,
+  Tag,
+  Tooltip,
+  Upload as FileUpload,
+} from '@arco-design/web-react';
+import { AudioFile, Delete, Plus, Text, Upload } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import type { AudioTaskView } from '@/common/types/platform/audioTools';
@@ -118,7 +128,7 @@ export function MediaPanel({
       <div className={styles.mediaHeader}>
         <span className={styles.mediaTitle}>{t('messages.studio.media.title')}</span>
         <Space size={4}>
-          <Upload
+          <FileUpload
             multiple
             accept={ACCEPT}
             showUploadList={false}
@@ -128,10 +138,10 @@ export function MediaPanel({
               return false;
             }}
           >
-            <Button size='small' type='primary' icon={<UploadIcon />} loading={uploading > 0}>
+            <Button size='small' type='primary' icon={<Upload />} loading={uploading > 0}>
               {t('messages.studio.media.upload')}
             </Button>
-          </Upload>
+          </FileUpload>
           <Button size='small' icon={<Text />} disabled={context.disabled} onClick={() => setTextOpen(true)}>
             {t('messages.studio.media.fromText')}
           </Button>
