@@ -322,10 +322,8 @@
   color: var(--text-secondary);
   font-size: 12px;
 }
-.transcriptText {
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.transcriptInput {
+  width: 100%;
 }
 .warningList {
   margin: 0;
@@ -471,6 +469,22 @@
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+/* View switch and text search above the script or timeline. */
+.viewBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.searchInput {
+  width: 240px;
 }
 .saveState:first-child {
   max-width: 200px;

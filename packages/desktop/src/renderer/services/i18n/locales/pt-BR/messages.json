@@ -304,7 +304,8 @@
       "approximate": "Os tempos são aproximados; ouça antes de cortar.",
       "incomplete": "A transcrição desta parte está incompleta.",
       "contentFiltered": "O serviço em nuvem recusou transcrever esta parte.",
-      "generic": "Confira esta parte ouvindo."
+      "generic": "Confira esta parte ouvindo.",
+      "transcriptStale": "Este clipe mudou depois de transcrito; transcreva-o novamente para atualizar o texto."
     },
     "clip": {
       "expand": "Mostrar trecho {{range}}",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "Texto digitado pelo professor · não conferido",
       "transcriptVerified": "Transcrição confirmada pelo professor",
       "verify": "Marcar como confirmado",
-      "unverify": "Marcar como não conferido"
+      "unverify": "Marcar como não conferido",
+      "transcriptEdit": "Transcrição",
+      "transcriptPlaceholder": "Digite o que é dito neste clipe",
+      "transcribe": "Transcrever",
+      "retranscribe": "Transcrever novamente"
     },
     "advanced": {
       "title": "Avançado: caminho do arquivo, segundos exatos, nota interna"
@@ -466,6 +471,16 @@
       "title": "Exportar",
       "qa": "Revisão de pronúncia",
       "noQaIssues": "Nenhuma linha sinalizada. Linhas não geradas ou não verificadas ainda precisam ser ouvidas."
+    },
+    "transcribe": {
+      "all": "Transcrever ({{count}})"
+    },
+    "search": {
+      "placeholder": "Buscar texto",
+      "count": "{{index}}/{{total}}",
+      "none": "Nenhum resultado",
+      "previous": "Resultado anterior",
+      "next": "Próximo resultado"
     }
   },
   "studio": {

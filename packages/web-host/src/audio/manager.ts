@@ -25,10 +25,19 @@ import {
 } from './track/index.js';
 import { planTrack } from './track/project.js';
 import { importMedia } from '../studio/importMedia.js';
+import { transcribeRegions } from './track/analyze.js';
+import type { Region } from './track/structure.js';
 import { editProject, readProjectState } from './track/editor.js';
 import { previewReplacement, replaceRange, replacementClip, exportBundle } from './track/editing/index.js';
-import type { AudioReplacementInput } from '../../../desktop/src/common/types/platform/audioTools.ts';
-import type { ListeningProject } from '../../../desktop/src/common/types/platform/listeningProject.ts';
+import type {
+  AudioIssue,
+  AudioReplacementInput,
+  ClipTranscriptResult,
+} from '../../../desktop/src/common/types/platform/audioTools.ts';
+import type {
+  ListeningProject,
+  ListeningSegment,
+} from '../../../desktop/src/common/types/platform/listeningProject.ts';
 import {
   active,
   audioError,
@@ -69,6 +78,10 @@ type EditorInput = {
   replacement?: AudioReplacementInput;
   segmentIds?: string[];
 };
+/** Recording transcripts keep spoken wording, so edits can be found by reading instead of listening. */
+const VERBATIM = 'Transcribe exactly what is said, in order, as plain text. Keep spoken wording; do not summarize.';
+const DEFAULT_LANGUAGE = 'yue-Hant-HK';
+type Clip = Extract<ListeningSegment, { type: 'clip' }>;
 /** Studio recording import: workspace-relative media file and the project whose editor tracks the task. */
 export type ImportInput = { project_path: string; media_path: string; transcribe: boolean; language: string };
 type Gate = { epoch: number; open: boolean; threadId?: string; turns: Map<string, number> };
@@ -223,7 +236,7 @@ export class AudioManager {
     const tasks = this.tasks
       .filter(
         (task) =>
-          ['track', 'replacement', 'export', 'analysis', 'segments', 'import'].includes(task.kind) &&
+          ['track', 'replacement', 'export', 'analysis', 'segments', 'import', 'transcript'].includes(task.kind) &&
           task.projectPath === projectPath &&
           task.owner.userId === owner.userId &&
           task.owner.workspace === owner.workspace
@@ -242,7 +255,7 @@ export class AudioManager {
   async cancelTrack(owner: AudioOwner, id: string): Promise<AudioTask> {
     await this.ready;
     const task = this.findInWorkspace(owner, id);
-    if (!['track', 'replacement', 'export', 'segments', 'import'].includes(task.kind))
+    if (!['track', 'replacement', 'export', 'segments', 'import', 'transcript'].includes(task.kind))
       throw new Error('AUDIO_TASK_NOT_FOUND');
     await this.stop(task, 'cancelled');
     return publicTask(task);
@@ -250,7 +263,7 @@ export class AudioManager {
   /** Start an editor-owned preview/export with the same cancellation and publication rules as renders. */
   async startEditorTask(
     owner: AudioOwner,
-    kind: 'replacement' | 'export' | 'segments',
+    kind: 'replacement' | 'export' | 'segments' | 'transcript',
     input: EditorInput
   ): Promise<AudioTask> {
     await this.ready;
@@ -270,6 +283,17 @@ export class AudioManager {
         throw new AudioProjectError(invalid.map((id) => `segment_ids: ${id} is not a speech line`));
       Object.assign(snapshot, await this.qaSelection(owner, warnings));
     }
+    if (kind === 'transcript') {
+      const segments = state.project.sections.flatMap((section) => section.segments);
+      const invalid = (input.segmentIds ?? []).filter(
+        (id) => segments.find((segment) => segment.id === id)?.type !== 'clip'
+      );
+      if (!input.segmentIds?.length || invalid.length)
+        throw new AudioProjectError(invalid.map((id) => `segment_ids: ${id} is not a recording clip`));
+      const selection = await this.store.selection(owner.userId);
+      if (!selection.apiKey) throw new Error('AUDIO_KEY_REQUIRED');
+      Object.assign(snapshot, { selection, model: await this.services.catalog.resolve(selection.model) });
+    }
     this.assertCapacity(owner);
     return this.launch(
       {
@@ -285,7 +309,8 @@ export class AudioManager {
         projectRevision: state.revision,
         summary: state.project.title,
         ...(input.replacement ? { replacementInput: input.replacement } : {}),
-        ...(kind === 'segments' ? { segmentIds: input.segmentIds } : {}),
+        ...(kind === 'segments' || kind === 'transcript' ? { segmentIds: input.segmentIds } : {}),
+        ...(kind === 'transcript' ? { model: snapshot.selection?.model } : {}),
         completedChunks: 0,
         totalChunks: 0,
         files: [],
@@ -651,10 +676,9 @@ export class AudioManager {
             cut: this.services.media.chunk,
             transcribe: snapshot.model
               ? (file, workDirectory, abort) =>
-                  this.transcribeFile(task, snapshot, file, workDirectory, abort, {
+                  this.transcribeSegments(task, snapshot, file, workDirectory, abort, {
                     language: p.language,
-                    instructions:
-                      'Transcribe exactly what is said, in order, as plain text. Keep spoken wording; do not summarize.',
+                    instructions: VERBATIM,
                   })
               : undefined,
           },
@@ -669,6 +693,68 @@ export class AudioManager {
         task.durationSeconds = result.durationSeconds;
         task.warnings.push(...result.warnings);
         task.issues = result.issues;
+      } else if (task.kind === 'transcript') {
+        format = 'json';
+        const wanted = new Set(task.segmentIds ?? []);
+        const clips = snapshot
+          .project!.sections.flatMap((section) => section.segments)
+          .filter((segment): segment is Clip => segment.type === 'clip' && wanted.has(segment.id));
+        const groups = new Map<string, Clip[]>();
+        for (const clip of clips) groups.set(clip.path, [...(groups.get(clip.path) ?? []), clip]);
+        const warnings = new Set<string>();
+        const transcripts: Record<string, ClipTranscriptResult> = {};
+        const issues: AudioIssue[] = [];
+        task.totalChunks = clips.length;
+        await this.persist(task);
+        let group = 0;
+        for (const [file, members] of groups) {
+          const source = await workspaceFile(task.owner.workspace, file);
+          const scratch = path.join(directory, `group-${group++}`);
+          await mkdir(scratch, { mode: 0o700 });
+          const regions: Region[] = members.map((clip) => ({ start: clip.start, end: clip.end }));
+          const before = task.completedChunks;
+          issues.push(
+            ...(await transcribeRegions(
+              {
+                directory: scratch,
+                signal,
+                services: {
+                  probe: this.services.media.probe,
+                  silences: this.services.silences,
+                  cut: this.services.media.chunk,
+                  transcribe: (part, workDirectory, abort) =>
+                    this.transcribeSegments(task, snapshot, part, workDirectory, abort, {
+                      language: DEFAULT_LANGUAGE,
+                      instructions: VERBATIM,
+                    }),
+                },
+                progress: async (completed) => {
+                  task.completedChunks = before + Math.min(completed, members.length);
+                  await this.persist(task);
+                },
+              },
+              source,
+              regions,
+              warnings
+            ))
+          );
+          members.forEach((clip, index) => {
+            const text = regions[index].text?.trim();
+            if (text)
+              transcripts[clip.id] = {
+                path: clip.path,
+                start: clip.start,
+                end: clip.end,
+                text,
+                cues: regions[index].cues ?? [],
+              };
+          });
+        }
+        if (!Object.keys(transcripts).length && issues.length) throw new Error(issues[0].code);
+        outputs = [];
+        task.transcripts = transcripts;
+        task.issues = issues;
+        task.warnings.push(...warnings);
       } else if (task.kind === 'segments') {
         format = 'mp3';
         const result = await generateSegments(
@@ -810,7 +896,7 @@ export class AudioManager {
       if (path.dirname(directory) === workRoot) await rm(directory, { recursive: true, force: true }).catch(() => {});
     }
   }
-  /** Transcribe one short host-owned file; usage is recorded on the task but never shown to agents. */
+  /** Transcribe one short host-owned file as plain text. */
   private async transcribeFile(
     task: StoredAudioTask,
     snapshot: Snapshot,
@@ -819,6 +905,18 @@ export class AudioManager {
     signal: AbortSignal,
     prompt: { language: string; instructions: string }
   ): Promise<string> {
+    const segments = await this.transcribeSegments(task, snapshot, source, directory, signal, prompt);
+    return segments.map((segment) => segment.text).join('');
+  }
+  /** Transcribe one short host-owned file into timed segments; usage is recorded on the task, never shown to agents. */
+  private async transcribeSegments(
+    task: StoredAudioTask,
+    snapshot: Snapshot,
+    source: string,
+    directory: string,
+    signal: AbortSignal,
+    prompt: { language: string; instructions: string }
+  ): Promise<AudioSegment[]> {
     const result = await this.services.transcribe({
       source,
       directory,
@@ -832,7 +930,7 @@ export class AudioManager {
       },
     });
     if (result.issues?.length) throw new Error(result.issues[0].code);
-    return result.segments.map((segment) => segment.text).join('');
+    return result.segments;
   }
   private async stop(task: StoredAudioTask, status: 'cancelled' | 'interrupted'): Promise<void> {
     if (!active(task)) return;

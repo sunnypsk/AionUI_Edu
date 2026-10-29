@@ -8,7 +8,12 @@ import {
 
 export const MAX_REGIONS = 200;
 export type Interval = { start: number; end: number };
-export type Region = Interval & { text?: string; warnings?: string[] };
+export type Region = Interval & {
+  text?: string;
+  /** Timed transcript pieces in source seconds, when the transcriber reported timings. */
+  cues?: { text: string; startSecond: number; endSecond: number }[];
+  warnings?: string[];
+};
 export type StructureOptions = {
   title: string;
   audioPath: string;

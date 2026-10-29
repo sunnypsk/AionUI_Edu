@@ -52,7 +52,8 @@ export function SegmentBlock(props: SegmentBlockProps): React.ReactElement {
         ? t('messages.listening.timeline.pause', { seconds: segment.seconds })
         : segment.type === 'chime'
           ? t('messages.listening.types.chime')
-          : segment.note || segment.path.split('/').pop();
+          : // Show what is said, so a block can be found without listening; fall back to the file name.
+            segment.transcript?.text.trim() || segment.note || segment.path.split('/').pop();
 
   const grip = (event: React.MouseEvent) => {
     const grab = event.clientX - event.currentTarget.getBoundingClientRect().left;

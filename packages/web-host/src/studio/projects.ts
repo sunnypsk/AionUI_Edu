@@ -37,6 +37,14 @@ export const blocksSchema = z
             start: z.number().min(0),
             end: z.number().positive(),
             text: z.string().max(50000).optional(),
+            cues: z
+              .array(
+                z
+                  .object({ text: z.string().max(5000), startSecond: z.number().min(0), endSecond: z.number().min(0) })
+                  .strict()
+              )
+              .max(500)
+              .optional(),
             warnings: z.array(z.string().max(100)).max(100).optional(),
           })
           .strict()

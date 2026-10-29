@@ -14,7 +14,10 @@ export type SectionCardProps = {
   count: number;
   state: ListeningState;
   disabled: boolean;
-  rowContext: Pick<SegmentRowProps, 'fileUrl' | 'cacheDirectory' | 'onAddLexicon' | 'replacement' | 'generation'>;
+  rowContext: Pick<
+    SegmentRowProps,
+    'fileUrl' | 'cacheDirectory' | 'onAddLexicon' | 'replacement' | 'generation' | 'transcription'
+  >;
   /** Section or segment id to reveal; a change expands this section when it matches. */
   focus?: { id: string; nonce: number };
   /** Start expanded, e.g. when the project has a single section. */

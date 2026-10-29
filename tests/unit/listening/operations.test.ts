@@ -12,6 +12,14 @@ import {
   trimClip,
 } from '@/renderer/pages/listening/editing/operations';
 import { HISTORY_LIMIT, record, redo, undo, type History } from '@/renderer/pages/listening/editing/history';
+import {
+  applyTranscripts,
+  editedTranscript,
+  findSegments,
+  joinCues,
+  needsTranscript,
+  TRANSCRIPT_STALE,
+} from '@/renderer/pages/listening/editing/transcripts';
 
 const clip = (overrides: Partial<Extract<ListeningSegment, { type: 'clip' }>> = {}): ListeningSegment => ({
   id: 'k',
@@ -38,14 +46,38 @@ const ranges = (value: ListeningProject, section = 0) =>
   );
 
 describe('clip editing operations', () => {
-  it('splits a clip at a source time into two clips with fresh ids and no stale transcript', () => {
+  it('splits a clip at a source time into two clips with fresh ids, marking an untimed transcript stale', () => {
     const result = splitClip(project([{ id: 'a', type: 'pause', seconds: 1 }, clip()]), 'k', 4);
     expect(ranges(result)).toEqual(['pause', [0, 4], [4, 10]]);
     const [first, second] = result.sections[0].segments.slice(1);
     expect(new Set([first.id, second.id, 'k', 'a', 'q', 's1', 's2']).size).toBe(7);
     expect(first).not.toHaveProperty('transcript');
-    expect(first).toMatchObject({ note: '原錄音', path: 'audio/source.mp3' });
+    expect(first).toMatchObject({ note: '原錄音', path: 'audio/source.mp3', warnings: [TRANSCRIPT_STALE] });
     expect(listeningProjectSchema.safeParse(result).success).toBe(true);
+  });
+
+  it('keeps each piece’s own words when the transcript is timed', () => {
+    const cues = [
+      { text: '早晨。', startSecond: 0.2, endSecond: 2 },
+      { text: '今日', startSecond: 3, endSecond: 4.4 },
+      { text: '落雨。', startSecond: 4.6, endSecond: 6 },
+    ];
+    const timed = clip({ transcript: { text: '早晨。今日落雨。', verified: true, source: 'auto', cues } });
+    const [first, second] = splitClip(project([timed]), 'k', 4.5).sections[0].segments;
+    expect(first).toMatchObject({ transcript: { text: '早晨。今日', cues: cues.slice(0, 2), verified: false } });
+    expect(second).toMatchObject({ transcript: { text: '落雨。', cues: cues.slice(2) } });
+    expect(second).not.toHaveProperty('warnings');
+    // Deleting the middle words leaves the outer ones on each side.
+    const [left, right] = deleteClipRange(project([timed]), 'k', 2.5, 4.5).sections[0].segments;
+    expect([left, right].map((piece) => piece.type === 'clip' && piece.transcript?.text)).toEqual(['早晨。', '落雨。']);
+  });
+
+  it('keeps an untimed transcript through a small edge trim only', () => {
+    const [trimmed] = trimClip(project(), 'k', 'end', 9.9, 10).sections[0].segments;
+    expect(trimmed).toMatchObject({ end: 9.9, transcript: { text: '全段' } });
+    const [cut] = trimClip(project(), 'k', 'end', 6, 10).sections[0].segments;
+    expect(cut).not.toHaveProperty('transcript');
+    expect(cut).toMatchObject({ warnings: [TRANSCRIPT_STALE] });
   });
 
   it('ignores a split outside or too close to the clip edges', () => {
@@ -142,5 +174,53 @@ describe('undo history', () => {
   it('does nothing when there is nothing to undo', () => {
     const history: History<number> = { past: [], present: 3, future: [] };
     expect(undo(history)).toBe(history);
+  });
+});
+
+describe('clip transcripts', () => {
+  type Clip = Extract<ListeningSegment, { type: 'clip' }>;
+  const result = { path: 'audio/source.mp3', start: 0, end: 10, text: '新文字', cues: [] };
+
+  it('joins cues without spaces for CJK and with spaces between Latin words', () => {
+    expect(
+      joinCues([
+        { text: '早晨', startSecond: 0, endSecond: 1 },
+        { text: '。好', startSecond: 1, endSecond: 2 },
+      ])
+    ).toBe('早晨。好');
+    expect(
+      joinCues([
+        { text: 'Good', startSecond: 0, endSecond: 1 },
+        { text: 'morning', startSecond: 1, endSecond: 2 },
+      ])
+    ).toBe('Good morning');
+  });
+
+  it('applies a fresh transcript only while the clip covers the transcribed range', () => {
+    const stale = clip({ transcript: undefined, warnings: [TRANSCRIPT_STALE, 'AUDIO_NO_SPEECH'] });
+    const applied = applyTranscripts(project([stale]), { k: result });
+    expect(applied.sections[0].segments[0]).toMatchObject({
+      transcript: { text: '新文字', source: 'auto', verified: false },
+      warnings: ['AUDIO_NO_SPEECH'],
+    });
+    // Applying the same result again, or to a clip that was trimmed since, changes nothing.
+    expect(applyTranscripts(applied, { k: result })).toBe(applied);
+    const moved = project([clip({ end: 8 })]);
+    expect(applyTranscripts(moved, { k: result })).toBe(moved);
+  });
+
+  it('treats typed text as the user’s transcript and finds it by search', () => {
+    const edited = editedTranscript(
+      clip({ warnings: [TRANSCRIPT_STALE], transcript: undefined }) as Clip,
+      '請到禮堂集合'
+    );
+    expect(edited).toMatchObject({ transcript: { text: '請到禮堂集合', source: 'teacher', verified: false } });
+    expect(edited).not.toHaveProperty('warnings');
+    expect(needsTranscript(edited)).toBe(false);
+    expect(needsTranscript(clip({ transcript: { text: ' ', verified: false, source: 'auto' } }) as Clip)).toBe(true);
+    const value = project([{ id: 'line', type: 'speech', text: 'Ｈello 禮堂' }, edited]);
+    expect(findSegments(value, '禮堂').map((match) => match.segmentId)).toEqual(['line', 'k']);
+    expect(findSegments(value, 'HELLO').map((match) => match.segmentId)).toEqual(['line']);
+    expect(findSegments(value, '  ')).toEqual([]);
   });
 });

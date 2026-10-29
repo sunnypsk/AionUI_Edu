@@ -304,7 +304,8 @@
       "approximate": "時間はおおよそです。切り取る前に聞いて確認してください。",
       "incomplete": "この部分の文字起こしは不完全です。",
       "contentFiltered": "クラウドサービスがこの部分の文字起こしを拒否しました。",
-      "generic": "聞いて確認してください。"
+      "generic": "聞いて確認してください。",
+      "transcriptStale": "このクリップは文字起こし後に変更されました。テキストを更新するには再度文字起こししてください。"
     },
     "clip": {
       "expand": "クリップ {{range}} を表示",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "教員が入力したテキスト・未確認",
       "transcriptVerified": "教員が確認した文字起こし",
       "verify": "確認済みにする",
-      "unverify": "未確認に戻す"
+      "unverify": "未確認に戻す",
+      "transcriptEdit": "文字起こし",
+      "transcriptPlaceholder": "このクリップで話されている内容を入力",
+      "transcribe": "文字起こし",
+      "retranscribe": "再文字起こし"
     },
     "advanced": {
       "title": "詳細：ファイルパス、正確な秒数、内部メモ"
@@ -466,6 +471,16 @@
       "title": "書き出し",
       "qa": "発音の確認",
       "noQaIssues": "要確認の発音はありません。未生成・未確認の行は試聴が必要です。"
+    },
+    "transcribe": {
+      "all": "文字起こし（{{count}}）"
+    },
+    "search": {
+      "placeholder": "テキストを検索",
+      "count": "{{index}}/{{total}}",
+      "none": "一致なし",
+      "previous": "前へ",
+      "next": "次へ"
     }
   },
   "studio": {

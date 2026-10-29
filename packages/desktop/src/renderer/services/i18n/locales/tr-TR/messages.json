@@ -304,7 +304,8 @@
       "approximate": "Süreler yaklaşıktır; kesmeden önce dinleyin.",
       "incomplete": "Bu bölümün dökümü eksik.",
       "contentFiltered": "Bulut hizmeti bu bölümün dökümünü reddetti.",
-      "generic": "Bu bölümü dinleyerek kontrol edin."
+      "generic": "Bu bölümü dinleyerek kontrol edin.",
+      "transcriptStale": "Bu klip yazıya döküldükten sonra değişti; metni güncellemek için yeniden yazıya dökün."
     },
     "clip": {
       "expand": "{{range}} kesitini göster",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "Öğretmenin girdiği metin · kontrol edilmedi",
       "transcriptVerified": "Öğretmen tarafından onaylanan döküm",
       "verify": "Onaylandı olarak işaretle",
-      "unverify": "Kontrol edilmedi olarak işaretle"
+      "unverify": "Kontrol edilmedi olarak işaretle",
+      "transcriptEdit": "Döküm",
+      "transcriptPlaceholder": "Bu kliptekileri yazın",
+      "transcribe": "Yazıya dök",
+      "retranscribe": "Yeniden yazıya dök"
     },
     "advanced": {
       "title": "Gelişmiş: dosya yolu, tam saniyeler, dahili not"
@@ -466,6 +471,16 @@
       "title": "Dışa aktar",
       "qa": "Telaffuz incelemesi",
       "noQaIssues": "İşaretlenmiş satır yok. Oluşturulmamış veya denetlenmemiş satırlar yine de dinlenmelidir."
+    },
+    "transcribe": {
+      "all": "Yazıya dök ({{count}})"
+    },
+    "search": {
+      "placeholder": "Metin bul",
+      "count": "{{index}}/{{total}}",
+      "none": "Eşleşme yok",
+      "previous": "Önceki eşleşme",
+      "next": "Sonraki eşleşme"
     }
   },
   "studio": {

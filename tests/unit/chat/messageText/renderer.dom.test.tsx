@@ -1164,11 +1164,12 @@ describe('listening drafts from original recordings', () => {
     expect(await screen.findByText('在考試開始前')).toBeTruthy();
   });
 
-  it('shows automatic text read-only and saves a teacher confirmation without changing the clip', async () => {
+  it('shows automatic text for correction and saves a teacher confirmation without changing the clip', async () => {
     await open();
     await expandFirstClip();
     expect(screen.getByText('messages.listening.clip.transcriptAuto')).toBeTruthy();
-    expect(screen.queryByDisplayValue('2022年香港中學文憑考試')).toBeNull();
+    const text = screen.getByDisplayValue('2022年香港中學文憑考試');
+    fireEvent.change(text, { target: { value: '2023年香港中學文憑考試' } });
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.clip.verify' }));
     fireEvent.click(screen.getByRole('button', { name: 'messages.listening.actions.save' }));
     await waitFor(() => expect(calls('PUT')).toHaveLength(1));
@@ -1176,7 +1177,7 @@ describe('listening drafts from original recordings', () => {
     expect(saved).toMatchObject({
       start: 294.6,
       end: 308.6,
-      transcript: { text: '2022年香港中學文憑考試', verified: true, source: 'teacher' },
+      transcript: { text: '2023年香港中學文憑考試', verified: true, source: 'teacher' },
     });
   });
 

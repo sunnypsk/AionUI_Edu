@@ -20,8 +20,18 @@ const sourceRange = z
   .object({ path: z.string().min(1).max(4096), start: z.number().min(0), end: z.number().positive() })
   .strict()
   .refine((range) => range.end > range.start, { message: 'end must be after start', path: ['end'] });
+/** A timed piece of an automatic transcript, in seconds of the clip's source recording. */
+const cueSchema = z
+  .object({ text: z.string().max(5000), startSecond: z.number().min(0), endSecond: z.number().min(0) })
+  .strict();
 const transcriptSchema = z
-  .object({ text: z.string().max(50000), verified: z.boolean().default(false), source: z.enum(['auto', 'teacher']) })
+  .object({
+    text: z.string().max(50000),
+    verified: z.boolean().default(false),
+    source: z.enum(['auto', 'teacher']),
+    /** Timed pieces of `text`; they let a split or trimmed clip keep the words of its own range. */
+    cues: z.array(cueSchema).max(500).optional(),
+  })
   .strict();
 const segmentSchema = z.discriminatedUnion('type', [
   z

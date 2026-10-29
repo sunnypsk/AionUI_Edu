@@ -304,7 +304,8 @@
       "approximate": "时间只是约数，剪辑前请先听清楚。",
       "incomplete": "这部分的转录不完整。",
       "contentFiltered": "云端服务拒绝转录这部分。",
-      "generic": "请听一遍核对这部分。"
+      "generic": "请听一遍核对这部分。",
+      "transcriptStale": "此片段在转写后已被修改，请重新转写以更新文字。"
     },
     "clip": {
       "expand": "展开片段 {{range}}",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "老师输入的文字・未核实",
       "transcriptVerified": "老师已确认转录",
       "verify": "标为已确认",
-      "unverify": "改回未核实"
+      "unverify": "改回未核实",
+      "transcriptEdit": "转写文字",
+      "transcriptPlaceholder": "输入此片段所说的内容",
+      "transcribe": "转写",
+      "retranscribe": "重新转写"
     },
     "advanced": {
       "title": "高级：文件路径、精确秒数、内部备注"
@@ -466,6 +471,16 @@
       "title": "导出",
       "qa": "读音检查",
       "noQaIssues": "当前没有标记为误读的句子。未生成或未检查的句子仍需试听。"
+    },
+    "transcribe": {
+      "all": "转写（{{count}}）"
+    },
+    "search": {
+      "placeholder": "查找文字",
+      "count": "{{index}}/{{total}}",
+      "none": "没有结果",
+      "previous": "上一个",
+      "next": "下一个"
     }
   },
   "studio": {

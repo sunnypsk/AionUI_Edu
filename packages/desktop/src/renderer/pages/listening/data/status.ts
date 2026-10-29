@@ -43,6 +43,7 @@ const WARNING_KEYS: Record<string, string> = {
   AUDIO_APPROXIMATE_TIMESTAMPS: 'messages.listening.warnings.approximate',
   AUDIO_ANALYSIS_TRANSCRIPT_INCOMPLETE: 'messages.listening.warnings.incomplete',
   AUDIO_CONTENT_FILTERED: 'messages.listening.warnings.contentFiltered',
+  AUDIO_TRANSCRIPT_STALE: 'messages.listening.warnings.transcriptStale',
 };
 export const warningKey = (code: string): string => WARNING_KEYS[code] ?? 'messages.listening.warnings.generic';
 

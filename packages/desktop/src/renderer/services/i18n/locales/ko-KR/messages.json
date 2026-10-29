@@ -304,7 +304,8 @@
       "approximate": "시간은 대략적입니다. 자르기 전에 들어 보세요.",
       "incomplete": "이 부분의 전사가 완전하지 않습니다.",
       "contentFiltered": "클라우드 서비스가 이 부분의 전사를 거부했습니다.",
-      "generic": "들어서 확인하세요."
+      "generic": "들어서 확인하세요.",
+      "transcriptStale": "이 클립은 전사 후 변경되었습니다. 텍스트를 갱신하려면 다시 전사하세요."
     },
     "clip": {
       "expand": "클립 {{range}} 펼치기",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "교사가 입력한 텍스트 · 미확인",
       "transcriptVerified": "교사가 확인한 전사",
       "verify": "확인됨으로 표시",
-      "unverify": "미확인으로 되돌리기"
+      "unverify": "미확인으로 되돌리기",
+      "transcriptEdit": "전사",
+      "transcriptPlaceholder": "이 클립에서 말하는 내용을 입력하세요",
+      "transcribe": "전사",
+      "retranscribe": "다시 전사"
     },
     "advanced": {
       "title": "고급: 파일 경로, 정확한 초, 내부 메모"
@@ -466,6 +471,16 @@
       "title": "내보내기",
       "qa": "발음 검토",
       "noQaIssues": "표시된 발음 문제가 없습니다. 미생성 또는 미확인 문장은 들어서 확인해야 합니다."
+    },
+    "transcribe": {
+      "all": "전사 ({{count}})"
+    },
+    "search": {
+      "placeholder": "텍스트 찾기",
+      "count": "{{index}}/{{total}}",
+      "none": "일치 항목 없음",
+      "previous": "이전",
+      "next": "다음"
     }
   },
   "studio": {

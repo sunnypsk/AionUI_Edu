@@ -304,7 +304,8 @@
       "approximate": "Times are approximate; listen before cutting.",
       "incomplete": "Transcription is incomplete for this part.",
       "contentFiltered": "The cloud service declined to transcribe this part.",
-      "generic": "Check this part by listening."
+      "generic": "Check this part by listening.",
+      "transcriptStale": "This clip changed after it was transcribed; transcribe it again to update the text."
     },
     "clip": {
       "expand": "Show clip {{range}}",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "Text entered by teacher · not checked",
       "transcriptVerified": "Transcript confirmed by teacher",
       "verify": "Mark as confirmed",
-      "unverify": "Mark as unchecked"
+      "unverify": "Mark as unchecked",
+      "transcriptEdit": "Transcript",
+      "transcriptPlaceholder": "Type what is said in this clip",
+      "transcribe": "Transcribe",
+      "retranscribe": "Re-transcribe"
     },
     "advanced": {
       "title": "Advanced: file path, exact seconds, internal note"
@@ -466,6 +471,16 @@
       "title": "Export",
       "qa": "Pronunciation review",
       "noQaIssues": "No flagged lines to review. Ungenerated or unchecked lines still need listening."
+    },
+    "transcribe": {
+      "all": "Transcribe ({{count}})"
+    },
+    "search": {
+      "placeholder": "Find text",
+      "count": "{{index}}/{{total}}",
+      "none": "No matches",
+      "previous": "Previous match",
+      "next": "Next match"
     }
   },
   "studio": {

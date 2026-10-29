@@ -41,6 +41,8 @@ export type AudioModel = {
 };
 export type AudioModelCatalog = { models: AudioModel[]; fetchedAt: number };
 export type AudioSegment = { text: string; startSecond: number; endSecond: number };
+/** A fresh transcript of one clip's source range; cue times are seconds in the source recording. */
+export type ClipTranscriptResult = { path: string; start: number; end: number; text: string; cues: AudioSegment[] };
 export type AudioUsage = {
   chunk: number;
   promptTokens?: number;
@@ -52,7 +54,16 @@ export type AudioUsage = {
 export type AudioTaskView = Omit<AudioTask, 'usage' | 'costUsd'>;
 export type AudioTask = {
   id: string;
-  kind: 'transcription' | 'speech' | 'track' | 'analysis' | 'replacement' | 'export' | 'segments' | 'import';
+  kind:
+    | 'transcription'
+    | 'speech'
+    | 'track'
+    | 'analysis'
+    | 'replacement'
+    | 'export'
+    | 'segments'
+    | 'import'
+    | 'transcript';
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
   createdAt: number;
   updatedAt: number;
@@ -72,6 +83,11 @@ export type AudioTask = {
   previewSections?: string[];
   /** Workspace-relative recording an `import` task splits into studio blocks. */
   sourcePath?: string;
+  /**
+   * Clip transcripts produced by a `transcript` task, keyed by segment id. Each records the source range it
+   * transcribed, so the editor applies it only while the clip still covers exactly that range.
+   */
+  transcripts?: Record<string, ClipTranscriptResult>;
   /** Speech lines a `segments` task generates into the shared cache. */
   segmentIds?: string[];
   /** `user` when the teacher started the task from the editor rather than the agent. */

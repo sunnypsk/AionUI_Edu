@@ -213,6 +213,23 @@ export async function createAudioRuntime(options: {
       });
       return { taskId: task.id, state: await state() };
     }
+    if (route === '/transcripts' && req.method === 'POST') {
+      const value = z
+        .object({
+          revision: z.string().max(64),
+          segment_ids: z
+            .array(z.string().regex(/^[\w-]{1,64}$/))
+            .min(1)
+            .max(200),
+        })
+        .parse(input);
+      const task = await manager.startEditorTask(context, 'transcript', {
+        project_path: target.path,
+        revision: value.revision,
+        segmentIds: value.segment_ids,
+      });
+      return { taskId: task.id, state: await state() };
+    }
     if (route === '/bundle' && req.method === 'POST') {
       const { revision } = z.object({ revision: z.string().max(64) }).parse(input);
       const task = await manager.startEditorTask(context, 'export', { project_path: target.path, revision });

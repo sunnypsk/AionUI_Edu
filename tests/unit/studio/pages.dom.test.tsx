@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SWRConfig } from 'swr';
 import type { StudioMedia, StudioProject } from '@/common/types/platform/audioStudio';
-import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
+import type { AudioTaskView } from '@/common/types/platform/audioTools';
+import type { ListeningProject, ListeningSegment, ListeningState } from '@/common/types/platform/listeningProject';
 import StudioLibraryPage from '@/renderer/pages/studio';
 import StudioEditorPage from '@/renderer/pages/studio/StudioEditorPage';
 
@@ -31,6 +32,31 @@ const empty: ListeningProject = {
   sections: [{ id: 'main', plays: 1, gapBetweenPlays: 0, gapAfter: 0, segments: [] }],
 };
 const ready = { available: true };
+const clipSegment = (id: string, start: number, end: number, text?: string): ListeningSegment => ({
+  id,
+  type: 'clip',
+  path: 'media/talk.mp3',
+  start,
+  end,
+  ...(text ? { transcript: { text, source: 'auto', verified: false } } : {}),
+});
+const transcriptTask: AudioTaskView = {
+  id: 't1',
+  kind: 'transcript',
+  status: 'completed',
+  createdAt: 1,
+  updatedAt: 2,
+  initiator: 'user',
+  projectPath: 'project.listening.json',
+  segmentIds: ['c1'],
+  transcripts: {
+    c1: { path: 'media/talk.mp3', start: 0, end: 10, text: '重新轉寫的文字', cues: [] },
+  },
+  completedChunks: 1,
+  totalChunks: 1,
+  files: [],
+  warnings: [],
+};
 let media: StudioMedia[];
 let state: ListeningState;
 
@@ -82,6 +108,12 @@ describe('audio studio pages', () => {
           tts: ready,
           render: ready,
         };
+      if (route === '/api/edu/audio/listening/transcripts') {
+        const queued = { ...transcriptTask, status: 'queued' as const };
+        // The next poll reports the task finished with fresh text for the clip.
+        state = { ...state, tasks: [transcriptTask] };
+        return { taskId: 't1', state: { ...state, tasks: [queued] } };
+      }
       if (route.startsWith('/api/edu/audio/listening') && method === 'PUT')
         return { ...state, revision: 'r2', project: (body as { project: ListeningProject }).project };
       if (route.startsWith('/api/edu/audio/listening')) return state;
@@ -139,6 +171,67 @@ describe('audio studio pages', () => {
     fireEvent.click(await within(panel).findByRole('button', { name: /messages.studio.media.add/ }));
     expect(await screen.findByText('大家好，今日講天氣。')).toBeTruthy();
     expect(screen.getByText('明天會下雨。')).toBeTruthy();
+  });
+
+  it('finds words in clip transcripts and selects the matching block', async () => {
+    state = {
+      ...state,
+      project: {
+        ...empty,
+        sections: [
+          {
+            ...empty.sections[0],
+            segments: [
+              clipSegment('c1', 0, 10, '大家好。'),
+              clipSegment('c2', 10, 20, '明天會下雨。'),
+              clipSegment('c3', 20, 30, '帶雨傘。'),
+            ],
+          },
+        ],
+      },
+    };
+    const { container } = show('/audio/p1');
+    const search = await screen.findByRole('textbox', { name: 'messages.listening.search.placeholder' });
+    fireEvent.change(search, { target: { value: '雨' } });
+    fireEvent.keyDown(search, { key: 'Enter', keyCode: 13 });
+    await vi.waitFor(() =>
+      expect(container.querySelector('[data-selected="true"] [data-segment-id]')?.getAttribute('data-segment-id')).toBe(
+        'c2'
+      )
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'messages.listening.search.next' }));
+    await vi.waitFor(() =>
+      expect(container.querySelector('[data-selected="true"] [data-segment-id]')?.getAttribute('data-segment-id')).toBe(
+        'c3'
+      )
+    );
+  });
+
+  it('transcribes clips that need text and applies the result to the draft', async () => {
+    state = {
+      ...state,
+      project: {
+        ...empty,
+        sections: [
+          {
+            ...empty.sections[0],
+            segments: [{ ...clipSegment('c1', 0, 10), warnings: ['AUDIO_TRANSCRIPT_STALE'] }],
+          },
+        ],
+      },
+    };
+    show('/audio/p1');
+    fireEvent.click(await screen.findByRole('button', { name: /messages.listening.transcribe.all/ }));
+    await vi.waitFor(() =>
+      expect(transport.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/edu/audio/listening/transcripts',
+        { project_id: 'p1', revision: 'r1', segment_ids: ['c1'] },
+        { sensitive: true }
+      )
+    );
+    // Applied after the next poll (1.5 s while a task runs).
+    expect(await screen.findByText('重新轉寫的文字', undefined, { timeout: 4000 })).toBeTruthy();
   });
 
   it('shows a missing project instead of an empty editor', async () => {

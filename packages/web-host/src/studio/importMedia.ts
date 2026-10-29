@@ -53,6 +53,7 @@ export async function importMedia(options: ImportOptions): Promise<ImportResult>
     start: index ? round((regions[index - 1].end + region.start) / 2) : 0,
     end: index === regions.length - 1 ? round(duration) : round((region.end + regions[index + 1].start) / 2),
     ...(region.text?.trim() ? { text: region.text.trim() } : {}),
+    ...(region.text?.trim() && region.cues?.length ? { cues: region.cues.slice(0, 500) } : {}),
     ...(region.warnings?.length ? { warnings: region.warnings } : {}),
   }));
   const value: StudioMediaBlocks = blocksSchema.parse({

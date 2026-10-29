@@ -304,7 +304,8 @@
       "approximate": "Les temps sont approximatifs ; écoutez avant de couper.",
       "incomplete": "La transcription de cette partie est incomplète.",
       "contentFiltered": "Le service cloud a refusé de transcrire cette partie.",
-      "generic": "Vérifiez cette partie à l’écoute."
+      "generic": "Vérifiez cette partie à l’écoute.",
+      "transcriptStale": "Ce clip a changé après sa transcription ; retranscrivez-le pour mettre le texte à jour."
     },
     "clip": {
       "expand": "Afficher l’extrait {{range}}",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "Texte saisi par l’enseignant · non vérifié",
       "transcriptVerified": "Transcription confirmée par l’enseignant",
       "verify": "Marquer comme confirmé",
-      "unverify": "Marquer comme non vérifié"
+      "unverify": "Marquer comme non vérifié",
+      "transcriptEdit": "Transcription",
+      "transcriptPlaceholder": "Saisissez ce qui est dit dans ce clip",
+      "transcribe": "Transcrire",
+      "retranscribe": "Retranscrire"
     },
     "advanced": {
       "title": "Avancé : chemin du fichier, secondes exactes, note interne"
@@ -466,6 +471,16 @@
       "title": "Exporter",
       "qa": "Vérification de la prononciation",
       "noQaIssues": "Aucune ligne signalée. Les lignes non générées ou non vérifiées doivent encore être écoutées."
+    },
+    "transcribe": {
+      "all": "Transcrire ({{count}})"
+    },
+    "search": {
+      "placeholder": "Rechercher du texte",
+      "count": "{{index}}/{{total}}",
+      "none": "Aucun résultat",
+      "previous": "Résultat précédent",
+      "next": "Résultat suivant"
     }
   },
   "studio": {

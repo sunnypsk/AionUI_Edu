@@ -304,7 +304,8 @@
       "approximate": "Zeiten sind ungefähr; vor dem Schneiden anhören.",
       "incomplete": "Die Transkription dieses Teils ist unvollständig.",
       "contentFiltered": "Der Cloud-Dienst hat die Transkription dieses Teils abgelehnt.",
-      "generic": "Diesen Teil bitte anhören und prüfen."
+      "generic": "Diesen Teil bitte anhören und prüfen.",
+      "transcriptStale": "Dieser Clip wurde nach der Transkription geändert; transkribiere ihn erneut, um den Text zu aktualisieren."
     },
     "clip": {
       "expand": "Ausschnitt {{range}} anzeigen",
@@ -319,7 +320,11 @@
       "transcriptTeacher": "Von der Lehrkraft eingegebener Text · ungeprüft",
       "transcriptVerified": "Von der Lehrkraft bestätigte Transkription",
       "verify": "Als bestätigt markieren",
-      "unverify": "Als ungeprüft markieren"
+      "unverify": "Als ungeprüft markieren",
+      "transcriptEdit": "Transkript",
+      "transcriptPlaceholder": "Gib ein, was in diesem Clip gesagt wird",
+      "transcribe": "Transkribieren",
+      "retranscribe": "Neu transkribieren"
     },
     "advanced": {
       "title": "Erweitert: Dateipfad, genaue Sekunden, interne Notiz"
@@ -466,6 +471,16 @@
       "title": "Exportieren",
       "qa": "Aussprache prüfen",
       "noQaIssues": "Keine markierten Aussprachefehler. Noch nicht erzeugte oder geprüfte Zeilen müssen angehört werden."
+    },
+    "transcribe": {
+      "all": "Transkribieren ({{count}})"
+    },
+    "search": {
+      "placeholder": "Text suchen",
+      "count": "{{index}}/{{total}}",
+      "none": "Keine Treffer",
+      "previous": "Vorheriger Treffer",
+      "next": "Nächster Treffer"
     }
   },
   "studio": {

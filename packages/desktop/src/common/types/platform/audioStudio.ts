@@ -1,4 +1,5 @@
 /** Browser-safe contracts for standalone audio studio projects, shared by the web host and the renderer. */
+import type { AudioSegment } from './audioTools.ts';
 
 /** One studio project; `workspace` is its absolute host folder, used as the chat workspace for "Open in chat". */
 export type StudioProject = {
@@ -24,7 +25,14 @@ export type StudioMedia = {
 };
 
 /** One editing block of a recording, in source seconds; `text` is the automatic transcript when available. */
-export type StudioMediaBlock = { start: number; end: number; text?: string; warnings?: string[] };
+export type StudioMediaBlock = {
+  start: number;
+  end: number;
+  text?: string;
+  /** Timed pieces of `text`, in source seconds. */
+  cues?: AudioSegment[];
+  warnings?: string[];
+};
 
 /** A recording split at silences into contiguous blocks that cover every source sample. */
 export type StudioMediaBlocks = {

@@ -4,11 +4,12 @@ import { LISTENING_LIMITS } from '../../../../desktop/src/common/types/platform/
 import { workspaceFile } from '../providers/media.js';
 import { buildProject, speechRegions, type Interval, type Region } from './structure.js';
 import { audioError } from '../types.js';
-import type { AudioIssue } from '../../../../desktop/src/common/types/platform/audioTools.ts';
+import type { AudioIssue, AudioSegment } from '../../../../desktop/src/common/types/platform/audioTools.ts';
 import { AudioTranscriptionError } from '../providers/gemini.js';
 
 // Leave room for MP3 encoder padding so the transcriber never sees an extra near-empty five-minute chunk.
 const TRANSCRIBE_WINDOW = 295;
+const round = (value: number): number => Number(value.toFixed(3));
 export type AnalysisServices = {
   probe: (file: string, signal: AbortSignal) => Promise<number>;
   silences: (
@@ -17,7 +18,8 @@ export type AnalysisServices = {
     signal: AbortSignal
   ) => Promise<Interval[]>;
   cut: (file: string, destination: string, start: number, duration: number, signal: AbortSignal) => Promise<void>;
-  transcribe?: (file: string, directory: string, signal: AbortSignal) => Promise<string>;
+  /** Plain text, or timed segments (seconds within `file`) when the caller wants cues for later edits. */
+  transcribe?: (file: string, directory: string, signal: AbortSignal) => Promise<string | AudioSegment[]>;
 };
 export type AnalysisOptions = {
   workspace: string;
@@ -43,7 +45,10 @@ export type AnalysisResult = {
   issues: AudioIssue[];
 };
 
-/** Transcribe each region in place (`region.text`), two at a time; failed chunks become issues and warnings. */
+/**
+ * Transcribe each region in place (`region.text`, plus `region.cues` when every window returned timings), two at
+ * a time; failed chunks become issues and warnings.
+ */
 export async function transcribeRegions(
   options: Pick<AnalysisOptions, 'directory' | 'signal' | 'services' | 'progress'>,
   source: string,
@@ -62,6 +67,7 @@ export async function transcribeRegions(
       const index = next++;
       const region = regions[index];
       const parts: string[] = [];
+      let cues: Region['cues'] = [];
       let part = 0;
       // Two region workers bound concurrency; a failed chunk never discards its successful neighbours.
       for (let start = region.start; start < region.end; start += TRANSCRIBE_WINDOW) {
@@ -72,11 +78,23 @@ export async function transcribeRegions(
           await mkdir(directory, { mode: 0o700 });
           const file = path.join(directory, 'part.mp3');
           await options.services.cut(source, file, start, end - start, signal);
-          const text = await transcribe(file, directory, signal);
+          const result = await transcribe(file, directory, signal);
+          const text = typeof result === 'string' ? result : result.map((segment) => segment.text).join('');
           if (!text.trim()) throw new Error('AUDIO_NO_SPEECH');
           parts.push(text);
+          if (typeof result === 'string') cues = undefined;
+          else
+            cues?.push(
+              ...result.map((segment) => ({
+                text: segment.text,
+                startSecond: round(start + Math.max(0, Math.min(end - start, segment.startSecond))),
+                endSecond: round(start + Math.max(0, Math.min(end - start, segment.endSecond))),
+              }))
+            );
         } catch (error) {
           if (signal.aborted) throw error;
+          // Cues with a gap would assign the wrong words to a later split, so keep none.
+          cues = undefined;
           const failures =
             error instanceof AudioTranscriptionError
               ? error.issues.map((issue) => ({
@@ -91,6 +109,7 @@ export async function transcribeRegions(
         }
       }
       if (parts.length) region.text = parts.join('\n');
+      if (parts.length && cues?.length) region.cues = cues;
       signal.throwIfAborted();
       await options.progress(++completed, regions.length + 1);
     }

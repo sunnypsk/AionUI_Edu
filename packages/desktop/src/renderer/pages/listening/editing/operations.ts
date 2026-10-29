@@ -1,6 +1,7 @@
 /** Pure timeline edits on a listening project. Times are seconds in the clip's source recording. */
 import type { ListeningProject, ListeningSection, ListeningSegment } from '@/common/types/platform/listeningProject';
 import { newId } from '@/renderer/pages/listening/editing/draft';
+import { pieceTranscript } from '@/renderer/pages/listening/editing/transcripts';
 
 type Clip = Extract<ListeningSegment, { type: 'clip' }>;
 
@@ -29,7 +30,10 @@ function withSection(
   };
 }
 
-/** Replace one clip with `pieces` (source ranges). The transcript belonged to the old range, so it is dropped. */
+/**
+ * Replace one clip with `pieces` (source ranges). Each piece keeps the transcript words of its own range when
+ * the transcript is timed; otherwise it is marked stale rather than showing text it may no longer contain.
+ */
 function replaceClip(
   project: ListeningProject,
   clipId: string,
@@ -45,7 +49,13 @@ function replaceClip(
   let next = project;
   const replacements: Clip[] = kept.map((piece) => {
     const id = freshIds || kept.length > 1 ? newId(next, 'clip') : segment.id;
-    const created: Clip = { ...base, id, start: ms(piece.start), end: ms(piece.end) };
+    const created: Clip = {
+      ...base,
+      id,
+      start: ms(piece.start),
+      end: ms(piece.end),
+      ...pieceTranscript(segment, piece.start, piece.end),
+    };
     // Reserve the id so the next piece cannot draw the same one.
     next = withSection(next, found.section, (section) => ({ ...section, segments: [...section.segments, created] }));
     return created;

@@ -35,6 +35,8 @@ export type ListeningEditorModel = {
   bundle: () => Promise<string | undefined>;
   /** Save pending edits, then generate only the explicitly requested speech lines. */
   generate: (segmentIds: string[]) => Promise<string | undefined>;
+  /** Save pending edits, then re-transcribe the given recording clips; the editor applies the result. */
+  transcribe: (segmentIds: string[]) => Promise<string | undefined>;
   reload: () => Promise<void>;
 };
 
@@ -254,6 +256,8 @@ export function useListeningProject(
     },
     bundle: () => startTask((current, revision) => listeningApi.bundle(current, revision)),
     generate: (segmentIds) => startTask((current, revision) => listeningApi.generate(current, revision, segmentIds)),
+    transcribe: (segmentIds) =>
+      startTask((current, revision) => listeningApi.transcribe(current, revision, segmentIds)),
     reload,
   };
 }

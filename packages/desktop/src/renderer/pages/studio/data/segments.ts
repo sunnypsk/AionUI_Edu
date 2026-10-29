@@ -18,7 +18,16 @@ export function blockSegments(project: ListeningProject, media: StudioMediaBlock
     path: media.path,
     start: block.start,
     end: block.end,
-    ...(block.text ? { transcript: { text: block.text, source: 'auto', verified: false } } : {}),
+    ...(block.text
+      ? {
+          transcript: {
+            text: block.text,
+            source: 'auto',
+            verified: false,
+            ...(block.cues?.length ? { cues: block.cues } : {}),
+          },
+        }
+      : {}),
     ...(block.warnings?.length ? { warnings: block.warnings } : {}),
   }));
 }

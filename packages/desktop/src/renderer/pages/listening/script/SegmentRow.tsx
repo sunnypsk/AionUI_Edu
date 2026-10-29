@@ -11,6 +11,16 @@ import { GenerateButton, type GenerationContext } from '@/renderer/pages/listeni
 import { ClipRow } from './ClipRow';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
+/** Per-clip transcription state and action shared by script rows and the inspector. */
+export type TranscriptionContext = {
+  /** Clip ids an active transcript task is working on. */
+  running: Set<string>;
+  disabled: boolean;
+  /** Error code when transcription is not configured. */
+  unavailable?: string;
+  onTranscribe: (segmentId: string) => void;
+};
+
 export type SegmentRowProps = {
   segment: ListeningSegment;
   state?: ListeningSegmentState;
@@ -28,6 +38,8 @@ export type SegmentRowProps = {
   onAddLexicon: () => void;
   replacement: ReplacementContext;
   generation?: GenerationContext;
+  /** Re-transcription of recording clips; absent where the editor cannot transcribe. */
+  transcription?: TranscriptionContext;
   /** Segment to expand and scroll to. */
   focusedId?: string;
 };

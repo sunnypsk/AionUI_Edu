@@ -49,6 +49,9 @@ export const listeningApi = {
   /** Start generating the given speech lines into the cache, against the saved revision. */
   generate: (target: ListeningTarget, revision: string, segmentIds: string[]): Promise<ListeningTaskStart> =>
     httpRequest('POST', `${ROOT}/segments/generate`, { ...target, revision, segment_ids: segmentIds }, SENSITIVE),
+  /** Start re-transcribing the given recording clips, against the saved revision. */
+  transcribe: (target: ListeningTarget, revision: string, segmentIds: string[]): Promise<ListeningTaskStart> =>
+    httpRequest('POST', `${ROOT}/transcripts`, { ...target, revision, segment_ids: segmentIds }, SENSITIVE),
   /** Binary waveform peaks of a workspace recording (GET, cookie-authenticated). */
   peaksUrl: (target: ListeningTarget, source: string): string =>
     `${getBaseUrl()}${ROOT}/peaks?${new URLSearchParams({ ...target, source }).toString()}`,

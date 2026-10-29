@@ -8,7 +8,14 @@ import {
   ReplacementPanel,
   type ReplacementContext,
 } from '@/renderer/pages/listening/script/replacement/ReplacementPanel';
-import { clipTranscript, clipWarnings, formatTimestamp, warningKey } from '@/renderer/pages/listening/data/status';
+import {
+  clipTranscript,
+  clipWarnings,
+  errorKey,
+  formatTimestamp,
+  warningKey,
+} from '@/renderer/pages/listening/data/status';
+import { editedTranscript, needsTranscript } from '@/renderer/pages/listening/editing/transcripts';
 import type { SegmentRowProps } from './SegmentRow';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
@@ -23,11 +30,11 @@ export type ClipRowProps = Omit<SegmentRowProps, 'segment' | 'qaThreshold' | 'on
 
 /**
  * One original-recording clip. Collapsed it is a single line with its time range and transcript
- * status; expanded it shows the read-only transcript, manual range replacement and advanced fields.
+ * status; expanded it shows the editable transcript, manual range replacement and advanced fields.
  */
 export function ClipRow(props: ClipRowProps): React.ReactElement {
   const { t } = useTranslation();
-  const { segment, state, disabled } = props;
+  const { segment, state, disabled, transcription } = props;
   const [open, setOpen] = useState(false);
   const row = useRef<HTMLDivElement>(null);
   const transcript = clipTranscript(segment, state);
@@ -124,12 +131,42 @@ export function ClipRow(props: ClipRowProps): React.ReactElement {
                     : 'messages.listening.clip.transcriptAuto'
               )}
             </div>
-            <div className={styles.transcriptText}>{transcript?.text || t('messages.listening.clip.noTextHelp')}</div>
-            {transcript && (
-              <Button size='mini' disabled={disabled} onClick={() => setVerified(!transcript.verified)}>
-                {t(transcript.verified ? 'messages.listening.clip.unverify' : 'messages.listening.clip.verify')}
-              </Button>
-            )}
+            <Input.TextArea
+              className={styles.transcriptInput}
+              aria-label={t('messages.listening.clip.transcriptEdit')}
+              placeholder={t('messages.listening.clip.transcriptPlaceholder')}
+              autoSize={{ minRows: 2, maxRows: 10 }}
+              maxLength={50000}
+              value={transcript?.text ?? ''}
+              disabled={disabled}
+              onChange={(value) => props.onChange(editedTranscript(segment, value))}
+            />
+            <Space size={4}>
+              {transcript && (
+                <Button size='mini' disabled={disabled} onClick={() => setVerified(!transcript.verified)}>
+                  {t(transcript.verified ? 'messages.listening.clip.unverify' : 'messages.listening.clip.verify')}
+                </Button>
+              )}
+              {transcription && (
+                <Tooltip
+                  disabled={!transcription.unavailable}
+                  content={transcription.unavailable ? t(errorKey(transcription.unavailable)) : undefined}
+                >
+                  <Button
+                    size='mini'
+                    loading={transcription.running.has(segment.id)}
+                    disabled={disabled || transcription.disabled || !!transcription.unavailable || invalid}
+                    onClick={() => transcription.onTranscribe(segment.id)}
+                  >
+                    {t(
+                      needsTranscript(segment)
+                        ? 'messages.listening.clip.transcribe'
+                        : 'messages.listening.clip.retranscribe'
+                    )}
+                  </Button>
+                </Tooltip>
+              )}
+            </Space>
             {warnings.length > 0 && (
               <ul className={styles.warningList}>
                 {warnings.map((code) => (

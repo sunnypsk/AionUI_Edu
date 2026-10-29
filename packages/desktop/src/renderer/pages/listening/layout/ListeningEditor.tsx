@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Message, Modal, Radio, Space, Spin } from '@arco-design/web-react';
 import { Redo, Undo } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,8 @@ import {
   splitClip,
 } from '@/renderer/pages/listening/editing/operations';
 import { useEditorShortcuts } from '@/renderer/pages/listening/editing/useEditorShortcuts';
+import { applyTranscripts, needsTranscript } from '@/renderer/pages/listening/editing/transcripts';
+import { SearchBar } from '@/renderer/pages/listening/layout/SearchBar';
 import { PlaybackControls } from '@/renderer/pages/listening/playback/PlaybackControls';
 import { usePlayer } from '@/renderer/pages/listening/playback/usePlayer';
 import { Timeline } from '@/renderer/pages/listening/timeline/Timeline';
@@ -60,6 +62,9 @@ export type EditorPanelContext = {
   /** Insert segments after the selection (or at the playhead in the timeline), keeping their order. */
   insert: (segments: ListeningSegment[]) => void;
 };
+
+/** Clips per transcript request, matching the host limit. */
+const MAX_TRANSCRIBE = 200;
 
 /** Studio projects only add speech and pauses directly; recordings come from the media panel. */
 const STUDIO_INSERTS: NewSegmentType[] = ['speech', 'pause'];
@@ -144,6 +149,47 @@ export function ListeningEditor({
     () => (state ? generationStatus(state) : new Map<string, 'running' | 'failed'>()),
     [state]
   );
+  const transcriptionUnavailable =
+    capabilities && !capabilities.transcription.available
+      ? (capabilities.transcription.reason ?? 'AUDIO_KEY_REQUIRED')
+      : undefined;
+  const transcriptTask = state?.tasks.find((task) => task.kind === 'transcript' && isActive(task));
+  const transcribing = useMemo(() => new Set(transcriptTask?.segmentIds ?? []), [transcriptTask]);
+  /** Clips that need a transcript: never transcribed, empty, or stale after a split or trim. */
+  const untranscribedIds = (project?.sections ?? [])
+    .flatMap((section) => section.segments)
+    .filter((segment) => segment.type === 'clip' && !!segment.path.trim() && needsTranscript(segment))
+    .map((segment) => segment.id);
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  /** Transcript tasks seen running in this editor; their results are applied to the draft once they finish. */
+  const watchedTranscripts = useRef(new Set<string>());
+  useEffect(() => {
+    for (const task of state?.tasks ?? []) {
+      if (task.kind !== 'transcript') continue;
+      if (isActive(task)) {
+        watchedTranscripts.current.add(task.id);
+        continue;
+      }
+      if (!watchedTranscripts.current.delete(task.id)) continue;
+      if (task.status === 'failed') report({ code: task.error ?? 'AUDIO_FAILED', details: [] });
+      const results = task.transcripts;
+      // Results from earlier sessions are never re-applied, so later manual edits are not overwritten.
+      if (results && projectRef.current && applyTranscripts(projectRef.current, results) !== projectRef.current)
+        model.edit((current) => applyTranscripts(current, results));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only task changes matter; the draft is read via ref.
+  }, [state?.tasks]);
+  /** Select a segment and, for a plain click, move the playhead to its first play. */
+  const reveal = (sectionId: string, segmentId: string, extend: boolean) => {
+    selectSegment(sectionId, segmentId, extend);
+    if (extend) return;
+    const entry = player.entries.find((item) => item.segmentId === segmentId);
+    if (entry) seek(entry.start);
+  };
+  const transcribe = (ids: string[]): void => {
+    void guarded(() => model.transcribe(ids.slice(0, MAX_TRANSCRIBE)));
+  };
 
   const guarded = async (action: () => Promise<unknown>): Promise<void> => {
     const invalid = project && invalidClip(project);
@@ -253,6 +299,12 @@ export function ListeningEditor({
     fileUrl,
     cacheDirectory: CACHE_DIRECTORY,
     onAddLexicon: () => addLexicon(),
+    transcription: {
+      running: transcribing,
+      disabled: disabled || !!transcriptTask,
+      unavailable: transcriptionUnavailable,
+      onTranscribe: (id: string) => transcribe([id]),
+    },
     generation: {
       status: generationStates,
       disabled: disabled || !!generationTask,
@@ -323,6 +375,15 @@ export function ListeningEditor({
           >
             {t('messages.listening.generate.all', { count: missingIds.length })}
           </Button>
+          {untranscribedIds.length > 0 && !transcriptionUnavailable && (
+            <Button
+              loading={!!transcriptTask}
+              disabled={disabled || !!transcriptTask}
+              onClick={() => transcribe(untranscribedIds)}
+            >
+              {t('messages.listening.transcribe.all', { count: untranscribedIds.length })}
+            </Button>
+          )}
           {generationTask && (
             <Button size='small' status='danger' onClick={() => void model.cancel(generationTask.id)}>
               {t('messages.listening.generate.stop')}
@@ -414,16 +475,25 @@ export function ListeningEditor({
                 }
               />
             ) : null}
-            <Radio.Group
-              type='button'
-              size='small'
-              value={view}
-              onChange={(value: ViewMode) => setView(value)}
-              options={[
-                { value: 'script', label: t('messages.listening.view.script') },
-                { value: 'timeline', label: t('messages.listening.view.timeline') },
-              ]}
-            />
+            <div className={styles.viewBar}>
+              <Radio.Group
+                type='button'
+                size='small'
+                value={view}
+                onChange={(value: ViewMode) => setView(value)}
+                options={[
+                  { value: 'script', label: t('messages.listening.view.script') },
+                  { value: 'timeline', label: t('messages.listening.view.timeline') },
+                ]}
+              />
+              <SearchBar
+                project={project}
+                onFound={(sectionId, segmentId) => {
+                  reveal(sectionId, segmentId, false);
+                  jump(segmentId);
+                }}
+              />
+            </div>
             <div className={sidePanel ? `${styles.body} ${styles.bodyWithMedia}` : styles.body}>
               {sidePanel?.({ project, tasks: state.tasks, disabled, insert: insertSegments })}
               <div className={styles.main}>
@@ -439,7 +509,7 @@ export function ListeningEditor({
                     onJump={jump}
                     onPreview={(sectionId) => void guarded(() => model.render([sectionId]))}
                     onAcceptQa={(segmentId, accepted) => void model.acceptQa(segmentId, accepted)}
-                    onSelectSegment={selectSegment}
+                    onSelectSegment={reveal}
                   />
                 ) : (
                   <Timeline
