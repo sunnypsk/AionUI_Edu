@@ -11,9 +11,11 @@ describe('quick speech', () => {
   let server: http.Server;
   let url: string;
   let services: QuickSpeechServices;
+  let requests: Promise<void>[];
   let release: (() => void) | undefined;
   beforeEach(async () => {
     directory = await mkdtemp(path.join(os.tmpdir(), 'quick-speech-'));
+    requests = [];
     release = undefined;
     services = {
       speak: vi.fn(async (options: SpeechOptions) => {
@@ -31,21 +33,25 @@ describe('quick speech', () => {
       req.on('data', (chunk: Buffer) => chunks.push(chunk));
       req.on('end', () => {
         const user = req.headers['x-user'] as string;
-        sendQuickSpeech(res, JSON.parse(Buffer.concat(chunks).toString()), {
-          userId: user,
-          workRoot: path.join(directory, 'quick'),
-          services,
-        }).catch((error: Error) => {
-          if (!res.headersSent) res.writeHead(409, { 'content-type': 'application/json' });
-          res.end(JSON.stringify({ error: { code: error.name === 'ZodError' ? 'INVALID_REQUEST' : error.message } }));
-        });
+        requests.push(
+          sendQuickSpeech(res, JSON.parse(Buffer.concat(chunks).toString()), {
+            userId: user,
+            workRoot: path.join(directory, 'quick'),
+            services,
+          }).catch((error: Error) => {
+            if (!res.headersSent) res.writeHead(409, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: { code: error.name === 'ZodError' ? 'INVALID_REQUEST' : error.message } }));
+          })
+        );
       });
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   });
   afterEach(async () => {
+    release?.();
     server.closeAllConnections();
+    await Promise.allSettled(requests);
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(directory, { recursive: true, force: true });
   });
@@ -96,6 +102,8 @@ describe('quick speech', () => {
     expect((await post({ text: '你好' }, 'bob')).status).toBe(200);
     release!();
     expect(await (await slow).text()).toBe('mp3:slow');
+    // The client can finish reading before the handler releases its per-user lock.
+    await Promise.all(requests);
     const broken = (await (await post({ text: 'broken' })).json()) as { error: { code: string } };
     expect(broken.error.code).toBe('AUDIO_MEDIA_FAILED');
     expect((await post({ text: '你好' })).status).toBe(200);
