@@ -467,5 +467,58 @@
       "qa": "Telaffuz incelemesi",
       "noQaIssues": "İşaretlenmiş satır yok. Oluşturulmamış veya denetlenmemiş satırlar yine de dinlenmelidir."
     }
+  },
+  "studio": {
+    "nav": "Ses Stüdyosu",
+    "library": {
+      "title": "Ses Stüdyosu",
+      "subtitle": "Kayıtlardan ve metinden ses projeleri oluşturun.",
+      "new": "Yeni proje",
+      "defaultTitle": "Yeni ses projesi",
+      "empty": "Henüz ses projesi yok. Başlamak için bir tane oluşturun.",
+      "untitled": "Adsız proje",
+      "blocks": "Bloklar: {{count}}",
+      "updated": "{{time}} tarihinde düzenlendi",
+      "rename": "Projeyi yeniden adlandır",
+      "deleteConfirm": "Bu proje ve tüm medyası silinsin mi? Bu işlem geri alınamaz.",
+      "titleLabel": "Proje adı",
+      "loadFailed": "Ses projeleri yüklenemedi."
+    },
+    "editor": {
+      "backToLibrary": "Ses Stüdyosuna dön"
+    },
+    "media": {
+      "title": "Medya",
+      "upload": "Ses yükle",
+      "fromText": "Metinden",
+      "empty": "Başlamak için kayıt yükleyin veya metin ekleyin.",
+      "queued": "İşlenmeyi bekliyor…",
+      "processing": "Bölünüyor ve yazıya dökülüyor {{done}}/{{total}}",
+      "failed": "İçe aktarma başarısız",
+      "blocks": "Bloklar: {{count}} · {{duration}}",
+      "noTranscript": "Döküm yok",
+      "transcribe": "Yazıya dök",
+      "add": "Zaman çizelgesine ekle",
+      "added": "Zaman çizelgesine eklendi: {{count}}",
+      "deleteConfirm": "Bu kayıt projeden silinsin mi?"
+    },
+    "text": {
+      "title": "Metinden konuşma ekle",
+      "placeholder": "Bir metin yapıştırın. Paragraflar (boş satır yoksa her satır) ayrı konuşma blokları olur.",
+      "loadFile": ".txt dosyası yükle",
+      "add": "Zaman çizelgesine ekle",
+      "hint": "Konuşma proje sesini kullanır. Sesi oluşturmak için Oluştur’u kullanın.",
+      "notUtf8": "Dosya UTF-8 metin değil."
+    },
+    "errors": {
+      "projectNotFound": "Bu ses projesi artık mevcut değil.",
+      "mediaInUse": "Bu kayıt zaman çizelgesinde kullanılıyor. Önce bloklarını kaldırın.",
+      "formatUnsupported": "Bu ses biçimi desteklenmiyor.",
+      "fileTooLarge": "Dosya yükleme sınırından büyük.",
+      "fileEmpty": "Dosya boş.",
+      "uploadFailed": "Yükleme başarısız. Lütfen tekrar deneyin.",
+      "textRequired": "Önce metin girin.",
+      "textTooLarge": "Metin çok uzun. Daha küçük parçalara bölün."
+    }
   }
 }

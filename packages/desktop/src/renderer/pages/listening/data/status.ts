@@ -27,6 +27,14 @@ export const ERROR_KEYS: Record<string, string> = {
   AUDIO_CONTENT_FILTERED: 'messages.listening.errors.contentFiltered',
   AUDIO_OUTPUT_TRUNCATED: 'messages.listening.errors.truncated',
   AUDIO_PROJECT_CONFLICT: 'messages.listening.errors.conflict',
+  AUDIO_PROJECT_NOT_FOUND: 'messages.studio.errors.projectNotFound',
+  AUDIO_MEDIA_IN_USE: 'messages.studio.errors.mediaInUse',
+  AUDIO_FORMAT_UNSUPPORTED: 'messages.studio.errors.formatUnsupported',
+  AUDIO_FILE_TOO_LARGE: 'messages.studio.errors.fileTooLarge',
+  AUDIO_FILE_EMPTY: 'messages.studio.errors.fileEmpty',
+  AUDIO_UPLOAD_FAILED: 'messages.studio.errors.uploadFailed',
+  AUDIO_TEXT_REQUIRED: 'messages.studio.errors.textRequired',
+  AUDIO_TEXT_TOO_LARGE: 'messages.studio.errors.textTooLarge',
 };
 export const errorKey = (code?: string): string => (code && ERROR_KEYS[code]) || 'messages.listening.errors.generic';
 

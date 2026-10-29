@@ -10,6 +10,7 @@ import OpenUIMessage, {
 import { SUBMITTED_AT_KEY } from '@/renderer/pages/conversation/Messages/components/MessageText/OpenUI/useSavedState';
 import { emitter } from '@/renderer/utils/emitter';
 import { draft as listeningDraft, formatDuration } from '@/renderer/pages/listening/editing/draft';
+import { conversationSource } from '@/renderer/pages/listening/data/source';
 import { ListeningEditor } from '@/renderer/pages/listening/layout/ListeningEditor';
 import { listeningPagePath } from '@/renderer/pages/listening/route';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
@@ -95,7 +96,7 @@ const display = (content: string, streaming = false) =>
 const showEditor = (path: string) =>
   render(
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
-      <ListeningEditor path={path} />
+      <ListeningEditor source={conversationSource('conversation', host.workspace, path)} />
     </SWRConfig>
   );
 const openExport = async () => {

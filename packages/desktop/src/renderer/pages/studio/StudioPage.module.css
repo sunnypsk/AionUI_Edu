@@ -1,0 +1,148 @@
+/* Library page */
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.libraryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.libraryTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.librarySubtitle {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.card:hover {
+  border-color: var(--primary);
+}
+.cardTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cardMeta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* Media browser inside the editor */
+.mediaPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.mediaHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mediaTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.mediaList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.mediaLoading {
+  align-self: center;
+  margin-top: 24px;
+}
+.mediaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg-2);
+}
+.mediaName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-primary);
+}
+.mediaIcon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mediaMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.mediaTag {
+  margin-left: 4px;
+}
+.mediaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.textModal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.textModal :global(.arco-textarea-wrapper),
+.textModal :global(.arco-textarea) {
+  width: 100%;
+}
+.hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

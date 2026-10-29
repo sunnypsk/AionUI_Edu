@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { listeningApi, type ListeningError, type ListeningTarget } from '@/renderer/pages/listening/data/api';
+import {
+  listeningApi,
+  targetKey,
+  type ListeningError,
+  type ListeningTarget,
+} from '@/renderer/pages/listening/data/api';
 
 /** Waveform summary of a source recording: int8 min/max per bucket, as served by the host. */
 export type Peaks = { bucketMs: number; min: Int8Array; max: Int8Array };
@@ -32,7 +37,7 @@ export function usePeaks(
   source: string | undefined
 ): { peaks?: Peaks; error?: ListeningError } {
   const [value, setValue] = useState<{ key: string; peaks?: Peaks; error?: ListeningError }>();
-  const key = target && source ? `${target.conversation_id}\0${target.path}\0${source}` : '';
+  const key = target && source ? `${targetKey(target)}\0${source}` : '';
   useEffect(() => {
     if (!target || !source) return;
     let pending = cache.get(key);

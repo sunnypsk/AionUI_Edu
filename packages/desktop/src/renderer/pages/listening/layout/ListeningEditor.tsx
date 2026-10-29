@@ -3,13 +3,9 @@ import { Alert, Button, Message, Modal, Radio, Space, Spin } from '@arco-design/
 import { Redo, Undo } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
-import { joinPath } from '@/common/chat/chatLib';
-import type { ListeningSegment } from '@/common/types/platform/listeningProject';
-import { localFileRef } from '@/common/types/chatFile';
-import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
-import { downloadFileFromRef } from '@/renderer/utils/file/download';
-import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
+import type { ListeningProject, ListeningSegment, ListeningState } from '@/common/types/platform/listeningProject';
 import { listeningApi, type ListeningError } from '@/renderer/pages/listening/data/api';
+import type { EditorSource } from '@/renderer/pages/listening/data/source';
 import { draft as edits, newSegment, type NewSegmentType } from '@/renderer/pages/listening/editing/draft';
 import {
   deleteClipRange,
@@ -55,18 +51,36 @@ const openToolSettings = (): void => {
   window.location.hash = '#/settings/tools';
 };
 
-/** Full-screen editor body for a `*.listening.json` project: script, preview, render progress and QA review. */
-export function ListeningEditor({ path, onBack }: { path: string; onBack?: () => void }): React.ReactElement {
+/** What a side panel (the studio media browser) may do to the open project. */
+export type EditorPanelContext = {
+  project: ListeningProject;
+  /** Host tasks of this project, newest first; polled quickly while any is running. */
+  tasks: ListeningState['tasks'];
+  disabled: boolean;
+  /** Insert segments after the selection (or at the playhead in the timeline), keeping their order. */
+  insert: (segments: ListeningSegment[]) => void;
+};
+
+/** Studio projects only add speech and pauses directly; recordings come from the media panel. */
+const STUDIO_INSERTS: NewSegmentType[] = ['speech', 'pause'];
+
+/** Full-screen editor body for a listening project: script, preview, render progress and QA review. */
+export function ListeningEditor({
+  source,
+  onBack,
+  sidePanel,
+}: {
+  /** Undefined while the owning conversation or studio project is still loading. */
+  source: EditorSource | undefined;
+  onBack?: () => void;
+  sidePanel?: (context: EditorPanelContext) => React.ReactNode;
+}): React.ReactElement {
   const { t } = useTranslation();
   // Hook-based Message/Modal render inside this tree, which React 19 requires (no ReactDOM.render).
   const [message, messageHolder] = Message.useMessage();
   const [modal, modalHolder] = Modal.useModal();
-  const conversation = useConversationContextSafe();
-  const workspace = conversation?.workspace;
-  const target = useMemo(
-    () => (conversation ? { conversation_id: conversation.conversation_id, path } : undefined),
-    [conversation, path]
-  );
+  const target = source?.target;
+  const conversation = source?.conversation;
   const report = useCallback(
     (error: ListeningError) =>
       message.error?.({
@@ -89,13 +103,10 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     return () => window.removeEventListener('beforeunload', warn);
   }, [unsaved]);
   const [lexiconOpen, setLexiconOpen] = useState<string[]>([]);
-  const fileUrl = useCallback(
-    (relative: string) => (workspace ? buildFileStreamUrl(localFileRef(joinPath(workspace, relative))) : undefined),
-    [workspace]
-  );
+  const fileUrl = useCallback((relative: string) => source?.fileUrl(relative), [source]);
   const { data: reported } = useSWR(
-    target ? ['edu.audio.capabilities', target.conversation_id] : null,
-    ([, conversationId]) => listeningApi.capabilities(conversationId),
+    source ? ['edu.audio.capabilities', conversation?.id ?? ''] : null,
+    ([, conversationId]) => listeningApi.capabilities(conversationId || undefined),
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
   const capabilities = readCapabilities(reported);
@@ -115,7 +126,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
   const [view, setView] = useState<ViewMode>('script');
   const [picking, setPicking] = useState(false);
   const zoom = useZoom();
-  const player = usePlayer(project, state, target, workspace);
+  const player = usePlayer(project, state, target, source ? fileUrl : undefined);
   const playhead = player.time;
   const seek = player.seek;
   const issueIds = Object.entries(state?.segments ?? {})
@@ -150,8 +161,8 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     await action();
   };
   const download = async (relative: string, name: string) => {
-    if (!workspace) throw new Error('workspace unavailable');
-    await downloadFileFromRef(localFileRef(joinPath(workspace, relative)), name);
+    if (!source) throw new Error('project unavailable');
+    await source.download(relative, name);
   };
   const save = () =>
     guarded(async () => {
@@ -186,29 +197,31 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
     const position = section.segments.findIndex((s) => s.id === entry.segmentId);
     return { sectionId: section.id, index: position + (playhead > (entry.start + entry.end) / 2 ? 1 : 0) };
   };
-  /** Insert after the selection; in the timeline with nothing selected, at the playhead. */
-  const insertAtSelection = (segment: ListeningSegment) => {
-    if (!project) return;
-    const slot = selection.kind === 'none' && view === 'timeline' ? playheadSlot() : undefined;
-    if (slot) {
-      model.edit((current) => insertSegment(current, slot.sectionId, slot.index, segment));
-      select({ kind: 'segments', sectionId: slot.sectionId, ids: [segment.id] });
-      return;
+  /** Insert after the selection; in the timeline with nothing selected, at the playhead. Order is kept. */
+  const insertSegments = (segments: ListeningSegment[]) => {
+    if (!project || !segments.length) return;
+    let slot = selection.kind === 'none' && view === 'timeline' ? playheadSlot() : undefined;
+    if (!slot) {
+      const anchorId =
+        selection.kind === 'segments'
+          ? selection.ids[selection.ids.length - 1]
+          : selection.kind === 'range'
+            ? selection.clipId
+            : undefined;
+      const section =
+        project.sections.find((item) => item.segments.some((s) => s.id === anchorId)) ??
+        (selection.kind === 'section' ? project.sections.find((item) => item.id === selection.sectionId) : undefined) ??
+        project.sections[0];
+      const index = anchorId ? section.segments.findIndex((s) => s.id === anchorId) + 1 : section.segments.length;
+      slot = { sectionId: section.id, index };
     }
-    const anchorId =
-      selection.kind === 'segments'
-        ? selection.ids[selection.ids.length - 1]
-        : selection.kind === 'range'
-          ? selection.clipId
-          : undefined;
-    const section =
-      project.sections.find((item) => item.segments.some((s) => s.id === anchorId)) ??
-      (selection.kind === 'section' ? project.sections.find((item) => item.id === selection.sectionId) : undefined) ??
-      project.sections[0];
-    const index = anchorId ? section.segments.findIndex((s) => s.id === anchorId) + 1 : section.segments.length;
-    model.edit((current) => insertSegment(current, section.id, index, segment));
-    select({ kind: 'segments', sectionId: section.id, ids: [segment.id] });
+    const { sectionId, index } = slot;
+    model.edit((current) =>
+      segments.reduce((next, segment, offset) => insertSegment(next, sectionId, index + offset, segment), current)
+    );
+    select({ kind: 'segments', sectionId, ids: segments.map((segment) => segment.id) });
   };
+  const insertAtSelection = (segment: ListeningSegment) => insertSegments([segment]);
   /** Split the clip under the playhead at the matching source time. */
   const split = () => {
     const entry = player.entries.find((item) => item.type === 'clip' && playhead >= item.start && playhead < item.end);
@@ -411,7 +424,8 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
                 { value: 'timeline', label: t('messages.listening.view.timeline') },
               ]}
             />
-            <div className={styles.body}>
+            <div className={sidePanel ? `${styles.body} ${styles.bodyWithMedia}` : styles.body}>
+              {sidePanel?.({ project, tasks: state.tasks, disabled, insert: insertSegments })}
               <div className={styles.main}>
                 {view === 'script' ? (
                   <ScriptView
@@ -482,6 +496,7 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
             </div>
             <TransportBar
               disabled={disabled}
+              inserts={source?.studio ? STUDIO_INSERTS : undefined}
               onInsert={insert}
               onSplit={split}
               zoom={view === 'timeline' ? zoom : undefined}
@@ -491,8 +506,8 @@ export function ListeningEditor({ path, onBack }: { path: string; onBack?: () =>
             {conversation && (
               <ClipPicker
                 visible={picking}
-                conversationId={conversation.conversation_id}
-                workspace={workspace}
+                conversationId={conversation.id}
+                workspace={conversation.workspace}
                 initialPath={project.sourceAudio}
                 onCancel={() => setPicking(false)}
                 onPick={(choice) => {

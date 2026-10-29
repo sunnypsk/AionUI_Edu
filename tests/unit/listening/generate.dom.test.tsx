@@ -5,6 +5,7 @@ import { SWRConfig } from 'swr';
 import { ConversationProvider } from '@/renderer/hooks/context/ConversationContext';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
 import type { AudioTaskView } from '@/common/types/platform/audioTools';
+import { conversationSource } from '@/renderer/pages/listening/data/source';
 import { ListeningEditor } from '@/renderer/pages/listening/layout/ListeningEditor';
 
 const transport = vi.hoisted(() => ({ request: vi.fn() }));
@@ -56,7 +57,7 @@ const show = async () => {
   render(
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
       <ConversationProvider value={{ conversation_id: 'c1', workspace: '/ws', type: 'codex' }}>
-        <ListeningEditor path='listening/unit.listening.json' />
+        <ListeningEditor source={conversationSource('c1', '/ws', 'listening/unit.listening.json')} />
       </ConversationProvider>
     </SWRConfig>
   );

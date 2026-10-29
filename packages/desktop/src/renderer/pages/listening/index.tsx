@@ -5,6 +5,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import useSWR from 'swr';
 import { ConversationProvider, type ConversationContextValue } from '@/renderer/hooks/context/ConversationContext';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
+import { conversationSource } from '@/renderer/pages/listening/data/source';
 import { ListeningEditor } from '@/renderer/pages/listening/layout/ListeningEditor';
 import styles from '@/renderer/pages/listening/ListeningPage.module.css';
 
@@ -21,6 +22,10 @@ export default function ListeningPage(): React.ReactElement {
     const workspace = (conversation.extra as { workspace?: string } | undefined)?.workspace;
     return { conversation_id: id, workspace, type: conversation.type as ConversationContextValue['type'] };
   }, [conversation, id]);
+  const source = useMemo(
+    () => (context && path ? conversationSource(context.conversation_id, context.workspace, path) : undefined),
+    [context, path]
+  );
   const back = () => navigate(`/conversation/${encodeURIComponent(id ?? '')}`);
 
   if (!path)
@@ -38,7 +43,7 @@ export default function ListeningPage(): React.ReactElement {
     );
   return (
     <ConversationProvider value={context}>
-      <ListeningEditor path={path} onBack={back} />
+      <ListeningEditor source={source} onBack={back} />
     </ConversationProvider>
   );
 }

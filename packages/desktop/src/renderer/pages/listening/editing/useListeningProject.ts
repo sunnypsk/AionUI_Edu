@@ -4,6 +4,7 @@ import {
   listeningApi,
   listeningError,
   type ListeningError,
+  targetKey,
   type ListeningTarget,
   type ListeningTaskStart,
   type ReplacementRequest,
@@ -65,7 +66,7 @@ export function useListeningProject(
   const pendingSave = useRef<Promise<boolean> | undefined>(undefined);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
-  const key = target ? `${target.conversation_id}\0${target.path}` : '';
+  const key = target ? targetKey(target) : '';
 
   /** Adopt a fresh server state; the working copy follows it unless the teacher is mid-edit. */
   const adopt = useCallback((next: ListeningState, replaceDraft = !dirtyRef.current) => {

@@ -490,6 +490,10 @@
   flex: 1;
   min-height: 0;
 }
+/* Studio projects add a media browser on the left, as in a video editor's library pane. */
+.bodyWithMedia {
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+}
 .main {
   display: flex;
   flex-direction: column;

@@ -467,5 +467,58 @@
       "qa": "讀音檢查",
       "noQaIssues": "目前沒有標記為誤讀的句子。未生成或未檢查的句子仍需試聽。"
     }
+  },
+  "studio": {
+    "nav": "音訊工作室",
+    "library": {
+      "title": "音訊工作室",
+      "subtitle": "用錄音和文字製作音訊專案。",
+      "new": "新增專案",
+      "defaultTitle": "新音訊專案",
+      "empty": "還沒有音訊專案，新增一個開始吧。",
+      "untitled": "未命名專案",
+      "blocks": "片段：{{count}}",
+      "updated": "編輯於 {{time}}",
+      "rename": "重新命名專案",
+      "deleteConfirm": "刪除此專案及其所有素材？此操作無法復原。",
+      "titleLabel": "專案名稱",
+      "loadFailed": "無法載入音訊專案。"
+    },
+    "editor": {
+      "backToLibrary": "返回音訊工作室"
+    },
+    "media": {
+      "title": "素材",
+      "upload": "上傳音訊",
+      "fromText": "從文字",
+      "empty": "上傳錄音或加入文字以開始。",
+      "queued": "等待處理…",
+      "processing": "正在切分及轉錄 {{done}}/{{total}}",
+      "failed": "匯入失敗",
+      "blocks": "片段：{{count}} · {{duration}}",
+      "noTranscript": "沒有轉錄",
+      "transcribe": "轉錄",
+      "add": "加入時間軸",
+      "added": "已加入時間軸：{{count}}",
+      "deleteConfirm": "從專案中刪除此錄音？"
+    },
+    "text": {
+      "title": "從文字加入語音",
+      "placeholder": "貼上稿件。每個段落（若沒有空行則每行）會成為一個語音片段。",
+      "loadFile": "載入 .txt 檔案",
+      "add": "加入時間軸",
+      "hint": "語音使用專案預設聲音。按「生成」製作音訊。",
+      "notUtf8": "檔案不是 UTF-8 文字。"
+    },
+    "errors": {
+      "projectNotFound": "此音訊專案已不存在。",
+      "mediaInUse": "時間軸正在使用此錄音，請先刪除相關片段。",
+      "formatUnsupported": "不支援此音訊格式。",
+      "fileTooLarge": "檔案超過上傳大小上限。",
+      "fileEmpty": "檔案是空的。",
+      "uploadFailed": "上傳失敗，請再試一次。",
+      "textRequired": "請先輸入文字。",
+      "textTooLarge": "文字太長，請分成較小的部分。"
+    }
   }
 }

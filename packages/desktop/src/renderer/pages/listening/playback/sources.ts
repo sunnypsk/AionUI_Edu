@@ -1,6 +1,3 @@
-import { joinPath } from '@/common/chat/chatLib';
-import { localFileRef } from '@/common/types/chatFile';
-import { buildFileStreamUrl } from '@/renderer/utils/file/fileUrls';
 import { listeningApi, type ListeningTarget } from '@/renderer/pages/listening/data/api';
 import type { AudioSources, PlayableEntry } from '@/renderer/pages/listening/playback/scheduler';
 
@@ -9,7 +6,11 @@ export const DECODED_CACHE_BYTES = 64 * 1024 * 1024;
 const SEGMENT_CACHE = 'listening/.segments';
 
 /** Fetch and decode preview audio: cached speech lines whole, recordings in short host-decoded ranges. */
-export function createSources(context: BaseAudioContext, target: ListeningTarget, workspace: string): AudioSources {
+export function createSources(
+  context: BaseAudioContext,
+  target: ListeningTarget,
+  fileUrl: (relative: string) => string | undefined
+): AudioSources {
   // Insertion-ordered map as an LRU: re-inserting on hit moves an entry to the end.
   const decoded = new Map<string, { buffer: AudioBuffer; bytes: number }>();
   const pending = new Map<string, { signal: AbortSignal; promise: Promise<AudioBuffer> }>();
@@ -33,7 +34,9 @@ export function createSources(context: BaseAudioContext, target: ListeningTarget
       let key: string;
       if (source.kind === 'speech') {
         key = `speech:${source.key}`;
-        url = buildFileStreamUrl(localFileRef(joinPath(workspace, `${SEGMENT_CACHE}/${source.key}.mp3`)));
+        const cached = fileUrl(`${SEGMENT_CACHE}/${source.key}.mp3`);
+        if (!cached) throw new Error('AUDIO_PREVIEW_FAILED');
+        url = cached;
       } else if (source.kind === 'clip') {
         const start = source.start + from;
         const end = source.start + to;

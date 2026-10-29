@@ -1,12 +1,13 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const layout = vi.hoisted(() => ({ isMobile: false }));
+const router = vi.hoisted(() => ({ navigate: vi.fn(), pathname: '/guid' }));
 
 vi.mock('react-router-dom', () => ({
-  useLocation: () => ({ pathname: '/guid', search: '', hash: '' }),
-  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: router.pathname, search: '', hash: '' }),
+  useNavigate: () => router.navigate,
 }));
 
 vi.mock('@/renderer/hooks/context/LayoutContext', () => ({ useLayoutContext: () => layout }));
@@ -28,6 +29,11 @@ vi.mock('@/renderer/components/layout/Sider/SiderNav', () => ({
   SiderSearchEntry: () => <div>Search</div>,
   SiderAssistantEntry: () => <div>Assistants</div>,
   SiderScheduledEntry: () => <div>Scheduled tasks</div>,
+  SiderStudioEntry: ({ isActive, onClick }: { isActive: boolean; onClick: () => void }) => (
+    <div role='link' aria-current={isActive ? 'page' : undefined} onClick={onClick}>
+      Audio Studio
+    </div>
+  ),
 }));
 vi.mock('@/renderer/components/layout/Sider/TeamSiderSection', () => ({
   default: () => <div>Teams</div>,
@@ -47,6 +53,20 @@ import Sider from '@/renderer/components/layout/Sider';
 describe('Sider navigation', () => {
   beforeEach(() => {
     layout.isMobile = false;
+    router.pathname = '/guid';
+    router.navigate.mockReset();
+  });
+
+  it('links to the audio studio and marks it active on studio pages', async () => {
+    render(<Sider />);
+    const entry = await screen.findByRole('link', { name: 'Audio Studio' });
+    expect(entry).not.toHaveAttribute('aria-current');
+    fireEvent.click(entry);
+    expect(router.navigate).toHaveBeenCalledWith('/audio');
+    cleanup();
+    router.pathname = '/audio/p1';
+    render(<Sider />);
+    expect(await screen.findByRole('link', { name: 'Audio Studio' })).toHaveAttribute('aria-current', 'page');
   });
 
   it.each([false, true])('omits assistants, scheduled tasks, and teams with collapsed=%s', async (collapsed) => {

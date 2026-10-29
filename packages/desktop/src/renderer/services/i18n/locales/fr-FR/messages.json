@@ -467,5 +467,58 @@
       "qa": "Vérification de la prononciation",
       "noQaIssues": "Aucune ligne signalée. Les lignes non générées ou non vérifiées doivent encore être écoutées."
     }
+  },
+  "studio": {
+    "nav": "Studio audio",
+    "library": {
+      "title": "Studio audio",
+      "subtitle": "Créez des projets audio à partir d’enregistrements et de texte.",
+      "new": "Nouveau projet",
+      "defaultTitle": "Nouveau projet audio",
+      "empty": "Aucun projet audio pour le moment. Créez-en un pour commencer.",
+      "untitled": "Projet sans titre",
+      "blocks": "Blocs : {{count}}",
+      "updated": "Modifié {{time}}",
+      "rename": "Renommer le projet",
+      "deleteConfirm": "Supprimer ce projet et tous ses médias ? Cette action est irréversible.",
+      "titleLabel": "Nom du projet",
+      "loadFailed": "Impossible de charger les projets audio."
+    },
+    "editor": {
+      "backToLibrary": "Retour au studio audio"
+    },
+    "media": {
+      "title": "Médias",
+      "upload": "Importer un audio",
+      "fromText": "Depuis un texte",
+      "empty": "Importez des enregistrements ou ajoutez du texte pour commencer.",
+      "queued": "En attente de traitement…",
+      "processing": "Découpage et transcription {{done}}/{{total}}",
+      "failed": "Échec de l’import",
+      "blocks": "Blocs : {{count}} · {{duration}}",
+      "noTranscript": "Pas de transcription",
+      "transcribe": "Transcrire",
+      "add": "Ajouter à la timeline",
+      "added": "Ajouté à la timeline : {{count}}",
+      "deleteConfirm": "Supprimer cet enregistrement du projet ?"
+    },
+    "text": {
+      "title": "Ajouter de la voix depuis un texte",
+      "placeholder": "Collez un script. Les paragraphes (ou lignes, s’il n’y a pas de lignes vides) deviennent des blocs de voix distincts.",
+      "loadFile": "Charger un fichier .txt",
+      "add": "Ajouter à la timeline",
+      "hint": "La voix utilise celle du projet. Utilisez Générer pour créer l’audio.",
+      "notUtf8": "Le fichier n’est pas du texte UTF-8."
+    },
+    "errors": {
+      "projectNotFound": "Ce projet audio n’existe plus.",
+      "mediaInUse": "Cet enregistrement est utilisé dans la timeline. Supprimez d’abord ses blocs.",
+      "formatUnsupported": "Ce format audio n’est pas pris en charge.",
+      "fileTooLarge": "Le fichier dépasse la limite d’import.",
+      "fileEmpty": "Le fichier est vide.",
+      "uploadFailed": "Échec de l’import. Veuillez réessayer.",
+      "textRequired": "Saisissez d’abord du texte.",
+      "textTooLarge": "Le texte est trop long. Divisez-le en parties plus petites."
+    }
   }
 }

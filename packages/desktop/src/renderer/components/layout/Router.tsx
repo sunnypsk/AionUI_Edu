@@ -27,6 +27,8 @@ const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/Schedul
 const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
 const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
 const ListeningPage = React.lazy(() => import('@renderer/pages/listening'));
+const StudioLibraryPage = React.lazy(() => import('@renderer/pages/studio'));
+const StudioEditorPage = React.lazy(() => import('@renderer/pages/studio/StudioEditorPage'));
 
 const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<AppLoader />}>
@@ -117,10 +119,12 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route path='/test/components' element={withRouteFallback(ComponentsShowcase)} />
           <Route path='/scheduled' element={withRouteFallback(ScheduledTasksPage)} />
           <Route path='/scheduled/:job_id' element={withRouteFallback(TaskDetailPage)} />
+          <Route path='/audio' element={withRouteFallback(StudioLibraryPage)} />
         </Route>
         {/* Full-screen editors: authenticated, but without the app sidebar layout. */}
         <Route element={<ProtectedLayout layout={<Outlet />} />}>
           <Route path='/conversation/:id/listening' element={withRouteFallback(ListeningPage)} />
+          <Route path='/audio/:projectId' element={withRouteFallback(StudioEditorPage)} />
         </Route>
         <Route path='*' element={<Navigate to={status === 'authenticated' ? '/guid' : '/login'} replace />} />
       </Routes>

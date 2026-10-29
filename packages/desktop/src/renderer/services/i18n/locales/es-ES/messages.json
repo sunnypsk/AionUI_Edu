@@ -467,5 +467,58 @@
       "qa": "Revisión de pronunciación",
       "noQaIssues": "No hay líneas marcadas para revisar. Las líneas sin generar o verificar aún deben escucharse."
     }
+  },
+  "studio": {
+    "nav": "Estudio de audio",
+    "library": {
+      "title": "Estudio de audio",
+      "subtitle": "Crea proyectos de audio a partir de grabaciones y texto.",
+      "new": "Nuevo proyecto",
+      "defaultTitle": "Nuevo proyecto de audio",
+      "empty": "Aún no hay proyectos de audio. Crea uno para empezar.",
+      "untitled": "Proyecto sin título",
+      "blocks": "Bloques: {{count}}",
+      "updated": "Editado {{time}}",
+      "rename": "Cambiar nombre del proyecto",
+      "deleteConfirm": "¿Eliminar este proyecto y todos sus medios? No se puede deshacer.",
+      "titleLabel": "Nombre del proyecto",
+      "loadFailed": "No se pudieron cargar los proyectos de audio."
+    },
+    "editor": {
+      "backToLibrary": "Volver al estudio de audio"
+    },
+    "media": {
+      "title": "Medios",
+      "upload": "Subir audio",
+      "fromText": "Desde texto",
+      "empty": "Sube grabaciones o añade texto para empezar.",
+      "queued": "Esperando procesamiento…",
+      "processing": "Dividiendo y transcribiendo {{done}}/{{total}}",
+      "failed": "Error de importación",
+      "blocks": "Bloques: {{count}} · {{duration}}",
+      "noTranscript": "Sin transcripción",
+      "transcribe": "Transcribir",
+      "add": "Añadir a la línea de tiempo",
+      "added": "Añadido a la línea de tiempo: {{count}}",
+      "deleteConfirm": "¿Eliminar esta grabación del proyecto?"
+    },
+    "text": {
+      "title": "Añadir voz desde texto",
+      "placeholder": "Pega un guion. Los párrafos (o líneas, si no hay líneas en blanco) se convierten en bloques de voz separados.",
+      "loadFile": "Cargar archivo .txt",
+      "add": "Añadir a la línea de tiempo",
+      "hint": "La voz usa la voz del proyecto. Usa Generar para crear el audio.",
+      "notUtf8": "El archivo no es texto UTF-8."
+    },
+    "errors": {
+      "projectNotFound": "Este proyecto de audio ya no existe.",
+      "mediaInUse": "Esta grabación se usa en la línea de tiempo. Elimina primero sus bloques.",
+      "formatUnsupported": "Este formato de audio no es compatible.",
+      "fileTooLarge": "El archivo supera el límite de subida.",
+      "fileEmpty": "El archivo está vacío.",
+      "uploadFailed": "Error al subir. Inténtalo de nuevo.",
+      "textRequired": "Escribe algo de texto primero.",
+      "textTooLarge": "El texto es demasiado largo. Divídelo en partes más pequeñas."
+    }
   }
 }

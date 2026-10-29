@@ -467,5 +467,58 @@
       "qa": "Aussprache prüfen",
       "noQaIssues": "Keine markierten Aussprachefehler. Noch nicht erzeugte oder geprüfte Zeilen müssen angehört werden."
     }
+  },
+  "studio": {
+    "nav": "Audio-Studio",
+    "library": {
+      "title": "Audio-Studio",
+      "subtitle": "Audioprojekte aus Aufnahmen und Text erstellen.",
+      "new": "Neues Projekt",
+      "defaultTitle": "Neues Audioprojekt",
+      "empty": "Noch keine Audioprojekte. Erstelle eines, um zu beginnen.",
+      "untitled": "Unbenanntes Projekt",
+      "blocks": "Blöcke: {{count}}",
+      "updated": "Bearbeitet {{time}}",
+      "rename": "Projekt umbenennen",
+      "deleteConfirm": "Dieses Projekt und alle Medien löschen? Dies kann nicht rückgängig gemacht werden.",
+      "titleLabel": "Projektname",
+      "loadFailed": "Audioprojekte konnten nicht geladen werden."
+    },
+    "editor": {
+      "backToLibrary": "Zurück zum Audio-Studio"
+    },
+    "media": {
+      "title": "Medien",
+      "upload": "Audio hochladen",
+      "fromText": "Aus Text",
+      "empty": "Lade Aufnahmen hoch oder füge Text hinzu, um zu beginnen.",
+      "queued": "Wartet auf Verarbeitung…",
+      "processing": "Aufteilen und Transkribieren {{done}}/{{total}}",
+      "failed": "Import fehlgeschlagen",
+      "blocks": "Blöcke: {{count}} · {{duration}}",
+      "noTranscript": "Kein Transkript",
+      "transcribe": "Transkribieren",
+      "add": "Zur Zeitleiste hinzufügen",
+      "added": "Zur Zeitleiste hinzugefügt: {{count}}",
+      "deleteConfirm": "Diese Aufnahme aus dem Projekt löschen?"
+    },
+    "text": {
+      "title": "Sprache aus Text hinzufügen",
+      "placeholder": "Skript einfügen. Absätze (oder Zeilen, wenn es keine Leerzeilen gibt) werden zu einzelnen Sprachblöcken.",
+      "loadFile": ".txt-Datei laden",
+      "add": "Zur Zeitleiste hinzufügen",
+      "hint": "Die Sprache nutzt die Projektstimme. Mit „Generieren“ wird das Audio erstellt.",
+      "notUtf8": "Die Datei ist kein UTF-8-Text."
+    },
+    "errors": {
+      "projectNotFound": "Dieses Audioprojekt existiert nicht mehr.",
+      "mediaInUse": "Diese Aufnahme wird in der Zeitleiste verwendet. Entferne zuerst ihre Blöcke.",
+      "formatUnsupported": "Dieses Audioformat wird nicht unterstützt.",
+      "fileTooLarge": "Die Datei überschreitet das Upload-Limit.",
+      "fileEmpty": "Die Datei ist leer.",
+      "uploadFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
+      "textRequired": "Bitte zuerst Text eingeben.",
+      "textTooLarge": "Der Text ist zu lang. Teile ihn in kleinere Abschnitte."
+    }
   }
 }

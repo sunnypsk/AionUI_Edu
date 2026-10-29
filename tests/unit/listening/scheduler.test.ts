@@ -246,7 +246,11 @@ describe('preview audio sources', () => {
     fetchAudio = vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
     decode = vi.fn(async () => ({ length: 24000, numberOfChannels: 1 }));
     vi.stubGlobal('fetch', fetchAudio);
-    sources = createSources({ decodeAudioData: decode } as unknown as BaseAudioContext, target, '/ws');
+    sources = createSources(
+      { decodeAudioData: decode } as unknown as BaseAudioContext,
+      target,
+      (relative) => `/files/${relative}`
+    );
   });
   afterEach(() => vi.unstubAllGlobals());
 

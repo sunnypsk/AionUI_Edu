@@ -467,5 +467,58 @@
       "qa": "Pronunciation review",
       "noQaIssues": "No flagged lines to review. Ungenerated or unchecked lines still need listening."
     }
+  },
+  "studio": {
+    "nav": "Audio Studio",
+    "library": {
+      "title": "Audio Studio",
+      "subtitle": "Build audio projects from recordings and text.",
+      "new": "New project",
+      "defaultTitle": "New audio project",
+      "empty": "No audio projects yet. Create one to get started.",
+      "untitled": "Untitled project",
+      "blocks": "Blocks: {{count}}",
+      "updated": "Edited {{time}}",
+      "rename": "Rename project",
+      "deleteConfirm": "Delete this project and all of its media? This cannot be undone.",
+      "titleLabel": "Project name",
+      "loadFailed": "Could not load audio projects."
+    },
+    "editor": {
+      "backToLibrary": "Back to Audio Studio"
+    },
+    "media": {
+      "title": "Media",
+      "upload": "Upload audio",
+      "fromText": "From text",
+      "empty": "Upload recordings or add text to get started.",
+      "queued": "Waiting to process…",
+      "processing": "Splitting and transcribing {{done}}/{{total}}",
+      "failed": "Import failed",
+      "blocks": "Blocks: {{count}} · {{duration}}",
+      "noTranscript": "No transcript",
+      "transcribe": "Transcribe",
+      "add": "Add to timeline",
+      "added": "Added to timeline: {{count}}",
+      "deleteConfirm": "Delete this recording from the project?"
+    },
+    "text": {
+      "title": "Add speech from text",
+      "placeholder": "Paste a script. Paragraphs (or lines, if there are no blank lines) become separate speech blocks.",
+      "loadFile": "Load .txt file",
+      "add": "Add to timeline",
+      "hint": "Speech uses the project voice. Use Generate to create the audio.",
+      "notUtf8": "The file is not UTF-8 text."
+    },
+    "errors": {
+      "projectNotFound": "This audio project no longer exists.",
+      "mediaInUse": "This recording is used on the timeline. Remove its blocks first.",
+      "formatUnsupported": "This audio format is not supported.",
+      "fileTooLarge": "The file is larger than the upload limit.",
+      "fileEmpty": "The file is empty.",
+      "uploadFailed": "Upload failed. Please try again.",
+      "textRequired": "Enter some text first.",
+      "textTooLarge": "The text is too long. Split it into smaller parts."
+    }
   }
 }

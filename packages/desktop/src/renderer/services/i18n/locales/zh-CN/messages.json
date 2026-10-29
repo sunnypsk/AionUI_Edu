@@ -467,5 +467,58 @@
       "qa": "读音检查",
       "noQaIssues": "当前没有标记为误读的句子。未生成或未检查的句子仍需试听。"
     }
+  },
+  "studio": {
+    "nav": "音频工作室",
+    "library": {
+      "title": "音频工作室",
+      "subtitle": "用录音和文字制作音频项目。",
+      "new": "新建项目",
+      "defaultTitle": "新音频项目",
+      "empty": "还没有音频项目，新建一个开始吧。",
+      "untitled": "未命名项目",
+      "blocks": "片段：{{count}}",
+      "updated": "编辑于 {{time}}",
+      "rename": "重命名项目",
+      "deleteConfirm": "删除此项目及其所有素材？此操作无法撤销。",
+      "titleLabel": "项目名称",
+      "loadFailed": "无法加载音频项目。"
+    },
+    "editor": {
+      "backToLibrary": "返回音频工作室"
+    },
+    "media": {
+      "title": "素材",
+      "upload": "上传音频",
+      "fromText": "从文字",
+      "empty": "上传录音或添加文字以开始。",
+      "queued": "等待处理…",
+      "processing": "正在切分并转写 {{done}}/{{total}}",
+      "failed": "导入失败",
+      "blocks": "片段：{{count}} · {{duration}}",
+      "noTranscript": "无转写",
+      "transcribe": "转写",
+      "add": "添加到时间线",
+      "added": "已添加到时间线：{{count}}",
+      "deleteConfirm": "从项目中删除此录音？"
+    },
+    "text": {
+      "title": "从文字添加语音",
+      "placeholder": "粘贴脚本。每个段落（若无空行则每行）会成为一个语音片段。",
+      "loadFile": "载入 .txt 文件",
+      "add": "添加到时间线",
+      "hint": "语音使用项目默认声音。点击“生成”来制作音频。",
+      "notUtf8": "文件不是 UTF-8 文本。"
+    },
+    "errors": {
+      "projectNotFound": "此音频项目已不存在。",
+      "mediaInUse": "时间线正在使用此录音，请先删除相关片段。",
+      "formatUnsupported": "不支持此音频格式。",
+      "fileTooLarge": "文件超过上传大小限制。",
+      "fileEmpty": "文件为空。",
+      "uploadFailed": "上传失败，请重试。",
+      "textRequired": "请先输入文字。",
+      "textTooLarge": "文字过长，请分成较小的部分。"
+    }
   }
 }

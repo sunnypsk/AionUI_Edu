@@ -467,5 +467,58 @@
       "qa": "Revisão de pronúncia",
       "noQaIssues": "Nenhuma linha sinalizada. Linhas não geradas ou não verificadas ainda precisam ser ouvidas."
     }
+  },
+  "studio": {
+    "nav": "Estúdio de Áudio",
+    "library": {
+      "title": "Estúdio de Áudio",
+      "subtitle": "Crie projetos de áudio a partir de gravações e texto.",
+      "new": "Novo projeto",
+      "defaultTitle": "Novo projeto de áudio",
+      "empty": "Ainda não há projetos de áudio. Crie um para começar.",
+      "untitled": "Projeto sem título",
+      "blocks": "Blocos: {{count}}",
+      "updated": "Editado em {{time}}",
+      "rename": "Renomear projeto",
+      "deleteConfirm": "Excluir este projeto e todas as suas mídias? Esta ação não pode ser desfeita.",
+      "titleLabel": "Nome do projeto",
+      "loadFailed": "Não foi possível carregar os projetos de áudio."
+    },
+    "editor": {
+      "backToLibrary": "Voltar ao Estúdio de Áudio"
+    },
+    "media": {
+      "title": "Mídia",
+      "upload": "Enviar áudio",
+      "fromText": "De texto",
+      "empty": "Envie gravações ou adicione texto para começar.",
+      "queued": "Aguardando processamento…",
+      "processing": "Dividindo e transcrevendo {{done}}/{{total}}",
+      "failed": "Falha na importação",
+      "blocks": "Blocos: {{count}} · {{duration}}",
+      "noTranscript": "Sem transcrição",
+      "transcribe": "Transcrever",
+      "add": "Adicionar à linha do tempo",
+      "added": "Adicionado à linha do tempo: {{count}}",
+      "deleteConfirm": "Excluir esta gravação do projeto?"
+    },
+    "text": {
+      "title": "Adicionar fala a partir de texto",
+      "placeholder": "Cole um roteiro. Parágrafos (ou linhas, se não houver linhas em branco) viram blocos de fala separados.",
+      "loadFile": "Carregar arquivo .txt",
+      "add": "Adicionar à linha do tempo",
+      "hint": "A fala usa a voz do projeto. Use Gerar para criar o áudio.",
+      "notUtf8": "O arquivo não é texto UTF-8."
+    },
+    "errors": {
+      "projectNotFound": "Este projeto de áudio não existe mais.",
+      "mediaInUse": "Esta gravação está em uso na linha do tempo. Remova os blocos primeiro.",
+      "formatUnsupported": "Este formato de áudio não é compatível.",
+      "fileTooLarge": "O arquivo excede o limite de envio.",
+      "fileEmpty": "O arquivo está vazio.",
+      "uploadFailed": "Falha no envio. Tente novamente.",
+      "textRequired": "Digite algum texto primeiro.",
+      "textTooLarge": "O texto é muito longo. Divida-o em partes menores."
+    }
   }
 }

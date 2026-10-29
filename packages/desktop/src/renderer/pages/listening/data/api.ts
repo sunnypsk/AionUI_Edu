@@ -2,7 +2,11 @@ import { getBaseUrl, httpRequest, isBackendHttpError } from '@/common/adapter/ht
 import type { AudioCapabilities, AudioVoice } from '@/common/types/platform/audioTools';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
 
-export type ListeningTarget = { conversation_id: string; path: string };
+/** A project file in a conversation workspace, or a standalone studio project (whose file path is fixed). */
+export type ListeningTarget = { conversation_id: string; path: string } | { project_id: string };
+/** Stable identity of a target, for caches and effects that must reset when the project changes. */
+export const targetKey = (target: ListeningTarget): string =>
+  'project_id' in target ? `studio\0${target.project_id}` : `${target.conversation_id}\0${target.path}`;
 /** Host audio error: a machine code plus optional field-level validation messages. */
 export type ListeningError = { code: string; details: string[] };
 /** A source-audio range to replace with synthesized speech; times are seconds in the original file. */
@@ -51,10 +55,13 @@ export const listeningApi = {
   /** A decoded WAV window of at most 30 seconds of a workspace recording. */
   rangeUrl: (target: ListeningTarget, source: string, start: number, end: number): string =>
     `${getBaseUrl()}${ROOT}/range?${new URLSearchParams({ ...target, source, start: String(start), end: String(end) }).toString()}`,
-  capabilities: (conversationId: string): Promise<AudioCapabilities> =>
+  /** Readiness of TTS, transcription and rendering; agent tool readiness only when a conversation is given. */
+  capabilities: (conversationId?: string): Promise<AudioCapabilities> =>
     httpRequest(
       'GET',
-      `/api/edu/audio/capabilities?${new URLSearchParams({ conversation_id: conversationId }).toString()}`,
+      conversationId
+        ? `/api/edu/audio/capabilities?${new URLSearchParams({ conversation_id: conversationId }).toString()}`
+        : '/api/edu/audio/capabilities',
       undefined,
       SENSITIVE
     ),

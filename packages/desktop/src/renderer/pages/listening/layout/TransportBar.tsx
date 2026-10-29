@@ -17,12 +17,15 @@ const INSERT_KEYS: Record<NewSegmentType, string> = {
 /** Bottom bar: playback controls (passed as children), insert and split, and timeline zoom. */
 export function TransportBar({
   disabled,
+  inserts = INSERTS,
   onInsert,
   onSplit,
   zoom,
   children,
 }: {
   disabled: boolean;
+  /** Insert buttons to show, in order; defaults to every segment type. */
+  inserts?: NewSegmentType[];
   onInsert: (type: NewSegmentType) => void;
   onSplit: () => void;
   /** Present in the timeline view only. */
@@ -33,7 +36,7 @@ export function TransportBar({
   return (
     <div className={styles.transportBar}>
       {children}
-      {INSERTS.map((type) => (
+      {inserts.map((type) => (
         <Button key={type} size='small' disabled={disabled} onClick={() => onInsert(type)}>
           {t(INSERT_KEYS[type])}
         </Button>

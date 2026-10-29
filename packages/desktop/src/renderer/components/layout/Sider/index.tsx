@@ -7,7 +7,7 @@ import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { SiderToolbar, SiderSearchEntry } from './SiderNav';
+import { SiderToolbar, SiderSearchEntry, SiderStudioEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import siderStyles from './Sider.module.css';
 
@@ -67,6 +67,18 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
         console.error('Navigation failed:', error);
       });
     }
+    if (onSessionClick) {
+      onSessionClick();
+    }
+  };
+
+  const handleStudioClick = () => {
+    cleanupSiderTooltips();
+    blurActiveElement();
+    setIsBatchMode(false);
+    Promise.resolve(navigate('/audio')).catch((error) => {
+      console.error('Navigation failed:', error);
+    });
     if (onSessionClick) {
       onSessionClick();
     }
@@ -161,6 +173,13 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               siderTooltipProps={siderTooltipProps}
               onNewChat={handleNewChat}
               onToggleBatchMode={() => setIsBatchMode((prev) => !prev)}
+            />
+            <SiderStudioEntry
+              isMobile={isMobile}
+              isActive={pathname.startsWith('/audio')}
+              collapsed={collapsed}
+              siderTooltipProps={siderTooltipProps}
+              onClick={handleStudioClick}
             />
             {/* Search entry — desktop moves this into the titlebar toolbar;
                 mobile keeps it here in the sidebar. */}

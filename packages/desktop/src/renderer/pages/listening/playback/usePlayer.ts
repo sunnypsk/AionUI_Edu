@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ListeningProject, ListeningState } from '@/common/types/platform/listeningProject';
-import type { ListeningTarget } from '@/renderer/pages/listening/data/api';
+import { targetKey as keyOf, type ListeningTarget } from '@/renderer/pages/listening/data/api';
 import { playableEntries, Scheduler, type PlayableEntry } from '@/renderer/pages/listening/playback/scheduler';
 import { createSources } from '@/renderer/pages/listening/playback/sources';
 
@@ -30,12 +30,13 @@ export function usePlayer(
   project: ListeningProject | undefined,
   state: ListeningState | undefined,
   target: ListeningTarget | undefined,
-  workspace: string | undefined
+  /** Stream URL of a workspace-relative file; must be stable across renders. */
+  fileUrl: ((relative: string) => string | undefined) | undefined
 ): Player {
   const entries = useMemo(() => (project && state ? playableEntries(project, state) : []), [project, state]);
   const duration = entries.length ? entries[entries.length - 1].end : 0;
   const entriesKey = JSON.stringify(entries);
-  const targetKey = target ? `${target.conversation_id}\0${target.path}` : '';
+  const targetKey = target ? keyOf(target) : '';
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [time, setTime] = useState(0);
@@ -49,9 +50,9 @@ export function usePlayer(
 
   const ensure = useCallback((): Scheduler | undefined => {
     if (scheduler.current) return scheduler.current;
-    if (!target || !workspace || typeof AudioContext === 'undefined') return undefined;
+    if (!target || !fileUrl || typeof AudioContext === 'undefined') return undefined;
     context.current = new AudioContext();
-    scheduler.current = new Scheduler(context.current, createSources(context.current, target, workspace), {
+    scheduler.current = new Scheduler(context.current, createSources(context.current, target, fileUrl), {
       onTime: setTime,
       onBuffering: setBuffering,
       onEnded: () => setPlaying(false),
@@ -63,7 +64,7 @@ export function usePlayer(
       },
     });
     return scheduler.current;
-  }, [target, workspace]);
+  }, [target, fileUrl]);
 
   // Reschedule from the current position when the working copy changes during playback.
   useEffect(() => {
@@ -85,7 +86,7 @@ export function usePlayer(
       void context.current?.close?.();
       context.current = undefined;
     };
-  }, [targetKey, workspace]);
+  }, [targetKey, fileUrl]);
 
   const seek = useCallback(
     (seconds: number) => {
