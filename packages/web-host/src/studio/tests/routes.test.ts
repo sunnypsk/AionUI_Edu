@@ -1,8 +1,8 @@
 import http from 'node:http';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StudioMediaBlocks, StudioProject } from '../../../../desktop/src/common/types/platform/audioStudio.ts';
 import type { ListeningState } from '../../../../desktop/src/common/types/platform/listeningProject.ts';
 import { AudioManager } from '../../audio/manager.js';
@@ -42,6 +42,10 @@ describe('audio studio routes', () => {
     const manager = new AudioManager(directory, {
       media: { probe: async () => 30, chunk: async () => {} },
       silences: async () => [{ start: 10, end: 14 }],
+      speak: async (options) => {
+        await writeFile(options.output, `speech:${options.voice}`);
+        return { segments: [] };
+      },
     });
     runtime = await createAudioRuntime({ dataDir: directory, manager });
     runtime.setBackendPort((backend.address() as { port: number }).port);
@@ -185,6 +189,21 @@ describe('audio studio routes', () => {
       headers: { authorization: 'Bearer alice' },
     });
     expect(outside.status).toBe(403);
+  });
+
+  it('reads text aloud without a project and returns the audio as a download', async () => {
+    const response = await fetch(`${url}/studio/speech`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer alice', 'content-type': 'application/json' },
+      body: JSON.stringify({ text: '你好', voice: 'WanLung' }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('audio/mpeg');
+    expect(await response.text()).toBe('speech:WanLung');
+    await vi.waitFor(async () => expect(await readdir(path.join(directory, 'audio/quick'))).toEqual([]));
+    expect((await call<StudioProject[]>('GET', '/studio/projects')).data).toEqual([]);
+    expect((await call('POST', '/studio/speech', { text: '' })).error?.code).toBe('AUDIO_TEXT_REQUIRED');
+    expect((await call('POST', '/studio/speech', { text: '你好' }, { user: 'nobody' })).status).toBe(401);
   });
 
   it('turns a script into speech blocks and deletes unused media', async () => {

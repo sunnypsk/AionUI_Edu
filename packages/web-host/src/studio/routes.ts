@@ -19,6 +19,7 @@ import {
   STUDIO_PROJECT_FILE,
   type StudioProjects,
 } from './projects.js';
+import { sendQuickSpeech, toWav } from './quickSpeech.js';
 import { textBlocks } from './text.js';
 
 export const STUDIO_ROOT = '/api/edu/audio/studio';
@@ -58,7 +59,10 @@ const TYPES: Record<string, string> = {
   '.zip': 'application/zip',
 };
 
-/** Studio API: project library, media import, text blocks and file streaming for one authenticated user. */
+/**
+ * Studio API for one authenticated user: project library, media import, text blocks, file streaming and
+ * project-free quick text-to-speech.
+ */
 export async function handleStudio(
   req: IncomingMessage,
   res: ServerResponse,
@@ -66,6 +70,12 @@ export async function handleStudio(
   context: StudioContext
 ): Promise<void> {
   const { projects, userId, send } = context;
+  if (url.pathname === `${STUDIO_ROOT}/speech` && req.method === 'POST')
+    return sendQuickSpeech(res, await context.readJson(), {
+      userId,
+      workRoot: path.resolve(context.manager.dataDir, 'audio/quick'),
+      services: { speak: (options) => context.manager.speak(options), toWav },
+    });
   const match =
     /^\/api\/edu\/audio\/studio\/projects(?:\/([\w-]+)(\/media(?:\/import|\/blocks)?|\/text|\/file)?)?$/.exec(
       url.pathname

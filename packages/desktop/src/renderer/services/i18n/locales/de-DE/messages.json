@@ -541,6 +541,18 @@
       "attached": "Audioprojekt: {{title}}",
       "missing": "Das Audioprojekt „{{title}}“ ist nicht verfügbar. Entferne es, um einen normalen Chat zu starten.",
       "workspaceMismatch": "Der Chat wurde in einem anderen Ordner erstellt, daher sieht der Agent dieses Audioprojekt nicht."
+    },
+    "speech": {
+      "open": "Schnelle Sprachausgabe",
+      "title": "Schnelle Sprachausgabe",
+      "textLabel": "Vorzulesender Text",
+      "placeholder": "Gib bis zu {{max}} Zeichen ein, die auf Kantonesisch vorgelesen werden.",
+      "format": "Audioformat",
+      "generate": "Audio erzeugen",
+      "download": "{{format}} herunterladen",
+      "player": "Erzeugte Sprache",
+      "hint": "Kein Projekt nötig. Audio erzeugen, anhören und herunterladen.",
+      "outdated": "Text oder Einstellungen wurden geändert. Erzeuge das Audio erneut."
     }
   }
 }

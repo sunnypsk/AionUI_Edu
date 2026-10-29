@@ -541,6 +541,18 @@
       "attached": "Proyecto de audio: {{title}}",
       "missing": "El proyecto de audio «{{title}}» no está disponible. Quítalo para iniciar un chat normal.",
       "workspaceMismatch": "El chat se creó en otra carpeta, así que el agente no puede ver este proyecto de audio."
+    },
+    "speech": {
+      "open": "Texto a voz rápido",
+      "title": "Texto a voz rápido",
+      "textLabel": "Texto para leer en voz alta",
+      "placeholder": "Escribe o pega hasta {{max}} caracteres para leerlos en cantonés.",
+      "format": "Formato de audio",
+      "generate": "Generar audio",
+      "download": "Descargar {{format}}",
+      "player": "Voz generada",
+      "hint": "No necesitas un proyecto. Genera el audio, escúchalo y descárgalo.",
+      "outdated": "El texto o los ajustes cambiaron. Genera el audio de nuevo."
     }
   }
 }

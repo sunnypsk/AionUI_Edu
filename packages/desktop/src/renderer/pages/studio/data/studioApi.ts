@@ -1,5 +1,11 @@
 import { BackendHttpError, getBaseUrl, httpRequest, resolveCoreCsrfToken } from '@/common/adapter/httpBridge';
-import type { StudioMedia, StudioMediaBlocks, StudioProject, StudioUpload } from '@/common/types/platform/audioStudio';
+import type {
+  QuickSpeechInput,
+  StudioMedia,
+  StudioMediaBlocks,
+  StudioProject,
+  StudioUpload,
+} from '@/common/types/platform/audioStudio';
 
 const ROOT = '/api/edu/audio/studio/projects';
 /** Titles and scripts are user content, so request bodies are never logged. */
@@ -27,6 +33,27 @@ export const studioApi = {
   /** Cookie-authenticated stream URL of a project file, with range support for seeking. */
   fileUrl: (id: string, path: string): string =>
     `${getBaseUrl()}${project(id)}/file?${new URLSearchParams({ path }).toString()}`,
+  /** Read text aloud without a project; resolves to the finished MP3 or WAV audio. */
+  async speech(input: QuickSpeechInput, signal?: AbortSignal): Promise<Blob> {
+    const path = '/api/edu/audio/studio/speech';
+    const csrf = resolveCoreCsrfToken();
+    const response = await fetch(`${getBaseUrl()}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: { 'Content-Type': 'application/json', ...(csrf ? { 'x-csrf-token': csrf } : {}) },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok)
+      throw new BackendHttpError({
+        method: 'POST',
+        path,
+        status: response.status,
+        body: await response.json().catch((): undefined => undefined),
+        retryAfter: response.headers.get('retry-after'),
+      });
+    return response.blob();
+  },
   /** Stream a file into the project's media folder and start splitting it into blocks. */
   async upload(id: string, file: File, signal?: AbortSignal): Promise<StudioUpload> {
     const path = `${project(id)}/media?${new URLSearchParams({ name: file.name }).toString()}`;

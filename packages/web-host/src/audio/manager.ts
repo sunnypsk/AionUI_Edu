@@ -408,6 +408,10 @@ export class AudioManager {
   get previewMedia(): TrackMedia {
     return this.services.trackMedia;
   }
+  /** One-off synthesis outside the task store, for callers that own their output files. */
+  speak(options: SpeechOptions): Promise<{ segments: AudioSegment[] }> {
+    return this.services.speak(options);
+  }
   /** QA model for listening lines; without a key the work still runs and QA is reported as skipped. */
   private async qaSelection(owner: AudioOwner, warnings: string[]): Promise<Pick<Snapshot, 'selection' | 'model'>> {
     const selection = await this.store.selection(owner.userId);

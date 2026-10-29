@@ -541,6 +541,18 @@
       "attached": "音频项目：{{title}}",
       "missing": "音频项目“{{title}}”无法使用。移除后可开始普通对话。",
       "workspaceMismatch": "对话建立在其他文件夹中，助手无法看到此音频项目。"
+    },
+    "speech": {
+      "open": "快速朗读",
+      "title": "快速朗读",
+      "textLabel": "朗读文字",
+      "placeholder": "输入或粘贴要用粤语朗读的文字（最多 {{max}} 字）。",
+      "format": "音频格式",
+      "generate": "生成语音",
+      "download": "下载 {{format}}",
+      "player": "生成的语音",
+      "hint": "无需创建项目。生成语音后可以试听，再下载。",
+      "outdated": "文字或设置已更改。请重新生成语音。"
     }
   }
 }

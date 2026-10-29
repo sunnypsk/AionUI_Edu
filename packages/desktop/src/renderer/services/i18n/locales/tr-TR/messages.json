@@ -541,6 +541,18 @@
       "attached": "Ses projesi: {{title}}",
       "missing": "“{{title}}” ses projesi kullanılamıyor. Normal bir sohbet başlatmak için kaldırın.",
       "workspaceMismatch": "Sohbet farklı bir klasörde oluşturuldu, bu yüzden asistan bu ses projesini göremiyor."
+    },
+    "speech": {
+      "open": "Hızlı metin okuma",
+      "title": "Hızlı metin okuma",
+      "textLabel": "Okunacak metin",
+      "placeholder": "Kantonca okunacak en fazla {{max}} karakter yazın veya yapıştırın.",
+      "format": "Ses biçimi",
+      "generate": "Ses oluştur",
+      "download": "{{format}} indir",
+      "player": "Oluşturulan konuşma",
+      "hint": "Proje gerekmez. Sesi oluşturun, dinleyin ve indirin.",
+      "outdated": "Metin veya ayarlar değişti. Sesi yeniden oluşturun."
     }
   }
 }

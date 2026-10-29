@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Button, Empty, Input, Message, Modal, Popconfirm, Spin, Tooltip } from '@arco-design/web-react';
-import { Delete, Edit, Plus } from '@icon-park/react';
+import { Alert, Button, Empty, Input, Message, Modal, Popconfirm, Space, Spin, Tooltip } from '@arco-design/web-react';
+import { Delete, Edit, Plus, Voice } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
@@ -8,6 +8,7 @@ import type { StudioProject } from '@/common/types/platform/audioStudio';
 import { listeningError } from '@/renderer/pages/listening/data/api';
 import { errorKey } from '@/renderer/pages/listening/data/status';
 import { studioApi } from '@/renderer/pages/studio/data/studioApi';
+import { QuickSpeechModal } from '@/renderer/pages/studio/QuickSpeechModal';
 import { studioProjectPath } from '@/renderer/pages/studio/route';
 import styles from '@/renderer/pages/studio/StudioPage.module.css';
 
@@ -21,6 +22,7 @@ export default function StudioLibraryPage(): React.ReactElement {
   const { data: projects, error, isLoading, mutate } = useSWR('studio.projects', studioApi.list);
   const [naming, setNaming] = useState<Naming>();
   const [saving, setSaving] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' });
 
   const fail = (failure: unknown) => message.error?.(t(errorKey(listeningError(failure).code)));
@@ -62,14 +64,20 @@ export default function StudioLibraryPage(): React.ReactElement {
           <h1 className={styles.libraryTitle}>{t('messages.studio.library.title')}</h1>
           <div className={styles.librarySubtitle}>{t('messages.studio.library.subtitle')}</div>
         </div>
-        <Button
-          type='primary'
-          icon={<Plus />}
-          onClick={() => setNaming({ title: t('messages.studio.library.defaultTitle') })}
-        >
-          {t('messages.studio.library.new')}
-        </Button>
+        <Space size={8}>
+          <Button icon={<Voice />} onClick={() => setSpeaking(true)}>
+            {t('messages.studio.speech.open')}
+          </Button>
+          <Button
+            type='primary'
+            icon={<Plus />}
+            onClick={() => setNaming({ title: t('messages.studio.library.defaultTitle') })}
+          >
+            {t('messages.studio.library.new')}
+          </Button>
+        </Space>
       </header>
+      <QuickSpeechModal visible={speaking} onClose={() => setSpeaking(false)} />
       {isLoading ? (
         <Spin />
       ) : error ? (

@@ -58,6 +58,22 @@
   gap: 4px;
 }
 
+/* Quick text-to-speech */
+.speechModal {
+  width: min(720px, calc(100vw - 32px));
+}
+.speech {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.speechSetting {
+  width: 180px;
+}
+.speechPlayer {
+  width: 100%;
+}
+
 /* Media browser inside the editor */
 .mediaPanel {
   display: flex;

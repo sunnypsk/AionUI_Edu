@@ -541,6 +541,18 @@
       "attached": "Projet audio : {{title}}",
       "missing": "Le projet audio « {{title}} » n’est pas disponible. Retirez-le pour démarrer un chat normal.",
       "workspaceMismatch": "Le chat a été créé dans un autre dossier : l’agent ne voit donc pas ce projet audio."
+    },
+    "speech": {
+      "open": "Synthèse vocale rapide",
+      "title": "Synthèse vocale rapide",
+      "textLabel": "Texte à lire",
+      "placeholder": "Saisissez ou collez jusqu’à {{max}} caractères à lire en cantonais.",
+      "format": "Format audio",
+      "generate": "Générer l’audio",
+      "download": "Télécharger {{format}}",
+      "player": "Voix générée",
+      "hint": "Aucun projet nécessaire. Générez l’audio, écoutez-le, puis téléchargez-le.",
+      "outdated": "Le texte ou les réglages ont changé. Générez à nouveau l’audio."
     }
   }
 }

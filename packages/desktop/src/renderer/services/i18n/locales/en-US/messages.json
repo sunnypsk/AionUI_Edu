@@ -541,6 +541,18 @@
       "attached": "Audio project: {{title}}",
       "missing": "Audio project “{{title}}” is unavailable. Remove it to start a normal chat.",
       "workspaceMismatch": "The chat was created in a different folder, so the agent cannot see this audio project."
+    },
+    "speech": {
+      "open": "Quick text-to-speech",
+      "title": "Quick text-to-speech",
+      "textLabel": "Text to read aloud",
+      "placeholder": "Type or paste up to {{max}} characters to read aloud in Cantonese.",
+      "format": "Audio format",
+      "generate": "Generate audio",
+      "download": "Download {{format}}",
+      "player": "Generated speech",
+      "hint": "No project needed. Generate the audio, listen to it, then download it.",
+      "outdated": "The text or settings changed. Generate the audio again to update it."
     }
   }
 }

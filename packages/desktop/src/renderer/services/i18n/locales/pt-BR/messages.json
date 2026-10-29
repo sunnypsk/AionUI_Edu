@@ -541,6 +541,18 @@
       "attached": "Projeto de áudio: {{title}}",
       "missing": "O projeto de áudio “{{title}}” não está disponível. Remova-o para iniciar um chat normal.",
       "workspaceMismatch": "O chat foi criado em outra pasta, então o agente não consegue ver este projeto de áudio."
+    },
+    "speech": {
+      "open": "Texto para fala rápido",
+      "title": "Texto para fala rápido",
+      "textLabel": "Texto para ler em voz alta",
+      "placeholder": "Digite ou cole até {{max}} caracteres para ler em cantonês.",
+      "format": "Formato de áudio",
+      "generate": "Gerar áudio",
+      "download": "Baixar {{format}}",
+      "player": "Fala gerada",
+      "hint": "Não precisa de projeto. Gere o áudio, ouça e depois baixe.",
+      "outdated": "O texto ou as configurações mudaram. Gere o áudio novamente."
     }
   }
 }

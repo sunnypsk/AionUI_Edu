@@ -541,6 +541,18 @@
       "attached": "音訊專案：{{title}}",
       "missing": "音訊專案「{{title}}」無法使用。移除後可開始一般對話。",
       "workspaceMismatch": "對話建立在其他資料夾中，助手無法看到此音訊專案。"
+    },
+    "speech": {
+      "open": "快速朗讀",
+      "title": "快速朗讀",
+      "textLabel": "朗讀文字",
+      "placeholder": "輸入或貼上要用粵語朗讀的文字（最多 {{max}} 字）。",
+      "format": "音訊格式",
+      "generate": "產生語音",
+      "download": "下載 {{format}}",
+      "player": "產生的語音",
+      "hint": "不需要建立專案。產生語音後可以試聽，再下載。",
+      "outdated": "文字或設定已更改。請重新產生語音。"
     }
   }
 }

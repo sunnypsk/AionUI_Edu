@@ -1,5 +1,19 @@
 /** Browser-safe contracts for standalone audio studio projects, shared by the web host and the renderer. */
-import type { AudioSegment } from './audioTools.ts';
+import type { AudioSegment, AudioVoice } from './audioTools.ts';
+
+/** Longest text, in characters, accepted by the studio's quick text-to-speech. */
+export const QUICK_SPEECH_MAX_CHARS = 1000;
+export const QUICK_SPEECH_FORMATS = ['mp3', 'wav'] as const;
+export type QuickSpeechFormat = (typeof QUICK_SPEECH_FORMATS)[number];
+/** Quick text-to-speech request: Edge TTS prosody offsets as in listening projects. */
+export type QuickSpeechInput = {
+  text: string;
+  voice: AudioVoice;
+  rate: string;
+  volume: string;
+  pitch: string;
+  format: QuickSpeechFormat;
+};
 
 /** One studio project; `workspace` is its absolute host folder, used as the chat workspace for "Open in chat". */
 export type StudioProject = {
