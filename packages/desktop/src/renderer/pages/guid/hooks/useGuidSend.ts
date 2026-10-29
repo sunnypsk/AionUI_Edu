@@ -27,6 +27,13 @@ export type GuidSendDeps = {
   setFiles: React.Dispatch<React.SetStateAction<ChatFileRef[]>>;
   dir: string;
   setDir: React.Dispatch<React.SetStateAction<string>>;
+  /**
+   * Folder of the audio studio project the user chose "Open in chat" for, as reported by the host. Unlike `dir`,
+   * it is honored in the WebUI so the agent works on that project's files.
+   */
+  studioWorkspace?: string;
+  /** A studio project is attached but its folder is not known yet; sending would lose the project. */
+  studioPending?: boolean;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   loading: boolean;
 
@@ -72,6 +79,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     setFiles,
     dir,
     setDir,
+    studioWorkspace,
+    studioPending,
     setLoading,
     loading,
     selectedAssistantId,
@@ -96,12 +105,13 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
   const handleSend = useCallback(async () => {
     // An empty send would only create a blank, untitled conversation.
-    if (!selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim()) {
+    if (!selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim() || studioPending) {
       return;
     }
 
-    // Web tasks always receive a new managed folder, including legacy project navigation.
-    const finalWorkspace = isElectronDesktop() ? dir || '' : '';
+    // Web tasks receive a new managed folder, including legacy project navigation; the one exception is an audio
+    // studio project, whose host-owned folder the agent must work in.
+    const finalWorkspace = studioWorkspace || (isElectronDesktop() ? dir || '' : '');
     const isCustomWorkspace = !!finalWorkspace;
 
     const assistantConversationId = selectedAssistantId;
@@ -165,9 +175,12 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         return;
       }
 
-      if (isCustomWorkspace) {
+      if (isCustomWorkspace && !studioWorkspace) {
         updateWorkspaceTime(finalWorkspace);
       }
+      const createdWorkspace = (conversation.extra as { workspace?: unknown } | undefined)?.workspace;
+      if (studioWorkspace && typeof createdWorkspace === 'string' && createdWorkspace !== studioWorkspace)
+        Message.warning(t('messages.studio.chat.workspaceMismatch'));
 
       if (assistantConversationId) {
         await Promise.all([
@@ -193,6 +206,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     input,
     files,
     dir,
+    studioWorkspace,
+    studioPending,
     selectedAssistantId,
     selectedAssistantBackend,
     selectedMode,
@@ -205,6 +220,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     assistantDefaultMcpIds,
     navigate,
     localeKey,
+    t,
   ]);
 
   const sendMessageHandler = useCallback(() => {
@@ -244,7 +260,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   ]);
 
   // Blocked while loading, without a Codex assistant, or with nothing typed.
-  const isButtonDisabled = loading || !selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim();
+  const isButtonDisabled =
+    loading || !selectedAssistantId || selectedAssistantBackend !== 'codex' || !input.trim() || !!studioPending;
 
   return {
     handleSend,

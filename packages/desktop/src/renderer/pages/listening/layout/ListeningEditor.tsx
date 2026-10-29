@@ -74,11 +74,14 @@ export function ListeningEditor({
   source,
   onBack,
   sidePanel,
+  headerActions,
 }: {
   /** Undefined while the owning conversation or studio project is still loading. */
   source: EditorSource | undefined;
   onBack?: () => void;
   sidePanel?: (context: EditorPanelContext) => React.ReactNode;
+  /** Extra header buttons; `flush` saves pending edits first and resolves true when nothing is left unsaved. */
+  headerActions?: (context: { title?: string; flush: () => Promise<boolean> }) => React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
   // Hook-based Message/Modal render inside this tree, which React 19 requires (no ReactDOM.render).
@@ -348,6 +351,7 @@ export function ListeningEditor({
           onTitleChange={(title) => model.edit((current) => ({ ...current, title }))}
           onBack={onBack ? () => void close() : undefined}
         >
+          {headerActions?.({ title: project?.title, flush: model.flush })}
           <span className={styles.saveState}>{t('messages.listening.player.loudnessNote')}</span>
           <span className={styles.saveState} role='status'>
             {t(`messages.listening.save.${model.saveState}`)}

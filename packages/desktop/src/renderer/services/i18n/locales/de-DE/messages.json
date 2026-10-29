@@ -534,6 +534,13 @@
       "uploadFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
       "textRequired": "Bitte zuerst Text eingeben.",
       "textTooLarge": "Der Text ist zu lang. Teile ihn in kleinere Abschnitte."
+    },
+    "chat": {
+      "open": "Im Chat öffnen",
+      "prefill": "Hilf mir, das Audioprojekt „{{title}}“ zu bearbeiten. Die Projektdatei ist project.listening.json in diesem Arbeitsbereich, die Aufnahmen liegen in media/. ",
+      "attached": "Audioprojekt: {{title}}",
+      "missing": "Das Audioprojekt „{{title}}“ ist nicht verfügbar. Entferne es, um einen normalen Chat zu starten.",
+      "workspaceMismatch": "Der Chat wurde in einem anderen Ordner erstellt, daher sieht der Agent dieses Audioprojekt nicht."
     }
   }
 }

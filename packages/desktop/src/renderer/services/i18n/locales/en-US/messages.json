@@ -534,6 +534,13 @@
       "uploadFailed": "Upload failed. Please try again.",
       "textRequired": "Enter some text first.",
       "textTooLarge": "The text is too long. Split it into smaller parts."
+    },
+    "chat": {
+      "open": "Open in chat",
+      "prefill": "Help me edit the audio project “{{title}}”. The project file is project.listening.json in this workspace, and its recordings are in media/. ",
+      "attached": "Audio project: {{title}}",
+      "missing": "Audio project “{{title}}” is unavailable. Remove it to start a normal chat.",
+      "workspaceMismatch": "The chat was created in a different folder, so the agent cannot see this audio project."
     }
   }
 }

@@ -14,6 +14,12 @@
   justify-content: center;
   margin-bottom: 16px;
 }
+/* Audio studio project attached through "Open in chat". */
+.studioAttachment {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
 
 .guidInputCard {
   width: 100%;

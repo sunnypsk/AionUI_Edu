@@ -534,6 +534,13 @@
       "uploadFailed": "上传失败，请重试。",
       "textRequired": "请先输入文字。",
       "textTooLarge": "文字过长，请分成较小的部分。"
+    },
+    "chat": {
+      "open": "在对话中打开",
+      "prefill": "请帮我编辑音频项目“{{title}}”。项目文件是此工作区中的 project.listening.json，录音在 media/ 文件夹。",
+      "attached": "音频项目：{{title}}",
+      "missing": "音频项目“{{title}}”无法使用。移除后可开始普通对话。",
+      "workspaceMismatch": "对话建立在其他文件夹中，助手无法看到此音频项目。"
     }
   }
 }

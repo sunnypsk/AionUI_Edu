@@ -97,6 +97,42 @@ describe('useGuidSend', () => {
     });
   });
 
+  it('uses an attached audio studio project folder as the WebUI workspace', async () => {
+    const { Message } = await import('@arco-design/web-react');
+    vi.mocked(Message.warning).mockClear();
+    createConversationInvokeMock.mockResolvedValue({ id: 'conv-1', extra: { workspace: '/data/audio-projects/u/p' } });
+    const deps = createDeps();
+    deps.dir = '/existing-project';
+    deps.studioWorkspace = '/data/audio-projects/u/p';
+    const { result } = renderHook(() => useGuidSend(deps));
+    await act(async () => result.current.handleSend());
+    expect(createConversationInvokeMock.mock.calls[0][0].extra).toMatchObject({
+      workspace: '/data/audio-projects/u/p',
+      custom_workspace: true,
+    });
+    expect(Message.warning).not.toHaveBeenCalled();
+  });
+
+  it('warns when the backend put a studio chat in another folder', async () => {
+    const { Message } = await import('@arco-design/web-react');
+    vi.mocked(Message.warning).mockClear();
+    createConversationInvokeMock.mockResolvedValue({ id: 'conv-1', extra: { workspace: '/data/managed/1' } });
+    const deps = createDeps();
+    deps.studioWorkspace = '/data/audio-projects/u/p';
+    const { result } = renderHook(() => useGuidSend(deps));
+    await act(async () => result.current.handleSend());
+    expect(Message.warning).toHaveBeenCalledWith('messages.studio.chat.workspaceMismatch');
+  });
+
+  it('does not send while an attached studio project folder is still unknown', async () => {
+    const deps = createDeps();
+    deps.studioPending = true;
+    const { result } = renderHook(() => useGuidSend(deps));
+    expect(result.current.isButtonDisabled).toBe(true);
+    await act(async () => result.current.handleSend());
+    expect(createConversationInvokeMock).not.toHaveBeenCalled();
+  });
+
   it('preserves explicitly selected folders in the Electron desktop app', async () => {
     runtimeEnvironment.isDesktop = true;
     const deps = createDeps();

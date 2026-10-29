@@ -29,6 +29,7 @@ import styles from './OpenUIComponents.module.css';
 import { useFileDownload } from './FileDownloads';
 import { AudioPlayer } from './AudioPlayer';
 import { listeningPagePath } from '@/renderer/pages/listening/route';
+import { STUDIO_PROJECT_FILE, studioProjectIdOf, studioProjectPath } from '@/renderer/pages/studio/route';
 
 const AUDIO_EXTENSIONS = /\.(?:mp3|wav|m4a|ogg)$/i;
 const LISTENING_PROJECT = /\.listening\.json$/i;
@@ -132,8 +133,15 @@ export const FileCardRenderer: ComponentRenderer<FileCardProps> = ({ props }) =>
               icon={<Edit />}
               disabled={disabled}
               onClick={() => {
-                // Setting the hash also works where the card renders outside the router.
-                if (conversation) window.location.hash = `#${listeningPagePath(conversation.conversation_id, path)}`;
+                // Setting the hash also works where the card renders outside the router. A studio project's own
+                // file opens in the studio editor, which adds the media panel.
+                const studioId =
+                  path.replace(/^\.?[\\/]/, '') === STUDIO_PROJECT_FILE
+                    ? studioProjectIdOf(conversation?.workspace)
+                    : undefined;
+                if (studioId) window.location.hash = `#${studioProjectPath(studioId)}`;
+                else if (conversation)
+                  window.location.hash = `#${listeningPagePath(conversation.conversation_id, path)}`;
               }}
             >
               {t('messages.listening.edit')}

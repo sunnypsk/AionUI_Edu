@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Alert, Button, Spin } from '@arco-design/web-react';
+import { Communication } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import useSWR from 'swr';
@@ -10,7 +11,7 @@ import { ListeningEditor } from '@/renderer/pages/listening/layout/ListeningEdit
 import listeningStyles from '@/renderer/pages/listening/ListeningPage.module.css';
 import { studioApi } from '@/renderer/pages/studio/data/studioApi';
 import { MediaPanel } from '@/renderer/pages/studio/media/MediaPanel';
-import { STUDIO_PATH } from '@/renderer/pages/studio/route';
+import { STUDIO_PATH, type StudioChatState } from '@/renderer/pages/studio/route';
 
 /** Start a browser download of a same-origin, cookie-authenticated URL. */
 function downloadUrl(url: string, name: string): void {
@@ -74,6 +75,24 @@ export default function StudioEditorPage(): React.ReactElement {
       onBack={back}
       sidePanel={(context) => (
         <MediaPanel projectId={projectId} context={context} transcriptionAvailable={transcriptionAvailable} />
+      )}
+      headerActions={({ title, flush }) => (
+        <Button
+          icon={<Communication />}
+          onClick={async () => {
+            // The agent reads the saved project file, so pending edits are saved first.
+            if (!(await flush())) return;
+            const name = title?.trim() || projectId;
+            const state: StudioChatState & { prefillPrompt: string; focusPrefill: boolean } = {
+              studioProject: { id: projectId, title: name },
+              prefillPrompt: t('messages.studio.chat.prefill', { title: name }),
+              focusPrefill: true,
+            };
+            navigate('/guid', { state });
+          }}
+        >
+          {t('messages.studio.chat.open')}
+        </Button>
       )}
     />
   );

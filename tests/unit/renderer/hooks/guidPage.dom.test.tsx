@@ -349,6 +349,32 @@ describe('GuidPage', () => {
     ];
   });
 
+  it('attaches an audio studio project and sends with the folder the host reports for it', () => {
+    runtimeEnvironment.isDesktop = false;
+    locationMock.state = { studioProject: { id: 'p1', title: '第一課' } };
+    swrMock.useSWRMock.mockImplementation((key: string | null) =>
+      key === 'studio.projects'
+        ? { data: [{ id: 'p1', title: '第一課', workspace: '/data/audio-projects/u/p1' }] }
+        : { data: null }
+    );
+    render(<GuidPage />);
+    expect(screen.getByText('messages.studio.chat.attached')).toBeInTheDocument();
+    expect(capturedGuidSendDeps.at(-1)).toMatchObject({
+      studioWorkspace: '/data/audio-projects/u/p1',
+      studioPending: false,
+    });
+  });
+
+  it('keeps sending blocked when the attached studio project is gone', () => {
+    locationMock.state = { studioProject: { id: 'gone', title: 'Old' } };
+    swrMock.useSWRMock.mockImplementation((key: string | null) =>
+      key === 'studio.projects' ? { data: [] } : { data: null }
+    );
+    render(<GuidPage />);
+    expect(screen.getByText('messages.studio.chat.missing')).toBeInTheDocument();
+    expect(capturedGuidSendDeps.at(-1)).toMatchObject({ studioWorkspace: undefined, studioPending: true });
+  });
+
   it('keeps the existing replace contract for ordinary Guid prefills', () => {
     locationMock.state = { prefillPrompt: 'Replace with this prompt' };
     guidInputMock.setInput.mockClear();

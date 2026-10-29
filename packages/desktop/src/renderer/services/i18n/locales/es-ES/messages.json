@@ -534,6 +534,13 @@
       "uploadFailed": "Error al subir. Inténtalo de nuevo.",
       "textRequired": "Escribe algo de texto primero.",
       "textTooLarge": "El texto es demasiado largo. Divídelo en partes más pequeñas."
+    },
+    "chat": {
+      "open": "Abrir en el chat",
+      "prefill": "Ayúdame a editar el proyecto de audio «{{title}}». El archivo del proyecto es project.listening.json en este espacio de trabajo y las grabaciones están en media/. ",
+      "attached": "Proyecto de audio: {{title}}",
+      "missing": "El proyecto de audio «{{title}}» no está disponible. Quítalo para iniciar un chat normal.",
+      "workspaceMismatch": "El chat se creó en otra carpeta, así que el agente no puede ver este proyecto de audio."
     }
   }
 }

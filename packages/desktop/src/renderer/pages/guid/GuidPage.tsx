@@ -30,7 +30,10 @@ import { chatFileRefPath, uploadFileRef } from '@/common/types/chatFile';
 import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
 import { appendSpeechTranscript } from '@/renderer/hooks/system/useSpeechInput';
 import { useLiveTranscriptInsertion } from '@/renderer/hooks/system/useLiveTranscriptInsertion';
-import { ConfigProvider } from '@arco-design/web-react';
+import { ConfigProvider, Tag } from '@arco-design/web-react';
+import { Headset } from '@icon-park/react';
+import { studioApi } from '@/renderer/pages/studio/data/studioApi';
+import type { StudioChatState } from '@/renderer/pages/studio/route';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
@@ -130,6 +133,20 @@ const GuidPage: React.FC = () => {
   const guidInput = useGuidInput({
     locationState: location.state as { workspace?: string } | null,
   });
+  // "Open in chat" from the audio studio attaches that project. Navigation state is cleared by a replace() right
+  // after mount, so keep the project until the next non-replace navigation.
+  const [studioProject, setStudioProject] = useState<StudioChatState['studioProject']>();
+  useLayoutEffect(() => {
+    const attached = (location.state as Partial<StudioChatState> | null)?.studioProject;
+    if (attached) setStudioProject(attached);
+    else if (navigationType !== 'REPLACE') setStudioProject(undefined);
+  }, [location.key, location.state, navigationType]);
+  const { data: studioProjects, error: studioError } = useSWR(studioProject ? 'studio.projects' : null, studioApi.list);
+  // The folder comes from the host's list for the signed-in user, never from navigation state.
+  const studioWorkspace = studioProject
+    ? studioProjects?.find((project) => project.id === studioProject.id)?.workspace
+    : undefined;
+  const studioMissing = !!studioProject && (!!studioError || (!!studioProjects && !studioWorkspace));
   // The `/open` builtin + attach picker browse the backend machine's filesystem
   // (native dialog / server-fs) → `local` refs, not uploads.
   const { onSlashBuiltinCommand } = useOpenFileSelector({
@@ -237,6 +254,8 @@ const GuidPage: React.FC = () => {
     setFiles: guidInput.setFiles,
     dir: guidInput.dir,
     setDir: guidInput.setDir,
+    studioWorkspace,
+    studioPending: !!studioProject && !studioWorkspace,
     setLoading: guidInput.setLoading,
     loading: guidInput.loading,
 
@@ -473,6 +492,20 @@ const GuidPage: React.FC = () => {
             <p className='text-2xl font-semibold mb-0 text-t-primary text-center'>{t('conversation.welcome.title')}</p>
           </div>
 
+          {studioProject && (
+            <div className={styles.studioAttachment}>
+              <Tag
+                closable
+                color={studioMissing ? 'red' : 'arcoblue'}
+                icon={<Headset />}
+                onClose={() => setStudioProject(undefined)}
+              >
+                {t(studioMissing ? 'messages.studio.chat.missing' : 'messages.studio.chat.attached', {
+                  title: studioProject.title,
+                })}
+              </Tag>
+            </div>
+          )}
           <GuidInputCard
             focusRequestKey={navState?.focusPrefill && navState.prefillPrompt ? location.key : undefined}
             input={guidInput.input}

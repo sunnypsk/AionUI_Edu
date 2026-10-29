@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ListeningProject } from '@/common/types/platform/listeningProject';
 import { blockSegments, textSegments } from '@/renderer/pages/studio/data/segments';
-import { studioProjectPath } from '@/renderer/pages/studio/route';
+import { studioProjectIdOf, studioProjectPath } from '@/renderer/pages/studio/route';
 
 const project: ListeningProject = {
   version: 1,
@@ -52,5 +52,14 @@ describe('studio segments', () => {
 
   it('encodes project ids in editor paths', () => {
     expect(studioProjectPath('a/b')).toBe('/audio/a%2Fb');
+  });
+
+  it('recognizes studio project folders only', () => {
+    const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    expect(studioProjectIdOf(`/data/audio-projects/teacher/${id}`)).toBe(id);
+    expect(studioProjectIdOf(`C:\\data\\audio-projects\\teacher\\${id}\\`)).toBe(id);
+    expect(studioProjectIdOf(`/data/audio-projects/teacher/${id}/media`)).toBeUndefined();
+    expect(studioProjectIdOf(`/data/workspaces/${id}`)).toBeUndefined();
+    expect(studioProjectIdOf(undefined)).toBeUndefined();
   });
 });

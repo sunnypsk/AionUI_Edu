@@ -534,6 +534,13 @@
       "uploadFailed": "Yükleme başarısız. Lütfen tekrar deneyin.",
       "textRequired": "Önce metin girin.",
       "textTooLarge": "Metin çok uzun. Daha küçük parçalara bölün."
+    },
+    "chat": {
+      "open": "Sohbette aç",
+      "prefill": "“{{title}}” ses projesini düzenlememe yardım et. Proje dosyası bu çalışma alanındaki project.listening.json, kayıtlar media/ klasöründe. ",
+      "attached": "Ses projesi: {{title}}",
+      "missing": "“{{title}}” ses projesi kullanılamıyor. Normal bir sohbet başlatmak için kaldırın.",
+      "workspaceMismatch": "Sohbet farklı bir klasörde oluşturuldu, bu yüzden asistan bu ses projesini göremiyor."
     }
   }
 }

@@ -534,6 +534,13 @@
       "uploadFailed": "Échec de l’import. Veuillez réessayer.",
       "textRequired": "Saisissez d’abord du texte.",
       "textTooLarge": "Le texte est trop long. Divisez-le en parties plus petites."
+    },
+    "chat": {
+      "open": "Ouvrir dans le chat",
+      "prefill": "Aide-moi à modifier le projet audio « {{title}} ». Le fichier du projet est project.listening.json dans cet espace de travail, et les enregistrements sont dans media/. ",
+      "attached": "Projet audio : {{title}}",
+      "missing": "Le projet audio « {{title}} » n’est pas disponible. Retirez-le pour démarrer un chat normal.",
+      "workspaceMismatch": "Le chat a été créé dans un autre dossier : l’agent ne voit donc pas ce projet audio."
     }
   }
 }

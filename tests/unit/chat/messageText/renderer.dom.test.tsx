@@ -757,6 +757,21 @@ describe('listening track files', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('opens a studio project’s own file in the studio editor', async () => {
+    const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    host.workspace = `/data/audio-projects/teacher/${id}`;
+    window.location.hash = '';
+    display('root = Stack([FileCard("project.listening.json", "Lesson")])');
+    fireEvent.click(
+      await waitFor(() => {
+        const button = screen.getByRole('button', { name: 'messages.listening.edit' });
+        expect(button).not.toBeDisabled();
+        return button;
+      })
+    );
+    expect(window.location.hash).toBe(`#/audio/${id}`);
+  });
+
   it('opens the project editor with sections, segment preview, latest track and QA hints', async () => {
     await open();
     await openExport();

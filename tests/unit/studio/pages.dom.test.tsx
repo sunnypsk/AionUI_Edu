@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { SWRConfig } from 'swr';
 import type { StudioMedia, StudioProject } from '@/common/types/platform/audioStudio';
 import type { AudioTaskView } from '@/common/types/platform/audioTools';
@@ -60,6 +60,11 @@ const transcriptTask: AudioTaskView = {
 let media: StudioMedia[];
 let state: ListeningState;
 
+/** Stand-in for the new-chat page: shows the navigation state it was opened with. */
+function GuidState(): React.ReactElement {
+  return <pre data-testid='guid-state'>{JSON.stringify(useLocation().state)}</pre>;
+}
+
 const show = (entry: string) =>
   render(
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
@@ -67,6 +72,7 @@ const show = (entry: string) =>
         <Routes>
           <Route path='/audio' element={<StudioLibraryPage />} />
           <Route path='/audio/:projectId' element={<StudioEditorPage />} />
+          <Route path='/guid' element={<GuidState />} />
         </Routes>
       </MemoryRouter>
     </SWRConfig>
@@ -232,6 +238,17 @@ describe('audio studio pages', () => {
     );
     // Applied after the next poll (1.5 s while a task runs).
     expect(await screen.findByText('重新轉寫的文字', undefined, { timeout: 4000 })).toBeTruthy();
+  });
+
+  it('opens the project in a new chat with a starter prompt', async () => {
+    show('/audio/p1');
+    fireEvent.click(await screen.findByRole('button', { name: 'messages.studio.chat.open' }));
+    const state = JSON.parse((await screen.findByTestId('guid-state')).textContent ?? 'null');
+    expect(state).toEqual({
+      studioProject: { id: 'p1', title: '第一課' },
+      prefillPrompt: 'messages.studio.chat.prefill',
+      focusPrefill: true,
+    });
   });
 
   it('shows a missing project instead of an empty editor', async () => {
